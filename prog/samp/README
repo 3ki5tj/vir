@@ -1,0 +1,48 @@
+Computing the virial coefficients by Monte Carlo sampling
+==========================================================
+
+
+Files
+-----
+
+dgmc.c      calculate the virial coefficients by Monte Carlo sampling
+dgcnt.c     count the number of the biconnected diagrams
+
+
+
+Monte Carlo sampling
+---------------------
+
+The conventional formula for the nth order virial coefficient is
+
+  vir = (1 - n)/n! v0^(n - 1) sum_g acc_g s_g.                        (1)
+
+where v0 = 4 pi/3 is the volume of the unit ball, such that v0^(n - 1)
+      is the reference integral of the spanning tree.
+      The sum is over all diagrams `g'.
+      s_g = (-1)^e_g, where `e_g' is the number of edges in the diagram `g'
+      `acc_g' is ratio of the integral of the diagram `g' to
+      that of the spanning tree.  In the MC integration acc_g = n_g / nt,
+      where `n_g' is the number of accepted points,
+      `nt' is the number total points.
+
+
+In MC sampling, we can compute the fraction of ring diagrams
+
+  r_r   = (n_r / sum_g n_g) * mul_r,                          (2)
+
+where mul_r = n! / (2 n),  where 2n is the symmetry number
+(n clockwise and counter-clockwise rotations).
+The virial rate is
+
+  r_vir = sum_g n_g s_g / sum_g n_g,                          (3)
+
+So (2)/(3) gives
+
+    r_r / r_vir = mul_r * sum_g n_g s_g / n_r
+  = mul_r sum_g acc_g s_g / acc_r                             (4)
+
+Plugging (4) into (1) yields
+
+  vir = (1 - n) / (2n) v0^(n - 1) acc_r * r_r / r_vir.        (5)
+
