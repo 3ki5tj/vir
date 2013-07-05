@@ -9,17 +9,25 @@
 #define ZCOM_RV3
 #include "zcom.h"
 
+/* currently only support 32-bit */
+typedef uint32_t code_t;
+
+/* Note: 
+ * #define CODEBITS (sizeof(code_t) * 8)
+ * doesn't work
+ * */
+#define CODEBITS 32
 
 
 typedef struct {
   int n;
-  uint32_t *c; /* if two particles are connected */
+  code_t *c; /* if two particles are connected */
 } dg_t;
 
 
 
 /* count the number of 1 bits in x */
-INLINE int bitcount(uint32_t x)
+INLINE int bitcount(code_t x)
 {
 #define B2(n) n,     n+1,     n+1,     n+2
 #define B4(n) B2(n), B2(n+1), B2(n+1), B2(n+2)
@@ -28,13 +36,18 @@ INLINE int bitcount(uint32_t x)
   static const unsigned char bits[256] = { B6(0), B6(1), B6(1), B6(2) };
   unsigned char *p = (unsigned char *) &x;
 
+#if CODEBITS == 32
   return bits[p[0]] + bits[p[1]] + bits[p[2]] + bits[p[3]];
+#elif CODEBITS == 64
+  return bits[p[0]] + bits[p[1]] + bits[p[2]] + bits[p[3]]
+       + bits[p[4]] + bits[p[5]] + bits[p[6]] + bits[p[7]];
+#endif
 }
 
 
 
 /* invert the lowest k bits */
-INLINE uint32_t bitinvert(uint32_t x, int k)
+INLINE code_t bitinvert(code_t x, int k)
 {
   return x ^ ~(~0u << k);
 }
@@ -42,14 +55,16 @@ INLINE uint32_t bitinvert(uint32_t x, int k)
 
 
 /* find the lowest 1 bit */
-INLINE int bitfirst(uint32_t x)
+INLINE int bitfirst(code_t x)
 {
+#if CODEBITS == 32
   static const int index[32] =
   { 0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
     31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9};
 
   x &= -x; /* such that only the lowest 1-bit survives */
-  return index[(uint32_t)(x * 0x077CB531U) >> 27];
+  return index[(code_t)(x * 0x077CB531u) >> 27];
+#endif
 }
 
 
@@ -83,7 +98,7 @@ INLINE void dg_unlink(dg_t *g, int i, int j)
 INLINE dg_t *dg_shrink1(dg_t *sg, dg_t *g, int i0)
 {
   int i, is = 0, n = g->n;
-  uint32_t maskl, maskh;
+  code_t maskl, maskh;
 
   maskl = (1 << i0) - 1;
   maskh = ~maskl;
@@ -98,7 +113,7 @@ INLINE dg_t *dg_shrink1(dg_t *sg, dg_t *g, int i0)
 /* check if a diagram is connected */
 INLINE int dg_connected(dg_t *g)
 {
-  uint32_t c = 1u, done = 1u, stack = 1u, mask = (1 << g->n) - 1;
+  code_t c = 1u, done = 1u, stack = 1u, mask = (1 << g->n) - 1;
 
   while (stack) { /* the next in the stack */
     int k = bitfirst(stack); /* first 1 bit */
@@ -117,7 +132,7 @@ INLINE int dg_connected(dg_t *g)
 /* check if the subdiagram without i is connected */
 INLINE int dg_connected1(const dg_t *g, int i)
 {
-  uint32_t c = 1u, done = 1u, stack = 1u, mask = (1 << g->n) - 1;
+  code_t c = 1u, done = 1u, stack = 1u, mask = ((code_t) 1u << g->n) - 1;
 
   if (i == 0) done = stack = c = 2u;
   mask &= ~(1 << i);
@@ -293,7 +308,7 @@ INLINE void dg_empty(dg_t *g)
 INLINE void dg_full(dg_t *g)
 {
   int i;
-  uint32_t mask = (1 << g->n) - 1; /* the lowest n-bits are 1s */
+  code_t mask = (1 << g->n) - 1; /* the lowest n-bits are 1s */
 
   for (i = 0;  i < g->n; i++)
     /* all bits, except the ith, are 1s */
@@ -306,7 +321,7 @@ INLINE void dg_full(dg_t *g)
 INLINE dg_t *dg_complement(dg_t *h, dg_t *g)
 {
   int i;
-  uint32_t mask = (1 << g->n) - 1;
+  code_t mask = (1 << g->n) - 1;
 
   for (i = 0; i < g->n; i++)
     h->c[i] = ~(g->c[i] | (1 << i)) & mask;
@@ -316,14 +331,18 @@ INLINE dg_t *dg_complement(dg_t *h, dg_t *g)
 
 
 /* code the connectivity */
-INLINE uint32_t *dg_encode(const dg_t *g, unsigned *code)
+INLINE code_t *dg_encode(const dg_t *g, code_t *code)
 {
   int i, ib = 0, n = g->n;
-  uint32_t *c = code;
+  code_t *c = code, ci;
 
   for (i = 0; i < n - 1; i++) {
-    *c |= (g->c[i] >> (i + 1)) << ib;
+    *c |= ((ci = g->c[i]) >> (i + 1)) << ib;
     ib += n - 1 - i;
+    if (ib >= CODEBITS) {
+      ib -= CODEBITS;
+      *(++c) = ci >> (n - ib);
+    }
   }
   return code;
 }
@@ -331,17 +350,17 @@ INLINE uint32_t *dg_encode(const dg_t *g, unsigned *code)
 
 
 /* code the connectivity */
-INLINE dg_t *dg_decode(dg_t *g, unsigned *code)
+INLINE dg_t *dg_decode(dg_t *g, code_t *code)
 {
   int i, j, ib = 0, n = g->n;
-  uint32_t *c = code;
+  code_t *c = code;
 
   dg_empty(g);
   for (i = 0; i < n - 1; i++) {
     for (j = i + 1; j < n; j++) {
       if ((*c >> ib) & 1u)
         dg_link(g, i, j);
-      if (++ib == 32) ib = 0, c++;
+      if (++ib == CODEBITS) ib = 0, c++;
     }
   }
   return g;
@@ -356,7 +375,7 @@ static dg_t *dg_open(int n)
 
   xnew(g, 1);
   g->n = n;
-  die_if (n >= 32, "do not support %d atoms\n", n);
+  die_if (n >= CODEBITS, "do not support %d atoms\n", n);
   xnew(g->c, g->n);
   dg_empty(g);
   return g;

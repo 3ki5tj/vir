@@ -1,6 +1,10 @@
-Computing diagrams by Monte Carlo integration
+Computing virial coefficients by Monte Carlo integration
 =============================================
 
 Traditional method by Metropolis et al, then improved by Ree and Hoover.
+
+hsvir.c     D-dimensional hard-sphere virial coefficients by Mayer diagrams
+hsrh.c      D-dimensional hard-sphere virial coefficients by Ree-Hoover diagrams
+perm.c      list permutations
 
 

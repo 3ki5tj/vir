@@ -28,8 +28,8 @@ static int dg_rhsc5(const dg_t *g)
     num2 += (deg[i] == 2);
   }
 
-  nedg = 10 - nedg / 2;
-  if (nedg == 2) {
+  nedg = 10 - nedg / 2; /* # of wiggly lines in the Ree-Hoover diagram */
+  if (nedg == 2) { /* two wiggly lines must be disjoint */
     if (num2) return 0;
   } else if (nedg == 3) {
     if (num2 != 1) return 0;

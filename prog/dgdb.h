@@ -6,7 +6,7 @@
 
 typedef struct {
   int n; /* number of entries in the list */
-  unsigned *code;
+  code_t *code;
 } dgls_t;
 
 
@@ -26,7 +26,7 @@ INLINE int dg_gethash(dg_t *d, int *degseq)
 
 
 /* find the sequence `code' in the list `ls' */
-INLINE int dgls_find(dgls_t *ls, unsigned *code, int n)
+INLINE int dgls_find(dgls_t *ls, code_t *code, int n)
 {
   int i, j;
 
@@ -68,7 +68,7 @@ typedef struct {
   dgls_t *hash;
 
   /* local storage space */
-  int *code; /* code */
+  code_t *code; /* code */
   int *degseq; /* degree sequence */
   dg_t *d;
 } dgdb_t;
