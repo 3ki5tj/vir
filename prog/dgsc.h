@@ -1,47 +1,11 @@
 #ifndef DGSC__
 #define DGSC__
-/* Star-content */
+/* compute the Ree-Hoover star content */
+
+
+
 #include "dg.h"
 #include "dgdb.h"
-
-
-
-/* compute the star connent of a 4 point Ree-Hoover diagram
- * assuming the diagram is biconnected */
-static int dg_rhsc4(const dg_t *g)
-{
-  int sc[7] = {-2, 0, 1};
-  return sc[ 6 - dg_nedges(g) ];
-}
-
-
-
-/* compute the star connent of a 5-point Ree-Hoover diagram
- * assuming the diagram is biconnected */
-static int dg_rhsc5(const dg_t *g)
-{
-  int sc[11] = {-6, 0, 3, -2, 1, 1}, i, i3[2], id;
-  int deg[6], nedg = 0, num2 = 0;
-
-  for (i = 0; i < 5; i++) {
-    nedg += (deg[i] = dg_deg(g, i));
-    num2 += (deg[i] == 2);
-  }
-
-  nedg = 10 - nedg / 2; /* # of wiggly lines in the Ree-Hoover diagram */
-  if (nedg == 2) { /* two wiggly lines must be disjoint */
-    if (num2) return 0;
-  } else if (nedg == 3) {
-    if (num2 != 1) return 0;
-  } else if (nedg == 4) {
-    for (id = 0, i = 0; i < 5; i++)
-      if (deg[i] == 3)
-        i3[id++] = i;
-    if ( dg_linked(g, i3[0], i3[1]) )
-      return 0;
-  }
-  return sc[ nedg ];
-}
 
 
 
@@ -128,20 +92,14 @@ static dg_t *dg_mintop(const dg_t *g)
 
 
 /* compute the star content (SC) of a Ree-Hoover diagram
- * ### assuming the input diagram is biconnected ###
  * unconnected edge is treated as a wiggly line
  * SC = # of biconnected subgraphs with even edges removed -
  *      # of biconnected subgraphs with odd edges removed */
-static int dg_rhsc(dg_t *g)
+static int dg_rhsc0(dg_t *g)
 {
   int par = 0, sc, i, n = g->n, npr, ned;
   dgls_t *ls;
   dg_t *g0 = NULL;
-
-  /* assuming the diagram is biconnected */
-  if (n <= 3) return 1;
-  else if (n == 4) return dg_rhsc4(g);
-  else if (n == 5) return dg_rhsc5(g);
 
   ned = n * (n - 1) /2 - dg_nedges(g);
   if (ned == 0) return dg_iter(n, 2, 1);
@@ -168,6 +126,42 @@ static int dg_rhsc(dg_t *g)
   sc = dg_iter(n, g0->n, sc);
   dg_close(g0);
   return sc;
+}
+
+
+
+/* compute the star content by a look up table */
+INLINE int dg_rhsc_lookup(const dg_t *g)
+{
+  int k, n = g->n;
+  code_t c;
+  dgmap_t *m = dgmap_ + n;
+  static int *sc[DGMAP_MAX + 1] = {NULL}; /* biconnectivity of unique diagrams */
+
+  if (sc[n] == NULL) {
+    dg_t *g1 = dg_open(n);
+    dgmap_init(m, n); /* compute unique maps */
+    xnew(sc[n], m->ng);
+    for (k = 0; k < m->ng; k++) {
+      dg_decode(g1, &m->first[k]);
+      sc[n][k] = dg_biconnected(g1) ? dg_rhsc(g1) : 0;
+    }
+    dg_close(g1);
+  }
+  dg_encode(g, &c);
+  return sc[n][ m->map[c] ];
+}
+
+
+
+/* compute the star content (SC) of a Ree-Hoover diagram
+ * unconnected edge is treated as a wiggly line
+ * SC = # of biconnected subgraphs with even edges removed -
+ *      # of biconnected subgraphs with odd edges removed */
+static int dg_rhsc(dg_t *g)
+{
+  if (g->n <= DGMAP_MAX) return dg_rhsc_lookup(g);
+  else return dg_rhsc0(g);
 }
 
 

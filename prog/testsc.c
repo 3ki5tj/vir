@@ -49,7 +49,7 @@ static void testspeed(int n, int nsteps)
     parsepairindex(ipr, n, &i, &j);
     if (dg_linked(g, i, j)) {
       dg_unlink(g, i, j);
-      if (!dg_biconnected(g))
+      if ( !dg_biconnected(g) )
         dg_link(g, i, j);
     } else {
       dg_link(g, i, j);
@@ -86,7 +86,6 @@ int main(void)
 
   test(5, ref5);
   test(6, ref6);
-  testspeed(5, 10000000);
-  testspeed(6, 10000);
+  testspeed(6, 1000000);
   return 0;
 }
