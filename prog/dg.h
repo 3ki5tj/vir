@@ -348,7 +348,7 @@ INLINE int dg_connected1(const dg_t *g, int i)
 /* check if diagram is biconnected, bitwise version */
 INLINE int dg_biconnected(const dg_t *g)
 {
-  int i, c, n = g->n;
+  int i, n = g->n;
 
   if (n == 2) {
     return (g->c[0] & 2u) != 0;

@@ -30,6 +30,7 @@ static void test(int n, edges_t *ref)
     }
   }
   dg_close(g);
+  printf("n %d, star contents okay!\n", n);
 }
 
 

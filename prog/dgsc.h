@@ -133,19 +133,27 @@ static int dg_rhsc0(dg_t *g)
 /* compute the star content by a look up table */
 INLINE int dg_rhsc_lookup(const dg_t *g)
 {
-  int k, n = g->n;
+  int k, n = g->n, cnt;
   code_t c;
   dgmap_t *m = dgmap_ + n;
   static int *sc[DGMAP_MAX + 1] = {NULL}; /* biconnectivity of unique diagrams */
 
   if (sc[n] == NULL) {
     dg_t *g1 = dg_open(n);
+    int cnt = 0;
+
     dgmap_init(m, n); /* compute unique maps */
     xnew(sc[n], m->ng);
-    for (k = 0; k < m->ng; k++) {
+    for (cnt = 0, k = 0; k < m->ng; k++) {
       dg_decode(g1, &m->first[k]);
-      sc[n][k] = dg_biconnected(g1) ? dg_rhsc(g1) : 0;
+      if ( dg_biconnected(g1) ) {
+        //dg_print(g1); printf("k %d\n", k);
+        sc[n][k] = dg_rhsc0(g1);
+        cnt++;
+      } else sc[n][k] = 0;
+      //dg_print(g1); printf("n %d, k %d, bc %d sc %d\n", n, k, dg_biconnected(g1), sc[n][k]); getchar();
     }
+    printf("n %d, computed star contents of %d biconnected diagrams\n", n, cnt);
     dg_close(g1);
   }
   dg_encode(g, &c);

@@ -16,29 +16,55 @@ int n = 4; /* order */
 long_t nstepsmc = (long_t) 10000000ll;
 
 
+/* compute a Ree-Hoover diagram from the coordinates */
+static void mkgraph(dg_t *g, rvn_t *x)
+{
+  int i, j, n = g->n;
+
+  dg_empty(g);
+  for (i = 0; i < n - 1; i++)
+    for (j = i + 1; j < n; j++)
+      if (rvn_dist2(x[i], x[j]) < 1)
+        dg_link(g, i, j);
+}
+
+
 
 /* compute the sign of the virial coefficient */
-static double mcrun(int n, long_t nsteps, int plus, double *bcrat)
+static double mcrun(int n, long_t nsteps, int plus, double *nrat)
 {
   rvn_t *x, xi, xc;
+#ifdef MVALL /* moving all particles */
+  rvn_t *y;
+#endif
   int i, j, sc, nedg;
   long_t scsum = 0, t, acc = 0;
-  double bcsum = 0, bctot = 0;
+  double nsum = 0, ntot = 0;
   real amp = (real) 2.0/D;
   dg_t *g, *ng, *sg;
-  double scrat;
+  double scav;
 
   xnew(x, n + 1);
+#ifdef MVALL
+  xnew(y, n + 1);
+  amp *= 1.0/sqrt(D);
+#endif
   for (i = 0; i < n; i++)
     rvn_rnd(x[i], (real) (-0.05 / sqrt(D)), (real) (0.05 / sqrt(D)) );
   g = dg_open(n);
   ng = dg_open(n);
   sg = dg_open(n - 1);
-  dg_full(g); /* start with fully connected diagram */
+  mkgraph(g, x);
+  die_if (!dg_biconnected(g), "initial diagram not biconnected D %d\n", D);
   sc = dg_rhsc(g);
   nedg = dg_nedges(g);
 
   for (t = 0; t < nsteps; t++) {
+#ifdef MVALL
+    for (i = 0; i < n; i++)
+      rvn_rnddisp(y[i], x[i], amp);
+    mkgraph(ng, y);
+#else
     i = (int) (rnd0() * n);
     rvn_rnddisp(xi, x[i], amp);
     dg_copy(ng, g);
@@ -49,17 +75,25 @@ static double mcrun(int n, long_t nsteps, int plus, double *bcrat)
       else
         dg_link(ng, i, j);
     }
+#endif
     if ( dg_biconnected(ng) ) { /* accept the move */
+#ifdef MVALL
+      for (i = 0; i < n; i++)
+        rvn_copy(x[i], y[i]);
+#else
       rvn_copy(x[i], xi);
+#endif
       dg_copy(g, ng);
-      sc = dg_rhsc(ng);
-      nedg = dg_nedges(ng);
+      sc = dg_rhsc(g);
+      //dg_print(g); printf("sc %d\n", sc); getchar();
+      nedg = dg_nedges(g);
       acc++;
     }
     scsum += sc * (nedg % 2 ? -1 : 1);
 
 #if 0
-    printf("t %lld, i %d\n", t, i);
+    /* checking connectivity */
+    //printf("t %lld, i %d\n", t, i);
     for (i = 0; i < n; i++)
       for (j = i + 1; j < n; j++)
         if ((rvn_dist2(x[i], x[j]) < 1) != dg_linked(g, i, j)) {
@@ -86,63 +120,87 @@ static double mcrun(int n, long_t nsteps, int plus, double *bcrat)
 
       i = (int) (rnd0() * n);
       if (plus) {
+        /* compute the probability of adding a vertex
+         * that leaves the graph biconnected */
         int deg = 0;
-        real rad, r2, r2m = 0;
+        real rad, r2, r2m = 0, r2n = 0, vol;
+        
+        /* naively, in a trial, the vertex should be added uniformly to
+         * a very large volume Vmax, and the probability is computed as
+         *  r = (V_bi / Vmax) * (Vmax / Vunit)             (1)
+         * where Vmax/Vunit is the normalization to a uniform sphere
+         * and B2 = Vunit / 2; (V_bi / Vmax) is the acceptance ratio.
+         * We can however the shrink the sampling volume to a sphere
+         * with the radius being the second largest distance from any
+         * vertex to the center of mass (because there should be at
+         * least two vertices connected to the new vertex to make the
+         * graph biconnected). Thus
+         *  r = (V_bi / V_samp) * (Vsamp / Vunit)         (2)
+         * and (V_bi / V_samp) is the new and enlarged acceptance
+         * probability. */
         for (j = 0; j < n; j++)
-          if ((r2 = rvn_sqr(x[j])) > r2m)
+          if ((r2 = rvn_sqr(x[j])) > r2m) {
+            r2n = r2m; /* second largest volume */
             r2m = r2;
-        rad = (real) (sqrt(r2m) + 1);
-        /* see if add a point makes it connected */
+          } else if (r2 > r2n) {
+            r2n = r2;
+          }
+        if (r2n <= 0) r2n = r2m;
+
+        /* we only need to sample the second largest sphere */
+        rad = (real) (sqrt(r2n) + 1);
+        /* compute the relative volume to the unit sphere */
+        for (vol = 1, j = 0; j < D; j++) vol *= rad;
+        /* see if adding a vertex leaves the graph biconnected */
         rvn_rndball(xi, rad);
-        /* since the the new xi is connected to x[i],
-         * biconnectivity == if xi is connected to another vertex */
+        /* biconnectivity means xi is connected two vertices */
         for (j = 0; j < n; j++)
           if (rvn_dist2(xi, x[j]) < 1)
             if (++deg >= 2) {
-              bcsum += 1;
+              nsum += vol; /* see Eq. (2) above */
               break;
             }
         /* the denominator is the sampling volume */
-        bctot += 1./(rad * rad * rad);
+        ntot += 1.;
 
       } else {
-        /* see if n - 1 points are biconnected */
-        //if (rvn_dist2(x[0], x[i]) < 1)
-        {
-          dg_shrink1(sg, g, i);
-          bcsum += dg_biconnected(sg);
-          bctot += 1;
-        }
+        /* compute the probability of biconnectivity after removing a random vertex */
+        dg_shrink1(sg, g, i);
+        nsum += dg_biconnected(sg);
+        ntot += 1;
       }
     }
   }
   free(x);
+#ifdef MVALL
+  free(y);
+#endif
   dg_close(g);
   dg_close(ng);
   dg_close(sg);
 
-  scrat = 1. * scsum / nsteps;
-  *bcrat = 1. * bcsum / bctot;
-  fprintf(stderr, "n %d, acc %.8f, sc %.8f, bc %.8f\n",
-      n, 1.*acc/nsteps, scrat, *bcrat);
-  return scrat;
+  scav = 1. * scsum / nsteps;
+  *nrat = 1. * nsum / ntot;
+  fprintf(stderr, "n %d, acc %.8f, sc %.8f, nc %.8f\n",
+      n, 1.*acc/nsteps, scav, *nrat);
+  return scav;
 }
 
 
 
 int main(int argc, char **argv)
 {
-  double rate[2], bcrat[2], rvir;
+  double scav[2], nrat[2], rvir;
 
   if (argc > 1) n = atoi(argv[1]);
   if (argc > 2) nstepsmc = (long_t) atof(argv[2]);
   printf("n = %d, D = %d, nsteps = %lld\n", n, D, nstepsmc);
 
-  rate[0] = mcrun(n, nstepsmc, 0, bcrat);
-  rate[1] = mcrun(n - 1, nstepsmc, 1, bcrat + 1);
-  rvir = rate[0]/rate[1] * (bcrat[1]/bcrat[0]) * (1. - n)/(2. - n)/n;
-  printf("n %d, rate %g/%g, bcrat %g/%g, vir%d/vir%d %g, %g\n",
-      n, rate[0], rate[1], bcrat[0], bcrat[1],
+  scav[0] = mcrun(n, nstepsmc, 0, nrat);
+  scav[1] = mcrun(n - 1, nstepsmc, 1, nrat + 1);
+  rvir = scav[0]/scav[1] * (nrat[1]/nrat[0]) * (1. - n)/(2. - n)/n;
+  printf("n %d, scav %g/%g, nrat %g/%g, vir%d/vir%d %g, %g\n",
+      n, scav[0], scav[1], nrat[0], nrat[1],
       n, n - 1, rvir, rvir * 2);
 
   mtsave(NULL);
