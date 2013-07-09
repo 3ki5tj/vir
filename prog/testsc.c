@@ -3,14 +3,15 @@
 
 
 typedef struct {
-  int npr;
-  int id[64][2];
-  int sc; /* expected sc */
+  int npr; /* number of wiggly lines */
+  int id[64][2]; /* vertex pairs in wiggly lines */
+  int sc; /* the correct sc */
 } edges_t;
 
 
+
 /* test the star contents of diagrams against the reference values */
-static void test(int n, edges_t *ref)
+static void cmpref(int n, edges_t *ref)
 {
   int i, j, sc;
   dg_t *g;
@@ -24,27 +25,33 @@ static void test(int n, edges_t *ref)
     if (!dg_biconnected(g))
       continue;
     if (sc != ref[i].sc) {
-      printf("n %d: model %d sc mismatch %d vs %d\n",
+      printf("n %d: model %d sc mismatch %d vs %d (ref)\n",
           n, i, sc, ref[i].sc);
       dg_print(g);
+      exit(1);
     }
   }
   dg_close(g);
-  printf("n %d, star contents okay!\n", n);
+  printf("n %d, star contents of %d reference diagrams verified\n", n, i);
 }
 
 
 
-static void testspeed(int n, int nsteps)
+static void testspeed(int n, int nsteps, int lookup)
 {
-  int t, ipr, npr = n * (n - 1)/2, i, j, sum = 0;
+  int t, ipr, npr = n * (n - 1)/2, i, j, sum = 0, nequil = 1000;
   dg_t *g;
-  clock_t t0;
+  clock_t t0, t1;
 
   t0 = clock();
   g = dg_open(n);
   dg_full(g);
-  for (t = 0; t < nsteps; t++) {
+  if (lookup) {
+    dg_rhsc(g); /* initialization */
+    printf("star content, n %d, initialization: %gs\n",
+      n, 1.*(clock() - t0) / CLOCKS_PER_SEC);
+  }
+  for (t = 0; t < nequil + nsteps; t++) {
     /* randomly switch an edge */
     ipr = (int) (npr * rnd0());
     parsepairindex(ipr, n, &i, &j);
@@ -55,10 +62,13 @@ static void testspeed(int n, int nsteps)
     } else {
       dg_link(g, i, j);
     }
-    sum += dg_rhsc(g);
+    if (t >= nequil) {
+      if (t == nequil) t1 = clock();
+      sum += lookup ? dg_rhsc(g) : dg_rhsc_low(g, 0);
+    }
   }
-  printf("star content, n %d: time used: %gs/%d\n",
-      n, 1.*(clock() - t0) / CLOCKS_PER_SEC, nsteps);
+  printf("star content, n %d, method %s, time used: %gs/%d\n", n,
+      lookup ? "lookup" : "direct", 1.*(clock() - t1) / CLOCKS_PER_SEC, nsteps);
   dg_close(g);
 }
 
@@ -85,8 +95,9 @@ int main(void)
     {-1, {{0, 0}}, 0},
   };
 
-  test(5, ref5);
-  test(6, ref6);
-  testspeed(6, 1000000);
+  cmpref(5, ref5);
+  cmpref(6, ref6);
+  testspeed(8, 10000000, 1);
+  testspeed(8, 10000, 0);
   return 0;
 }

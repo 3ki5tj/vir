@@ -56,7 +56,7 @@ static void run(int n)
       }
 
     if ( dg_connected(d) ) conn++;
-    if ( !dg_biconnected1(d) ) continue;
+    if ( !dg_biconnected(d) ) continue;
     if (dg_nedges(d) % 2 == 0)
       even++;
     else

@@ -324,7 +324,7 @@ INLINE int dg_connected(dg_t *g)
 
 
 /* check if the subdiagram without i is connected */
-INLINE int dg_connected1(const dg_t *g, int i)
+INLINE int dg_connectedi(const dg_t *g, int i)
 {
   code_t c = 1u, done = 1u, stack = 1u, mask = ((code_t) 1u << g->n) - 1;
 
@@ -349,14 +349,25 @@ INLINE int dg_connected1(const dg_t *g, int i)
 INLINE int dg_biconnected(const dg_t *g)
 {
   int i, n = g->n;
+  static int bc4[64] = {
+  /*   0-1 0-2 0-1,2 0-3 0-1,3 0-2,3  0-1,2,3 */
+    0,  0,  0,  0,    0,  0,    0,     0, /* no edge among 1, 2, 3 */
+    0,  0,  0,  0,    0,  0,    0,     0, /* only 1-2 */
+    0,  0,  0,  0,    0,  0,    0,     0, /* only 1-3 */
+    0,  0,  0,  0,    0,  0,    1,     1, /* 1-2, 1-3 */
+    0,  0,  0,  0,    0,  0,    0,     0, /* only 2-3 */
+    0,  0,  0,  0,    0,  1,    0,     1, /* 1-2, 2-3 */
+    0,  0,  0,  1,    0,  0,    0,     1, /* 1-3, 2-3 */
+    0,  0,  0,  1,    0,  1,    1,     1, /* 1-2, 1-3, 2-3 */
+  };
 
-  if (n == 2) {
-    return (g->c[0] & 2u) != 0;
-  } else if (n == 3) {
-    return ((g->c[0] & 6u) == 6u) && ((g->c[1] & 5u) == 5u);
-  }
+  if (n < 2) return 1;
+  else if (n == 2) return (g->c[0] >> 1) & 1u;
+  else if (n == 3) return ((g->c[0] | (g->c[1] >> 2)) & 7u) == 7u;
+  else if (n == 4) return bc4[ ((g->c[0] >> 1) | ((g->c[1] >> 2) << 3) | ((g->c[2] >> 3) << 5)) & 0x3f ];
+
   for (i = 0; i < n; i++)
-    if ( !dg_connected1(g, i) ) return 0;
+    if ( !dg_connectedi(g, i) ) return 0;
   return 1;
 }
 
@@ -364,71 +375,102 @@ INLINE int dg_biconnected(const dg_t *g)
 
 typedef struct {
   int ng; /* number of unique diagrams */
-  short *map; /* map a diagram to the unique diagram */
+  short *map; /* map a diagram to the unique diagram
+                 `short' works for n <= 8 */
   code_t *first; /* index of the first unique diagram */
 } dgmap_t;
 
-/* static diagram map for n <= DGMAP_MAX */
-#define DGMAP_MAX 8
-dgmap_t dgmap_[DGMAP_MAX];
+/* static diagram map for n <= DGMAP_NMAX */
+#define DGMAP_NMAX 8
+dgmap_t dgmap_[DGMAP_NMAX];
+
+
+
+/* compute all permutations of n */
+INLINE int dgmap_getperm(int n, int **pp)
+{
+  int np, npp, ipp, i;
+  int top, st[DGMAP_NMAX + 2], used[DGMAP_NMAX + 2] = {0};
+
+  for (np = 1, i = 1; i <= n; i++) np *= i;
+  npp = np * n;
+  xnew(*pp, npp);
+  /* add all permutations of the diagram */
+  for (i = 0; i < n; i++) {
+    st[i] = -1;
+    used[i] = 0;
+  }
+  for (ipp = 0, top = 0; ; ) {
+    if (top >= n) {
+      /* found an index permutation, build the graph */
+      die_if (ipp >= npp, "ipp %d >= npp %d, n %d\n", ipp, npp, n);
+      for (i = 0; i < n; i++) {
+        die_if (st[i] < 0 || st[i] >= n, "bad %d/%d %d\n", i, n, st[i]);
+        (*pp)[ipp++] = st[i];
+      }
+    } else {
+      for (i = st[top]; ++i < n; )
+        if ( !used[i] ) break;
+      if (i < n) {
+        used[i] = 1;
+        st[top] = i;
+        st[++top] = -1; /* clear the next level */
+        continue;
+      }
+    }
+    /* exhausted this level */
+    if (--top < 0) break;
+    used[ st[top] ] = 0;
+  }
+  return np;
+}
+
 
 
 /* compute initial diagram map */ 
 INLINE int dgmap_init(dgmap_t *m, int n)
 {
-  code_t c, c1, ng;
-  int st[DGMAP_MAX + 2], used[DGMAP_MAX + 2], top, i, j, ipr, sz;
+  code_t c, c1, ng, *masks, *ms;
+  int ipm, npm, *pm, i, j, ipr, npr, sz;
 
-  die_if (n > DGMAP_MAX, "n %d is too large\n", n);
+  die_if (n > DGMAP_NMAX, "n %d is too large\n", n);
   if (m->ng > 0) return 0; /* already initialized */
 
-  ng = (code_t) 1u << (n*(n - 1)/2);
+  npr = n * (n - 1) / 2;
+  ng = (code_t) 1u << npr;
   xnew(m->map, ng);
   for (c = 0; c < ng; c++) m->map[c] = -1;
-  sz = 64;
-  xnew(m->first, sz);
+  xnew(m->first, sz = 256);
+
+  /* compute all permutations */
+  npm = dgmap_getperm(n, &pm);
+  /* for each permutation compute the mask of each particle pair */
+  xnew(masks, npm * npr);
+  for (ipm = 0; ipm < npm; ipm++)
+    for (ipr = 0, i = 0; i < n - 1; i++)
+      for (j = i + 1; j < n; j++, ipr++)
+        masks[ipm * npr + ipr] /* code bit of the pair (i, j) */
+          = (code_t) 1u << getpairindex(pm[ipm*n + i], pm[ipm*n + j], n);
+  free(pm);
+
+  /* loop over all diagrams */
   for (m->ng = 0, c = 0; c < ng; c++) {
-    if (m->map[c] < 0) {
-      if (m->ng >= sz) {
-        sz += 64;
-        xrenew(m->first, sz);
-      }
-      m->first[m->ng] = c;
-      /* add all permutations of the diagram */
-      for (i = 0; i < n; i++) {
-        st[i] = -1;
-        used[i] = 0;
-      }
-      for (top = 0; ; ) {
-        if (top >= n) {
-          /* found an index permutation, build the graph */
-          for (c1 = 0, ipr = 0, i = 0; i < n - 1; i++)
-            for (j = i + 1; j < n; j++, ipr++)
-              if ((c >> ipr) & 1u)
-                c1 |= 1 << getpairindex(st[i], st[j], n);
-          
-          if (m->map[c1] < 0) {
-            m->map[c1] = m->ng;
-          } else die_if (m->map[c1] != m->ng,
-            "error: corruptions %#x %#x %d, %d\n",
-            c, c1, m->map[c1], m->ng);
-        } else {
-          for (i = st[top]; ++i < n; )
-            if ( !used[i] ) break;
-          if (i < n) {
-            used[i] = 1;
-            st[top] = i;
-            st[++top] = -1; /* clear the next level */
-            continue;
-          }
-        }
-        /* exhausted this level */
-        if (--top < 0) break;
-        used[ st[top] ] = 0;
-      }
-      m->ng++;
+    if (m->map[c] >= 0) continue;
+    if (m->ng >= sz) xrenew(m->first, sz += 256);
+    m->first[m->ng] = c;
+    /* add all permutations of the diagram */
+    for (ms = masks, ipm = 0; ipm < npm; ipm++) {
+      /* `c1' is the code of the permutated diagram `c' */
+      for (c1 = 0, ipr = 0; ipr < npr; ipr++, ms++)
+        if ((c >> ipr) & 1u) c1 |= *ms;
+      if (m->map[c1] < 0) m->map[c1] = m->ng;
+      else die_if (m->map[c1] != m->ng,
+        "error: corruption code: %#x %#x, graph %d, %d\n",
+        c, c1, m->map[c1], m->ng);
     }
+    m->ng++;
   }
+  free(masks);
   printf("n %d, %d unique diagrams\n", n, m->ng);
   return 0;
 }
@@ -440,7 +482,7 @@ INLINE void dgmap_done(void)
 {
   int i;
 
-  for (i = 1; i <= DGMAP_MAX; i++) {
+  for (i = 1; i <= DGMAP_NMAX; i++) {
     dgmap_t *m = dgmap_ + i;
     if (m->map) free(m->map);
     if (m->first) free(m->first);
@@ -448,6 +490,34 @@ INLINE void dgmap_done(void)
   }
 }
 
+
+
+/* check if diagram is biconnected 
+ * faster implementation */
+INLINE int dg_biconnected_lookup(const dg_t *g)
+{
+  int k, n = g->n;
+  code_t c;
+  dgmap_t *m = dgmap_ + n;
+  /* biconnectivity of unique diagrams */
+  static int *bc[DGMAP_NMAX + 1] = {NULL};
+
+  if (bc[n] == NULL) {
+    dg_t *g1 = dg_open(n);
+
+    dgmap_init(m, n); /* compute unique maps */
+    xnew(bc[n], m->ng);
+    for (k = 0; k < m->ng; k++) {
+      c = m->first[k];
+      dg_decode(g1, &c);
+      bc[n][k] = dg_biconnected(g1);
+    }
+    dg_close(g1);
+  }
+  dg_encode(g, &c);
+  k = m->map[c];
+  return bc[n][k];
+}
 
 
 #endif

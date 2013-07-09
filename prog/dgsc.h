@@ -4,53 +4,14 @@
 
 
 
+#include <time.h>
+#include <limits.h>
 #include "dg.h"
-#include "dgdb.h"
 
 
 
-/* recursively find the star content */
-static int dg_rhsclow(const dg_t *a, int par, int level, dgls_t *ls)
-{
-  int i, j, sc = 0, add = 0, n = a->n;
-  dg_t *b = dg_clone(a);
-
-  for (i = 0; i < n; i++) {
-    /* if the degree <= 2, removing the an edge connecting i
-     * makes the diagram impossible to biconnected */
-    if (dg_deg(b, i) <= 2) continue;
-    for (j = i + 1; j < n; j++) {
-      if (!dg_linked(b, i, j) || dg_deg(b, j) <= 2)
-        continue;
-      dg_unlink(b, i, j);
-      if ( dg_biconnected(b) ) {
-        add = 1;
-        if (level >= 1) {
-          /* limit the look-up table only to diagrams with the
-           * the same number of edges */
-          if (dgls_find(ls + level, b->c, b->n) < 0)
-            dgls_add(ls + level, b->c, b->n);
-          else add = 0;
-        }
-        if (add) sc += !par ? -1 : 1;
-/*
-        if (add) {
-          printf("i %d, j %d, sc %d, par %d, level %d, ls->n %d\n",
-              i, j, sc, par, level, ls[level].n);
-          //dg_print(b); getchar();
-        }
-*/
-        sc += dg_rhsclow(b, !par, level + 1, ls);
-      }
-      dg_link(b, i, j);
-    }
-  }
-  dg_close(b);
-  return sc;
-}
-
-
-
+/* Ree-Hoover formula for the star content of a larger diagram of
+ * n vertices from that of a smaller diagram of n-1 vertices */ 
 static int dg_iter(int n, int n0, int sc)
 {
   int i;
@@ -91,15 +52,51 @@ static dg_t *dg_mintop(const dg_t *g)
 
 
 
+/* recursively find the star content
+ * edges in `c' are not to be removed */
+static int dg_rhsc_recur(dg_t *a, dg_t *c, int par, int lookup)
+{
+  int i, j, sc, n = a->n, bc;
+
+  for (i = 0; i < n - 1; i++) {
+    /* if the degree <= 2, removing the an edge connecting i
+     * makes the diagram impossible to biconnected */
+    if (dg_deg(a, i) <= 2) continue;
+    for (j = i + 1; j < n; j++) {
+      /* try to remove the edge i-j */
+      if (!dg_linked(a, i, j) || dg_linked(c, i, j) || dg_deg(a, j) <= 2)
+        continue;
+      dg_unlink(a, i, j);
+      bc = lookup ? dg_biconnected_lookup(a) : dg_biconnected(a);
+      if ( !bc ) {
+        dg_link(a, i, j);
+        continue;
+      }
+     
+      /* found an edge */
+      sc = !par ? -1 : 1; /* add the diagram without (i, j) */
+      sc += dg_rhsc_recur(a, c, !par, lookup); /* diagrams without (i, j) */
+      dg_link(a, i, j); /* link back (i, j) */
+
+      dg_link(c, i, j); /* try diagrams must have (i, j); */
+      sc += dg_rhsc_recur(a, c, par, lookup);
+      dg_unlink(c, i, j); /* release the restriction */
+      return sc;
+    }
+  }
+  return 0;
+}
+
+
+
 /* compute the star content (SC) of a Ree-Hoover diagram
  * unconnected edge is treated as a wiggly line
  * SC = # of biconnected subgraphs with even edges removed -
  *      # of biconnected subgraphs with odd edges removed */
-static int dg_rhsc0(dg_t *g)
+static int dg_rhsc_low(dg_t *g, int lookup)
 {
-  int par = 0, sc, i, n = g->n, npr, ned;
-  dgls_t *ls;
-  dg_t *g0 = NULL;
+  int par = 0, sc, i, n = g->n, ned;
+  dg_t *g0 = NULL, *gc = NULL;
 
   ned = n * (n - 1) /2 - dg_nedges(g);
   if (ned == 0) return dg_iter(n, 2, 1);
@@ -115,16 +112,12 @@ static int dg_rhsc0(dg_t *g)
   /* general case, first find the minimal set of vertices that
    * contain the wiggly lines */
   g0 = dg_mintop(g);
-
-  npr = g0->n * (g0->n - 1)/2;
-  xnew(ls, npr); /* list of visited diagrams */
-  sc = (par ? -1 : 1) + dg_rhsclow(g0, par, 0, ls);
-  for (i = 0; i < npr; i++)
-    if (ls->code) free(ls->code);
-  free(ls);
+  gc = dg_open(g0->n); /* for fixed edges, empty initially */
+  sc = (par ? -1 : 1) + dg_rhsc_recur(g0, gc, par, lookup);
   /* use the Ree-Hoover formula to go from n0 to n */
   sc = dg_iter(n, g0->n, sc);
   dg_close(g0);
+  dg_close(gc);
   return sc;
 }
 
@@ -133,27 +126,32 @@ static int dg_rhsc0(dg_t *g)
 /* compute the star content by a look up table */
 INLINE int dg_rhsc_lookup(const dg_t *g)
 {
-  int k, n = g->n, cnt;
-  code_t c;
+  int k, n = g->n;
   dgmap_t *m = dgmap_ + n;
-  static int *sc[DGMAP_MAX + 1] = {NULL}; /* biconnectivity of unique diagrams */
+  code_t c;
+  static int *sc[DGMAP_NMAX + 1] = {NULL}; /* biconnectivity of unique diagrams */
 
-  if (sc[n] == NULL) {
-    dg_t *g1 = dg_open(n);
-    int cnt = 0;
+  if (sc[n] == NULL) { /* initialize the look-up table */
+    dg_t *g1;
+    int cnt = 0, nz = 0;
+    clock_t t0 = clock();
 
-    dgmap_init(m, n); /* compute unique maps */
-    xnew(sc[n], m->ng);
+    if (n >= 8) printf("n %d: initializing...\n", n);
+    dgmap_init(m, n); /* compute the permutation mapping */
+    if (sc[n] == NULL) xnew(sc[n], m->ng);
+
+    if (n >= 8) printf("n %d: diagram-map initialized %gs\n", n, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+    /* loop over unique diagrams */
+    g1 = dg_open(n);
     for (cnt = 0, k = 0; k < m->ng; k++) {
       dg_decode(g1, &m->first[k]);
-      if ( dg_biconnected(g1) ) {
-        //dg_print(g1); printf("k %d\n", k);
-        sc[n][k] = dg_rhsc0(g1);
+      if ( dg_biconnected_lookup(g1) ) { /* use the look-up version */
+        sc[n][k] = dg_rhsc_low(g1, 1);
         cnt++;
+        nz += (sc[n][k] != 0);
       } else sc[n][k] = 0;
-      //dg_print(g1); printf("n %d, k %d, bc %d sc %d\n", n, k, dg_biconnected(g1), sc[n][k]); getchar();
     }
-    printf("n %d, computed star contents of %d biconnected diagrams\n", n, cnt);
+    printf("n %d, computed star contents of %d/%d biconnected diagrams\n", n, cnt, nz);
     dg_close(g1);
   }
   dg_encode(g, &c);
@@ -168,8 +166,7 @@ INLINE int dg_rhsc_lookup(const dg_t *g)
  *      # of biconnected subgraphs with odd edges removed */
 static int dg_rhsc(dg_t *g)
 {
-  if (g->n <= DGMAP_MAX) return dg_rhsc_lookup(g);
-  else return dg_rhsc0(g);
+  return (g->n <= DGMAP_NMAX) ? dg_rhsc_lookup(g) : dg_rhsc_low(g, 0);
 }
 
 

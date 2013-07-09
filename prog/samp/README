@@ -4,8 +4,14 @@ Computing the virial coefficients by Monte Carlo sampling
 
 Files
 -----
+mcrat.c     calculate the ratio of two successive virial coefficients
+            Ree-Hoover star contents are used, so no need to sample
+            over diagrams
 
 dgmc.c      calculate the virial coefficients by Monte Carlo sampling
+            this program directly samples over diagrams without using
+            the Ree-Hoover star contents. So it is not very efficient
+
 dgcnt.c     count the number of the biconnected diagrams
 
 

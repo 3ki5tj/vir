@@ -16,6 +16,7 @@ int n = 4; /* order */
 long_t nstepsmc = (long_t) 10000000ll;
 
 
+
 /* compute a Ree-Hoover diagram from the coordinates */
 static void mkgraph(dg_t *g, rvn_t *x)
 {
@@ -31,7 +32,7 @@ static void mkgraph(dg_t *g, rvn_t *x)
 
 
 /* compute the sign of the virial coefficient */
-static double mcrun(int n, long_t nsteps, int plus, double *nrat)
+static double mcrun(int n, long_t nsteps, real amp, int plus, double *nrat)
 {
   rvn_t *x, xi, xc;
 #ifdef MVALL /* moving all particles */
@@ -40,14 +41,14 @@ static double mcrun(int n, long_t nsteps, int plus, double *nrat)
   int i, j, sc, nedg;
   long_t scsum = 0, t, acc = 0;
   double nsum = 0, ntot = 0;
-  real amp = (real) 2.0/D;
   dg_t *g, *ng, *sg;
   double scav;
 
   xnew(x, n + 1);
+  amp *= (real) 1.0/D;
 #ifdef MVALL
   xnew(y, n + 1);
-  amp *= 1.0/sqrt(D);
+  amp *= 0.2/sqrt(D);
 #endif
   for (i = 0; i < n; i++)
     rvn_rnd(x[i], (real) (-0.05 / sqrt(D)), (real) (0.05 / sqrt(D)) );
@@ -59,7 +60,7 @@ static double mcrun(int n, long_t nsteps, int plus, double *nrat)
   sc = dg_rhsc(g);
   nedg = dg_nedges(g);
 
-  for (t = 0; t < nsteps; t++) {
+  for (t = 1; t <= nsteps; t++) {
 #ifdef MVALL
     for (i = 0; i < n; i++)
       rvn_rnddisp(y[i], x[i], amp);
@@ -160,15 +161,17 @@ static double mcrun(int n, long_t nsteps, int plus, double *nrat)
               nsum += vol; /* see Eq. (2) above */
               break;
             }
-        /* the denominator is the sampling volume */
-        ntot += 1.;
-
+        ntot += 1;
       } else {
         /* compute the probability of biconnectivity after removing a random vertex */
         dg_shrink1(sg, g, i);
         nsum += dg_biconnected(sg);
         ntot += 1;
       }
+
+      if (t % 100000000 == 0)
+        fprintf(stderr, "n %d, %g steps, acc %.8f, sc %.8f, nc %.8f\n",
+        n, 1.*t, 1.*acc/t, 1.*scsum/t, nsum/ntot);
     }
   }
   free(x);
@@ -190,17 +193,19 @@ static double mcrun(int n, long_t nsteps, int plus, double *nrat)
 
 int main(int argc, char **argv)
 {
-  double scav[2], nrat[2], rvir;
+  double scav[2], nrat[2], rvir, amp = 1.0;
 
   if (argc > 1) n = atoi(argv[1]);
   if (argc > 2) nstepsmc = (long_t) atof(argv[2]);
-  printf("n = %d, D = %d, nsteps = %lld\n", n, D, nstepsmc);
+  if (argc > 3) amp = atof(argv[3]);
+  printf("n = %d, D = %d, nsteps = %lld, amp %g, code %d-bit, long %d-bit\n",
+      n, D, nstepsmc, amp, (int) sizeof(code_t) * 8, (int) sizeof(long_t) * 8);
 
-  scav[0] = mcrun(n, nstepsmc, 0, nrat);
-  scav[1] = mcrun(n - 1, nstepsmc, 1, nrat + 1);
+  scav[0] = mcrun(n, nstepsmc, (real) amp, 0, nrat);
+  scav[1] = mcrun(n - 1, nstepsmc, (real) amp, 1, nrat + 1);
   rvir = scav[0]/scav[1] * (nrat[1]/nrat[0]) * (1. - n)/(2. - n)/n;
-  printf("n %d, scav %g/%g, nrat %g/%g, vir%d/vir%d %g, %g\n",
-      n, scav[0], scav[1], nrat[0], nrat[1],
+  printf("n %d, scav %g/%g, nrat %g/%g = %g, vir%d/vir%d %g, %g\n",
+      n, scav[0], scav[1], nrat[0], nrat[1], nrat[0]/nrat[1],
       n, n - 1, rvir, rvir * 2);
 
   mtsave(NULL);
