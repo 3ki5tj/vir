@@ -14,10 +14,13 @@ typedef uint32_t code_t;
 
 /* Note: 
  * #define CODEBITS (sizeof(code_t) * 8)
- * doesn't work
+ * doesn't work, because the compiler cannot compute sizeof() in time
  * */
 #define CODEBITS 32
 
+
+/* we only support a graph with at most CODEBITS vertices */
+#define DG_NMAX CODEBITS
 
 typedef struct {
   int n;
@@ -26,9 +29,12 @@ typedef struct {
 
 
 
-/* count the number of 1 bits in x */
+/* count the number of 1 bits in x 
+ * http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetTable */
 INLINE int bitcount(code_t x)
 {
+/* if the lowest two bits of x are zeros, and x has n nonzero bits,
+ * then x, x+1, x+2, x+3 have respectivly n, n+1, n+1, n+2 nonzero bits */
 #define B2(n) n,     n+1,     n+1,     n+2
 #define B4(n) B2(n), B2(n+1), B2(n+1), B2(n+2)
 #define B6(n) B4(n), B4(n+1), B4(n+1), B4(n+2)
@@ -54,17 +60,35 @@ INLINE code_t bitinvert(code_t x, int k)
 
 
 
-/* find the lowest 1 bit */
-INLINE int bitfirst(code_t x)
+/* find the index of the lowest 1 bit
+ * on return *b is the nonzero bit
+ * http://graphics.stanford.edu/~seander/bithacks.html#ZerosOnRightMultLookup
+ * ``Using de Bruijn Sequences to Index 1 in a Computer Word''
+ * by Charles E. Leiserson, Harald Prokof, and Keith H. Randall.
+ * http://supertech.csail.mit.edu/papers/debruijn.pdf */
+INLINE int bitfirstlow(code_t x, code_t *b)
 {
-#if CODEBITS == 32
   static const int index[32] =
   { 0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
     31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9};
-
-  x &= -x; /* such that only the lowest 1-bit survives */
-  return index[(code_t)(x * 0x077CB531u) >> 27];
+  (*b) = x & -x; /* such that only the lowest 1-bit survives */
+#if CODEBITS == 32
+  return index[((*b) * 0x077CB531u) >> 27];
+#elif CODEBITS == 64
+  if ((*b) & 0xFFFFFFFFu) { /* the first lies in the low dword */
+    return index[(((*b) & 0xFFFFFFFFu) * 0x077CB531u) >> 27];
+  } else {
+    return 32 + index[(((*b) >> 16) * 0x077CB531u) >> 27];
+  }
 #endif
+}
+
+
+/* index of nonzero bit */
+INLINE int bitfirst(code_t x)
+{
+  code_t b;
+  return bitfirstlow(x, &b);
 }
 
 
@@ -349,16 +373,16 @@ INLINE int dg_connectedi(const dg_t *g, int i)
 INLINE int dg_biconnected(const dg_t *g)
 {
   int i, n = g->n;
-  static int bc4[64] = {
-  /*   0-1 0-2 0-1,2 0-3 0-1,3 0-2,3  0-1,2,3 */
-    0,  0,  0,  0,    0,  0,    0,     0, /* no edge among 1, 2, 3 */
-    0,  0,  0,  0,    0,  0,    0,     0, /* only 1-2 */
-    0,  0,  0,  0,    0,  0,    0,     0, /* only 1-3 */
-    0,  0,  0,  0,    0,  0,    1,     1, /* 1-2, 1-3 */
-    0,  0,  0,  0,    0,  0,    0,     0, /* only 2-3 */
-    0,  0,  0,  0,    0,  1,    0,     1, /* 1-2, 2-3 */
-    0,  0,  0,  1,    0,  0,    0,     1, /* 1-3, 2-3 */
-    0,  0,  0,  1,    0,  1,    1,     1, /* 1-2, 1-3, 2-3 */
+  static int bc4[64] = { /* four vertices */
+  /*    0-1  0-2  0-1,2  0-3  0-1,3  0-2,3  0-1,2,3 */
+    0,   0,   0,   0,     0,   0,     0,     0,    /* */
+    0,   0,   0,   0,     0,   0,     0,     0,    /* 1-2 */
+    0,   0,   0,   0,     0,   0,     0,     0,    /* 1-3 */
+    0,   0,   0,   0,     0,   0,     1,     1,    /* 1-2, 1-3 */
+    0,   0,   0,   0,     0,   0,     0,     0,    /* 2-3 */
+    0,   0,   0,   0,     0,   1,     0,     1,    /* 1-2, 2-3 */
+    0,   0,   0,   1,     0,   0,     0,     1,    /* 1-3, 2-3 */
+    0,   0,   0,   1,     0,   1,     1,     1,    /* 1-2, 1-3, 2-3 */
   };
 
   if (n < 2) return 1;
@@ -440,7 +464,7 @@ INLINE int dgmap_init(dgmap_t *m, int n)
   ng = (code_t) 1u << npr;
   xnew(m->map, ng);
   for (c = 0; c < ng; c++) m->map[c] = -1;
-  xnew(m->first, sz = 256);
+  xnew(m->first, sz = 1024);
 
   /* compute all permutations */
   npm = dgmap_getperm(n, &pm);
@@ -456,7 +480,7 @@ INLINE int dgmap_init(dgmap_t *m, int n)
   /* loop over all diagrams */
   for (m->ng = 0, c = 0; c < ng; c++) {
     if (m->map[c] >= 0) continue;
-    if (m->ng >= sz) xrenew(m->first, sz += 256);
+    if (m->ng >= sz) xrenew(m->first, sz += 1024);
     m->first[m->ng] = c;
     /* add all permutations of the diagram */
     for (ms = masks, ipm = 0; ipm < npm; ipm++) {

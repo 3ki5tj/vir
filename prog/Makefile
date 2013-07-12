@@ -5,7 +5,7 @@ LM = -lm
 CX = icc -O3 -Wall -Wunused -Wextra -march=native
 LMX =
 
-deps = dg.h dgsc.h dgdb.h zcom.h Makefile
+deps = dg.h dgcsep.h dgsc.h dgdb.h zcom.h Makefile
 bins = $(patsubst %.c,%, $(wildcard test*.c))
 bins_d = $(patsubst %.c,%_d, $(wildcard test*.c))
 

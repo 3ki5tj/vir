@@ -97,7 +97,10 @@ int main(void)
 
   cmpref(5, ref5);
   cmpref(6, ref6);
+  testspeed(5, 1000000, 1);
+  testspeed(6, 1000000, 1);
+  testspeed(7, 1000000, 1);
+  //testspeed(8, 10000, 0);
   testspeed(8, 10000000, 1);
-  testspeed(8, 10000, 0);
   return 0;
 }
