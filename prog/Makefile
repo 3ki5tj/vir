@@ -5,7 +5,7 @@ LM = -lm
 CX = icc -O3 -Wall -Wunused -Wextra -march=native
 LMX =
 
-deps = dg.h dgcsep.h dgsc.h dgdb.h zcom.h Makefile
+deps = dg.h dgcsep.h dgsc.h dgrjw.h dgdb.h zcom.h Makefile
 bins = $(patsubst %.c,%, $(wildcard test*.c))
 bins_d = $(patsubst %.c,%_d, $(wildcard test*.c))
 
@@ -18,5 +18,5 @@ $(bins_d) : %_d: %.c $(deps)
 	$(CC) -o $@ $< $(LM)
 
 clean:
-	rm -f $(bins) $(bins_d) *~ a.out *.his MTSEED
+	rm -rf $(bins) $(bins_d) *~ a.out *.his MTSEED bin obj
 

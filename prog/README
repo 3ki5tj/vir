@@ -1,3 +1,14 @@
 Overview
 =========
 Basic routines of manipulating diagrams (graphs)
+
+
+
+Files
+------
+dg.h        basic diagram
+dgcsep.h    clique separator
+dgrjw.h     total weight of the hard sphere
+dgcs.h      star content (deprecated)
+dgdb.h      database
+

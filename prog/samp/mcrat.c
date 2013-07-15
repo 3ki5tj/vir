@@ -1,55 +1,63 @@
-/* compute the ratio of two successive virial coefficients */
+/* compute the ratio of two successive virial coefficients
+ * define `D' in compiling to change the default dimension:
+ *  gcc -DD=4 -O3 mcrat.c -lm */
 
 
-/* #define D to define the dimension */
+
 #define ZCOM_PICK
 #define ZCOM_UTIL
+#define ZCOM_ARGOPT
 #define ZCOM_RVN
 #include "zcom.h"
 #include "dg.h"
-#include "dgsc.h"
+#include "dgrjw.h"
+#include "dgmcutil.h"
 
 
-typedef long long long_t;
 
 int n = 4; /* order */
-long_t nstepsmc = (long_t) 10000000ll;
+double nequil = 100000; /* number of equilibration */
+double nsteps = 10000000;
+real mcamp = 2.f;
+int nstfb = 0; /* interval of evaluting the weight */
+int nstnmv = 20; /* frequency of the n move */
+int nstrep = 100000000; /* interval of reporting */
 
 
 
-/* compute a Ree-Hoover diagram from the coordinates */
-static void mkgraph(dg_t *g, rvn_t *x)
+/* handle arguments */
+static void doargs(int argc, char **argv)
 {
-  int i, j, n = g->n;
+  argopt_t *ao;
 
-  dg_empty(g);
-  for (i = 0; i < n - 1; i++)
-    for (j = i + 1; j < n; j++)
-      if (rvn_dist2(x[i], x[j]) < 1)
-        dg_link(g, i, j);
+  ao = argopt_open(0);
+  argopt_add(ao, "-n", "%d", &n, "order n");
+  argopt_add(ao, "-0", "%lf", &nequil, "number of equilibration steps");
+  argopt_add(ao, "-1", "%lf", &nsteps, "number of simulation steps");
+  argopt_add(ao, "-a", "%r", &mcamp, "MC amplitude");
+  argopt_add(ao, "-w", "%d", &nstfb, "interval of evaluating the weight");
+  argopt_add(ao, "-z", "%d", &nstnmv, "interval of the n-move");
+  argopt_add(ao, "-q", "%d", &nstrep, "interval of reporting");
+  argopt_parse(ao, argc, argv);
+  argopt_dump(ao);
+  argopt_close(ao);
+  if (nstfb <= 0) /* frequency of computing the weight */
+    nstfb = (n > DGMAP_NMAX) ? 100 : 1;
 }
 
 
 
 /* compute the sign of the virial coefficient */
-static double mcrun(int n, long_t nsteps, real amp, int plus, double *nrat)
+static double mcrun(int n, double nequil, double nsteps, real amp,
+    int nstfb, int nstnmv, int plus, double *nrat)
 {
-  rvn_t *x, xi, xc;
-#ifdef MVALL /* moving all particles */
-  rvn_t *y;
-#endif
-  int i, j, sc, nedg;
-  long_t scsum = 0, t, acc = 0;
-  double nsum = 0, ntot = 0;
+  rvn_t *x, xi;
+  int i, j, it, fb = 0;
+  double fbav, nzsum = 0, fbsum = 0, t, acc = 0, tot = 0, nsum = 0, ntot = 0;
   dg_t *g, *ng, *sg;
-  double scav;
 
   xnew(x, n + 1);
   amp *= (real) 1.0/D;
-#ifdef MVALL
-  xnew(y, n + 1);
-  amp *= 0.2/sqrt(D);
-#endif
   for (i = 0; i < n; i++)
     rvn_rnd(x[i], (real) (-0.05 / sqrt(D)), (real) (0.05 / sqrt(D)) );
   g = dg_open(n);
@@ -57,15 +65,9 @@ static double mcrun(int n, long_t nsteps, real amp, int plus, double *nrat)
   sg = dg_open(n - 1);
   mkgraph(g, x);
   die_if (!dg_biconnected(g), "initial diagram not biconnected D %d\n", D);
-  sc = dg_rhsc(g);
-  nedg = dg_nedges(g);
+  fb = dg_hsfb(g);
 
-  for (t = 1; t <= nsteps; t++) {
-#ifdef MVALL
-    for (i = 0; i < n; i++)
-      rvn_rnddisp(y[i], x[i], amp);
-    mkgraph(ng, y);
-#else
+  for (it = 1, t = 1; t <= nsteps + nequil; t += 1, it++) {
     i = (int) (rnd0() * n);
     rvn_rnddisp(xi, x[i], amp);
     dg_copy(ng, g);
@@ -76,137 +78,86 @@ static double mcrun(int n, long_t nsteps, real amp, int plus, double *nrat)
       else
         dg_link(ng, i, j);
     }
-#endif
     if ( dg_biconnected(ng) ) { /* accept the move */
-#ifdef MVALL
-      for (i = 0; i < n; i++)
-        rvn_copy(x[i], y[i]);
-#else
       rvn_copy(x[i], xi);
-#endif
       dg_copy(g, ng);
-      sc = dg_rhsc(g);
-      //dg_print(g); printf("sc %d\n", sc); getchar();
-      nedg = dg_nedges(g);
-      acc++;
+      /* the weight `fb' is computed from the lookup table
+       * for a small n, so it can be updated in every step */
+      if (n <= DGMAP_NMAX)
+        fb = dg_hsfb(g);
+      acc += 1.;
     }
-    scsum += sc * (nedg % 2 ? -1 : 1);
+   
+    if (t < nequil) {
+      continue;
+    } else if (t == nequil) {
+      printf("equilibrated at t %g\n", t);
+    }
+    
+    /* accumulate data after equilibration */
+    if (n <= DGMAP_NMAX) {
+#define ACCUM() { \
+      tot += 1.;  \
+      fbsum += fb;  \
+      nzsum += (fb != 0); }
+      ACCUM();
+    } else if (it % nstfb == 0) {
+      fb = dg_hsfb(g);
+      ACCUM();
+    }
 
-#if 0
-    /* checking connectivity */
-    //printf("t %lld, i %d\n", t, i);
-    for (i = 0; i < n; i++)
-      for (j = i + 1; j < n; j++)
-        if ((rvn_dist2(x[i], x[j]) < 1) != dg_linked(g, i, j)) {
-          printf("connectivity corruptions t %lld, i %d, j %d\n",
-              t, i, j);
-          dg_print(g);
-          dg_empty(ng);
-          for (i = 0; i < n; i++)
-            for (j = i + 1; j < n; j++){
-              if (rvn_dist2(x[i], x[j]) < 1)
-                dg_link(ng, i, j);
-            }
-          dg_print(ng);
-          exit(1);
-        }
-#endif
-
-    if (t % 5 == 0) { /* compute the acceptance rates */
+    if (it % nstnmv == 0) { /* compute the acceptance rates */
       /* remove center of mass */
-      rvn_zero(xc);
-      for (j = 0; j < n; j++) rvn_inc(xc, x[j]);
-      rvn_smul(xc, (real) 1./n);
-      for (j = 0; j < n; j++) rvn_dec(x[j], xc);
+      rvn_rmcom(x, n);
 
-      i = (int) (rnd0() * n);
       if (plus) {
-        /* compute the probability of adding a vertex
-         * that leaves the graph biconnected */
-        int deg = 0;
-        real rad, r2, r2m = 0, r2n = 0, vol;
-        
-        /* naively, in a trial, the vertex should be added uniformly to
-         * a very large volume Vmax, and the probability is computed as
-         *  r = (V_bi / Vmax) * (Vmax / Vunit)             (1)
-         * where Vmax/Vunit is the normalization to a uniform sphere
-         * and B2 = Vunit / 2; (V_bi / Vmax) is the acceptance ratio.
-         * We can however the shrink the sampling volume to a sphere
-         * with the radius being the second largest distance from any
-         * vertex to the center of mass (because there should be at
-         * least two vertices connected to the new vertex to make the
-         * graph biconnected). Thus
-         *  r = (V_bi / V_samp) * (Vsamp / Vunit)         (2)
-         * and (V_bi / V_samp) is the new and enlarged acceptance
-         * probability. */
-        for (j = 0; j < n; j++)
-          if ((r2 = rvn_sqr(x[j])) > r2m) {
-            r2n = r2m; /* second largest volume */
-            r2m = r2;
-          } else if (r2 > r2n) {
-            r2n = r2;
-          }
-        if (r2n <= 0) r2n = r2m;
-
-        /* we only need to sample the second largest sphere */
-        rad = (real) (sqrt(r2n) + 1);
-        /* compute the relative volume to the unit sphere */
-        for (vol = 1, j = 0; j < D; j++) vol *= rad;
-        /* see if adding a vertex leaves the graph biconnected */
-        rvn_rndball(xi, rad);
-        /* biconnectivity means xi is connected two vertices */
-        for (j = 0; j < n; j++)
-          if (rvn_dist2(xi, x[j]) < 1)
-            if (++deg >= 2) {
-              nsum += vol; /* see Eq. (2) above */
-              break;
-            }
         ntot += 1;
+        nsum += rvn_voladd(x, n, xi);
       } else {
         /* compute the probability of biconnectivity after removing a random vertex */
-        dg_shrink1(sg, g, i);
-        nsum += dg_biconnected(sg);
         ntot += 1;
+        nsum += dgmc_nremove(g, sg, n, &i);
       }
 
-      if (t % 100000000 == 0)
-        fprintf(stderr, "n %d, %g steps, acc %.8f, sc %.8f, nc %.8f\n",
-        n, 1.*t, 1.*acc/t, 1.*scsum/t, nsum/ntot);
+      if (it % nstrep == 0) {
+        it = 0;
+        fprintf(stderr, "n %d, %g steps, tot %g, acc %.8f, "
+            "fb %d(%.8f), nz %.8f, nc %.8f\n",
+          n, t, tot, acc/t, fb, fbsum/tot, nzsum/tot, nsum/ntot);
+      }
     }
   }
   free(x);
-#ifdef MVALL
-  free(y);
-#endif
   dg_close(g);
   dg_close(ng);
   dg_close(sg);
 
-  scav = 1. * scsum / nsteps;
-  *nrat = 1. * nsum / ntot;
-  fprintf(stderr, "n %d, acc %.8f, sc %.8f, nc %.8f\n",
-      n, 1.*acc/nsteps, scav, *nrat);
-  return scav;
+  fbav = fbsum / tot;
+  *nrat = nsum / ntot;
+  fprintf(stderr, "n %d, acc %.8f, fb %.8f, nz %g, nc %.8f\n",
+      n, acc/nsteps, fbav, nzsum/tot, *nrat);
+  return fbav;
 }
 
 
 
 int main(int argc, char **argv)
 {
-  double scav[2], nrat[2], rvir, amp = 1.0;
+  double fbav[2], nrat[2], rvir;
 
-  if (argc > 1) n = atoi(argv[1]);
-  if (argc > 2) nstepsmc = (long_t) atof(argv[2]);
-  if (argc > 3) amp = atof(argv[3]);
-  printf("n = %d, D = %d, nsteps = %lld, amp %g, code %d-bit, long %d-bit\n",
-      n, D, nstepsmc, amp, (int) sizeof(code_t) * 8, (int) sizeof(long_t) * 8);
+  doargs(argc, argv);
+  printf("n %d, D %d, nsteps %g, amp %g, nstfb %d, code %d-bit\n",
+      n, D, (double) nsteps, mcamp, nstfb, (int) sizeof(code_t) * 8);
 
-  scav[0] = mcrun(n, nstepsmc, (real) amp, 0, nrat);
-  scav[1] = mcrun(n - 1, nstepsmc, (real) amp, 1, nrat + 1);
-  rvir = scav[0]/scav[1] * (nrat[1]/nrat[0]) * (1. - n)/(2. - n)/n;
-  printf("n %d, scav %g/%g, nrat %g/%g = %g, vir%d/vir%d %g, %g\n",
-      n, scav[0], scav[1], nrat[0], nrat[1], nrat[0]/nrat[1],
-      n, n - 1, rvir, rvir * 2);
+  fbav[0] = mcrun(n, nequil, nsteps, mcamp,
+      nstfb, nstnmv, 0, nrat);
+  /* the smaller system converges faster, so we spend less time on it */
+  fbav[1] = mcrun(n - 1, nequil, nsteps / 4, mcamp,
+      nstfb, nstnmv, 1, nrat + 1);
+  rvir = fbav[0]/fbav[1] * (nrat[1]/nrat[0]) * (1. - n)/(2. - n)/n;
+  printf("n %d, fbav %g/%g, nrat %g/%g = %g, vir%d/vir%d %g, %g, %g\n",
+      n, fbav[0], fbav[1], nrat[0], nrat[1], nrat[0]/nrat[1],
+      n, n - 1, rvir, rvir * 2, rvir * ndvol(D));
 
   mtsave(NULL);
   return 0;

@@ -5,10 +5,16 @@
 #include "dg.h"
 
 
-/* compute a minimal order */
+/* compute a minimal order and the corresponding fill-in of a graph
+ * the minimal order is an order of removing vertices such than the
+ * resulting edges by contraction is locally a minimum.
+ * the algorithm used here constructs a hierarchical spanning tree
+ * ``Algorithmic aspects of vertex elimination on graphs''
+ * Donald J. Rose, R. Endre Tarjan and George S. Lueker
+ * SIAM J. Comput. Vol 5, No. 2, June 1976 */
 INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
 {
-  int i, j, k, v, w, z, l, n = g->n;
+  int i, j, k, v = 0, w, z, l, n = g->n;
   code_t numbered, reached, bv, bw, bz, r, mask;
   int l2[DG_NMAX]; /* the label l times 2 */
   code_t reach[DG_NMAX]; /* reach[label] gives a set of vertices */
@@ -95,7 +101,12 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
 
 
 
-/* test if a graph has a clique separator */
+/* test if a graph has a clique separator, a fully-connected subgraph
+ * The algorithm first find a minimal order of elimination.
+ * Using this order on a graph with a clique separator, at least
+ * one part of the graph is eliminated before the clique
+ * ``Decomposition by clique separators'' Robert E. Tarjan,
+ * Discrete Mathematics 55 (1985) 221-232 */
 INLINE code_t dg_cliquesep(const dg_t *g)
 {
   static dg_t *fs[DG_NMAX + 1], *f;

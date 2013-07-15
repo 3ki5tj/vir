@@ -1,6 +1,7 @@
 #ifndef DGSC__
 #define DGSC__
-/* compute the Ree-Hoover star content */
+/* compute the Ree-Hoover star content
+ * deprecated, use dgrjw.h instead */
 
 
 
@@ -10,9 +11,10 @@
 #include "dgcsep.h"
 
 
+
 /* Ree-Hoover formula for the star content of a larger diagram of
  * n vertices from that of a smaller diagram of n-1 vertices */ 
-static int dg_iter(int n, int n0, int sc)
+static int dg_rhiter(int n, int n0, int sc)
 {
   int i;
 
@@ -53,7 +55,8 @@ static dg_t *dg_mintop(const dg_t *g)
 
 
 /* recursively find the star content
- * edges in `c' are not to be removed */
+ * edges in `c' are not to be removed
+ * `lookup' means to use the table of biconnectivity */
 static int dg_rhsc_recur(dg_t *a, dg_t *c, int par, int lookup)
 {
   int i, j, sc, n = a->n, bc;
@@ -109,12 +112,12 @@ static int dg_rhsc_low(dg_t *g, int lookup)
     gc = dg_open(g0->n); /* for fixed edges, empty initially */
     sc = (par ? -1 : 1) + dg_rhsc_recur(g0, gc, par, lookup);
     /* use the Ree-Hoover formula to go from n0 to n */
-    sc = dg_iter(n, g0->n, sc);
+    sc = dg_rhiter(n, g0->n, sc);
     dg_close(g0);
     dg_close(gc);
     return sc;
   } else if (ned == 0) {
-    return dg_iter(n, 2, 1);
+    return dg_rhiter(n, 2, 1);
   } else if (ned == 1) {
     return 0;
   } else { /* ned == 2 */
@@ -122,7 +125,7 @@ static int dg_rhsc_low(dg_t *g, int lookup)
      * the two wiggly lines are not connected to the same vertex */
     for (i = 0; i < n; i++)
       if (dg_deg(g, i) <= n - 3) return 0;
-    return dg_iter(n, 4, 1);
+    return dg_rhiter(n, 4, 1);
   }
 }
 

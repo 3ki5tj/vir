@@ -501,6 +501,18 @@ INLINE int dgmap_init(dgmap_t *m, int n)
 
 
 
+/* retrieve the diagram id */
+INLINE int dg_getmapid(const dg_t *g)
+{
+  code_t c;
+
+  die_if (g->n >= DGMAP_NMAX, "uncached n %d\n", g->n);
+  dg_encode(g, &c);
+  return dgmap_[g->n].map[c];
+}
+
+
+
 /* done */
 INLINE void dgmap_done(void)
 {
@@ -520,27 +532,25 @@ INLINE void dgmap_done(void)
  * faster implementation */
 INLINE int dg_biconnected_lookup(const dg_t *g)
 {
-  int k, n = g->n;
-  code_t c;
-  dgmap_t *m = dgmap_ + n;
+  int n = g->n;
   /* biconnectivity of unique diagrams */
   static int *bc[DGMAP_NMAX + 1] = {NULL};
 
   if (bc[n] == NULL) {
     dg_t *g1 = dg_open(n);
+    dgmap_t *m = dgmap_ + n;
+    int k;
 
     dgmap_init(m, n); /* compute unique maps */
     xnew(bc[n], m->ng);
     for (k = 0; k < m->ng; k++) {
-      c = m->first[k];
+      code_t c = m->first[k];
       dg_decode(g1, &c);
       bc[n][k] = dg_biconnected(g1);
     }
     dg_close(g1);
   }
-  dg_encode(g, &c);
-  k = m->map[c];
-  return bc[n][k];
+  return bc[ n ][ dg_getmapid(g) ];
 }
 
 

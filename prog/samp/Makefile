@@ -5,8 +5,8 @@ LM = -lm
 CX = icc -O3 -Wall -Wunused -Wextra -march=native
 LMX =
 
-deps = dg.h dgsc.h dgdb.h zcom.h Makefile
-bins = mcrat dgmc dgcnt
+deps = dg.h dgcsep.h dgrjw.h dgdb.h zcom.h Makefile
+bins = mcrat
 bins_d = $(patsubst %,%_d, $(bins))
 
 all: $(bins)

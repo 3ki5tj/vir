@@ -1,3 +1,5 @@
+#include "dgrjw.h"
+
 #include <time.h>
 #include "dgsc.h"
 
@@ -5,7 +7,7 @@
 typedef struct {
   int npr; /* number of wiggly lines */
   int id[64][2]; /* vertex pairs in wiggly lines */
-  int sc; /* the correct sc */
+  int fb; /* the correct weight */
 } edges_t;
 
 
@@ -13,7 +15,7 @@ typedef struct {
 /* test the star contents of diagrams against the reference values */
 static void cmpref(int n, edges_t *ref)
 {
-  int i, j, sc;
+  int i, j, fb;
   dg_t *g;
 
   g = dg_open(n);
@@ -21,18 +23,18 @@ static void cmpref(int n, edges_t *ref)
     dg_full(g);
     for (j = 0; j < ref[i].npr; j++)
       dg_unlink(g, ref[i].id[j][0], ref[i].id[j][1]);
-    sc = dg_rhsc(g);
+    fb = dg_hsfb(g);
     if (!dg_biconnected(g))
       continue;
-    if (sc != ref[i].sc) {
-      printf("n %d: model %d sc mismatch %d vs %d (ref)\n",
-          n, i, sc, ref[i].sc);
+    if (fb != ref[i].fb) {
+      printf("n %d: model %d fb mismatch %d vs %d (ref)\n",
+          n, i, fb, ref[i].fb);
       dg_print(g);
       exit(1);
     }
   }
   dg_close(g);
-  printf("n %d, star contents of %d reference diagrams verified\n", n, i);
+  printf("n %d, hard-sphere weights of %d reference diagrams verified\n", n, i);
 }
 
 
@@ -47,8 +49,8 @@ static void testspeed(int n, int nsteps, int lookup)
   g = dg_open(n);
   dg_full(g);
   if (lookup) {
-    dg_rhsc(g); /* initialization */
-    printf("star content, n %d, initialization: %gs\n",
+    dg_hsfb(g); /* initialization */
+    printf("hard-sphere weight, n %d, initialization: %gs\n",
       n, 1.*(clock() - t0) / CLOCKS_PER_SEC);
   }
   for (t = 0; t < nequil + nsteps; t++) {
@@ -64,7 +66,7 @@ static void testspeed(int n, int nsteps, int lookup)
     }
     if (t >= nequil) {
       if (t == nequil) t1 = clock();
-      sum += lookup ? dg_rhsc(g) : dg_rhsc_low(g, 0);
+      sum += lookup ? dg_hsfb(g) : dg_hsfbrjw(g);
     }
   }
   printf("star content, n %d, method %s, time used: %gs/%d\n", n,
@@ -76,31 +78,36 @@ static void testspeed(int n, int nsteps, int lookup)
 
 int main(void)
 {
+  edges_t ref4[] = {
+    {0, {{0, 0}}, -2},
+    {1, {{0, 1}}, 0},
+    {2, {{0, 1}, {2, 3}}, 1},
+    {-1, {{0, 0}}, 0},
+  };
   edges_t ref5[] = {
     {0, {{0, 0}}, -6},
     {1, {{0, 1}}, 0},
     {2, {{0, 1}, {2, 3}}, 3},
-    {3, {{0, 1}, {2, 3}, {3, 4}}, -2},
+    {3, {{0, 1}, {2, 3}, {3, 4}}, 2},
     {4, {{0, 1}, {2, 3}, {3, 4}, {2, 4}}, 1},
-    {5, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}}, 1},
+    {5, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}}, -1},
     {-1, {{0, 0}}, 0},
   };
   edges_t ref6[] = {
-    {0, {{0, 0}}, 24},
+    {0, {{0, 0}}, -24},
     {1, {{0, 1}}, 0},
-    {2, {{0, 1}, {2, 3}}, -12},
+    {2, {{0, 1}, {2, 3}}, 12},
     {3, {{0, 1}, {2, 3}, {3, 4}}, 8},
-    {4, {{0, 1}, {2, 3}, {3, 4}, {2, 4}}, -4},
+    {4, {{0, 1}, {2, 3}, {3, 4}, {2, 4}}, 4},
     {5, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}}, -4},
     {-1, {{0, 0}}, 0},
   };
 
+  cmpref(4, ref4);
   cmpref(5, ref5);
   cmpref(6, ref6);
-  testspeed(5, 1000000, 1);
-  testspeed(6, 1000000, 1);
   testspeed(7, 1000000, 1);
-  testspeed(8, 10000000, 1);
-  testspeed(8, 10000, 0);
+  //testspeed(8, 10000000, 1);
+  testspeed(10, 10000, 0);
   return 0;
 }
