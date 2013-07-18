@@ -11,18 +11,19 @@
 #include "zcom.h"
 #include "dg.h"
 #include "dgrjw.h"
-#include "dgmcutil.h"
+#include "mcutil.h"
 
 
 
-int n = 4; /* order */
+int n = 8; /* order */
 double nequil = 100000; /* number of equilibration */
-double nsteps = 10000000;
-real mcamp = 2.f;
+double nsteps = 10000000, nsteps2 = -1;
+real mcamp[2] = {1.5f, 0.9f};
 int nstfb = 0; /* interval of evaluting the weight */
 int nstnmv = 20; /* frequency of the n move */
 int nstrep = 100000000; /* interval of reporting */
-
+double rat10 = 0.03;
+int lookup = -1; /* if to use the lookup table */
 
 
 /* handle arguments */
@@ -34,30 +35,50 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-n", "%d", &n, "order n");
   argopt_add(ao, "-0", "%lf", &nequil, "number of equilibration steps");
   argopt_add(ao, "-1", "%lf", &nsteps, "number of simulation steps");
-  argopt_add(ao, "-a", "%r", &mcamp, "MC amplitude");
+  argopt_add(ao, "-2", "%lf", &nsteps2, "number of simulation steps, for n - 1");
+  argopt_add(ao, "-a", "%r", &mcamp[0], "MC amplitude for biconnected diagrams");
+  argopt_add(ao, "-A", "%r", &mcamp[1], "MC amplitude for nonzero biconnected diagrams");
+  argopt_add(ao, "-L", "%d", &lookup, "lookup table (-1: automatic)");
   argopt_add(ao, "-w", "%d", &nstfb, "interval of evaluating the weight");
   argopt_add(ao, "-z", "%d", &nstnmv, "interval of the n-move");
   argopt_add(ao, "-q", "%d", &nstrep, "interval of reporting");
+  argopt_add(ao, "-R", "%lf", &rat10, "estimated ratio of nonzero biconnected diagrams");
   argopt_parse(ao, argc, argv);
   argopt_dump(ao);
   argopt_close(ao);
-  if (nstfb <= 0) /* frequency of computing the weight */
-    nstfb = (n > DGMAP_NMAX) ? 100 : 1;
+  
+  if (lookup < 0)
+    lookup = (n <= DGMAP_NMAX);
+  if (nstfb <= 0) {
+    if (lookup) {
+      nstfb = 1;
+    } else {
+      int i;
+      for (nstfb = 10, i = 8; i < n; i++) nstfb *= 3;
+    }
+  }
+  mcamp[0] /= D;
+  mcamp[1] /= D;
+  /* the smaller system converges faster, so we spend less time on it */
+  if (nsteps2 <= 0) nsteps2 = nsteps / 4;
 }
 
 
 
 /* compute the sign of the virial coefficient */
-static double mcrun(int n, double nequil, double nsteps, real amp,
-    int nstfb, int nstnmv, int plus, double *nrat)
+static double mcrun(int n, double nequil, double nsteps,
+    double amp[2], int nstfb, int lookup,
+    int nstnmv, int plus, double *nrat)
 {
   rvn_t *x, xi;
-  int i, j, it, fb = 0;
-  double fbav, nzsum = 0, fbsum = 0, t, acc = 0, tot = 0, nsum = 0, ntot = 0;
+  int i, j, it, fb = 0, nfb = 0, nz, nnz, nbc, eql;
+  double fbav, rathis, t, nsum = 0, ntot = 0;
   dg_t *g, *ng, *sg;
-
+  double wtot[2] = {1e-6, 1e-6}, fbsum[2] = {0, 0}, fbnz[2] = {1e-6, 1e-6};
+  double hist[2] = {1e-6, 1e-6}, cacc[2] = {0, 0};
+  int sys, acc1;
+    
   xnew(x, n + 1);
-  amp *= (real) 1.0/D;
   for (i = 0; i < n; i++)
     rvn_rnd(x[i], (real) (-0.05 / sqrt(D)), (real) (0.05 / sqrt(D)) );
   g = dg_open(n);
@@ -65,11 +86,15 @@ static double mcrun(int n, double nequil, double nsteps, real amp,
   sg = dg_open(n - 1);
   mkgraph(g, x);
   die_if (!dg_biconnected(g), "initial diagram not biconnected D %d\n", D);
-  fb = dg_hsfb(g);
+  fb = lookup ? dg_hsfb(g) : dg_hsfbrjw(g);
+  nz = 1; /* if (lookup), nz means fb != 0,
+             otherwise nz means no clique separator */
+  sys = 0;
+  eql = 1;
 
-  for (it = 1, t = 1; t <= nsteps + nequil; t += 1, it++) {
+  for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
     i = (int) (rnd0() * n);
-    rvn_rnddisp(xi, x[i], amp);
+    rvn_rnddisp(xi, x[i], amp[sys]);
     dg_copy(ng, g);
     for (j = 0; j < n; j++) {
       if (j == i) continue;
@@ -78,53 +103,80 @@ static double mcrun(int n, double nequil, double nsteps, real amp,
       else
         dg_link(ng, i, j);
     }
-    if ( dg_biconnected(ng) ) { /* accept the move */
-      rvn_copy(x[i], xi);
-      dg_copy(g, ng);
+
+    if ( lookup ) { /* cheap lookup verseion */
+      unqid_t gmapid = dg_getmapid(ng);
+      nbc = dg_biconnected_lookuplow(n, gmapid);
       /* the weight `fb' is computed from the lookup table
        * for a small n, so it can be updated in every step */
-      if (n <= DGMAP_NMAX)
-        fb = dg_hsfb(g);
-      acc += 1.;
+      nfb = nbc ? dg_hsfb_lookuplow(n, gmapid) : 0;
+      nnz = (nfb != 0);
+    } else { /* direct and expensive computation, large n */
+      nbc = dg_biconnected(ng);
+      /* since computing fb is expensive,
+       * we only try to find if a clique separator,
+       * if so, fb == 0, otherwise fb is likely nonzero
+       * so this is a good approximation of the ensemble */
+      nnz = nbc ? (dg_cliquesep(ng) == 0) : 0;
     }
    
-    if (t < nequil) {
+    acc1 = sys ? nnz : nbc;
+    if ( acc1 ) { /* accept the move */
+      rvn_copy(x[i], xi);
+      dg_copy(g, ng);
+      nz = nnz;
+      if ( lookup ) fb = nfb;
+    }
+
+    /* change `sys' */
+    if (sys == 0) { /* switch `sys' from 0 to 1 */
+      if ( nz ) sys = 1;
+    } else { /* switch `sys' from 1 to 0 */
+      if ( rnd0() < rat10 ) sys = 0;
+    }
+
+    if (eql && t >= nequil) {
+      printf("equilibrated at t %g, nstfb %d, lookup %d\n", t, nstfb, lookup);
+      t = 0;
+      it = 0;
+      eql = 0;
       continue;
-    } else if (t == nequil) {
-      printf("equilibrated at t %g\n", t);
     }
     
     /* accumulate data after equilibration */
-    if (n <= DGMAP_NMAX) {
-#define ACCUM() { \
-      tot += 1.;  \
-      fbsum += fb;  \
-      nzsum += (fb != 0); }
-      ACCUM();
-    } else if (it % nstfb == 0) {
-      fb = dg_hsfb(g);
-      ACCUM();
+    if (it % nstfb == 0) {
+      if ( !lookup ) fb = dg_hsfbrjw(g);
+      cacc[sys] += acc1;
+      hist[sys] += 1;
+      fbsum[sys] += fb;
+      fbnz[sys] += nz;
+      wtot[sys] += 1;
     }
 
     if (it % nstnmv == 0) { /* compute the acceptance rates */
       /* remove center of mass */
       rvn_rmcom(x, n);
 
-      if (plus) {
-        ntot += 1;
-        nsum += rvn_voladd(x, n, xi);
-      } else {
-        /* compute the probability of biconnectivity after removing a random vertex */
-        ntot += 1;
-        nsum += dgmc_nremove(g, sg, n, &i);
+      if (sys == 0) {
+        if (plus) {
+          ntot += 1;
+          nsum += rvn_voladd(x, n, xi);
+        } else {
+          /* compute the probability of biconnectivity after removing a random vertex */
+          ntot += 1;
+          nsum += dgmc_nremove(g, sg, n, &i);
+        }
       }
+    }
 
-      if (it % nstrep == 0) {
-        it = 0;
-        fprintf(stderr, "n %d, %g steps, tot %g, acc %.8f, "
-            "fb %d(%.8f), nz %.8f, nc %.8f\n",
-          n, t, tot, acc/t, fb, fbsum/tot, nzsum/tot, nsum/ntot);
-      }
+    if (it % nstrep == 0) {
+      it = 0;
+      rathis = hist[1]/hist[0];
+      fprintf(stderr, "D %d, n %d,%11g steps, cacc %.6f/%.6f, "
+          "fb%+8d(%+.8f/%+.8f), nz %.4f, his1/0 %.4f, nrat %.8f\n",
+        D, n, t, cacc[0]/hist[0], cacc[1]/hist[1],
+        fb, fbsum[0]/wtot[0], fbsum[1]/wtot[1] * rathis * rat10,
+        fbnz[0]/hist[0], rathis, nsum/ntot);
     }
   }
   free(x);
@@ -132,10 +184,15 @@ static double mcrun(int n, double nequil, double nsteps, real amp,
   dg_close(ng);
   dg_close(sg);
 
-  fbav = fbsum / tot;
+  rathis = hist[1]/hist[0];
+  //fbav = (fbsum[0] + fbsum[1] * rathis * rat10) / (wtot[0] + wtot[1]);
+  fbav = (fbsum[0] + fbsum[1]) / (1 + fbnz[1]/fbnz[0]) / hist[0];
   *nrat = nsum / ntot;
-  fprintf(stderr, "n %d, acc %.8f, fb %.8f, nz %g, nc %.8f\n",
-      n, acc/nsteps, fbav, nzsum/tot, *nrat);
+  fprintf(stderr, "D %d, n %d, t %g, cacc %.6f/%.6f, fb %.8f/%.8f|%.8f, "
+      "rathis %g, nrat %g\n",
+      D, n, t, cacc[0]/hist[0], cacc[1]/hist[1], 
+      fbsum[0]/wtot[0], fbsum[1]/wtot[1] * rathis * rat10, fbav,
+      rathis, *nrat);
   return fbav;
 }
 
@@ -146,17 +203,17 @@ int main(int argc, char **argv)
   double fbav[2], nrat[2], rvir;
 
   doargs(argc, argv);
-  printf("n %d, D %d, nsteps %g, amp %g, nstfb %d, code %d-bit\n",
-      n, D, (double) nsteps, mcamp, nstfb, (int) sizeof(code_t) * 8);
+  printf("D %d, n %d, nsteps %g/%g, amp %g/%g, nstfb %d, code %d-bit\n",
+      D, n, (double) nsteps, nsteps2, mcamp[0], mcamp[1],
+      nstfb, (int) sizeof(code_t) * 8);
 
   fbav[0] = mcrun(n, nequil, nsteps, mcamp,
-      nstfb, nstnmv, 0, nrat);
-  /* the smaller system converges faster, so we spend less time on it */
-  fbav[1] = mcrun(n - 1, nequil, nsteps / 4, mcamp,
-      nstfb, nstnmv, 1, nrat + 1);
+      nstfb, lookup, nstnmv, 0, nrat);
+  fbav[1] = mcrun(n - 1, nequil, nsteps2, mcamp,
+      nstfb, lookup, nstnmv, 1, nrat + 1);
   rvir = fbav[0]/fbav[1] * (nrat[1]/nrat[0]) * (1. - n)/(2. - n)/n;
-  printf("n %d, fbav %g/%g, nrat %g/%g = %g, vir%d/vir%d %g, %g, %g\n",
-      n, fbav[0], fbav[1], nrat[0], nrat[1], nrat[0]/nrat[1],
+  printf("D %d, n %d, fbav %g/%g, nrat %g/%g = %g, vir%d/vir%d %g, %g, %g\n",
+      D, n, fbav[0], fbav[1], nrat[0], nrat[1], nrat[0]/nrat[1],
       n, n - 1, rvir, rvir * 2, rvir * ndvol(D));
 
   mtsave(NULL);

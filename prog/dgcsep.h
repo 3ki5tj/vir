@@ -107,7 +107,7 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
  * one part of the graph is eliminated before the clique
  * ``Decomposition by clique separators'' Robert E. Tarjan,
  * Discrete Mathematics 55 (1985) 221-232 */
-INLINE code_t dg_cliquesep(const dg_t *g)
+INLINE code_t dg_cliqueseplow(const dg_t *g)
 {
   static dg_t *fs[DG_NMAX + 1], *f;
   static int a[DG_NMAX], p[DG_NMAX]; /* a[k] is the kth vertex, p = a^(-1) */
@@ -141,6 +141,19 @@ INLINE code_t dg_cliquesep(const dg_t *g)
   return 0;
 }
 
+
+
+INLINE code_t dg_cliquesep(const dg_t *g)
+{
+  int n = g->n;
+
+  if (n > 2) return dg_cliqueseplow(g);
+  else if (n <= 2) return 0;
+  else { /* n == 3 */
+    static code_t map3[8] = {0, 0, 0, 0x1, 0, 0x2, 0x4, 0}; 
+    return map3[ (g->c[0] >> 1) | (g->c[1] & 0x4) ];
+  }
+}
 
 
 #endif

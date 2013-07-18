@@ -173,26 +173,20 @@ INLINE int dg_hsfbrjw(const dg_t *g)
 
 
 
-/* compute the total hard shpere weight by a lookup table */
-INLINE int dg_hsfb_lookup(const dg_t *g)
+/* compute the hard shpere weight `fb' by a lookup table */
+INLINE int dg_hsfb_lookuplow(int n, unqid_t id)
 {
-  static int *fb[DGMAP_NMAX + 1]; /* biconnectivity of unique diagrams */
-  int n = g->n;
-  dgmap_t *m = dgmap_ + n;
-  code_t c;
+  static int *fb[DGMAP_NMAX + 1]; /* fb of unique diagrams */
 
   if (fb[n] == NULL) { /* initialize the look-up table */
     dg_t *g1;
+    dgmap_t *m = dgmap_ + n;
     int k, cnt = 0, nz = 0;
-    clock_t t0 = clock(), t1;
+    clock_t t0 = clock();
 
-    if (n >= 8) printf("n %d: initializing...\n", n);
-    dgmap_init(m, n); /* compute the permutation mapping */
+    dgmap_init(m, n);
     if (fb[n] == NULL) xnew(fb[n], m->ng);
 
-    t1 = clock();
-    if (n >= 8) printf("n %d: diagram-map initialized %gs\n",
-        n, 1.*(t1 - t0)/CLOCKS_PER_SEC);
     /* loop over unique diagrams */
     g1 = dg_open(n);
     for (cnt = 0, k = 0; k < m->ng; k++) {
@@ -205,10 +199,17 @@ INLINE int dg_hsfb_lookup(const dg_t *g)
     }
     dg_close(g1);
     printf("n %d, computed hard sphere weights of %d/%d biconnected diagrams, %gs\n",
-        n, cnt, nz, 1.*(clock() - t1)/CLOCKS_PER_SEC);
+        n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
   }
-  dg_encode(g, &c);
-  return fb[n][ m->map[c] ]; /* m->map[c] is the id of the unique diagram */
+  return fb[ n ][ id ];
+}
+
+
+
+/* compute the total hard shpere weight by a lookup table */
+INLINE int dg_hsfb_lookup(const dg_t *g)
+{
+  return dg_hsfb_lookuplow(g->n, dg_getmapid(g));
 }
 
 

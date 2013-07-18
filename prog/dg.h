@@ -397,12 +397,15 @@ INLINE int dg_biconnected(const dg_t *g)
 
 
 
+typedef short unqid_t;
+
 typedef struct {
   int ng; /* number of unique diagrams */
-  short *map; /* map a diagram to the unique diagram
+  unqid_t *map; /* map a diagram to the unique diagram
                  `short' works for n <= 8 */
   code_t *first; /* index of the first unique diagram */
 } dgmap_t;
+
 
 /* static diagram map for n <= DGMAP_NMAX */
 #define DGMAP_NMAX 8
@@ -456,9 +459,13 @@ INLINE int dgmap_init(dgmap_t *m, int n)
 {
   code_t c, c1, ng, *masks, *ms;
   int ipm, npm, *pm, i, j, ipr, npr, sz;
+  clock_t t0;
 
   die_if (n > DGMAP_NMAX, "n %d is too large\n", n);
   if (m->ng > 0) return 0; /* already initialized */
+
+  t0 = clock();
+  if (n >= 8) printf("n %d: initializing the diagram map\n", n);
 
   npr = n * (n - 1) / 2;
   ng = (code_t) 1u << npr;
@@ -495,20 +502,23 @@ INLINE int dgmap_init(dgmap_t *m, int n)
     m->ng++;
   }
   free(masks);
-  printf("n %d, %d unique diagrams\n", n, m->ng);
+  printf("n %d, initialized, %d unique diagrams, %gs\n",
+     n, m->ng, 1.*(clock() - t0)/CLOCKS_PER_SEC);
   return 0;
 }
 
 
 
 /* retrieve the diagram id */
-INLINE int dg_getmapid(const dg_t *g)
+INLINE unqid_t dg_getmapid(const dg_t *g)
 {
+  int n = g->n;
   code_t c;
+  dgmap_t *m = dgmap_ + n;
 
-  die_if (g->n >= DGMAP_NMAX, "uncached n %d\n", g->n);
+  dgmap_init(m, n);
   dg_encode(g, &c);
-  return dgmap_[g->n].map[c];
+  return m->map[c];
 }
 
 
@@ -530,9 +540,8 @@ INLINE void dgmap_done(void)
 
 /* check if diagram is biconnected 
  * faster implementation */
-INLINE int dg_biconnected_lookup(const dg_t *g)
+INLINE int dg_biconnected_lookuplow(int n, unqid_t id)
 {
-  int n = g->n;
   /* biconnectivity of unique diagrams */
   static int *bc[DGMAP_NMAX + 1] = {NULL};
 
@@ -541,7 +550,7 @@ INLINE int dg_biconnected_lookup(const dg_t *g)
     dgmap_t *m = dgmap_ + n;
     int k;
 
-    dgmap_init(m, n); /* compute unique maps */
+    dgmap_init(m, n);
     xnew(bc[n], m->ng);
     for (k = 0; k < m->ng; k++) {
       code_t c = m->first[k];
@@ -550,7 +559,14 @@ INLINE int dg_biconnected_lookup(const dg_t *g)
     }
     dg_close(g1);
   }
-  return bc[ n ][ dg_getmapid(g) ];
+  return bc[ n ][ id ];
+}
+
+
+
+INLINE int dg_biconnected_lookup(const dg_t *g)
+{
+  return dg_biconnected_lookuplow(g->n, dg_getmapid(g));
 }
 
 

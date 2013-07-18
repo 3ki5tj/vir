@@ -1,5 +1,5 @@
-#ifndef DGMCUTIL_H__
-#define DGMCUTIL_H__
+#ifndef MCUTIL_H__
+#define MCUTIL_H__
 /* utilities for MC sampling */
 
 
