@@ -20,7 +20,7 @@ double nequil = 100000; /* number of equilibration */
 double nsteps = 10000000, nsteps2 = -1;
 real mcamp[2] = {1.5f, 0.9f};
 int nstfb = 0; /* interval of evaluting the weight */
-int nstnmv = 20; /* frequency of the n move */
+int nstnmv = 100; /* frequency of the n move */
 int nstrep = 100000000; /* interval of reporting */
 double rat10 = 0.03;
 int lookup = -1; /* if to use the lookup table */
@@ -42,7 +42,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-w", "%d", &nstfb, "interval of evaluating the weight");
   argopt_add(ao, "-z", "%d", &nstnmv, "interval of the n-move");
   argopt_add(ao, "-q", "%d", &nstrep, "interval of reporting");
-  argopt_add(ao, "-R", "%lf", &rat10, "estimated ratio of nonzero biconnected diagrams");
+  argopt_add(ao, "-Z", "%lf", &rat10, "estimated ratio of nonzero biconnected diagrams");
   argopt_parse(ao, argc, argv);
   argopt_dump(ao);
   argopt_close(ao);
@@ -68,11 +68,11 @@ static void doargs(int argc, char **argv)
 /* compute the sign of the virial coefficient */
 static double mcrun(int n, double nequil, double nsteps,
     double amp[2], int nstfb, int lookup,
-    int nstnmv, int plus, double *nrat)
+    int nstnmv, double *nrat)
 {
   rvn_t *x, xi;
   int i, j, it, fb = 0, nfb = 0, nz, nnz, nbc, eql;
-  double fbav, rathis, t, nsum = 0, ntot = 0;
+  double fbav, rathis, t;
   dg_t *g, *ng, *sg;
   double wtot[2] = {1e-6, 1e-6}, fbsum[2] = {0, 0}, fbnz[2] = {1e-6, 1e-6};
   double hist[2] = {1e-6, 1e-6}, cacc[2] = {0, 0};
@@ -91,6 +91,8 @@ static double mcrun(int n, double nequil, double nsteps,
              otherwise nz means no clique separator */
   sys = 0;
   eql = 1;
+  nrat[0] = nrat[2] = 1e-6;
+  nrat[1] = nrat[3] = 0;
 
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
     i = (int) (rnd0() * n);
@@ -158,25 +160,31 @@ static double mcrun(int n, double nequil, double nsteps,
       rvn_rmcom(x, n);
 
       if (sys == 0) {
-        if (plus) {
-          ntot += 1;
-          nsum += rvn_voladd(x, n, xi);
+        if (rnd0() < 0.5) {
+          /* the rate of biconnectivity after adding a random vertex */
+          nrat[0] += 1;
+          nrat[1] += rvn_voladd(x, n, xi);
         } else {
-          /* compute the probability of biconnectivity after removing a random vertex */
-          ntot += 1;
-          nsum += dgmc_nremove(g, sg, n, &i);
+          /* the rate of biconnectivity after removing a random vertex */
+          nrat[2] += 1;
+          nrat[3] += dgmc_nremove(g, sg, n, &i);
         }
       }
     }
 
+#define REPORT() \
+      rathis = hist[1]/hist[0]; \
+      fbav = (fbsum[0] + fbsum[1]) / (1 + fbnz[1]/fbnz[0]) / hist[0]; \
+      fprintf(stderr, "D %d, n %d,%11g steps, fb%+8d(%+.8f/%+.8f|%+.8f),\n" \
+          "    cacc %.4f/%.4f, nz %.4f, his1/0 %.4f, nmv+: %.8f, -: %.8f\n", \
+        D, n, t, \
+        fb, fbsum[0]/wtot[0], fbsum[1]/wtot[1] * rathis * rat10, fbav, \
+        cacc[0]/hist[0], cacc[1]/hist[1], \
+        fbnz[0]/hist[0], rathis, nrat[1]/nrat[0], nrat[3]/nrat[2]);
+
     if (it % nstrep == 0) {
       it = 0;
-      rathis = hist[1]/hist[0];
-      fprintf(stderr, "D %d, n %d,%11g steps, cacc %.6f/%.6f, "
-          "fb%+8d(%+.8f/%+.8f), nz %.4f, his1/0 %.4f, nrat %.8f\n",
-        D, n, t, cacc[0]/hist[0], cacc[1]/hist[1],
-        fb, fbsum[0]/wtot[0], fbsum[1]/wtot[1] * rathis * rat10,
-        fbnz[0]/hist[0], rathis, nsum/ntot);
+      REPORT();
     }
   }
   free(x);
@@ -184,15 +192,7 @@ static double mcrun(int n, double nequil, double nsteps,
   dg_close(ng);
   dg_close(sg);
 
-  rathis = hist[1]/hist[0];
-  //fbav = (fbsum[0] + fbsum[1] * rathis * rat10) / (wtot[0] + wtot[1]);
-  fbav = (fbsum[0] + fbsum[1]) / (1 + fbnz[1]/fbnz[0]) / hist[0];
-  *nrat = nsum / ntot;
-  fprintf(stderr, "D %d, n %d, t %g, cacc %.6f/%.6f, fb %.8f/%.8f|%.8f, "
-      "rathis %g, nrat %g\n",
-      D, n, t, cacc[0]/hist[0], cacc[1]/hist[1], 
-      fbsum[0]/wtot[0], fbsum[1]/wtot[1] * rathis * rat10, fbav,
-      rathis, *nrat);
+  REPORT();
   return fbav;
 }
 
@@ -200,7 +200,7 @@ static double mcrun(int n, double nequil, double nsteps,
 
 int main(int argc, char **argv)
 {
-  double fbav[2], nrat[2], rvir;
+  double fbav[2], nrat1[4], nrat2[4], nr1, nr2, rvir;
 
   doargs(argc, argv);
   printf("D %d, n %d, nsteps %g/%g, amp %g/%g, nstfb %d, code %d-bit\n",
@@ -208,12 +208,14 @@ int main(int argc, char **argv)
       nstfb, (int) sizeof(code_t) * 8);
 
   fbav[0] = mcrun(n, nequil, nsteps, mcamp,
-      nstfb, lookup, nstnmv, 0, nrat);
+      nstfb, lookup, nstnmv, nrat1);
   fbav[1] = mcrun(n - 1, nequil, nsteps2, mcamp,
-      nstfb, lookup, nstnmv, 1, nrat + 1);
-  rvir = fbav[0]/fbav[1] * (nrat[1]/nrat[0]) * (1. - n)/(2. - n)/n;
+      nstfb, lookup, nstnmv, nrat2);
+  nr1 = nrat1[3]/nrat1[2];
+  nr2 = nrat2[1]/nrat2[0];
+  rvir = fbav[0]/fbav[1] * nr2/nr1 * (1. - n)/(2. - n)/n;
   printf("D %d, n %d, fbav %g/%g, nrat %g/%g = %g, vir%d/vir%d %g, %g, %g\n",
-      D, n, fbav[0], fbav[1], nrat[0], nrat[1], nrat[0]/nrat[1],
+      D, n, fbav[0], fbav[1], nr2, nr1, nr2/nr1,
       n, n - 1, rvir, rvir * 2, rvir * ndvol(D));
 
   mtsave(NULL);
