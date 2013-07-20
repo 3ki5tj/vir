@@ -108,6 +108,6 @@ int main(void)
   cmpref(6, ref6);
   testspeed(7, 1000000, 1);
   //testspeed(8, 10000000, 1);
-  testspeed(10, 10000, 0);
+  testspeed(12, 10000, 0);
   return 0;
 }

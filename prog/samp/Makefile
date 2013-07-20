@@ -19,5 +19,5 @@ $(bins_d) : %_d: %.c $(deps)
 	$(CC) -o $@ $< $(LM)
 
 clean:
-	rm -f $(bins) $(bins_d) *~ a.out *.his MTSEED
+	rm -rf $(bins) $(bins_d) *~ a.out *.his MTSEED bin obj
 

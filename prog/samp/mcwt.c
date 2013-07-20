@@ -22,10 +22,10 @@
 int n = 5; /* order */
 double nequil = 100000; /* number of equilibration */
 double nsteps = 10000000;
-real mcamp[NSYS] = {1.5f, 0.6f, 0.6f};
+real mcamp[NSYS] = {1.5f, 0.6f, 0.9f};
 int nstfb = 0; /* interval of evaluting the weight */
 int nstrep = 100000000; /* interval of reporting */
-double Z[NSYS] = {1, 0.3, 0.6};
+double Z[NSYS] = {1, 0.03, 0.2};
 
 /* handle arguments */
 static void doargs(int argc, char **argv)
@@ -37,8 +37,11 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-n", "%d", &n, "order n");
   argopt_add(ao, "-0", "%lf", &nequil, "number of equilibration steps");
   argopt_add(ao, "-1", "%lf", &nsteps, "number of simulation steps");
-  argopt_add(ao, "-a", "%r", &mcamp[0], "MC amplitude for biconnected diagrams");
-  argopt_add(ao, "-A", "%r", &mcamp[1], "MC amplitude for nonzero biconnected diagrams");
+  argopt_add(ao, "-a", "%r", &mcamp[0], "MC amplitude for system 0 (biconnected diagrams)");
+  argopt_add(ao, "-A", "%r", &mcamp[1], "MC amplitude for system 1 (nonzero biconnected diagrams)");
+  argopt_add(ao, "--A2", "%r", &mcamp[2], "MC amplitude for system 2 (importance sampler)");
+  argopt_add(ao, "-Z", "%lf", &Z[1], "relative partition function of system 1");
+  argopt_add(ao, "--Z2", "%lf", &Z[2], "relative partition function of system 2");
   argopt_add(ao, "-w", "%d", &nstfb, "interval of evaluating the weight");
   argopt_add(ao, "-q", "%d", &nstrep, "interval of reporting");
   argopt_parse(ao, argc, argv);
@@ -46,7 +49,6 @@ static void doargs(int argc, char **argv)
   argopt_close(ao);
   if (nstfb <= 0) /* frequency of computing the weight */
     nstfb = (n > DGMAP_NMAX) ? 100 : 1;
-  for (i = 2; i < NSYS; i++) mcamp[i] = mcamp[1];
   for (i = 0; i < NSYS; i++) mcamp[i] /= D;
 }
 
@@ -88,7 +90,7 @@ static double mcrun(int n, double nequil, double nsteps,
       else
         dg_link(ng, i, j);
     }
-    
+
     nfb = (g->c[i] != ng->c[i]) ? dg_hsfb(ng) : fb;
     nwt = abs(nfb);
     acc1 = 0;
@@ -136,29 +138,31 @@ static double mcrun(int n, double nequil, double nsteps,
         }
       }
     }
-     
-    if (eql && t >= nequil) {
-      printf("equilibrated at t %g\n", t);
-      t = 0;
-      it = 0;
-      eql = 0;
+
+    if (eql) {
+      if (t >= nequil) {
+        printf("equilibrated at t %g\n", t);
+        t = 0;
+        it = 0;
+        eql = 0;
+      }
       continue;
     }
-    
+
     /* accumulate data after equilibration */
     acc[sys] += acc1;
     hist[sys] += 1;
     if (sys == 0 && fb != 0) fbnz += 1;
     wt = (sys == 2) ? abs(fb) : 1;
     fbsum[sys] += fb / wt;
-    
+
 #define REPORT() \
   fbav = (fbsum[0] + fbsum[1]) / (1 + hist[1]/fbnz) / hist[0]; \
-  fprintf(stderr, "D %d, n %d, acc %.6f/%.6f/%.6f, fb %.8f/%.8f|%.8f %.8f\n" \
-      "  t%11g nz %.6f, hisrat 1/0: %g, 2/1: %g, tacc1 %g, tacc2 %g\n", \
+  fprintf(stderr, "D %d, n %d, acc %.6f/%.6f/%.6f, fb %.8f/%.8f|%.8f %.8f, %d\n" \
+      "  t%11g nz %.6f, hisrat 1/0: %.6f, 2/1: %.6f, tacc1 %.4f, tacc2 %.4f\n", \
       D, n, acc[0]/hist[0], acc[1]/hist[1], acc[2]/hist[2], \
       fbsum[0]/hist[0], fbsum[1]/hist[0] * (Z[1]/Z[0]), fbav, \
-      fbsum[2]/hist[2] * ((tacc1/tsum1)/(tacc2/tsum2)) * (Z[2]/Z[1]) * (fbnz/hist[0]), \
+      fbsum[2]/hist[2] * ((tacc1/tsum1)/(tacc2/tsum2)) * (Z[2]/Z[1]) * (fbnz/hist[0]), fb, \
       t, fbnz/hist[0], hist[1]/hist[0], hist[2]/hist[1], tacc1/tsum1, tacc2/tsum2);
 
     if (it % nstrep == 0) {

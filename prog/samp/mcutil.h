@@ -51,7 +51,7 @@ INLINE double rvn_voladd(rvn_t *x, int n, rvn_t xi)
 {
   int j, deg = 0;
   real rad, r2, r2m = 0, r2n = 0, vol;
-  
+
   /* naively, in a trial, the vertex should be added uniformly to
    * a very large volume Vmax, and the probability is computed as
    *  r = (V_bi / Vmax) * (Vmax / Vunit)             (1)

@@ -8,6 +8,9 @@
 #define ZCOM_UTIL
 #define ZCOM_RV3
 #include "zcom.h"
+#include <time.h>
+
+
 
 /* currently only support 32-bit */
 typedef uint32_t code_t;
@@ -369,7 +372,8 @@ INLINE int dg_connectedi(const dg_t *g, int i)
 
 
 
-/* check if diagram is biconnected, bitwise version */
+/* check if diagram is biconnected, bitwise version
+ * we do not use lookup table by default */
 INLINE int dg_biconnected(const dg_t *g)
 {
   int i, n = g->n;
@@ -385,14 +389,19 @@ INLINE int dg_biconnected(const dg_t *g)
     0,   0,   0,   1,     0,   1,     1,     1,    /* 1-2, 1-3, 2-3 */
   };
 
-  if (n < 2) return 1;
-  else if (n == 2) return (g->c[0] >> 1) & 1u;
-  else if (n == 3) return ((g->c[0] | (g->c[1] >> 2)) & 7u) == 7u;
-  else if (n == 4) return bc4[ ((g->c[0] >> 1) | ((g->c[1] >> 2) << 3) | ((g->c[2] >> 3) << 5)) & 0x3f ];
-
-  for (i = 0; i < n; i++)
-    if ( !dg_connectedi(g, i) ) return 0;
-  return 1;
+  if (n > 4) {
+    for (i = 0; i < n; i++)
+      if ( !dg_connectedi(g, i) ) return 0;
+    return 1;
+  } else if (n == 4) {
+    return bc4[ ((g->c[0] >> 1) | ((g->c[1] >> 2) << 3) | ((g->c[2] >> 3) << 5)) & 0x3f ];
+  } else if (n == 2) {
+    return (g->c[0] >> 1) & 1u;
+  } else if (n == 3) {
+    return ((g->c[0] | (g->c[1] >> 2)) & 7u) == 7u;
+  } else /* if (n < 2) */ {
+    return 1;
+  }
 }
 
 

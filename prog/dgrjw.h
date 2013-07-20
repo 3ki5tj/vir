@@ -12,15 +12,15 @@
 
 /* for a configuration, compute sum of all diagrams
   `c' is the connectivity matrix, `vs' is the vertex set */
-INLINE int dg_hsfqrjwlow(const dg_t *g, code_t vs)
+INLINE int dg_hsfqrjwlow(const code_t *c, code_t vs)
 {
   code_t w, br;
 
-  /* if there is a bond, or r(i, j) < 1, then the fq = 1 */
+  /* if there is a bond, i.e., r(i, j) < 1, then fq = 1 */
   for (w = vs; w; w ^= br) {
     int r = bitfirstlow(w, &br);
-    /* if g->c[r] share vertices with vs, there is bond */
-    if (g->c[r] & vs) return 0;
+    /* if c[r] share vertices with vs, there is bond */
+    if (c[r] & vs) return 0;
   }
   return 1;
 }
@@ -29,23 +29,23 @@ INLINE int dg_hsfqrjwlow(const dg_t *g, code_t vs)
 
 /* for a configuration, compute sum of connected diagrams by Wheatley's method
   `c' is the connectivity matrix,  `vs' is the vertex set */
-static int dg_hsfcrjwlow(const dg_t *g, code_t vs, int *fcarr)
+static int dg_hsfcrjwlow(const code_t *c, code_t vs, int * RESTRICT fcarr)
 {
   int fc, fq2;
   code_t ms, ms1, vs1, vs2, s, b, b1;
 
   b1 = vs & (-vs);
   if ( (vs ^ b1) == 0 ) return 1; /* only one vertex */
-  fc = dg_hsfqrjwlow(g, vs); /* start with fq */
+  fc = dg_hsfqrjwlow(c, vs); /* start with fq */
   ms = vs ^ b1; /* the set of vertices (except the lowest vertex) */
   /* loop over subsets of vs, stops when vs == vs1 */
   for (ms1 = 0; ms1 ^ ms;) {
-    vs1 = ms1 | b1;
-    vs2 = vs1 ^ vs;
-    fq2 = dg_hsfqrjwlow(g, vs2); /* fq of the complement set */
+    vs1 = ms1 | b1; /* add vertex 1 to the set */
+    vs2 = vs1 ^ vs; /* the complement set */
+    fq2 = dg_hsfqrjwlow(c, vs2); /* fq of the complement set */
     if (fq2 != 0) {
       if (fcarr[vs1] == INT_MIN)
-        fcarr[vs1] = dg_hsfcrjwlow(g, vs1, fcarr); /* recursion */
+        fcarr[vs1] = dg_hsfcrjwlow(c, vs1, fcarr); /* recursion */
       fc -= fcarr[vs1] * fq2;
     }
     /* update the subset `ms1' */
@@ -73,36 +73,38 @@ INLINE int dg_hsfcrjw(const dg_t *g)
     xrenew(fcarr, 1u << (nmax - 1));
   }
   for (i = 0; i < (1 << (n - 1)); i++) fcarr[i] = INT_MIN;
-  return dg_hsfcrjwlow(g, (1 << n) - 1, fcarr);
+  return dg_hsfcrjwlow(g->c, (1 << n) - 1, fcarr);
 }
 
 
 
-INLINE int dg_hsfarjwlow(const dg_t *g, int v, code_t vs, int *faarr, int *fbarr);
+INLINE int dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
+    int * RESTRICT faarr, int * RESTRICT fbarr);
 
 
 
 /* compute the sum of all connected diagrams without the articulation point
    at vertices lower than `v', `vs' is the vertex set
    if v = 0, it returns fc; if v = n, it returns fb */
-INLINE int dg_hsfbrjwlow(const dg_t *g, int v, code_t vs, int *faarr, int *fbarr)
+INLINE int dg_hsfbrjwlow(const code_t *c, int n, int v, code_t vs,
+    int * RESTRICT faarr, int * RESTRICT fbarr)
 {
-  int fb, id, i, n = g->n;
+  int fb, id, i;
   code_t r, b, bv = (code_t) 1u << v;
 
   if ((i = bitcount(vs)) <= 1) return 1;
-  else if (i == 2) return (g->c[ bitfirst(vs) ] & vs) ? -1 : 0;
+  else if (i == 2) return (c[ bitfirst(vs) ] & vs) ? -1 : 0;
 
   /* start with the sum of connected diagrams */
   if (fbarr[vs] == INT_MIN)
-    fbarr[vs] = dg_hsfcrjwlow(g, vs, fbarr);
+    fbarr[vs] = dg_hsfcrjwlow(c, vs, fbarr);
   fb = fbarr[vs];
   /* remove diagrams with the lowest articulation points at i < v */
   for (r = vs & (bv - 1); r; r ^= b) {
     i = bitfirstlow(r, &b);
     id = ((i + 1) << n) + vs;
     if (faarr[id] == INT_MIN)
-      faarr[id] = dg_hsfarjwlow(g, i, vs, faarr, fbarr);
+      faarr[id] = dg_hsfarjwlow(c, n, i, vs, faarr, fbarr);
     fbarr[id] = (fb -= faarr[id]);
   }
   return fb;
@@ -112,9 +114,10 @@ INLINE int dg_hsfbrjwlow(const dg_t *g, int v, code_t vs, int *faarr, int *fbarr
 
 /* compute the sum of all connected diagrams with the articulation point at v
    and no articulation point at any vertex lower than v */
-INLINE int dg_hsfarjwlow(const dg_t *g, int v, code_t vs, int *faarr, int *fbarr)
+INLINE int dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
+    int * RESTRICT faarr, int * RESTRICT fbarr)
 {
-  int fa = 0, n = g->n;
+  int fa = 0;
   code_t ms, ms1, vs1, vs2, s, b, bv = 1u << v, b1, id1, id2;
 
   b1 = vs & (-vs); /* lowest vertex */
@@ -129,14 +132,14 @@ INLINE int dg_hsfarjwlow(const dg_t *g, int v, code_t vs, int *faarr, int *fbarr
     vs1 = ms1 | (b1 | bv);
     id1 = ((v + 1) << n) + vs1;
     if ( fbarr[id1] == INT_MIN )
-      fbarr[id1] = dg_hsfbrjwlow(g, v + 1, vs1, faarr, fbarr);
+      fbarr[id1] = dg_hsfbrjwlow(c, n, v + 1, vs1, faarr, fbarr);
     if ( fbarr[id1] != 0 ) {
       vs2 = (vs1 ^ vs) | bv; /* complement set of vs */
       id2 = ((v + 1) << n) + vs2;
       if ( fbarr[id2] == INT_MIN )
-        fbarr[id2] = dg_hsfbrjwlow(g, v + 1, vs2, faarr, fbarr);
+        fbarr[id2] = dg_hsfbrjwlow(c, n, v + 1, vs2, faarr, fbarr);
       if ( faarr[id2] == INT_MIN )
-        faarr[id2] = dg_hsfarjwlow(g, v, vs2, faarr, fbarr);
+        faarr[id2] = dg_hsfarjwlow(c, n, v, vs2, faarr, fbarr);
       fa += fbarr[id1] * (fbarr[id2] + faarr[id2]);
     }
     /* update the subset `ms1' */
@@ -168,7 +171,7 @@ INLINE int dg_hsfbrjw(const dg_t *g)
   }
   for (i = 0; i < ((nmax + 1) << nmax); i++)
     faarr[i] = fbarr[i] = INT_MIN;
-  return dg_hsfbrjwlow(g, n, (1u << n) - 1, faarr, fbarr);
+  return dg_hsfbrjwlow(g->c, n, n, (1u << n) - 1, faarr, fbarr);
 }
 
 
