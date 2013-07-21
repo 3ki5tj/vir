@@ -101,18 +101,63 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
 
 
 
-/* test if a graph has a clique separator, a fully-connected subgraph
+/* decompose a diagram by clique separators
+ * A clique separator is a fully-connected subgraph
+ * `g' is the input diagram, `f' is the fill-in diagram
+ * return the number of cliques, `cl' is the array of cliques
+ * `stop1' means stop the search after the first step
  * The algorithm first find a minimal order of elimination.
  * Using this order on a graph with a clique separator, at least
  * one part of the graph is eliminated before the clique
  * ``Decomposition by clique separators'' Robert E. Tarjan,
  * Discrete Mathematics 55 (1985) 221-232 */
-INLINE code_t dg_cliqueseplow(const dg_t *g)
+INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
+    const int *a, const int *p, code_t * RESTRICT cl, int stop1)
+{
+  int v, w, i, n = g->n, ncl = 0;
+  code_t cb, c, bw, r, unvisited;
+
+  for (unvisited = ((code_t) 1u << n) - 1, i = 0; i < n; i++) {
+    v = a[i];
+    unvisited &= ~((code_t) 1 << v); /* remove the `v' bit */
+    /* compute C(v), the set of succeeding vertices that
+     * are adjacent to v */
+    for (c = 0, r = (unvisited & f->c[v]); r; r ^= bw) {
+      w = bitfirstlow(r, &bw);
+      if (p[w] > p[v])
+        c |= (code_t) 1u << w;
+    }
+    /* test if C(v) is a clique, a fully-connected subgraph */
+    for (r = c; r; r ^= bw) {
+      w = bitfirstlow(r, &bw);
+      /* c ^ bw is the set of vertices connected to `w'
+       * in `c', if `c' is a clique */
+      cb = c ^ bw;
+      if ((g->c[w] & cb) != cb) /* not a clique */
+        break; /* break the loop prematurally */
+    }
+    if (r == 0) { /* if the loop completed, `c' is a clique */
+      if (unvisited  == c) { /* clique `c' == the rest vertices */
+        return ncl;
+      } else { /* found a clique `c' */
+        if (cl) cl[ncl] = c;
+        ncl++;
+        if (stop1) return 1;
+      }
+    }
+  }
+  return ncl;
+}
+
+
+
+/* test if a graph has a clique separator */
+INLINE code_t dg_cliquesep(const dg_t *g)
 {
   static dg_t *fs[DG_NMAX + 1], *f;
   static int a[DG_NMAX], p[DG_NMAX]; /* a[k] is the kth vertex, p = a^(-1) */
-  int i, v, w, n = g->n;
-  code_t c, bw, r, unvisited;
+  int n = g->n;
+  code_t cl;
 
   if (fs[n] == NULL) f = fs[n] = dg_open(n);
 
@@ -120,40 +165,27 @@ INLINE code_t dg_cliqueseplow(const dg_t *g)
   dg_minimalorder(g, f, a, p);
 
   /* 2. clique decomposition (stop after the first clique) */
-  for (unvisited = ((code_t) 1 << n) - 1, i = 0; i < n; i++) {
-    v = a[i];
-    unvisited &= ~((code_t) 1 << v);
-    /* compute C(v) */
-    for (c = 0, w = 0; w < n; w++)
-      if (dg_linked(f, v, w) && p[w] > p[v])
-        c |= 1 << w;
-    /* test if C(v) is a clique, a fully-connected subgraph */
-    for (r = c; r; r ^= bw) {
-      w = bitfirstlow(r, &bw);
-      if ((g->c[w] & (bw ^ c)) != (bw ^ c))
-        break;
-    }
-    if (r == 0) {
-      if (unvisited == c) return 0; /* the rest */
-      else return c; /* found a clique */
-    }
-  }
-  return 0;
+  if ( dg_decompcliqueseplow(g, f, a, p, &cl, 1) ) return cl;
+  else return 0;
 }
 
 
 
-INLINE code_t dg_cliquesep(const dg_t *g)
+INLINE int dg_decompcliquesep(const dg_t *g, code_t * RESTRICT cl)
 {
+  static dg_t *fs[DG_NMAX + 1], *f;
+  static int a[DG_NMAX], p[DG_NMAX]; /* a[k] is the kth vertex, p = a^(-1) */
   int n = g->n;
 
-  if (n > 2) return dg_cliqueseplow(g);
-  else if (n <= 2) return 0;
-  else { /* n == 3 */
-    static code_t map3[8] = {0, 0, 0, 0x1, 0, 0x2, 0x4, 0}; 
-    return map3[ (g->c[0] >> 1) | (g->c[1] & 0x4) ];
-  }
+  if (fs[n] == NULL) f = fs[n] = dg_open(n);
+
+  /* 1. find a minimal ordering and its fill-in */
+  dg_minimalorder(g, f, a, p);
+
+  /* 2. clique decomposition */
+  return dg_decompcliqueseplow(g, f, a, p, cl, 0);
 }
+
 
 
 #endif

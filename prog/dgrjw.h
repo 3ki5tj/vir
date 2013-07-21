@@ -9,6 +9,11 @@
 #include <limits.h>
 
 
+/* max |fb(n)| = 12! = 479001600 < |INT_MIN| */
+#define FBDIRTY INT_MIN
+#define FBINVALID(c) ((c) == FBDIRTY)
+
+
 
 /* for a configuration, compute sum of all diagrams
   `c' is the connectivity matrix, `vs' is the vertex set */
@@ -37,17 +42,17 @@ static int dg_hsfcrjwlow(const code_t *c, code_t vs,
 
   b1 = vs & (-vs);
   if ( (vs ^ b1) == 0 ) return 1; /* only one vertex */
-  if ((fc = fqarr[vs]) == INT_MIN)
+  if ( FBINVALID(fc = fqarr[vs]) )
     fqarr[vs] = fc = dg_hsfqrjwlow(c, vs); /* start with fq */
   ms = vs ^ b1; /* the set of vertices (except the lowest vertex) */
   /* loop over subsets of vs, stops when vs == vs1 */
   for (ms1 = 0; ms1 ^ ms;) {
     vs1 = ms1 | b1; /* add vertex 1 to the set */
     vs2 = vs1 ^ vs; /* the complement set */
-    if ((fq2 = fqarr[vs2]) == INT_MIN)
+    if ( FBINVALID(fq2 = fqarr[vs2]) )
       fqarr[vs2] = fq2 = dg_hsfqrjwlow(c, vs2); /* fq of the complement set */
     if (fq2 != 0) {
-      if ((fc1 = fcarr[vs1]) == INT_MIN)
+      if ( FBINVALID(fc1 = fcarr[vs1]) )
         fcarr[vs1] = fc1 = dg_hsfcrjwlow(c, vs1, fcarr, fqarr); /* recursion */
       fc -= fc1 * fq2;
     }
@@ -78,8 +83,8 @@ INLINE int dg_hsfcrjw(const dg_t *g)
     xrenew(fqarr, 1u << nmax);
   }
   for (i = 0; i < (1 << n); i++) {
-    fcarr[i] = INT_MIN;
-    fqarr[i] = INT_MIN;
+    fcarr[i] = FBDIRTY;
+    fqarr[i] = FBDIRTY;
   }
   return dg_hsfcrjwlow(g->c, (1 << n) - 1, fcarr, fqarr);
 }
@@ -105,14 +110,14 @@ INLINE int dg_hsfbrjwlow(const code_t *c, int n, int v, code_t vs,
 
   /* start with the sum of connected diagrams, the first 2^n numbers of
    * fbarr and faarr are used for saving fcarr and fqarr, respectively */
-  if (fbarr[vs] == INT_MIN)
+  if ( FBINVALID(fbarr[vs]) )
     fbarr[vs] = dg_hsfcrjwlow(c, vs, fbarr, faarr);
   fb = fbarr[vs];
   /* remove diagrams with the lowest articulation points at i < v */
   for (r = vs & (bv - 1); r; r ^= b) {
     i = bitfirstlow(r, &b);
     id = ((i + 1) << n) + vs;
-    if (faarr[id] == INT_MIN)
+    if ( FBINVALID(faarr[id]) )
       faarr[id] = dg_hsfarjwlow(c, n, i, vs, faarr, fbarr);
     fbarr[id] = (fb -= faarr[id]);
   }
@@ -140,14 +145,14 @@ INLINE int dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
   for (ms1 = 0; ms1 ^ ms;) {
     vs1 = ms1 | (b1 | bv);
     id1 = ((v + 1) << n) + vs1;
-    if ( fbarr[id1] == INT_MIN )
+    if ( FBINVALID(fbarr[id1]) )
       fbarr[id1] = dg_hsfbrjwlow(c, n, v + 1, vs1, faarr, fbarr);
     if ( fbarr[id1] != 0 ) {
       vs2 = (vs1 ^ vs) | bv; /* complement set of vs */
       id2 = ((v + 1) << n) + vs2;
-      if ( fbarr[id2] == INT_MIN )
+      if ( FBINVALID(fbarr[id2]) )
         fbarr[id2] = dg_hsfbrjwlow(c, n, v + 1, vs2, faarr, fbarr);
-      if ( faarr[id2] == INT_MIN )
+      if ( FBINVALID(faarr[id2]) )
         faarr[id2] = dg_hsfarjwlow(c, n, v, vs2, faarr, fbarr);
       fa += fbarr[id1] * (fbarr[id2] + faarr[id2]);
     }
@@ -179,7 +184,7 @@ INLINE int dg_hsfbrjw(const dg_t *g)
     xrenew(fbarr, (nmax + 1) << nmax);
   }
   for (i = 0; i < ((nmax + 1) << nmax); i++)
-    faarr[i] = fbarr[i] = INT_MIN;
+    faarr[i] = fbarr[i] = FBDIRTY;
   return dg_hsfbrjwlow(g->c, n, n, (1u << n) - 1, faarr, fbarr);
 }
 

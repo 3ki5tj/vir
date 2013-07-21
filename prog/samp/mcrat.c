@@ -20,6 +20,7 @@ int n = 3; /* order */
 double nequil = 100000; /* number of equilibration */
 double nsteps = 10000000, nsteps2 = -1;
 real mcamp[NSYS] = {1.5f, 0.9f, 0.9f};
+int usegrand = 0; /* normally distributed */
 int nstfb = 0; /* interval of evaluting the weight */
 int nstnmv = 100; /* frequency of the n move */
 int nstrep = 100000000; /* interval of reporting */
@@ -48,6 +49,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-w", "%d", &nstfb, "interval of evaluating the weight");
   argopt_add(ao, "-z", "%d", &nstnmv, "interval of the n-move");
   argopt_add(ao, "-q", "%d", &nstrep, "interval of reporting");
+  argopt_add(ao, "-G", "%b", &usegrand, "normally-distributed displacement");
   argopt_parse(ao, argc, argv);
 
   /* decide whether to use lookup table or not */
@@ -144,13 +146,14 @@ INLINE void movesys(int *sys, int fb, int nz, int ifb,
 /* compute the sign of the virial coefficient,
  * assuming a lookup table */
 INLINE double mcrat_lookup(int n, double nequil, double nsteps,
-    double amp[], int nstnmv, double *nrat, double *tacc)
+    double amp[], int usegrand,
+    int nstnmv, double *nrat, double *tacc)
 {
   rvn_t *x, xi;
   int i, j, it, fb = 0, nfb = 0, wt, nwt, nz, nnz, nbc, eql;
   dg_t *g, *ng, *sg;
-  double fbnz, fbav, t;
-  double fbsum[NSYS], hist[NSYS], cacc[NSYS], ctot[NSYS];
+  double fbav, t;
+  double fbnz = 0, fbsum[NSYS], hist[NSYS], cacc[NSYS], ctot[NSYS];
   int sys, sys0, acc1;
   unqid_t gmapid;
 
@@ -181,7 +184,11 @@ INLINE double mcrat_lookup(int n, double nequil, double nsteps,
     sys0 = sys;
 
     i = (int) (rnd0() * n);
-    rvn_rnddisp(xi, x[i], amp[sys]);
+    if (usegrand) {
+      rvn_granddisp(xi, x[i], amp[sys]);
+    } else {
+      rvn_rnddisp(xi, x[i], amp[sys]);
+    }
     dg_copy(ng, g);
     for (j = 0; j < n; j++) {
       if (j == i) continue;
@@ -291,7 +298,8 @@ INLINE double mcrat_lookup(int n, double nequil, double nsteps,
 /* compute the sign of the virial coefficient by importance sampling
  * direct version without lookup table */
 INLINE double mcrat_direct(int n, double nequil, double nsteps,
-    double amp[], int nstfb, int nstnmv, double *nrat, double *tacc)
+    double amp[], int usegrand, int nstfb,
+    int nstnmv, double *nrat, double *tacc)
 {
   rvn_t *x, xi;
   int i, j, it, fb = 0, nfb = 0, wt, nwt, nz, nnz, nbc, eql;
@@ -332,7 +340,11 @@ INLINE double mcrat_direct(int n, double nequil, double nsteps,
     sys0 = sys;
 
     i = (int) (rnd0() * n);
-    rvn_rnddisp(xi, x[i], amp[sys]);
+    if (usegrand) {
+      rvn_granddisp(xi, x[i], amp[sys]);
+    } else {
+      rvn_rnddisp(xi, x[i], amp[sys]);
+    }
     dg_copy(ng, g);
     for (j = 0; j < n; j++) {
       if (j == i) continue;
@@ -462,13 +474,17 @@ INLINE double mcrat_direct(int n, double nequil, double nsteps,
 
 /* compute the sign of the virial coefficient */
 static double mcrat(int n, double nequil, double nsteps,
-    double amp[], int nstfb, int lookup, int nstnmv, double *nrat, double *tacc)
+    double amp[], int usegrand, int nstfb, int lookup,
+    int nstnmv, double *nrat, double *tacc)
 {
-  printf("D %d, n %d, %s version\n", D, n, lookup ? "lookup" : "direct");
+  printf("D %d, n %d, %s version, normally distributed %d\n",
+      D, n, lookup ? "lookup" : "direct", usegrand);
   if (lookup)
-    return mcrat_lookup(n, nequil, nsteps, amp, nstnmv, nrat, tacc);
+    return mcrat_lookup(n, nequil, nsteps, amp, usegrand,
+        nstnmv, nrat, tacc);
   else
-    return mcrat_direct(n, nequil, nsteps, amp, nstfb, nstnmv, nrat, tacc);
+    return mcrat_direct(n, nequil, nsteps, amp, usegrand,
+        nstfb, nstnmv, nrat, tacc);
 }
 
 
@@ -482,9 +498,9 @@ int main(int argc, char **argv)
       D, n, (double) nsteps, nsteps2, mcamp[0], mcamp[1],
       nstfb, (int) sizeof(code_t) * 8);
 
-  fbav1 = mcrat(n, nequil, nsteps, mcamp,
+  fbav1 = mcrat(n, nequil, nsteps, mcamp, usegrand,
       nstfb, lookup, nstnmv, nrat1, tr1);
-  fbav2 = mcrat(n - 1, nequil, nsteps2, mcamp,
+  fbav2 = mcrat(n - 1, nequil, nsteps2, mcamp, usegrand,
       nstfb, lookup, nstnmv, nrat2, tr2);
   nr1 = nrat1[3]/nrat1[2];
   nr2 = nrat2[1]/nrat2[0];
