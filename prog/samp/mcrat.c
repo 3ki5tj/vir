@@ -91,11 +91,15 @@ static double mcrun(int n, double nequil, double nsteps,
     int nstnmv, double *nrat, double *tacc)
 {
   rvn_t *x, xi;
-  int i, j, it, fb = 0, nfb = 0, ifb, wt, nwt, nz, nnz, nbc, eql;
+  int i, j, it, fb = 0, nfb = 0, wt, nwt, nz, nnz, nbc, eql;
   dg_t *g, *ng, *sg;
   double fbnz, fbav, t, r;
   double fbsum[NSYS], hist[NSYS], cacc[NSYS], ctot[NSYS];
-  int sys, sys0, acc1, hasfb, hasnfb;
+  int sys, sys0, acc1;
+  int needfb = 0; /* need to compute fb */
+  int hasfb = 1; /* if fb has been computed for the step */
+  int hasnfb = 1; /* if fb has been computed for the MC trial */
+  int ifb = 1; /* if fb is randomly computed */
 
   xnew(x, n + 1);
   for (i = 0; i < n; i++)
@@ -105,7 +109,10 @@ static double mcrun(int n, double nequil, double nsteps,
   sg = dg_open(n - 1);
   mkgraph(g, x);
   die_if (!dg_biconnected(g), "initial diagram not biconnected D %d\n", D);
+
   fb = lookup ? dg_hsfb(g) : dg_hsfbrjw(g);
+  hasfb = 1;
+
   nz = 1; /* if (lookup), nz means fb != 0,
              otherwise nz means no clique separator */
   sys = 0;
@@ -140,7 +147,6 @@ static double mcrun(int n, double nequil, double nsteps,
        * for a small n, so it can be updated in every step */
       nfb = nbc ? dg_hsfb_lookuplow(n, gmapid) : 0;
       nnz = (nfb != 0);
-      hasnfb = hasfb = 1;
     } else { /* direct and expensive computation, large n */
       nbc = dg_biconnected(ng);
       /* since computing fb is expensive,
@@ -149,8 +155,15 @@ static double mcrun(int n, double nequil, double nsteps,
        * so this is a good approximation of the ensemble */
       nnz = nbc ? (dg_cliquesep(ng) == 0) : 0;
       /* we have to compute `nfb' if `sys' == 3 */
-      hasnfb = hasfb = (sys > 1);
-      nfb = hasnfb ? dg_hsfbrjw(ng) : 0;
+      nfb = 0;
+      hasnfb = needfb = (sys > 1);
+      if ( needfb ) { /* if we must compute the new fb */
+        /* if the connectivity is unchanged, use the old fb */
+        if (hasfb && g->c[i] == g->c[j])
+          nfb = fb;
+        else
+          nfb = dg_hsfbrjw(ng);
+      }
     }
 
 #define WTSYS2(wt, fb) if ((wt = abs(fb)) == 0) wt = 1;
@@ -171,15 +184,17 @@ static double mcrun(int n, double nequil, double nsteps,
       rvn_copy(x[i], xi);
       dg_copy(g, ng);
       nz = nnz;
-      if ( lookup || hasnfb ) {
+      if ( lookup )
         fb = nfb;
-        hasfb = 1;
-      }
+      else
+        hasfb = hasnfb;
+    } else {
+      /* if rejected, maintain the old `hasfb' value */
     }
 
     /* compute fb only when necessary */
     ifb = (nstfb == 1 || rnd0() < 1./nstfb);
-    if ( !hasfb && ifb ) {
+    if ( !hasfb && (ifb || needfb) ) {
       fb = dg_hsfbrjw(g);
       hasfb = 1;
     }
