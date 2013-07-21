@@ -29,24 +29,27 @@ INLINE int dg_hsfqrjwlow(const code_t *c, code_t vs)
 
 /* for a configuration, compute sum of connected diagrams by Wheatley's method
   `c' is the connectivity matrix,  `vs' is the vertex set */
-static int dg_hsfcrjwlow(const code_t *c, code_t vs, int * RESTRICT fcarr)
+static int dg_hsfcrjwlow(const code_t *c, code_t vs,
+    int * RESTRICT fcarr, int * RESTRICT fqarr)
 {
-  int fc, fq2;
+  int fc, fc1, fq2;
   code_t ms, ms1, vs1, vs2, s, b, b1;
 
   b1 = vs & (-vs);
   if ( (vs ^ b1) == 0 ) return 1; /* only one vertex */
-  fc = dg_hsfqrjwlow(c, vs); /* start with fq */
+  if ((fc = fqarr[vs]) == INT_MIN)
+    fqarr[vs] = fc = dg_hsfqrjwlow(c, vs); /* start with fq */
   ms = vs ^ b1; /* the set of vertices (except the lowest vertex) */
   /* loop over subsets of vs, stops when vs == vs1 */
   for (ms1 = 0; ms1 ^ ms;) {
     vs1 = ms1 | b1; /* add vertex 1 to the set */
     vs2 = vs1 ^ vs; /* the complement set */
-    fq2 = dg_hsfqrjwlow(c, vs2); /* fq of the complement set */
+    if ((fq2 = fqarr[vs2]) == INT_MIN)
+      fqarr[vs2] = fq2 = dg_hsfqrjwlow(c, vs2); /* fq of the complement set */
     if (fq2 != 0) {
-      if (fcarr[vs1] == INT_MIN)
-        fcarr[vs1] = dg_hsfcrjwlow(c, vs1, fcarr); /* recursion */
-      fc -= fcarr[vs1] * fq2;
+      if ((fc1 = fcarr[vs1]) == INT_MIN)
+        fcarr[vs1] = fc1 = dg_hsfcrjwlow(c, vs1, fcarr, fqarr); /* recursion */
+      fc -= fc1 * fq2;
     }
     /* update the subset `ms1' */
     s = ms ^ ms1; /* find the set of empty bits (unused vertices) */
@@ -62,18 +65,23 @@ static int dg_hsfcrjwlow(const code_t *c, code_t vs, int * RESTRICT fcarr)
  * stand-alone driver */
 INLINE int dg_hsfcrjw(const dg_t *g)
 {
-  static int nmax, *fcarr;
+  static int nmax, *fcarr, *fqarr;
   int i, n = g->n;
 
   if (fcarr == NULL) {
     nmax = n;
-    xnew(fcarr, 1u << (nmax - 1));
+    xnew(fcarr, 1u << nmax);
+    xnew(fqarr, 1u << nmax);
   } else if (n > nmax) {
     nmax = n;
-    xrenew(fcarr, 1u << (nmax - 1));
+    xrenew(fcarr, 1u << nmax);
+    xrenew(fqarr, 1u << nmax);
   }
-  for (i = 0; i < (1 << (n - 1)); i++) fcarr[i] = INT_MIN;
-  return dg_hsfcrjwlow(g->c, (1 << n) - 1, fcarr);
+  for (i = 0; i < (1 << n); i++) {
+    fcarr[i] = INT_MIN;
+    fqarr[i] = INT_MIN;
+  }
+  return dg_hsfcrjwlow(g->c, (1 << n) - 1, fcarr, fqarr);
 }
 
 
@@ -95,9 +103,10 @@ INLINE int dg_hsfbrjwlow(const code_t *c, int n, int v, code_t vs,
   if ((i = bitcount(vs)) <= 1) return 1;
   else if (i == 2) return (c[ bitfirst(vs) ] & vs) ? -1 : 0;
 
-  /* start with the sum of connected diagrams */
+  /* start with the sum of connected diagrams, the first 2^n numbers of
+   * fbarr and faarr are used for saving fcarr and fqarr, respectively */
   if (fbarr[vs] == INT_MIN)
-    fbarr[vs] = dg_hsfcrjwlow(c, vs, fbarr);
+    fbarr[vs] = dg_hsfcrjwlow(c, vs, fbarr, faarr);
   fb = fbarr[vs];
   /* remove diagrams with the lowest articulation points at i < v */
   for (r = vs & (bv - 1); r; r ^= b) {
