@@ -21,7 +21,6 @@ typedef uint32_t code_t;
  * */
 #define CODEBITS 32
 
-
 /* we only support a graph with at most CODEBITS vertices */
 #define DG_NMAX CODEBITS
 
@@ -87,6 +86,7 @@ INLINE int bitfirstlow(code_t x, code_t *b)
 }
 
 
+
 /* index of nonzero bit */
 INLINE int bitfirst(code_t x)
 {
@@ -122,7 +122,7 @@ INLINE void dg_unlink(dg_t *g, int i, int j)
 
 
 /* construct `sg' by removing vertex `i0' from `g' */
-INLINE dg_t *dg_shrink1(dg_t *sg, dg_t *g, int i0)
+INLINE dg_t *dg_shrink1(dg_t *sg, const dg_t *g, int i0)
 {
   int i, is = 0, n = g->n;
   code_t maskl, maskh;
@@ -246,7 +246,10 @@ INLINE dg_t *dg_decode(dg_t *g, code_t *code)
     for (j = i + 1; j < n; j++) {
       if ((*c >> ib) & 1u)
         dg_link(g, i, j);
-      if (++ib == CODEBITS) ib = 0, c++;
+      if (++ib == CODEBITS) {
+        ib = 0;
+        c++;
+      }
     }
   }
   return g;
@@ -418,7 +421,7 @@ typedef struct {
 
 /* static diagram map for n <= DGMAP_NMAX */
 #define DGMAP_NMAX 8
-dgmap_t dgmap_[DGMAP_NMAX];
+dgmap_t dgmap_[DGMAP_NMAX + 1];
 
 
 
@@ -519,15 +522,23 @@ INLINE int dgmap_init(dgmap_t *m, int n)
 
 
 /* retrieve the diagram id */
-INLINE unqid_t dg_getmapid(const dg_t *g)
+INLINE unqid_t dg_getmapidx(const dg_t *g, code_t *c)
 {
   int n = g->n;
-  code_t c;
   dgmap_t *m = dgmap_ + n;
 
   dgmap_init(m, n);
-  dg_encode(g, &c);
-  return m->map[c];
+  dg_encode(g, c);
+  return m->map[*c];
+}
+
+
+
+/*  retrieve the diagram id */
+INLINE unqid_t dg_getmapid(const dg_t *g)
+{
+  code_t c;
+  return dg_getmapidx(g, &c);
 }
 
 
@@ -577,6 +588,7 @@ INLINE int dg_biconnected_lookup(const dg_t *g)
 {
   return dg_biconnected_lookuplow(g->n, dg_getmapid(g));
 }
+
 
 
 #endif

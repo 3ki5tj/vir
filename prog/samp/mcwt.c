@@ -23,7 +23,6 @@ int n = 5; /* order */
 double nequil = 100000; /* number of equilibration */
 double nsteps = 10000000;
 real mcamp[NSYS] = {1.5f, 0.6f, 0.9f};
-int nstfb = 0; /* interval of evaluting the weight */
 int nstrep = 100000000; /* interval of reporting */
 double Z[NSYS] = {1, 0.03, 0.2};
 
@@ -42,21 +41,17 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--A2", "%r", &mcamp[2], "MC amplitude for system 2 (importance sampler)");
   argopt_add(ao, "-Z", "%lf", &Z[1], "relative partition function of system 1");
   argopt_add(ao, "--Z2", "%lf", &Z[2], "relative partition function of system 2");
-  argopt_add(ao, "-w", "%d", &nstfb, "interval of evaluating the weight");
   argopt_add(ao, "-q", "%d", &nstrep, "interval of reporting");
   argopt_parse(ao, argc, argv);
   argopt_dump(ao);
   argopt_close(ao);
-  if (nstfb <= 0) /* frequency of computing the weight */
-    nstfb = (n > DGMAP_NMAX) ? 100 : 1;
   for (i = 0; i < NSYS; i++) mcamp[i] /= D;
 }
 
 
 
 /* compute the sign of the virial coefficient */
-static double mcrun(int n, double nequil, double nsteps,
-    double amp[], int nstfb)
+static double mcrun(int n, double nequil, double nsteps, double amp[])
 {
   rvn_t *x, xi;
   int i, j, it, fb = 0, nfb = 0, acc1, sys = 0, eql, wt, nwt;
@@ -183,9 +178,9 @@ static double mcrun(int n, double nequil, double nsteps,
 int main(int argc, char **argv)
 {
   doargs(argc, argv);
-  printf("D %d, n %d, nsteps %g, amp %g/%g, nstfb %d, code %d-bit\n",
-      D, n, (double) nsteps, mcamp[0], mcamp[1], nstfb, (int) sizeof(code_t) * 8);
-  mcrun(n, nequil, nsteps, mcamp, nstfb);
+  printf("D %d, n %d, nsteps %g, amp %g/%g, code %d-bit\n",
+      D, n, (double) nsteps, mcamp[0], mcamp[1], (int) sizeof(code_t) * 8);
+  mcrun(n, nequil, nsteps, mcamp);
   mtsave(NULL);
   return 0;
 }

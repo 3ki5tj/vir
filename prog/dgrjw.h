@@ -173,7 +173,6 @@ INLINE int dg_hsfbrjw(const dg_t *g)
   static int nmax, *faarr, *fbarr;
   int i, n = g->n;
 
-  if ( dg_cliquesep(g) ) return 0;
   if (fbarr == NULL) {
     nmax = n;
     xnew(faarr, (nmax + 1) << nmax);
@@ -196,7 +195,7 @@ INLINE int dg_hsfb_lookuplow(int n, unqid_t id)
   static int *fb[DGMAP_NMAX + 1]; /* fb of unique diagrams */
 
   if (fb[n] == NULL) { /* initialize the look-up table */
-    dg_t *g1;
+    dg_t *g;
     dgmap_t *m = dgmap_ + n;
     int k, cnt = 0, nz = 0;
     clock_t t0 = clock();
@@ -205,16 +204,16 @@ INLINE int dg_hsfb_lookuplow(int n, unqid_t id)
     if (fb[n] == NULL) xnew(fb[n], m->ng);
 
     /* loop over unique diagrams */
-    g1 = dg_open(n);
+    g = dg_open(n);
     for (cnt = 0, k = 0; k < m->ng; k++) {
-      dg_decode(g1, &m->first[k]);
-      if ( dg_biconnected_lookup(g1) ) { /* use the look-up version */
-        fb[n][k] = dg_hsfbrjw(g1);
+      dg_decode(g, &m->first[k]);
+      if ( dg_biconnected_lookup(g) ) { /* use the look-up version */
+        fb[n][k] = dg_cliquesep(g) ? 0 : dg_hsfbrjw(g);
         cnt++;
         nz += (fb[n][k] != 0);
       } else fb[n][k] = 0;
     }
-    dg_close(g1);
+    dg_close(g);
     printf("n %d, computed hard sphere weights of %d/%d biconnected diagrams, %gs\n",
         n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
   }
@@ -234,7 +233,8 @@ INLINE int dg_hsfb_lookup(const dg_t *g)
 /* compute the hard-sphere total weight of a configuration */
 INLINE int dg_hsfb(dg_t *g)
 {
-  return (g->n <= DGMAP_NMAX) ? dg_hsfb_lookup(g) : dg_hsfbrjw(g);
+  if (g->n <= DGMAP_NMAX) return dg_hsfb_lookup(g);
+  else return dg_cliquesep(g) ? 0 : dg_hsfbrjw(g);
 }
 
 

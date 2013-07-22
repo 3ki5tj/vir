@@ -92,11 +92,14 @@ INLINE double rvn_voladd(rvn_t *x, int n, rvn_t xi)
 
 
 /* return if removing vertex i leaves the diagram biconnected */
-INLINE int dgmc_nremove(dg_t *g, dg_t *sg, int n, int *i)
+INLINE int dgmc_nremove(const dg_t *g, dg_t *sg, int n, int *i)
 {
   *i = (int) (rnd0() * n);
   dg_shrink1(sg, g, *i);
   return dg_biconnected(sg);
 }
+
+
+
 #endif
 

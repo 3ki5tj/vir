@@ -171,6 +171,9 @@ INLINE code_t dg_cliquesep(const dg_t *g)
 
 
 
+/* number of nodes in the clique-separator decomposition */
+#define dg_ncliquesep(g) dg_decompcliquesep(g, NULL)
+
 INLINE int dg_decompcliquesep(const dg_t *g, code_t * RESTRICT cl)
 {
   static dg_t *fs[DG_NMAX + 1], *f;
@@ -187,6 +190,33 @@ INLINE int dg_decompcliquesep(const dg_t *g, code_t * RESTRICT cl)
 }
 
 
+
+/* compute the number of nodes the clique-separator decomposition */
+INLINE int dg_ncliquesep_lookuplow(const dg_t *g, code_t c)
+{
+  static char *ncl[DGMAP_NMAX + 1];
+  int n = g->n;
+  
+  if (ncl[n] == NULL) {
+    int ipr, npr = (code_t) 1u << (n * (n - 1) / 2);
+    xnew(ncl[n], npr);
+    for (ipr = 0; ipr < npr; ipr++) ncl[n][ipr] = (char) (-1);
+  }
+  if (ncl[n][c] < 0) ncl[n][c] = dg_ncliquesep(g);
+  return ncl[n][c];
+}
+
+
+
+/* compute the number of nodes the clique-separator decomposition */
+INLINE int dg_ncliquesep_lookup(const dg_t *g)
+{
+  code_t code;
+
+  die_if (g->n > DGMAP_NMAX, "n %d too large\n", g->n);
+  dg_encode(g, &code);
+  return dg_ncliquesep_lookuplow(g, code); 
+}
 
 #endif
 
