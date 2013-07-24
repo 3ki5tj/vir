@@ -29,6 +29,7 @@ double Z[NSYS] = {1, -1, -1}; /* inverse weights (etimated partition function) *
 int cachesize = 10; /* number of recently visited diagrams */
 
 
+
 /* handle arguments */
 static void doargs(int argc, char **argv)
 {
@@ -199,7 +200,7 @@ INLINE void mcrat_lookup(int n, double nequil, double nsteps,
   rvn_t *x, xi;
   int i, it, fb = 0, nfb = 0, wt, nwt, nz, nnz, nbc, eql;
   dg_t *g, *ng, *sg;
-  double t, fbnz = 0, fbsum[NSYS], hist[NSYS], cacc[NSYS], ctot[NSYS];
+  double t, nzsm = 0, fbsm[NSYS], hist[NSYS], cacc[NSYS], ctot[NSYS];
   int sys, sys0, acc1;
   unqid_t gmapid;
 #ifdef MCLOG
@@ -210,7 +211,7 @@ INLINE void mcrat_lookup(int n, double nequil, double nsteps,
   die_if (n > DGMAP_NMAX, "no diagram map for n %d\n", n);
   xnew(x, n + 1);
   for (i = 0; i < n; i++)
-    rvn_rnd(x[i], (real) (-0.05 / sqrt(D)), (real) (0.05 / sqrt(D)) );
+    rvn_rnd(x[i], (real) (-0.5 / sqrt(D)), (real) (0.5 / sqrt(D)) );
   g = dg_open(n);
   ng = dg_open(n);
   sg = dg_open(n - 1);
@@ -224,7 +225,7 @@ INLINE void mcrat_lookup(int n, double nequil, double nsteps,
   nrat[0] = nrat[2] = 1e-6; nrat[1] = nrat[3] = 0;
   tacc[0] = tacc[2] = 1e-6; tacc[1] = tacc[3] = 0;
   for (i = 0; i < NSYS; i++) {
-    fbsum[i] = 0;
+    fbsm[i] = 0;
     hist[i] = 1e-6;
     cacc[i] = 0;
     ctot[i] = 1e-6;
@@ -262,7 +263,8 @@ INLINE void mcrat_lookup(int n, double nequil, double nsteps,
     }
 
     /* change `sys' */
-    sys = movesys(sys0 = sys, fb, nz, 1, Z, tacc);
+    sys0 = sys;
+    sys = movesys(sys0, fb, nz, 1, Z, tacc);
 
     if (eql) {
       if (t >= nequil) {
@@ -277,13 +279,13 @@ INLINE void mcrat_lookup(int n, double nequil, double nsteps,
     /* accumulate data after equilibration */
     cacc[sys0] += acc1;
     ctot[sys0] += 1;
-    if (sys == 0) fbnz += nz;
+    if (sys == 0) nzsm += nz;
     hist[sys] += 1;
     if (sys <= 1) {
-      fbsum[sys] += fb;
+      fbsm[sys] += fb;
     } else {
       WTSYS2(wt, fb);
-      fbsum[sys] += fb/wt;
+      fbsm[sys] += fb/wt;
     }
 
 #ifdef MCLOG
@@ -303,16 +305,16 @@ INLINE void mcrat_lookup(int n, double nequil, double nsteps,
 
 #define REPORT(gmapid) { \
       double ta1 = tacc[1]/tacc[0], ta2 = tacc[3]/tacc[2]; \
-      fbav[0] = fbsum[2]/hist[2] * (ta1/ta2)*(Z[2]/Z[1]) * (fbnz/hist[0]); \
-      /* multiple histogram: fb = sum_k fbsum[k] / sum_k Z0/Zk hist[k] */ \
-      fbav[1] = (fbsum[0] + fbsum[1]) / (hist[0] + hist[1]*hist[0]/fbnz); \
-      fprintf(stderr, "D %d, n %d, t%11g, cacc %.4f/%.4f/%.4f, " \
+      fbav[0] = fbsm[2]/hist[2] * (ta1/ta2)*(Z[2]/Z[1]) * (nzsm/hist[0]); \
+      /* multiple histogram: fb = sum_k fbsm[k] / sum_k Z0/Zk hist[k] */ \
+      fbav[1] = (fbsm[0] + fbsm[1]) / (hist[0] + hist[1]*hist[0]/nzsm); \
+      printf("D %d, n %d, t%11g, cacc %.4f/%.4f/%.4f, " \
           "fb %+.8f/%+.8f|%+.8f %+.8f, %d, id %d\n" \
           "    nz %.7f, his1/0 %.7f, 2/1 %.7f; " \
           "tacc %.7f %.7f; n+: %.7f, n-: %.7f\n", \
         D, n, t, cacc[0]/ctot[0], cacc[1]/ctot[1], cacc[2]/ctot[2], \
-        fbsum[0]/hist[0], fbsum[1]/hist[0] * Z[1]/Z[0], fbav[1], fbav[0], \
-        fb, (int) gmapid, fbnz/hist[0], hist[1]/hist[0], hist[2]/hist[1], \
+        fbsm[0]/hist[0], fbsm[1]/hist[0] * Z[1]/Z[0], fbav[1], fbav[0], \
+        fb, (int) gmapid, nzsm/hist[0], hist[1]/hist[0], hist[2]/hist[1], \
         ta1, ta2, nrat[1]/nrat[0], nrat[3]/nrat[2]); }
 
     if (it % nstrep == 0) {
@@ -368,7 +370,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   rvn_t *x, xi;
   int i, it, fb = 0, nfb = 0, wt, nwt, nz, nnz, nbc, eql;
   dg_t *g, *ng, *sg;
-  double t, fbnz = 0, fbsum[NSYS], hist[NSYS], cacc[NSYS], ctot[NSYS];
+  double t, nzsm = 0, fbsm[NSYS], hist[NSYS], cacc[NSYS], ctot[NSYS];
   int sys, sys0, acc1;
   int needfb = 0; /* need to compute fb */
   int hasfb = 1; /* if fb has been computed for the step */
@@ -377,7 +379,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 
   xnew(x, n + 1);
   for (i = 0; i < n; i++)
-    rvn_rnd(x[i], (real) (-0.05 / sqrt(D)), (real) (0.05 / sqrt(D)) );
+    rvn_rnd(x[i], (real) (-0.5 / sqrt(D)), (real) (0.5 / sqrt(D)) );
   g = dg_open(n);
   ng = dg_open(n);
   sg = dg_open(n - 1);
@@ -393,13 +395,11 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   nrat[0] = nrat[2] = 1e-6; nrat[1] = nrat[3] = 0;
   tacc[0] = tacc[2] = 1e-6; tacc[1] = tacc[3] = 0;
   for (i = 0; i < NSYS; i++) {
-    fbsum[i] = 0;
+    fbsm[i] = 0;
     hist[i] = 1e-6;
     cacc[i] = 0;
     ctot[i] = 1e-6;
   }
-
-  if (nsteps < nequil) nsteps = nequil;
 
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
     /* randomly displace a particle */
@@ -481,19 +481,20 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 
     /* change `sys', we do this after equilibration
      * so `fb' is not needed */
-    sys = movesys(sys0 = sys, fb, nz, ifb, Z, tacc);
+    sys0 = sys;
+    sys = movesys(sys0, fb, nz, ifb, Z, tacc);
 
     /* accumulate data after equilibration */
     cacc[sys0] += acc1;
     ctot[sys0] += 1;
     if (ifb || sys0 >= 2) {
-      if (sys == 0) fbnz += nz;
+      if (sys == 0) nzsm += nz;
       hist[sys] += 1;
       if (sys <= 1) {
-        fbsum[sys] += fb;
+        fbsm[sys] += fb;
       } else {
         WTSYS2(wt, fb);
-        fbsum[sys] += fb/wt;
+        fbsm[sys] += fb/wt;
       }
     }
 
@@ -521,6 +522,8 @@ static void mcrat(int n, double nequil, double nsteps,
     double amp[], int usegrand, int nstfb, int lookup,
     int nstnmv, double *nrat, double *tacc, double *fbav)
 {
+  if (nsteps < nequil) nsteps = nequil;
+
   printf("D %d, n %d, %s version, %s displacement\n", D, n,
       lookup ? "lookup" : "direct", usegrand ? "Gaussian" : "uniform");
   if (lookup)
