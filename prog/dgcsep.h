@@ -154,7 +154,7 @@ INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
 /* test if a graph has a clique separator */
 INLINE code_t dg_cliquesep(const dg_t *g)
 {
-  static dg_t *fs[DG_NMAX + 1], *f;
+  static dg_t *fs[DG_NMAX + 1], *f; /* fill-in graph */
   static int a[DG_NMAX], p[DG_NMAX]; /* a[k] is the kth vertex, p = a^(-1) */
   int n = g->n;
   code_t cl;
