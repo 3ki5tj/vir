@@ -44,6 +44,82 @@ INLINE double ndvol(int n)
 
 
 
+/* get sig2 that optimizes the acceptance rates */
+INLINE double getgsig2(int n)
+{
+#if D == 2
+  return 0.03 + 0.03*n;
+#elif D == 3
+  return 0.03 + 0.02*n;
+#elif D == 8
+  return 0.024 + 0.006*n;
+#else
+  return 0.024 + 0.048*n/D;
+#endif
+}
+
+
+
+/* compute the logarithmic weight of a configuration `x'
+ * without the center of mass */
+INLINE double getloggwt(rvn_t *x, int n)
+{
+  int i;
+  double d2sm, sig2;
+  rvn_t xc;
+
+  rvn_zero(xc);
+  for (i = 0; i < n; i++)
+    rvn_inc(xc, x[i]);
+  rvn_smul(xc, 1./n);
+  sig2 = getgsig2(n);
+  for (d2sm = 0, i = 0; i < n; i++)
+    d2sm += rvn_dist2(x[i], xc);
+  return -0.5 * d2sm / sig2;
+}
+
+
+
+/* generate a configuration */
+INLINE double gengconf(rvn_t *x, int n)
+{
+  double d2sm = 0, sig, sig2;
+  int i;
+  rvn_t xc;
+
+  sig2 = getgsig2(n);
+  sig = sqrt(sig2);
+  rvn_zero(xc);
+  for (i = 0; i < n; i++) {
+    rvn_grand(x[i], 0, sig);
+    d2sm += rvn_sqr(x[i]);
+    rvn_inc(xc, x[i]);
+  }
+  d2sm -= rvn_sqr(xc) / n;
+  return -0.5 * d2sm / sig2;
+}
+
+
+
+/* randomly replace a configuration */
+INLINE int grepl(rvn_t *x, rvn_t *nx, dg_t *g, dg_t *ng)
+{
+  double logwt, lognwt;
+  int n = g->n;
+
+  lognwt = gengconf(nx, n);
+  mkgraph(ng, nx);
+  if ( !dg_biconnected(ng) ) return 0;
+  logwt = getloggwt(x, n);
+  if (logwt > lognwt || rnd0() < exp(logwt - lognwt)) {
+    dg_copy(g, ng);
+    rvn_ncopy(x, nx, n);
+    return 1;
+  } else return 0;
+}
+
+
+
 /* compute the relative probability of adding a vertex
  * that preserves the biconnectivity of the graph
  * return the trial volume if successful, or 0 otherwise */
