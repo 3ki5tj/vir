@@ -79,12 +79,12 @@ static void doargs(int argc, char **argv)
 
   /* default weights */
   if (Z[1] < 0) {
-    static double Z1[] = {1, 1, 1, 1, 0.29, 0.084, 0.044, 0.032, 0.026, 0.022, 0.019};
-    Z[1] = (n > 10) ? 0.2/n : Z1[n];
+    static double Z1[] = {1, 1, 1, 1, 0.29*D/3, 0.084*D/3, 0.044*D/3, 0.032*D/3, 0.026*D/3, 0.022*D/3, 0.019*D/3};
+    Z[1] = (n > 10) ? 0.2*D/3/n : Z1[n];
   }
   if (Z[2] < 0) {
-    static double Z2[] = {1, 1, 1, 1, 0.53, 0.3, 0.2, 0.17, 0.16};
-    Z[2] = (n > 8) ? 0.15 : Z2[n];
+    static double Z2[] = {1, 1, 1, 1, 0.53, 0.3, 0.2, 0.17, 0.16, 0.158};
+    Z[2] = (n > 9) ? 0.15 : Z2[n];
   }
 
   /* the smaller system converges faster, so we spend less time on it */
@@ -247,7 +247,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
     for (i = 0; i < n; i++)
       rvn_rnd(xm[i], (real) (-0.5 / sqrt(D)), (real) (0.5 / sqrt(D)) );
     mkgraph(g, xm);
-    die_if (!dg_biconnected_lookup(g),
+    die_if (!dg_biconnected(g),
         "m %d, initial diagram not biconnected D %d\n", m, D);
     /* initialize the code */
     dg_encode(g, &code[m]);

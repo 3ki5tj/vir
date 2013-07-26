@@ -19,39 +19,6 @@ static void testperm(int n)
 
 
 
-static void speed_biconnected(int n, int nsteps)
-{
-  dg_t *g = dg_open(n);
-  clock_t t0;
-  int t, npr = n*(n-1)/2, i, j, sum = 0;
-
-  dg_full(g);
-  dg_biconnected_lookup(g);
-
-  t0 = clock();
-  for (t = 0; t < nsteps; t++) {
-    parsepairindex((int) (npr *rnd0()), n, &i, &j);
-    if (dg_linked(g, i, j)) dg_unlink(g, i, j);
-    else dg_link(g, i, j);
-    sum += dg_biconnected(g);
-  }
-  printf("biconnected, n %d: time used: %gs/%d\n",
-      n, 1.*(clock() - t0) / CLOCKS_PER_SEC, nsteps);
-  
-  t0 = clock();
-  for (t = 0; t < nsteps; t++) {
-    parsepairindex((int) (npr * rnd0()), n, &i, &j);
-    if (dg_linked(g, i, j)) dg_unlink(g, i, j);
-    else dg_link(g, i, j);
-    sum += dg_biconnected_lookup(g);
-  }
-  printf("biconnected_lookup, n %d: time used: %gs/%d\n",
-      n, 1.*(clock() - t0) / CLOCKS_PER_SEC, nsteps);
-  dg_close(g);
-}
-
-
-
 int main(void)
 {
   dg_t *g;
@@ -66,7 +33,6 @@ int main(void)
   printf("connected %d, biconnected %d, %#x %#x\n",
       dg_connected(g), dg_biconnected(g), c[0], c[1]);
   dg_close(g);
-  speed_biconnected(7, 10000000);
   return 0;
 }
 

@@ -62,6 +62,21 @@ INLINE code_t bitinvert(code_t x, int k)
 
 
 
+const int bruijn_index_[32] =
+  { 0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
+    31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9};
+
+#define BRUIJNID32(b) bruijn_index_[((b) * 0x077CB531u) >> 27]
+#define BRUIJNID64(b) (((b) & 0xFFFFFFFFu) \
+    ? BRUIJNID32((b) & 0xFFFFFFFFu) : 32 + BRUIJNID32((b) >> 16))
+#if CODEBITS == 32
+  #define BRUIJNID(b) BRUIJNID32(b)
+#elif CODEBITS == 64
+  #define BRUIJNID(b) BRUIJNID64(b)
+#endif
+
+
+
 /* find the index of the lowest 1 bit
  * on return *b is the nonzero bit
  * http://graphics.stanford.edu/~seander/bithacks.html#ZerosOnRightMultLookup
@@ -70,19 +85,8 @@ INLINE code_t bitinvert(code_t x, int k)
  * http://supertech.csail.mit.edu/papers/debruijn.pdf */
 INLINE int bitfirstlow(code_t x, code_t *b)
 {
-  static const int index[32] =
-  { 0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
-    31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9};
   (*b) = x & -x; /* such that only the lowest 1-bit survives */
-#if CODEBITS == 32
-  return index[((*b) * 0x077CB531u) >> 27];
-#elif CODEBITS == 64
-  if ((*b) & 0xFFFFFFFFu) { /* the first lies in the low dword */
-    return index[(((*b) & 0xFFFFFFFFu) * 0x077CB531u) >> 27];
-  } else {
-    return 32 + index[(((*b) >> 16) * 0x077CB531u) >> 27];
-  }
-#endif
+  return BRUIJNID(*b);
 }
 
 
@@ -333,44 +337,21 @@ INLINE void dg_print(const dg_t *g)
 }
 
 
-
 /* check if a diagram is connected */
-INLINE int dg_connected(dg_t *g)
+#define dg_connected(g) dg_connectedvs(g, ((code_t) 1u << g->n) - 1u)
+
+/* check if the subdiagram of the vertex set `vs' is connected */
+INLINE int dg_connectedvs(const dg_t *g, code_t vs)
 {
-  code_t c = 1u, done = 1u, stack = 1u, mask = (1 << g->n) - 1;
+  code_t stack = vs & (-vs), b;
 
-  while (stack) { /* the next in the stack */
-    int k = bitfirst(stack); /* first 1 bit */
-    c |= g->c[k];
-    done |= 1 << k; /* we have included k into the cluster */
-    stack |= g->c[k]; /* add new connections */
-    stack &= ~done; /* remove done indices */
-    /* printf("k %d, stack 0x%x, done 0x%x\n", k, stack, done); */
-    if (((stack | done) ^ mask) == 0) return 1;
+  while (stack) {
+    int k = bitfirstlow(stack, &b); /* first vertex (1-bit) in the stack */
+    vs ^= b; /* remove the vertex (1-bit) from the to-do list */
+    stack = (stack | g->c[k]) & vs; /* update the stack */
+    if ((stack ^ vs) == 0) return 1;
   }
-  return bitcount(c) == g->n;
-}
-
-
-
-/* check if the subdiagram without i is connected */
-INLINE int dg_connectedi(const dg_t *g, int i)
-{
-  code_t c = 1u, done = 1u, stack = 1u, mask = ((code_t) 1u << g->n) - 1;
-
-  if (i == 0) done = stack = c = 2u;
-  mask &= ~(1 << i);
-  while (stack) { /* the next in the stack */
-    int k = bitfirst(stack); /* first 1 bit */
-    c |= g->c[k];
-    done |= 1 << k; /* we have included k into the cluster */
-    stack |= g->c[k]; /* add new connections */
-    stack &= (~done) & (~(1 << i)); /* remove done indices */
-    /* printf("k %d, stack 0x%x, done 0x%x, mask 0x%x\n", k, stack, done, mask); */
-    if (((stack | done) ^ mask) == 0) return 1;
-  }
-  c &= ~(1 << i); /* erase the ith bit */
-  return bitcount(c) == g->n - 1;
+  return 0;
 }
 
 
@@ -380,28 +361,16 @@ INLINE int dg_connectedi(const dg_t *g, int i)
 INLINE int dg_biconnected(const dg_t *g)
 {
   int i, n = g->n;
-  static int bc4[64] = { /* four vertices */
-  /*    0-1  0-2  0-1,2  0-3  0-1,3  0-2,3  0-1,2,3 */
-    0,   0,   0,   0,     0,   0,     0,     0,    /* */
-    0,   0,   0,   0,     0,   0,     0,     0,    /* 1-2 */
-    0,   0,   0,   0,     0,   0,     0,     0,    /* 1-3 */
-    0,   0,   0,   0,     0,   0,     1,     1,    /* 1-2, 1-3 */
-    0,   0,   0,   0,     0,   0,     0,     0,    /* 2-3 */
-    0,   0,   0,   0,     0,   1,     0,     1,    /* 1-2, 2-3 */
-    0,   0,   0,   1,     0,   0,     0,     1,    /* 1-3, 2-3 */
-    0,   0,   0,   1,     0,   1,     1,     1,    /* 1-2, 1-3, 2-3 */
-  };
 
-  if (n > 4) {
-    for (i = 0; i < n; i++)
-      if ( !dg_connectedi(g, i) ) return 0;
+  if (n > 2) {
+    for (i = 0; i < n; i++) {
+      code_t vs = (((code_t) 1u << n) - 1u) ^ ((code_t) 1u << i);
+      if ( !dg_connectedvs(g, vs) )
+        return 0;
+    }
     return 1;
-  } else if (n == 4) {
-    return bc4[ ((g->c[0] >> 1) | ((g->c[1] >> 2) << 3) | ((g->c[2] >> 3) << 5)) & 0x3f ];
   } else if (n == 2) {
     return (g->c[0] >> 1) & 1u;
-  } else if (n == 3) {
-    return ((g->c[0] | (g->c[1] >> 2)) & 7u) == 7u;
   } else /* if (n < 2) */ {
     return 1;
   }
@@ -558,8 +527,11 @@ INLINE void dgmap_done(void)
 
 
 
-/* check if diagram is biconnected 
- * faster implementation */
+/* the macro is slower than the direct version (due to dg_getmapid()) */
+#define dg_biconnected_lookup(g) dg_biconnected_lookuplow(g->n, dg_getmapid(g))
+
+/* check if a diagram is biconnected (lookup version)
+ * use it only if `id' is known, otherwise it is slower */
 INLINE int dg_biconnected_lookuplow(int n, unqid_t id)
 {
   /* biconnectivity of unique diagrams */
@@ -580,13 +552,6 @@ INLINE int dg_biconnected_lookuplow(int n, unqid_t id)
     dg_close(g1);
   }
   return bc[ n ][ id ];
-}
-
-
-
-INLINE int dg_biconnected_lookup(const dg_t *g)
-{
-  return dg_biconnected_lookuplow(g->n, dg_getmapid(g));
 }
 
 

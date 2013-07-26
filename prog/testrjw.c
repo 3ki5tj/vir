@@ -66,7 +66,13 @@ static void testspeed(int n, int nsteps, int lookup)
     }
     if (t >= nequil) {
       if (t == nequil) t1 = clock();
-      sum += lookup ? dg_hsfb(g) : dg_hsfbrjw(g);
+      if (lookup) {
+        /* the default function uses the lookup table
+         * only if there is one */
+        sum += dg_hsfb(g);
+      } else {
+        sum += dg_cliquesep(g) ? 0 :dg_hsfbrjw(g);
+      }
     }
   }
   printf("star content, n %d, method %s, time used: %gs/%d\n", n,
@@ -81,6 +87,7 @@ int main(void)
   edges_t ref4[] = {
     {0, {{0, 0}}, -2},
     {1, {{0, 1}}, 0},
+    {2, {{0, 1}, {1, 3}}, 0},
     {2, {{0, 1}, {2, 3}}, 1},
     {-1, {{0, 0}}, 0},
   };
@@ -88,7 +95,10 @@ int main(void)
     {0, {{0, 0}}, -6},
     {1, {{0, 1}}, 0},
     {2, {{0, 1}, {2, 3}}, 3},
+    {2, {{0, 1}, {1, 2}}, 0},
     {3, {{0, 1}, {2, 3}, {3, 4}}, 2},
+    {3, {{0, 1}, {1, 3}, {2, 4}}, 2},
+    {3, {{0, 1}, {1, 3}, {1, 4}}, 0},
     {4, {{0, 1}, {2, 3}, {3, 4}, {2, 4}}, 1},
     {5, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}}, -1},
     {-1, {{0, 0}}, 0},
@@ -106,7 +116,7 @@ int main(void)
   cmpref(4, ref4);
   cmpref(5, ref5);
   cmpref(6, ref6);
-  testspeed(7, 1000000, 1);
+  //testspeed(7, 1000000, 1);
   //testspeed(8, 10000000, 1);
   testspeed(12, 10000, 0);
   return 0;

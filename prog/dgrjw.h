@@ -9,7 +9,7 @@
 #include <limits.h>
 
 
-/* max |fb(n)| = 12! = 479001600 < |INT_MIN| */
+/* for n <= 14, max |fb(n)| = 12! = 479001600 < |INT_MIN| */
 #define FBDIRTY INT_MIN
 #define FBINVALID(c) ((c) == FBDIRTY)
 
@@ -24,7 +24,9 @@ INLINE int dg_hsfqrjwlow(const code_t *c, code_t vs)
   /* if there is a bond, i.e., r(i, j) < 1, then fq = 1 */
   for (w = vs; w; w ^= br) {
     int r = bitfirstlow(w, &br);
-    /* if c[r] share vertices with vs, there is bond */
+    /* if c[r] share vertices with vs, there is bond
+     * the regular partition function allows no clash
+     * therefore return zero immediately */
     if (c[r] & vs) return 0;
   }
   return 1;
@@ -32,8 +34,9 @@ INLINE int dg_hsfqrjwlow(const code_t *c, code_t vs)
 
 
 
-/* for a configuration, compute sum of connected diagrams by Wheatley's method
-  `c' is the connectivity matrix,  `vs' is the vertex set */
+/* for a configuration, compute the sum of connected diagrams by
+ * Wheatley's recursion formula
+ * `c' is the connectivity matrix,  `vs' is the vertex set */
 static int dg_hsfcrjwlow(const code_t *c, code_t vs,
     int * RESTRICT fcarr, int * RESTRICT fqarr)
 {
@@ -166,8 +169,9 @@ INLINE int dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
 
 
 
-
-/* compute the sum of biconnected diagrams by Wheatley's method */
+/* compute the sum of biconnected diagrams by Wheatley's method
+ * This is a low level function and the test of clique separator
+ * is not done here. */
 INLINE int dg_hsfbrjw(const dg_t *g)
 {
   static int nmax, *faarr, *fbarr;
@@ -207,7 +211,7 @@ INLINE int dg_hsfb_lookuplow(int n, unqid_t id)
     g = dg_open(n);
     for (cnt = 0, k = 0; k < m->ng; k++) {
       dg_decode(g, &m->first[k]);
-      if ( dg_biconnected_lookup(g) ) { /* use the look-up version */
+      if ( dg_biconnected(g) ) {
         fb[n][k] = dg_cliquesep(g) ? 0 : dg_hsfbrjw(g);
         cnt++;
         nz += (fb[n][k] != 0);
@@ -233,8 +237,11 @@ INLINE int dg_hsfb_lookup(const dg_t *g)
 /* compute the hard-sphere total weight of a configuration */
 INLINE int dg_hsfb(dg_t *g)
 {
-  if (g->n <= DGMAP_NMAX) return dg_hsfb_lookup(g);
-  else return dg_cliquesep(g) ? 0 : dg_hsfbrjw(g);
+  if (g->n <= DGMAP_NMAX) {
+    return dg_hsfb_lookup(g);
+  } else { /* test for clique separator first */
+    return dg_cliquesep(g) ? 0 : dg_hsfbrjw(g);
+  }
 }
 
 
