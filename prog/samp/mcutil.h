@@ -119,7 +119,7 @@ INLINE int grepl(rvn_t *x, rvn_t *nx, dg_t *g, dg_t *ng)
 }
 
 
-
+#if 0
 /* compute the relative probability of adding a vertex
  * that preserves the biconnectivity of the graph
  * return the trial volume if successful, or 0 otherwise */
@@ -168,11 +168,72 @@ INLINE double rvn_voladd(rvn_t *x, int n, rvn_t xi)
 
 
 /* return if removing vertex i leaves the diagram biconnected */
-INLINE int dgmc_nremove(const dg_t *g, dg_t *sg, int n, int *i)
+INLINE int dgmc_nremove(const dg_t *g, int n, int *i)
+{
+  code_t vs = ((code_t) 1u << n) - 1u;
+  int j;
+
+  *i = (int) (rnd0() * n);
+  vs ^= (code_t) 1u << (*i);
+  for (j = 0; j < n; j++)
+    /* see if removing i and j leaves the diagram connected */
+    if ( j != (*i) && !dg_connectedvs(g, vs ^ ((code_t) 1u << j)))
+      return 0;
+  return 1;
+}
+
+
+
+/* return if removing vertex i leaves the diagram biconnected */
+INLINE int dgmc_nremove1(const dg_t *g, dg_t *sg, int n, int *i)
 {
   *i = (int) (rnd0() * n);
   dg_shrink1(sg, g, *i);
   return dg_biconnected(sg);
+}
+#endif
+
+
+
+/* compute the relative probability of adding a vertex (n + 1)
+ * that preserves the biconnectivity of the graph
+ * return the trial volume if successful, or 0 otherwise */
+INLINE int rvn_voladd_dock(rvn_t *x, int n, rvn_t xi, real rc)
+{
+  int j, k, deg = 0;
+
+  /* choose a dock */
+  k = (int) (rnd0() * n);
+  rvn_rndball(xi, rc);
+  rvn_inc(xi, x[k]); /* attach to the dock */
+
+  /* biconnectivity means xi is connected two vertices */
+  for (j = 0; j < n; j++)
+    if (rvn_dist2(xi, x[j]) < 1)
+      if (++deg >= 2)
+        return 1;
+  return 0;
+}
+
+
+
+/* return if removing vertex i leaves the diagram biconnected */
+INLINE int dgmc_nremove_dock(const dg_t *g, rvn_t *x, int n, int *i, real rc)
+{
+  code_t vs = ((code_t) 1u << n) - 1u;
+  int j, k;
+
+  *i = (int) (rnd0() * n);
+  k = (int) (rnd0() * (n - 1)); /* choose a dock */
+  if (k >= *i) k++;
+  if (rvn_dist2(x[*i], x[k]) > rc * rc)
+    return 0;
+  vs ^= (code_t) 1u << (*i);
+  for (j = 0; j < n; j++)
+    /* see if removing i and j leaves the diagram connected */
+    if ( j != (*i) && !dg_connectedvs(g, vs ^ ((code_t) 1u << j)))
+      return 0;
+  return 1;
 }
 
 

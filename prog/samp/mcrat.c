@@ -4,10 +4,10 @@
  *  gcc -DD=4 -O3 mcrat.c -lm */
 
 /* somehow float is slower */
-
+/*
 #define HAVEREAL 1
 typedef float real;
-
+*/
 
 #define ZCOM_PICK
 #define ZCOM_UTIL
@@ -33,6 +33,8 @@ int lookup = -1; /* if to use the lookup table */
 double Z[NSYS] = {1, -1, -1}; /* inverse weights (etimated partition function) */
 int cachesize = 10; /* number of recently visited diagrams */
 double ratcr = 0; /* rate of coordinates replacement */
+real nrc = 1.f; /* radius for particle moves */
+
 
 
 /* handle arguments */
@@ -59,6 +61,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-G", "%b", &usegrand, "normally-distributed displacement");
   argopt_add(ao, "-C", "%d", &cachesize, "cache size of recently visited diagrams");
   argopt_add(ao, "-R", "%lf", &ratcr, "rate of coordinates replacement");
+  argopt_add(ao, "-c", "%r", &nrc, "radius of n-move");
   argopt_parse(ao, argc, argv);
 
   /* decide whether to use lookup table or not */
@@ -100,19 +103,19 @@ static void doargs(int argc, char **argv)
 
 /* compute the probability of biconnectivity after adding and
  * removing a particle */
-static int nmove(rvn_t *x, int n, rvn_t xi,
-    const dg_t *g, dg_t *sg, double *nrat)
+static int nmove(rvn_t *x, int n, rvn_t xi, const dg_t *g,
+    double *nrat, real rc)
 {
   int i = -1;
 
   if (rnd0() < 0.5) {
     /* the rate of biconnectivity after adding a random vertex */
     nrat[0] += 1;
-    nrat[1] += rvn_voladd(x, n, xi);
+    nrat[1] += rvn_voladd_dock(x, n, xi, rc);
   } else {
     /* the rate of biconnectivity after removing a random vertex */
     nrat[2] += 1;
-    nrat[3] += dgmc_nremove(g, sg, n, &i);
+    nrat[3] += dgmc_nremove_dock(g, x, n, &i, rc);
   }
   return i;
 }
@@ -416,7 +419,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
         rvn_rmcom(xm, n); /* remove the origin to the center of mass */
         if (sys[m] == 0) {
           dg_decode(g, &code[m]);
-          nmove(xm, n, xi, g, sg, nrat);
+          nmove(xm, n, xi, g, nrat, nrc);
         }
       }
     }
@@ -457,10 +460,11 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
           "fb %+.6f/%+.6f|%+.6f(%.6f) %+.6f(%.6f)\n" \
           "    nz %.7f, his1/0 %.7f, 2/1 %.7f; " \
           "tacc %.7f %.7f; n+: %.7f, n-: %.7f, racc %.6f id %d\n", \
-        D, n, t, cacc[0]/ctot[0], cacc[1]/ctot[1], cacc[2]/ctot[2], \
-        fbsm0/hist0, fbsm1/hist0*Z[1]/Z[0], fbav[1], dfb1, fbav[0], dfb0, \
-        nzsm0/hist0, hist1/hist0, hist2/hist1, ta1, ta2, \
-        nrat[1]/nrat[0], nrat[3]/nrat[2], racc/rtot, (int) gmapid); \
+          D, n, t, cacc[0]/ctot[0], cacc[1]/ctot[1], cacc[2]/ctot[2], \
+          fbsm0/hist0, fbsm1/hist0*Z[1]/Z[0], fbav[1], dfb1, fbav[0], \
+          dfb0, nzsm0/hist0, hist1/hist0, hist2/hist1, ta1, ta2, \
+          nrat[1]/nrat[0], nrat[3]/nrat[2], \
+          racc/rtot, (int) gmapid); \
     }
 
     if (it % nstrep == 0) {
@@ -739,7 +743,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 
       if (it % nstnmv == 0) { /* compute the acceptance rates */
         rvn_rmcom(x[m], n); /* remove the origin to the center of mass */
-        if (sys[m] == 0) nmove(x[m], n, xi, g[m], sg, nrat);
+        if (sys[m] == 0) nmove(x[m], n, xi, g[m], nrat, nrc);
       }
     }
 
@@ -807,10 +811,10 @@ int main(int argc, char **argv)
       nstfb, lookup, nstnmv, nrat1, tr1, fbav1);
   mcrat(n - 1, nequil, nsteps2, mcamp, usegrand,
       nstfb, lookup, nstnmv, nrat2, tr2, fbav2);
-  nr1 = nrat1[3]/nrat1[2];
-  nr2 = nrat2[1]/nrat2[0];
+  nr1 = nrat1[3]/nrat1[2]; /* remove a vertex */
+  nr2 = nrat2[1]/nrat2[0]; /* add a vertex */
   for (i = 0; i < 2; i++)
-    rvir[i] = fbav1[i]/fbav2[i] * nr2/nr1 * (1. - n)/(2. - n)/n;
+    rvir[i] = fbav1[i]/fbav2[i] * pow(nrc, D) * nr2/nr1 * (1. - n)/(2. - n)/n;
   printf("D %d, n %d, fbav %g/%g, %g/%g; nrat %g/%g = %g\nvir%d/vir%d:\n"
       "    %.7f, %.7f, %.7f (importance sampling)\n"
       "    %.7f, %.7f, %.7f (multiple histogram)\n",
