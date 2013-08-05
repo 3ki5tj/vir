@@ -1,5 +1,7 @@
 #include <time.h>
 #include "dgsc.h"
+#include "dgrjw.h"
+
 
 
 typedef struct {
@@ -21,7 +23,7 @@ static void cmpref(int n, edges_t *ref)
     dg_full(g);
     for (j = 0; j < ref[i].npr; j++)
       dg_unlink(g, ref[i].id[j][0], ref[i].id[j][1]);
-    sc = dg_rhsc(g);
+    sc = dg_rhsc_low(g);
     if (!dg_biconnected(g))
       continue;
     if (sc != ref[i].sc) {
@@ -47,9 +49,27 @@ static void testspeed(int n, int nsteps, int lookup)
   g = dg_open(n);
   dg_full(g);
   if (lookup) {
+    int ig, sc1, sc2;
+    dg_t *g2;
+
     dg_rhsc(g); /* initialization */
     printf("star content, n %d, initialization: %gs\n",
       n, 1.*(clock() - t0) / CLOCKS_PER_SEC);
+    /* compare with the RJW result */
+    g2 = dg_open(g->n);
+    for (ig = 0; ig < dgmap_[n].ng; ig++) {
+      code_t code = dgmap_[n].first[ig];
+      dg_decode(g2, &code);
+      sc1 = dg_rhsc(g2);
+      sc2 = dg_hsfb(g2);
+      if (dg_nedges(g2) % 2 == 1) sc2 *= -1;
+      if (sc1 != sc2) {
+        printf("sc1 %d, sc2 %d\n", sc1, sc2);
+        dg_print(g2);
+        exit(1);
+      }
+    }
+    dg_close(g2);
   }
   for (t = 0; t < nequil + nsteps; t++) {
     /* randomly switch an edge */
@@ -64,7 +84,8 @@ static void testspeed(int n, int nsteps, int lookup)
     }
     if (t >= nequil) {
       if (t == nequil) t1 = clock();
-      sum += lookup ? dg_rhsc(g) : dg_rhsc_low(g, 0);
+      sum += lookup ? dg_rhsc(g) : dg_rhsc_low(g);
+      //sum += lookup ? dg_hsfb(g) : dg_cliquesep(g) ? 0 : dg_hsfbrjw(g);
     }
   }
   printf("star content, n %d, method %s, time used: %gs/%d\n", n,
@@ -80,7 +101,10 @@ int main(void)
     {0, {{0, 0}}, -6},
     {1, {{0, 1}}, 0},
     {2, {{0, 1}, {2, 3}}, 3},
+    {2, {{0, 1}, {1, 3}}, 0},
     {3, {{0, 1}, {2, 3}, {3, 4}}, -2},
+    {3, {{0, 1}, {1, 3}, {2, 4}}, -2},
+    {3, {{0, 1}, {1, 3}, {1, 4}}, 0},
     {4, {{0, 1}, {2, 3}, {3, 4}, {2, 4}}, 1},
     {5, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}}, 1},
     {-1, {{0, 0}}, 0},

@@ -196,7 +196,7 @@ INLINE int dg_ncsep_lookuplow(const dg_t *g, code_t c)
 {
   static char *ncl[DGMAP_NMAX + 1];
   int n = g->n;
-  
+
   if (ncl[n] == NULL) {
     int ipr, npr = (code_t) 1u << (n * (n - 1) / 2);
     xnew(ncl[n], npr);
@@ -215,7 +215,7 @@ INLINE int dg_ncsep_lookup(const dg_t *g)
 
   die_if (g->n > DGMAP_NMAX, "n %d too large\n", g->n);
   dg_encode(g, &code);
-  return dg_ncsep_lookuplow(g, code); 
+  return dg_ncsep_lookuplow(g, code);
 }
 
 #endif

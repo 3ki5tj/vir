@@ -77,8 +77,8 @@ static void speed_biconnected(int n, int nsteps)
   }
   printf("biconnected, n %d: time used: %gs/%d\n",
       n, 1.*(clock() - t0) / CLOCKS_PER_SEC, nsteps);
- 
-  if (n <= DGMAP_NMAX) { 
+
+  if (n <= DGMAP_NMAX) {
     dg_biconnected_lookup(g);
     t0 = clock();
     for (t = 0; t < nsteps; t++) {

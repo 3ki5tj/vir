@@ -5,6 +5,7 @@
  * PRL 110, 200601 (2013) */
 #include "dg.h"
 #include "dgcsep.h"
+#include "dgsc.h"
 #include <time.h>
 #include <limits.h>
 
@@ -193,6 +194,23 @@ INLINE int dg_hsfbrjw(const dg_t *g)
 
 
 
+#define dg_hsfbmixed(g) dg_hsfbmixed0(g, 0)
+
+/* directly compute the sum of biconnected diagrams by various strategies
+ * a mixed strategy of dg_hsfbrjw() and dg_rhsc()
+ * nocsep: if the graph has been tested with no clique separator */
+INLINE int dg_hsfbmixed0(const dg_t *g, int nocsep)
+{
+  int ned, n = g->n, sgn;
+
+  if ( !nocsep && dg_cliquesep(g) ) return 0;
+  ned = dg_nedges(g);
+  sgn = ned % 2 ? -1 : 1;
+  return (ned >= 2*n - 2) ? dg_hsfbrjw(g) : dg_rhsc_low0(g, 1) * sgn;
+}
+
+
+
 /* compute the hard shpere weight `fb' by a lookup table */
 INLINE int dg_hsfb_lookuplow(int n, unqid_t id)
 {
@@ -234,16 +252,14 @@ INLINE int dg_hsfb_lookup(const dg_t *g)
 
 
 
-/* compute the hard-sphere total weight of a configuration */
-INLINE int dg_hsfb(dg_t *g)
-{
-  if (g->n <= DGMAP_NMAX) {
-    return dg_hsfb_lookup(g);
-  } else { /* test for clique separator first */
-    return dg_cliquesep(g) ? 0 : dg_hsfbrjw(g);
-  }
-}
+#define dg_hsfb(g) dg_hsfb0(g, 0)
 
+/* compute the hard-sphere total weight of a configuration
+ * nocsep: if the graph has been tested with no clique separator */
+INLINE int dg_hsfb0(dg_t *g, int nocsep)
+{
+  return (g->n <= DGMAP_NMAX) ? dg_hsfb_lookup(g) : dg_hsfbmixed0(g, nocsep);
+}
 
 
 

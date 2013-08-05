@@ -1,6 +1,6 @@
 #ifndef DGQUE_H__
 #define DGQUE_H__
-/* quick lookup list for recent values */
+/* quick history lookup list for recent values */
 #include "dg.h"
 
 
@@ -12,7 +12,7 @@
 typedef struct {
   struct {
     DGQUETYPE val;
-    code_t c[4];
+    code_t c[DG_NMAX/2];
   } *arr;
   int nmax;
   int cnt; /* number of entries */

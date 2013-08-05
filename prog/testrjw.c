@@ -66,13 +66,17 @@ static void testspeed(int n, int nsteps, int lookup)
     }
     if (t >= nequil) {
       if (t == nequil) t1 = clock();
-      if (lookup) {
-        /* the default function uses the lookup table
-         * only if there is one */
-        sum += dg_hsfb(g);
-      } else {
-        sum += dg_cliquesep(g) ? 0 :dg_hsfbrjw(g);
+      /* the default function dg_hsfb() uses the lookup table
+        * only if there is one */
+      //if (dg_nedges(g) < n*7/3)
+      sum += lookup ? dg_hsfb(g) : dg_hsfbmixed(g);
+#if 0
+      if (dg_hsfbmixed(g) != dg_hsfbrjw(g)) {
+        printf("corruption %d vs %d csep %d\n", dg_hsfbmixed(g), dg_hsfbrjw(g), dg_cliquesep(g));
+        dg_print(g);
+        exit(1);
       }
+#endif
     }
   }
   printf("star content, n %d, method %s, time used: %gs/%d\n", n,
@@ -119,5 +123,6 @@ int main(void)
   //testspeed(7, 1000000, 1);
   //testspeed(8, 10000000, 1);
   testspeed(12, 10000, 0);
+  mtsave(NULL);
   return 0;
 }

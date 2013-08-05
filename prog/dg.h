@@ -15,7 +15,7 @@
 /* currently only support 32-bit */
 typedef uint32_t code_t;
 
-/* Note: 
+/* Note:
  * #define CODEBITS (sizeof(code_t) * 8)
  * doesn't work, because the compiler cannot compute sizeof() in time
  * */
@@ -31,7 +31,7 @@ typedef struct {
 
 
 
-/* count the number of 1 bits in x 
+/* count the number of 1 bits in x
  * http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetTable */
 INLINE int bitcount(code_t x)
 {
@@ -125,7 +125,8 @@ INLINE void dg_unlink(dg_t *g, int i, int j)
 }
 
 
-/* construct `sg' by removing vertex `i0' from `g' */
+/* construct `sg' by removing vertex `i0' from `g'
+ * `sg' and `g' can be the same */
 INLINE dg_t *dg_shrink1(dg_t *sg, const dg_t *g, int i0)
 {
   int i, is = 0, n = g->n;
@@ -435,7 +436,7 @@ INLINE int dgmap_getperm(int n, int **pp)
 
 
 
-/* compute initial diagram map */ 
+/* compute initial diagram map */
 INLINE int dgmap_init(dgmap_t *m, int n)
 {
   code_t c, c1, ng, *masks, *ms;

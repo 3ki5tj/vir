@@ -101,7 +101,7 @@ static double mcrun(int n, double nsteps, real amp, int plus, double *nrat)
          * that leaves the graph biconnected */
         int deg = 0;
         real rad, r2, r2m = 0, r2n = 0, vol;
-        
+
         /* naively, in a trial, the vertex should be added uniformly to
          * a very large volume Vmax, and the probability is computed as
          *  r = (V_bi / Vmax) * (Vmax / Vunit)             (1)
