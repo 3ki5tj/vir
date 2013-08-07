@@ -31,7 +31,7 @@ int nstnmv = 100; /* frequency of the n move */
 int nstrep = 100000000; /* interval of reporting */
 int lookup = -1; /* if to use the lookup table */
 double Z[NSYS] = {1, -1, -1}; /* inverse weights (etimated partition function) */
-int cachesize = 10; /* number of recently visited diagrams */
+int cachesize = 5; /* number of recently visited diagrams */
 double ratcr = 0; /* rate of coordinates replacement */
 real nrc = 1.f; /* radius for particle moves */
 
@@ -224,7 +224,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 {
   rvn_t *x, *xm, *nx, xi;
   int i, j, pid, m, it, *fb, nfb = 0, wt, nwt, *nz, nnz, nbc, eql;
-  dg_t *g, *ng, *sg;
+  dg_t *g, *ng;
   code_t *code, ncode;
   double *nzsm, (*fbsm)[NSYS], (*hist)[NSYS];
   double t, cacc[NSYS], ctot[NSYS], racc, rtot;
@@ -244,7 +244,6 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   xnew(hist, ncopy);
   g = dg_open(n);
   ng = dg_open(n);
-  sg = dg_open(n - 1);
   for (m = 0; m < ncopy; m++) {
     xm = x + m * n;
     for (i = 0; i < n; i++)
@@ -283,6 +282,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
       if (sys[m] == 0 && rnd0() < ratcr) { /* particle replacement */
         rtot += 1;
         dg_decode(g, &code[m]);
+        /* regenerate a configuration */
         if ( grepl(xm, nx, g, ng) ) {
           fb[m] = dg_hsfb_lookup(g);
           nz[m] = (fb[m] != 0);
@@ -478,7 +478,6 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   free(code);
   dg_close(g);
   dg_close(ng);
-  dg_close(sg);
   free(fb);
   free(nz);
   free(sys);
@@ -492,23 +491,18 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
 #include "dgque.h"
 
-/* compute fb with a lookup table
+/* compute fb with a short history list
  * nocsep: no clique separator in the graph */
-INLINE int dg_hsfb_direct(const dg_t *g, int nocsep, int *neval)
+INLINE int dg_hsfb_que(dgque_t *q, const dg_t *g, int nocsep, int *neval)
 {
-  static dgque_t *q[DG_NMAX + 1];
   int n = g->n, k, fb = 0;
-  code_t c[DG_NMAX/2];
+  static code_t c[DG_NMAX/2];
 
-  if ( !q[n] ) {
-    k = (n * (n - 1)/2 + 31) / 32;
-    q[n] = dgque_open(cachesize, k);
-  }
   dg_encode(g, c);
-  if (dgque_find(q[n], c, &fb) < 0) {
-    /* hsfbmixed() is much faster than hsfbrjw() in high dimensions */
+  if (dgque_find(q, c, &fb) < 0) {
+    /* hsfbmixed() is much faster than hsfbrjw() in high dimensions D */
     fb = dg_hsfbmixed0(g, nocsep);
-    dgque_add(q[n], c, fb);
+    dgque_add(q, c, fb);
     if (neval) (*neval)++;
   }
   return fb;
@@ -524,15 +518,15 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 {
   rvn_t **x, *nx, xi;
   int i, j, m, it, *fb, nfb = 0, wt, nwt, *nz, nnz, nbc, eql;
-  dg_t **g, *ng, *sg;
+  dg_t **g, *ng;
   double *nzsm, (*fbsm)[NSYS], (*hist)[NSYS];
   double t, cacc[NSYS], ctot[NSYS], racc, rtot;
   int *sys, *sys0, acc1;
   int *ifb; /* if fb is randomly computed */
   int *hasfb; /* if fb has been computed for the step */
   int hasnfb = 1; /* if fb has been computed for the MC trial */
-  int needfb = 0; /* need to compute fb */
   int neval[3] = {0, 0, 0};
+  dgque_t **que;
 
   xnew(x, ncopy);
   xnew(nx, n + 1);
@@ -546,8 +540,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   xnew(nzsm, ncopy);
   xnew(fbsm, ncopy);
   xnew(hist, ncopy);
+  xnew(que, ncopy);
   ng = dg_open(n);
-  sg = dg_open(n - 1);
   for (m = 0; m < ncopy; m++) {
     xnew(x[m], n + 1);
     for (i = 0; i < n; i++)
@@ -556,7 +550,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     mkgraph(g[m], x[m]);
     die_if (!dg_biconnected(g[m]),
         "m %d, initial diagram not biconnected D %d\n", m, D);
-    fb[m] = dg_hsfb_direct(g[m], 0, NULL);
+    que[m] = dgque_open(cachesize, (n * (n - 1) / 2 + 31) / 32);
+    fb[m] = dg_hsfb_que(que[m], g[m], 0, NULL);
     hasfb[m] = 1;
     nz[m] = 1; /* if (lookup), nz means fb != 0,
                otherwise nz means no clique separator */
@@ -570,7 +565,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     hasfb[m] = 0;
   }
   eql = 1;
-  hasnfb = needfb = 0;
+  hasnfb = 0;
   nrat[0] = nrat[2] = 1e-6; nrat[1] = nrat[3] = 0;
   tacc[0] = tacc[2] = 1e-6; tacc[1] = tacc[3] = 0;
   for (i = 0; i < NSYS; i++) {
@@ -582,6 +577,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
     for (m = 0; m < ncopy; m++) {
+      /* register the system, 0: biconnected; 1: nocsep; 2: w ~ 1/|fb| */
       sys0[m] = sys[m];
 
 #ifdef CHECK
@@ -605,15 +601,16 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         }
       }
 #endif
-      if (sys[m] == 0 && rnd0() < ratcr) { /* replace all coordinates */
+
+      if (sys0[m] == 0 && rnd0() < ratcr) { /* replace all coordinates */
         rtot += 1;
+        /* regularly regenerate a configuration */
         if ( grepl(x[m], nx, g[m], ng) ) {
           nz[m] = (dg_cliquesep(g[m]) == 0);
           hasfb[m] = 0;
           fb[m] = 0;
           racc += 1;
         }
-	needfb = 0;
       } else {  /* randomly displace a particle */
         i = (int) (rnd0() * n);
         if (usegrand)
@@ -629,29 +626,44 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
             dg_link(ng, i, j);
         }
 
-        nbc = dg_biconnected(ng);
-        if (eql) {
-          /* during equilibration, we only sample the biconnected system,
-           * we don't need hasnfb, needfb, nnz, ... */
-          if ( nbc ) { /* accept the move */
+        if (eql) { /* during equilibration */
+          /* only sample the biconnected system */
+          if ( dg_biconnected(ng) ) { /* accept the move */
             rvn_copy(x[m][i], xi);
             dg_copy(g[m], ng);
           }
         } else {
-          /* since computing fb is expensive,
-           * we only try to find if there is a clique separator,
-           * if so, fb == 0, otherwise fb is likely but not always nonzero */
-          nnz = nbc ? (dg_cliquesep(ng) == 0) : 0;
-
-          nfb = 0;
-          /* we need to compute `nfb' if `sys' == 3 */
-          hasnfb = needfb = (sys[m] > 1 && !eql);
-          if ( needfb ) { /* if we must compute the new fb */
-            /* if the connectivity is unchanged, use the old fb */
-            if (hasfb[m] && g[m]->c[i] == ng->c[i]) {
-              nfb = fb[m];
-            } else {
-              nfb = nnz ? dg_hsfb_direct(ng, 1, &neval[sys0[m]]) : 0;
+          /* try to avoid the expensive computation of fb */
+          nbc = dg_biconnected(ng);
+          if ( !nbc ) {
+            nnz = 0;
+            nfb = 0;
+            hasnfb = 1;
+          } else if ( dg_nedges(ng) == n ) { /* ring */
+            /* in high dimensions, the ring diagram dominates
+             * the cost of calling dg_nedges(ng) seems to be negligible */
+            nnz = 1;
+            nfb = 1 - (n % 2) * 2; /* 1 or -1 */
+            hasnfb = 1;
+          } else if ( dg_cliquesep(ng) != 0 ) {
+            /* if there is a clique separator, fb == 0,
+             * otherwise fb is likely but not always nonzero */
+            nnz = 0;
+            nfb = 0;
+            hasnfb = 1;
+          } else { /* very likely nonzero fb */
+            nnz = 1;
+            /* we need to compute `nfb' if `sys' == 3 */
+            if ( sys0[m] >= 2 ) { /* if we must compute the new fb */
+              hasnfb = 1;
+              /* if the connectivity is unchanged, use the old fb */
+              if (hasfb[m] && g[m]->c[i] == ng->c[i]) {
+                nfb = fb[m];
+              } else {
+                nfb = dg_hsfb_que(que[m], ng, 1, &neval[sys0[m]]);
+              }
+            } else { /* indicate fb has not been computed */
+              hasnfb = nfb = 0;
             }
           }
 
@@ -684,8 +696,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
       if ( !eql ) {
         /* compute fb only when necessary */
         ifb[m] = (nstfb == 1 || rnd0() < 1./nstfb);
-        if ( !hasfb[m] && (ifb[m] || needfb) ) {
-          fb[m] = nz[m] ? dg_hsfb_direct(g[m], 1, &neval[sys0[m]]) : 0;
+        if ( !hasfb[m] && (ifb[m] || sys0[m] >= 2) ) {
+          fb[m] = nz[m] ? dg_hsfb_que(que[m], g[m], 1, &neval[sys0[m]]) : 0;
 	  hasfb[m] = 1;
         }
 
@@ -722,7 +734,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
           die_if (sys[m] != 0, "sys[%d] %d must be 0 during equilibration\n", m, sys[m]);
           nbc = dg_biconnected(g[m]);
           nz[m] = nbc ? (dg_cliquesep(g[m]) == 0) : 0;
-          fb[m] = nz[m] ? dg_hsfb_direct(g[m], 1, NULL) : 0;
+          fb[m] = nz[m] ? dg_hsfb_que(que[m], g[m], 1, NULL) : 0;
           hasfb[m] = 1;
         }
       }
@@ -759,12 +771,12 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   for (m = 0; m < ncopy; m++) {
     dg_close(g[m]);
     free(x[m]);
+    dgque_close(que[m]);
   }
   free(x);
   free(nx);
   free(g);
   dg_close(ng);
-  dg_close(sg);
   free(fb);
   free(ifb);
   free(hasfb);
@@ -774,6 +786,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   free(nzsm);
   free(fbsm);
   free(hist);
+  free(que);
 }
 
 

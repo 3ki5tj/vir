@@ -11,8 +11,8 @@
 
 typedef struct {
   struct {
-    DGQUETYPE val;
-    code_t c[DG_NMAX/2];
+    DGQUETYPE val; /* e.g., the value of fb */
+    code_t c[DG_NMAX/2]; /* code */
   } *arr;
   int nmax;
   int cnt; /* number of entries */
