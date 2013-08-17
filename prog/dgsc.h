@@ -26,21 +26,6 @@ static int dg_rhiter(int n, int n0, int sc)
 
 
 
-/* check if a sub-diagram of `g' is biconnected */
-INLINE int dg_biconnectedvs(const dg_t *g, code_t vs)
-{
-  int i, n = g->n;
-
-  for (i = 0; i < n; i++) {
-    code_t bi = ((code_t) 1u << i);
-    if ((vs & bi) && !dg_connectedvs(g, vs ^ bi))
-      return 0;
-  }
-  return 1;
-}
-
-
-
 /* minimize the diagram of `g' by removing fully-connected vertices */
 static dg_t *dg_mintop(dg_t *g)
 {

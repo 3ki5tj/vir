@@ -295,6 +295,8 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
           rvn_granddisp(xi, xm[i], amp[sys0[m]]);
         else
           rvn_rnddisp(xi, xm[i], amp[sys0[m]]);
+
+        /* directly change the connectivity bitstring of the graph */
         ncode = code[m];
         /* for j < i pairs */
         for (pid = i - 1, j = 0; j < i; j++, pid += n - j - 1)

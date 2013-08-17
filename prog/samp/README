@@ -8,6 +8,8 @@ mcrat.c     calculate the ratio of two successive virial coefficients
             Ree-Hoover star contents are used, so no need to sample
             over diagrams
 
+mcstat.c    compute some statisitics of the diagrams
+
 
 bak: old programs
 ~~~~~~~~~~~~~~~~~~~
@@ -20,6 +22,12 @@ dgmc.c      calculate the virial coefficients by Monte Carlo sampling
 mcrepl.c    coordinate replacement as a Monte Carlo move
 
 mcratn.c    sampling along the number of clique separators
+
+mcwt.c      prototype code for sampling in three ensembles
+            biconnected, nonzero fb, and importance sampling
+
+mcnz.c      prototype code for sampling in two ensembles
+            biconnected and nonzero fb
 
 
 
