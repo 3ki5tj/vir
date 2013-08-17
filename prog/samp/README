@@ -17,6 +17,9 @@ dgmc.c      calculate the virial coefficients by Monte Carlo sampling
             this program directly samples over diagrams without using
             the Ree-Hoover star contents. So it is not very efficient
 
+mcrepl.c    coordinate replacement as a Monte Carlo move
+
+mcratn.c    sampling along the number of clique separators
 
 
 

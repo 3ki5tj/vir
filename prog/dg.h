@@ -379,6 +379,21 @@ INLINE int dg_biconnected(const dg_t *g)
 
 
 
+/* check if a sub-diagram is biconnected  */
+INLINE int dg_biconnectedvs(const dg_t *g, code_t vs)
+{
+  code_t b, todo;
+
+  for (todo = vs; todo; todo ^= b) {
+    bitfirstlow(todo, &b); /* first vertex (1-bit) of the todo list */
+    if ( !dg_connectedvs(g, vs ^ b) )
+      return 0;
+  }
+  return 1;
+}
+
+
+
 typedef short unqid_t;
 
 typedef struct {
