@@ -23,7 +23,8 @@ typedef float real;
 int ncopy = 1; /* number of independent copies */
 int n = 7; /* order */
 double nequil = 100000; /* number of equilibration steps */
-double nsteps = 10000000, nsteps2 = -1;
+double nsteps = 10000000;
+double nsteps2 = 0;
 real mcamp[NSYS] = {1.5f, 0.9f, 0.9f};
 int usegrand = 0; /* normally distributed */
 int nstfb = 0; /* interval of evaluting the weight */
@@ -34,6 +35,7 @@ double Z[NSYS] = {1, -1, -1}; /* inverse weights (etimated partition function) *
 int cachesize = 5; /* number of recently visited diagrams */
 double ratcr = 0; /* rate of coordinates replacement */
 real nrc = 1.f; /* radius for particle moves */
+double Zb = 0, Zbvir = 1;
 
 
 
@@ -62,6 +64,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-C", "%d", &cachesize, "cache size of recently visited diagrams");
   argopt_add(ao, "-R", "%lf", &ratcr, "rate of coordinates replacement");
   argopt_add(ao, "-c", "%r", &nrc, "radius of n-move");
+  argopt_add(ao, "-B", "%lf", &Zb, "partition function of biconnected configurations");
   argopt_parse(ao, argc, argv);
 
   /* decide whether to use lookup table or not */
@@ -91,9 +94,19 @@ static void doargs(int argc, char **argv)
   }
 
   /* the smaller system converges faster, so we spend less time on it */
-  if (nsteps2 <= 0) nsteps2 = nsteps / 4;
+  //if (nsteps2 <= 0) nsteps2 = nsteps / 4;
 
   //if (ratcr < 0) ratcr = 0.1/n;
+
+  /* if Zb is not given, guess it */
+  if (Zb <= 0)
+    Zb = getZrat(D, n, NULL);
+  if (Zb > 0) {
+    /* Zbvir = (1 - n) * 2^(n - 1) / n!, where B2 = V/2 */
+    Zbvir = Zb * (1 - n);
+    for (i = 2; i <= n; i++)
+      Zbvir *= 2./n;
+  }
 
   argopt_dump(ao);
   argopt_close(ao);
@@ -497,7 +510,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
  * nocsep: no clique separator in the graph */
 INLINE int dg_hsfb_que(dgque_t *q, const dg_t *g, int nocsep, int *neval)
 {
-  int n = g->n, k, fb = 0;
+  int fb = 0;
   static code_t c[DG_NMAX/2];
 
   dg_encode(g, c);
@@ -819,25 +832,39 @@ int main(int argc, char **argv)
   int i;
 
   doargs(argc, argv);
-  printf("D %d, n %d, nsteps %g/%g, amp %g/%g/%g, nstfb %d, code %d-bit\n",
+  printf("D %d, n %d, nsteps %g/%g, amp %g/%g/%g, nstfb %d, code %d-bit, Z %g/%g\n",
       D, n, (double) nsteps, nsteps2, mcamp[0], mcamp[1], mcamp[2],
-      nstfb, (int) sizeof(code_t) * 8);
+      nstfb, (int) sizeof(code_t) * 8, Zb, Zbvir);
 
   mcrat(n, nequil, nsteps, mcamp, usegrand,
       nstfb, lookup, nstnmv, nrat1, tr1, fbav1);
-  mcrat(n - 1, nequil, nsteps2, mcamp, usegrand,
-      nstfb, lookup, nstnmv, nrat2, tr2, fbav2);
-  nr1 = nrat1[3]/nrat1[2]; /* remove a vertex */
-  nr2 = nrat2[1]/nrat2[0]; /* add a vertex */
-  for (i = 0; i < 2; i++)
-    rvir[i] = fbav1[i]/fbav2[i] * pow(nrc, D) * nr2/nr1 * (1. - n)/(2. - n)/n;
-  printf("D %d, n %d, fbav %g/%g, %g/%g; nrat %g/%g = %g\nvir%d/vir%d:\n"
-      "    %.7f, %.7f, %.7f (importance sampling)\n"
-      "    %.7f, %.7f, %.7f (multiple histogram)\n",
-      D, n, fbav1[0], fbav2[0], fbav1[1], fbav2[1],
-      nr2, nr1, nr2/nr1, n, n - 1,
-      rvir[0], rvir[0] * 2, rvir[0] * ndvol(D),
-      rvir[1], rvir[1] * 2, rvir[1] * ndvol(D));
+
+  if (nsteps2 <= 0) /* a single simulation */
+  {
+    for (i = 0; i < 2; i++) rvir[i] = fbav1[i] * Zbvir;
+    printf("D %d, n %d, fbav %g, %g; nrat %g(+), %g(-), Z %g/%g\nvir:\n"
+        "    %.7f, %.7f, %.7f (importance sampling)\n"
+        "    %.7f, %.7f, %.7f (multiple histogram)\n",
+        D, n, fbav1[0], fbav1[1], nrat1[3]/nrat1[2], nrat1[1]/nrat1[0], Zb, Zbvir,
+        rvir[0], rvir[0] * 2, rvir[0] * ndvol(D),
+        rvir[1], rvir[1] * 2, rvir[1] * ndvol(D));
+  }
+  else /* a second simulation */
+  {
+    mcrat(n - 1, nequil, nsteps2, mcamp, usegrand,
+        nstfb, lookup, nstnmv, nrat2, tr2, fbav2);
+    nr1 = nrat1[3]/nrat1[2]; /* remove a vertex n --> n - 1 */
+    nr2 = nrat2[1]/nrat2[0]; /* add a vertex, n - 1 --> n */
+    for (i = 0; i < 2; i++)
+      rvir[i] = fbav1[i]/fbav2[i] * pow(nrc, D) * nr2/nr1 * (1. - n)/(2. - n)/n;
+    printf("D %d, n %d, fbav %g/%g, %g/%g; nrat %g/%g = %g\nvir%d/vir%d:\n"
+        "    %.7f, %.7f, %.7f (importance sampling)\n"
+        "    %.7f, %.7f, %.7f (multiple histogram)\n",
+        D, n, fbav1[0], fbav2[0], fbav1[1], fbav2[1],
+        nr2, nr1, nr2/nr1, n, n - 1,
+        rvir[0], rvir[0] * 2, rvir[0] * ndvol(D),
+        rvir[1], rvir[1] * 2, rvir[1] * ndvol(D));
+  }
 
   mtsave(NULL);
   return 0;

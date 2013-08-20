@@ -159,7 +159,8 @@ INLINE code_t dg_cliquesep(const dg_t *g)
   int n = g->n;
   code_t cl;
 
-  if (fs[n] == NULL) f = fs[n] = dg_open(n);
+  if (fs[n] == NULL) fs[n] = dg_open(n);
+  f = fs[n];
 
   /* 1. find a minimal ordering and its fill-in */
   dg_minimalorder(g, f, a, p);

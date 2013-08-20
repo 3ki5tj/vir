@@ -26,6 +26,7 @@ typedef uint32_t code_t;
 
 typedef struct {
   int n;
+  int nalloc;
   code_t *c; /* if two particles are connected */
 } dg_t;
 
@@ -270,7 +271,8 @@ static dg_t *dg_open(int n)
   xnew(g, 1);
   g->n = n;
   die_if (n >= CODEBITS, "do not support %d atoms\n", n);
-  xnew(g->c, g->n);
+  g->nalloc = (n + 3) / 4 * 4;
+  xnew(g->c, g->nalloc);
   dg_empty(g);
   return g;
 }
