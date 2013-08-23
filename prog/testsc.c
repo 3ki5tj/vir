@@ -23,7 +23,7 @@ static void cmpref(int n, edges_t *ref)
     dg_full(g);
     for (j = 0; j < ref[i].npr; j++)
       dg_unlink(g, ref[i].id[j][0], ref[i].id[j][1]);
-    sc = dg_rhsc_low(g);
+    sc = dg_rhsc_direct(g);
     if (!dg_biconnected(g))
       continue;
     if (sc != ref[i].sc) {
@@ -52,7 +52,7 @@ static void testspeed(int n, int nsteps, int lookup)
     int ig, sc1, sc2;
     dg_t *g2;
 
-    dg_rhsc(g); /* initialization */
+    dg_rhsc(g); /* automatically activate the look up table */
     printf("star content, n %d, initialization: %gs\n",
       n, 1.*(clock() - t0) / CLOCKS_PER_SEC);
     /* compare with the RJW result */
@@ -84,7 +84,7 @@ static void testspeed(int n, int nsteps, int lookup)
     }
     if (t >= nequil) {
       if (t == nequil) t1 = clock();
-      sum += lookup ? dg_rhsc(g) : dg_rhsc_low(g);
+      sum += lookup ? dg_rhsc(g) : dg_rhsc_direct(g);
       //sum += lookup ? dg_hsfb(g) : dg_cliquesep(g) ? 0 : dg_hsfbrjw(g);
     }
   }
@@ -97,7 +97,7 @@ static void testspeed(int n, int nsteps, int lookup)
 
 int main(void)
 {
-  edges_t ref5[] = {
+  edges_t ref5[] = { /* edges are wiggly lines */
     {0, {{0, 0}}, -6},
     {1, {{0, 1}}, 0},
     {2, {{0, 1}, {2, 3}}, 3},

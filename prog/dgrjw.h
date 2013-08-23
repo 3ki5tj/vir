@@ -103,7 +103,7 @@ INLINE int dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
 /* compute the sum of all connected diagrams without the articulation point
    at vertices lower than `v', `vs' is the vertex set
    if v = 0, it returns fc; if v = n, it returns fb */
-INLINE int dg_hsfbrjwlow(const code_t *c, int n, int v, code_t vs,
+INLINE int dg_hsfb_rjwlow(const code_t *c, int n, int v, code_t vs,
     int * RESTRICT faarr, int * RESTRICT fbarr)
 {
   int fb, id, i;
@@ -150,12 +150,12 @@ INLINE int dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
     vs1 = ms1 | (b1 | bv);
     id1 = ((v + 1) << n) + vs1;
     if ( FBINVALID(fbarr[id1]) )
-      fbarr[id1] = dg_hsfbrjwlow(c, n, v + 1, vs1, faarr, fbarr);
+      fbarr[id1] = dg_hsfb_rjwlow(c, n, v + 1, vs1, faarr, fbarr);
     if ( fbarr[id1] != 0 ) {
       vs2 = (vs1 ^ vs) | bv; /* complement set of vs */
       id2 = ((v + 1) << n) + vs2;
       if ( FBINVALID(fbarr[id2]) )
-        fbarr[id2] = dg_hsfbrjwlow(c, n, v + 1, vs2, faarr, fbarr);
+        fbarr[id2] = dg_hsfb_rjwlow(c, n, v + 1, vs2, faarr, fbarr);
       if ( FBINVALID(faarr[id2]) )
         faarr[id2] = dg_hsfarjwlow(c, n, v, vs2, faarr, fbarr);
       fa += fbarr[id1] * (fbarr[id2] + faarr[id2]);
@@ -173,7 +173,7 @@ INLINE int dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
 /* compute the sum of biconnected diagrams by Wheatley's method
  * This is a low level function and the test of clique separator
  * is not done here. */
-INLINE int dg_hsfbrjw(const dg_t *g)
+INLINE int dg_hsfb_rjw(const dg_t *g)
 {
   static int nmax, *faarr, *fbarr;
   int i, n = g->n;
@@ -189,24 +189,32 @@ INLINE int dg_hsfbrjw(const dg_t *g)
   }
   for (i = 0; i < ((nmax + 1) << nmax); i++)
     faarr[i] = fbarr[i] = FBDIRTY;
-  return dg_hsfbrjwlow(g->c, n, n, (1u << n) - 1, faarr, fbarr);
+  return dg_hsfb_rjwlow(g->c, n, n, (1u << n) - 1, faarr, fbarr);
 }
 
 
 
-#define dg_hsfbmixed(g) dg_hsfbmixed0(g, 0)
+#define dg_hsfb_mixed(g) dg_hsfb_mixed0(g, 0, NULL, NULL)
 
 /* directly compute the sum of biconnected diagrams by various strategies
- * a mixed strategy of dg_hsfbrjw() and dg_rhsc()
- * nocsep: if the graph has been tested with no clique separator */
-INLINE int dg_hsfbmixed0(const dg_t *g, int nocsep)
+ * a mixed strategy of dg_hsfb_rjw() and dg_rhsc()
+ * nocsep = 1 means that the graph has been tested with no clique separator
+ *        = 0 means it MAY have clique separators
+ * *ned: number of edges; degs: degree sequence */
+INLINE int dg_hsfb_mixed0(const dg_t *g, int nocsep, int *ned, int *degs)
 {
-  int ned, n = g->n, sgn;
+  int n = g->n, sgn, sc, err, nedges = -1;
 
-  if ( !nocsep && dg_cliquesep(g) ) return 0;
-  ned = dg_nedges(g);
-  sgn = ned % 2 ? -1 : 1;
-  return (ned >= 2*n - 2) ? dg_hsfbrjw(g) : dg_rhsc_low0(g, 1) * sgn;
+  if (ned == NULL) ned = &nedges;
+  sc = dg_rhsc_spec0(g, nocsep, ned, degs, &err);
+  sgn = 1 - (*ned % 2) * 2;
+  if ( err == 0 ) {
+    return sc * sgn;
+  } else if ( *ned < 2*n - 2 ) {
+    return dg_rhsc_directlow(g) * sgn;
+  } else {
+    return dg_hsfb_rjw(g);
+  }
 }
 
 
@@ -230,7 +238,7 @@ INLINE int dg_hsfb_lookuplow(int n, unqid_t id)
     for (cnt = 0, k = 0; k < m->ng; k++) {
       dg_decode(g, &m->first[k]);
       if ( dg_biconnected(g) ) {
-        fb[n][k] = dg_cliquesep(g) ? 0 : dg_hsfbrjw(g);
+        fb[n][k] = dg_cliquesep(g) ? 0 : dg_hsfb_rjw(g);
         cnt++;
         nz += (fb[n][k] != 0);
       } else fb[n][k] = 0;
@@ -252,13 +260,17 @@ INLINE int dg_hsfb_lookup(const dg_t *g)
 
 
 
-#define dg_hsfb(g) dg_hsfb0(g, 0)
+#define dg_hsfb(g) dg_hsfb0(g, 0, NULL, NULL)
 
 /* compute the hard-sphere total weight of a configuration
  * nocsep: if the graph has been tested with no clique separator */
-INLINE int dg_hsfb0(dg_t *g, int nocsep)
+INLINE int dg_hsfb0(dg_t *g, int nocsep, int *ned, int *degs)
 {
-  return (g->n <= DGMAP_NMAX) ? dg_hsfb_lookup(g) : dg_hsfbmixed0(g, nocsep);
+  if (g->n <= DGMAP_NMAX) {
+    return dg_hsfb_lookup(g);
+  } else {
+    return dg_hsfb_mixed0(g, nocsep, ned, degs);
+  }
 }
 
 

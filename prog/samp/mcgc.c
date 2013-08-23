@@ -4,12 +4,13 @@
 #define ZCOM_ARGOPT
 #define ZCOM_RVN
 #include "zcom.h"
-#include "dg.h"
 #include "dgrjw.h"
 #include "mcutil.h"
 
+
+
 int nmin = 3; /* the minimal number of particles */
-int nmax = 20;
+int nmax = DG_NMAX - 1;
 real mcamp = 1.5f;
 double nequil = 100000;
 double nsteps = 10000000;
@@ -17,7 +18,10 @@ double ratn = 0.1;
 real rc = 0;
 const char *fnin = NULL; /* input file */
 const char *fnout = NULL; /* output file */
-int nststat = 100;
+int nsted = 10;
+int nstcs = 100;
+int nstfb = 1000;
+
 
 
 /* handle arguments */
@@ -35,13 +39,16 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-c",   "%r",  &rc,      "radius of particle insersion");
   argopt_add(ao, "-i",   NULL,  &fnin,    "input file");
   argopt_add(ao, "-o",   NULL,  &fnout,   "output file");
-  argopt_add(ao, "-f",   "%d",  &nststat, "interval of accumulating data");
+  argopt_add(ao, "-e",   "%d",  &nsted,   "interval of computing the # of edges");
+  argopt_add(ao, "-s",   "%d",  &nstcs,   "interval of computing clique separator");
+  argopt_add(ao, "-f",   "%d",  &nstfb,   "interval of computing fb");
   argopt_parse(ao, argc, argv);
 
   /* Monte Carlo move amplitude */
   mcamp /= D;
 
   if (rc <= 0) rc = 1;
+
   argopt_dump(ao);
   argopt_close(ao);
 }
@@ -52,8 +59,8 @@ static void doargs(int argc, char **argv)
  * we save the ratio of the successive values, such that one can modify
  * a particular value without affecting later ones */
 static int saveZr(const char *fn, const double *Zr, int nmax,
-    const double *hist, const double *nncs, const double *nedg,
-    int nststat, const double *nacc)
+    const double *hist, const double *ncsp, const double *fbsm,
+    const double *nedg, const double *nacc)
 {
   FILE *fp;
   int i;
@@ -68,9 +75,11 @@ static int saveZr(const char *fn, const double *Zr, int nmax,
   fprintf(fp, "# %d %d 0\n", D, nmax);
   for (x = 1, i = 1; i < nmax; i++) {
     x *= Zr[i];
-    fprintf(fp, "%2d %24.14f %24.14e %14.0f %.14f %18.14f %.14f %.14f\n",
-        i, Zr[i], x, hist[i+1], nststat * nncs[i + 1] / hist[i + 1],
-        nststat * nedg[i + 1] / hist[i + 1],
+    fprintf(fp, "%2d %24.14f %24.14e %14.0f %16.14f %16.14f "
+        "%+18.14f %18.14f %.14f %.14f\n",
+        i, Zr[i], x, hist[i + 1], ncsp[2*i + 3] / ncsp[2*i + 2],
+        fbsm[3*i + 5] / fbsm[3*i + 3], fbsm[3*i + 4] / fbsm[3*i + 3],
+        nedg[2*i + 3] / nedg[2*i + 2],
         nacc[4*i + 3] / nacc[4*i + 2], nacc[4*i + 5] / nacc[4*i + 4]);
   }
   fclose(fp);
@@ -154,17 +163,51 @@ static int initZr(const char *fn, double *Zr, int nmax)
 
 
 
-/* grand canonical simulation */
+/* accumulate data */
+static void accumdata(const dg_t *g, double t, int nsted, int nstcs, int nstfb,
+    double *nedg, double *ncsp, double *fbsm)
+{
+  if (nsted > 0 && (int) fmod(t, nsted) == 0) {
+    int ned = -1;
+    static int degs[DG_NMAX];
+
+    ned = dg_degs(g, degs);
+    nedg[2*g->n] += 1;
+    nedg[2*g->n + 1] += ned;
+    if (nstcs > 0 && (int) fmod(t, nstcs) == 0) {
+      int ncs;
+
+      if (ned == g->n) { /* ring diagram */
+        ncs = 1;
+      } else { /* general case */
+        ncs = dg_cliquesep(g);
+      }
+      ncsp[2*g->n] += 1;
+      ncsp[2*g->n + 1] += ncs;
+      if (nstfb > 0 && (int) fmod(t, nstfb) == 0) {
+        int fb = ncs ? dg_hsfb_mixed0(g, 1, &ned, degs) : 0;
+        fbsm[3*g->n] += 1;
+        fbsm[3*g->n + 1] += fb;
+        fbsm[3*g->n + 2] += abs(fb);
+      }
+    }
+  }
+}
+
+
+
+/* grand canonical simulation, main function */
 static void mcgc(int nmin, int nmax, real rc,
     double nsteps, double mcamp)
 {
-  int i, j, deg, ned = 0, conn[DG_NMAX], Znmax;
+  int i, j, deg, conn[DG_NMAX], Znmax;
   dg_t *g, *ng;
   double t, r, vol, cacc = 0, ctot = 0;
   double Zr[DG_NMAX + 1]; /* ratio of the partition function, measured by V */
   double hist[DG_NMAX + 1]; /* histogram */
-  double nncs[DG_NMAX + 1]; /* number of diagrams with no clique separator */
-  double nedg[DG_NMAX + 1]; /* number of edges */
+  double ncsp[DG_NMAX * 2 + 2]; /* no clique separator */
+  double fbsm[DG_NMAX * 3 + 3]; /* sum of weights */
+  double nedg[DG_NMAX * 2 + 2]; /* number of edges */
   double nacc[DG_NMAX * 4 + 8]; /* acceptance probabilities */
   rvn_t x[DG_NMAX], xi;
 
@@ -172,8 +215,10 @@ static void mcgc(int nmin, int nmax, real rc,
   Znmax = initZr(fnin, Zr, nmax); /* initialize the partition function */
   for (i = 0; i <= DG_NMAX; i++) {
     hist[i] = 1e-14;
-    nncs[i] = 0;
-    nedg[i] = 0;
+    fbsm[3*i] = 1e-14;
+    fbsm[3*i + 1] = fbsm[3*i + 2] = 0;
+    nedg[2*i] = 1e-14;
+    nedg[2*i + 1] = 0;
   }
   for (i = 0; i < DG_NMAX * 4 + 8; i++)
     nacc[i] = 1e-6;
@@ -201,12 +246,10 @@ static void mcgc(int nmin, int nmax, real rc,
           }
         }
         nacc[g->n*4 + 2] += 1;
-        //printf("proposing..., deg %d, n %d, %g %g, rc %g, nacc %g, %g\n", deg, g->n, rvn_dist(xi, x[0]), rvn_dist(xi, x[1]), rc, nacc[g->n*4+2], nacc[g->n*4+3]);
         /* the extended configuration is biconnected if xi
          * is connected two vertices */
         if ( deg >= 2 && rnd0() < vol / Zr[g->n] ) {
           nacc[g->n*4 + 3] += 1;
-          //printf("accepting..., n %d, nacc %g, %g\n", g->n, nacc[g->n*4+2], nacc[g->n*4+3]);
           rvn_copy(x[g->n], xi);
           g->n += 1;
           for (j = 0; j < g->n - 1; j++) {
@@ -252,29 +295,24 @@ static void mcgc(int nmin, int nmax, real rc,
     }
 STEP_END:
     hist[g->n] += 1;
-    if ((int) fmod(t, nststat) == 0) {
-      ned = dg_nedges(g);
-      nedg[g->n] += ned;
-      if (ned == g->n) { /* ring diagram */
-        nncs[g->n] += 1;
-      } else {
-        nncs[g->n] += (dg_cliquesep(g) == 0);
-      }
-    }
+    accumdata(g, t, nsted, nstcs, nstfb, nedg, ncsp, fbsm);
   }
 
   for (i = nmin + 1; i <= nmax; i++) {
     r = nacc[4*i - 1] / nacc[4*i - 2] / (nacc[4*i + 1] / nacc[4*i]);
-    if (i >= 5 || (i == 4 && D > 12))
+    /* make sure enough data and not to erase the exact data */
+    if ( (i >= 5 || (i == 4 && D > 12)) &&
+        nacc[4*i - 1] >= 100 && nacc[4*i + 1] >= 100)
       Zr[i - 1] *= r;
   }
 
   for (i = 1; i <= nmax; i++) {
-    printf("%4d %16.8f %12.0f %.8f %12.8f %.8f %.8f\n", i, Zr[i], hist[i],
-        nncs[i] / hist[i] * nststat, nedg[i] / hist[i] * nststat,
+    printf("%4d %16.8f %12.0f %10.8f %+11.8f %11.8f %12.8f %.8f %.8f\n",
+        i, Zr[i], hist[i], ncsp[2*i + 1] / ncsp[2*i], fbsm[3*i + 1] / fbsm[3*i],
+        fbsm[3*i + 2] / fbsm[3*i], nedg[2*i + 1] / nedg[2*i],
         nacc[4*i + 3] / nacc[4*i + 2], nacc[4*i + 5] / nacc[4*i + 4]);
   }
-  saveZr(fnout, Zr, Znmax, hist, nncs, nedg, nststat, nacc);
+  saveZr(fnout, Zr, Znmax, hist, ncsp, fbsm, nedg, nacc);
   printf("cacc %g\n", cacc/ctot);
   dg_close(g);
   dg_close(ng);

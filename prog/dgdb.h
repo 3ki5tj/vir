@@ -16,7 +16,8 @@ INLINE int dg_gethash(dg_t *d, int *degseq)
 {
   int sum, par, i, n = d->n;
 
-  sum = dg_degseq(d, degseq);
+  sum = dg_degs(d, degseq);
+  dg_csortdegs(degseq);
   /* compute the number of partitions in the degrees */
   for (par = 0, i = 0; i < n - 1; i++)
     if (degseq[i] != degseq[i + 1]) par++;

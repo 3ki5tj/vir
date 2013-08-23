@@ -27,7 +27,7 @@ static void bcstat(int nmax, double nsteps)
     /* linear chain */
     for (n = 1; n < nmax; n++)
       rvn_add(v[n], v[n - 1], rvn_rndball0(u));
-    
+
     /* construct the diagram */
     dg_empty(g);
     for (i = 0; i < nmax; i++)

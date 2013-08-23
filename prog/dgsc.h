@@ -1,7 +1,6 @@
 #ifndef DGSC__
 #define DGSC__
-/* compute the Ree-Hoover star content
- * deprecated, use dgrjw.h instead */
+/* compute the Ree-Hoover star content by the direct method */
 
 
 
@@ -47,8 +46,9 @@ static dg_t *dg_mintop(dg_t *g)
 
 
 
-/* recursively find the star content */
-static int dg_rhsc_recur(dg_t *g, int par, int i, int j)
+/* recursively find the star content
+ * starting from the edge (i, j + 1) */
+static int dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
 {
   int sc = 0, n = g->n;
 
@@ -64,8 +64,8 @@ static int dg_rhsc_recur(dg_t *g, int par, int i, int j)
         continue;
       dg_unlink(g, i, j);
       if ( dg_biconnected(g) ) {
-        sc += !par ? -1 : 1; /* add the diagram without (i, j) */
-        sc += dg_rhsc_recur(g, !par, i, j); /* diagrams without (i, j) */
+        sc += sgn /* add the diagram without (i, j) */
+            + dg_rhsc_recur(g, -sgn, i, j); /* diagrams without (i, j) */
       }
       dg_link(g, i, j); /* link back, find subdiagrams with (i, j) */
     }
@@ -75,55 +75,122 @@ static int dg_rhsc_recur(dg_t *g, int par, int i, int j)
 
 
 
-#define dg_rhsc_low(g) dg_rhsc_low0(g, 0)
+#define dg_rhsc_spec(g, err) dg_rhsc_spec0(g, 0, NULL, NULL, err)
+
+/* compute the star content (SC) of a Ree-Hoover diagram in special cases
+ * only use cheap strategies to deduce the SC
+ * assuming the diagram is biconnected
+ * if successful, *err = 0, otherwise *err = 1
+ * nocsep = 1 means the diagram has been tested with no clique separator
+ *        = 0 means it MAY have clique separators
+ *   if *err = 0, the diagram has a clique separator if the returned
+ *                value of SC is zero
+ *   if *err = 1, the diagram has no clique separator on return
+ * *ned: number of edges; degs: unsorted degree sequence
+ * if ned != NULL, *ned is computed on return */
+static int dg_rhsc_spec0(const dg_t *g, int nocsep,
+    int *ned, int *degs, int *err)
+{
+  int i, j, n = g->n, ned0, ned1;
+  static int ldegs[DG_NMAX]; /* local buffer for the degree sequence */
+
+  *err = 0;
+  /* compute the degrees of all vertices */
+  if (degs == NULL) degs = ldegs;
+  if (ned == NULL || *ned <= 0) {
+    ned0 = dg_degs(g, degs);
+    if (ned) *ned = ned0;
+  } else {
+    ned0 = *ned;
+  }
+
+  /* loosely connected diagrams */
+  if (ned0 <= n + 1) {
+    if (ned0 == n || nocsep) /* ring diagram or interwined rings (see below) */
+      return 1;
+
+    /* ned0 == n + 1
+     * (a) if the two deg-3 vertices are mutually connected,
+     * then the additional edge forms a clique that separates the ring
+     * so the star content is zero,
+     * (b) if the two deg-3 vertices are connected to deg-2 vertices
+     * then no subgraph is biconnected, for removing any edge creates
+     * a deg-1 vertex, making the subgraph impossible to be biconnected
+     * we try to find which case by the degree seq.
+     * this should be faster than computing the clique separator */
+    for (i = 0; i < n; i++)
+      if (degs[i] == 3) break;
+    for (j = i + 1; j < n; j++)
+      if (degs[j] == 3) break;
+    return !dg_linked(g, i, j);
+  }
+
+  /* densely-connected diagrams */
+  ned1 = n * (n - 1) /2 - ned0;
+  if (ned1 < 3) {
+    /* with no clique separactor, this covers the following three cases
+     * `ned1' can only be 0 or 2 */
+    if (nocsep) return dg_rhiter(n, ned1 + 2, 1);
+
+    if (ned1 == 0) { /* fully connected */
+      return dg_rhiter(n, 2, 1);
+    } else if (ned1 == 1) { /* always has a clique separator */
+      return 0;
+    } else { /* ned1 == 2 */
+      /* if there are two wiggly lines, the SC is nonzero only if
+       * the two wiggly lines are not connected to the same vertex */
+      for (i = 0; i < n; i++)
+        if (degs[i] <= n - 3) return 0;
+      return dg_rhiter(n, 4, 1);
+    }
+  }
+
+  /* general case: try to find a clique separator */
+  *err = (nocsep || !dg_cliquesep(g));
+  return 0;
+}
+
+
 
 /* compute the star content (SC) of a Ree-Hoover diagram
  * unconnected edge is treated as a wiggly line
- * SC = # of biconnected subgraphs with even edges removed -
- *      # of biconnected subgraphs with odd edges removed
- * nocsep: if the graph has been tested with no clique separator */
-static int dg_rhsc_low0(const dg_t *g, int nocsep)
+ * SC = # of biconnected subgraphs with even edges removed
+ *    - # of biconnected subgraphs with odd edges removed */
+static int dg_rhsc_directlow(const dg_t *g)
 {
-  int par = 0, sc, i, n = g->n, ned, ned0;
+  int sc;
   dg_t *g0 = NULL;
 
-  ned0 = dg_nedges(g);
-  ned = n * (n - 1) /2 - ned0;
-  if (ned >= 3) { /* general case */
-    /* try to find a clique separator */
-    if (!nocsep && dg_cliquesep(g)) return 0;
+  /* first find the minimal set of vertices that
+   * contain the wiggly lines */
+  g0 = dg_clone(g);
+  dg_mintop(g0);
+  sc = 1 + dg_rhsc_recur(g0, -1, 0, 0);
+  /* use the Ree-Hoover formula to go from n0 to n */
+  sc = dg_rhiter(g->n, g0->n, sc);
+  dg_close(g0);
+  return sc;
+}
 
-    /* if ned0 == n, it's the ring diagram
-     * if ned0 == n + 1, and if the two deg-3 vertices are mutually connected,
-     * then the additional edge forms a clique that separates the ring
-     * and this case has been ruled out
-     * or if the two deg-3 vertices are connected to deg-2 vertices
-     * then no subgraph is biconnected, for removing any edge creates
-     * a deg-1 vertex, making the subgraph impossible to be biconnected */
-    if (ned0 <= n + 1) return 1;
-    /* general case, first find the minimal set of vertices that
-     * contain the wiggly lines */
-    g0 = dg_clone(g);
-    dg_mintop(g0);
-    sc = (par ? -1 : 1) + dg_rhsc_recur(g0, par, 0, 0);
-    /* use the Ree-Hoover formula to go from n0 to n */
-    sc = dg_rhiter(n, g0->n, sc);
-    dg_close(g0);
-    return sc;
-  } else if (nocsep) {
-    /* with no clique separactor, this covers the following three cases */
-    return dg_rhiter(n, ned + 2, 1);
-  } else if (ned == 0) {
-    return dg_rhiter(n, 2, 1);
-  } else if (ned == 1) {
-    return 0;
-  } else { /* ned == 2 */
-    /* if there are two wiggly lines, the SC is nonzero only if
-     * the two wiggly lines are not connected to the same vertex */
-    for (i = 0; i < n; i++)
-      if (dg_deg(g, i) <= n - 3) return 0;
-    return dg_rhiter(n, 4, 1);
-  }
+
+
+#define dg_rhsc_direct(g) dg_rhsc_direct0(g, 0, NULL, NULL)
+
+/* directly compute the star content (SC) of a Ree-Hoover diagram
+ * unconnected edge is treated as a wiggly line
+ * SC = # of biconnected subgraphs with even edges removed -
+ *      # of biconnected subgraphs with odd edges removed
+ * nocsep = 1 means if the graph has been tested with no clique separator
+ *        = 0 means it MAY have clique separators
+ * *ned: number of edges; degs: degree sequence */
+INLINE int dg_rhsc_direct0(const dg_t *g, int nocsep, int *ned, int *degs)
+{
+  int sc, err;
+
+  /* detect special cases when possible */
+  sc = dg_rhsc_spec0(g, nocsep, ned, degs, &err);
+  if (err == 0) return sc;
+  else return dg_rhsc_directlow(g);
 }
 
 
@@ -153,7 +220,7 @@ INLINE int dg_rhsc_lookup(const dg_t *g)
     for (cnt = 0, k = 0; k < m->ng; k++) {
       dg_decode(g1, &m->first[k]);
       if ( dg_biconnected(g1) ) {
-        sc[n][k] = dg_rhsc_low(g1);
+        sc[n][k] = dg_rhsc_direct(g1);
         cnt++;
         nz += (sc[n][k] != 0);
       } else sc[n][k] = 0;
@@ -168,18 +235,24 @@ INLINE int dg_rhsc_lookup(const dg_t *g)
 
 
 
-#define dg_rhsc(g) dg_rhsc0(g, 0)
+#define dg_rhsc(g) dg_rhsc0(g, 0, NULL, NULL)
 
 /* compute the star content (SC) of a Ree-Hoover diagram
- * unconnected edge is treated as a wiggly line
- * SC = # of biconnected subgraphs with even edges removed -
- *      # of biconnected subgraphs with odd edges removed
- * nocsep: if the graph has been tested with no clique separator */
-INLINE int dg_rhsc0(const dg_t *g, int nocsep)
+ * see the comments of dg_rhsc_direct0() for details */
+INLINE int dg_rhsc0(const dg_t *g, int nocsep, int *ned, int *degs)
 {
-  return (g->n <= DGMAP_NMAX) ? dg_rhsc_lookup(g) : dg_rhsc_low0(g, nocsep);
+  int sc, err;
+
+  if (g->n <= DGMAP_NMAX) {
+    return dg_rhsc_lookup(g);
+  } else {
+    sc = dg_rhsc_spec0(g, nocsep, ned, degs, &err);
+    if (err == 0) return sc;
+    else return dg_rhsc_directlow(g);
+  }
 }
 
 
 
 #endif
+

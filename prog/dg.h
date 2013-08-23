@@ -26,7 +26,6 @@ typedef uint32_t code_t;
 
 typedef struct {
   int n;
-  int nalloc;
   code_t *c; /* if two particles are connected */
 } dg_t;
 
@@ -150,25 +149,27 @@ INLINE int dg_deg(const dg_t *g, int i)
 }
 
 
-/* ascending */
-int intcmp(const void *a, const void *b)
-{
-  return *(int *) b - *(int *) a;
-}
 
-
-/* get the degree sequence
- * return the number of partitions */
-INLINE int dg_degseq(const dg_t *g, int *degseq)
+/* get the degree sequence, return the number of edges */
+INLINE int dg_degs(const dg_t *g, int *degs)
 {
   int i, sum = 0, n = g->n;
 
-  for (i = 0; i < n; i++) {
-    degseq[i] = bitcount(g->c[i]);
-    sum += degseq[i];
-  }
-  qsort(degseq, n, sizeof(degseq[0]), intcmp);
+  for (i = 0; i < n; i++)
+    sum += ( degs[i] = bitcount(g->c[i]) );
   return sum / 2;
+}
+
+
+
+/* count sort the degree sequence, TO BE TESTED */
+INLINE void dg_csortdegs(const dg_t *g, int *degs)
+{
+  int i, j, k = 0, n = g->n, cnt[DG_NMAX] = {0};
+
+  for (i = 0; i < n; i++) cnt[ degs[i] ]++;
+  for (i = n - 1; i >= 0; i--)
+    for (j = 0; j < cnt[i]; j++) degs[k++] = i;
 }
 
 
@@ -271,8 +272,7 @@ static dg_t *dg_open(int n)
   xnew(g, 1);
   g->n = n;
   die_if (n >= CODEBITS, "do not support %d atoms\n", n);
-  g->nalloc = (n + 3) / 4 * 4;
-  xnew(g->c, g->nalloc);
+  xnew(g->c, g->n);
   dg_empty(g);
   return g;
 }

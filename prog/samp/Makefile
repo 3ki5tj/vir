@@ -7,7 +7,7 @@ LMX =
 
 deps = dg.h dgcsep.h dgrjw.h dgdb.h zcom.h Makefile \
        mcutil.h
-bins = mcrat
+bins = mcrat mcgc
 bins_d = $(patsubst %,%_d, $(bins))
 
 all: $(bins)

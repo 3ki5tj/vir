@@ -508,15 +508,17 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
 /* compute fb with a short history list
  * nocsep: no clique separator in the graph */
-INLINE int dg_hsfb_que(dgque_t *q, const dg_t *g, int nocsep, int *neval)
+INLINE int dg_hsfb_que(dgque_t *q, const dg_t *g, int nocsep,
+    int *ned, int *degs, int *neval)
 {
   int fb = 0;
   static code_t c[DG_NMAX/2];
 
   dg_encode(g, c);
   if (dgque_find(q, c, &fb) < 0) {
-    /* hsfbmixed() is much faster than hsfbrjw() in high dimensions D */
-    fb = dg_hsfbmixed0(g, nocsep);
+    /* hsfb_mixed() is much faster than hsfb_rjw() in high dimensions D
+     * because when the number of edges ~ n, rhsc() is faster than hsfb() */
+    fb = dg_hsfb_mixed0(g, nocsep, ned, degs);
     dgque_add(q, c, fb);
     if (neval) (*neval)++;
   }
@@ -566,7 +568,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     die_if (!dg_biconnected(g[m]),
         "m %d, initial diagram not biconnected D %d\n", m, D);
     que[m] = dgque_open(cachesize, (n * (n - 1) / 2 + 31) / 32);
-    fb[m] = dg_hsfb_que(que[m], g[m], 0, NULL);
+    fb[m] = dg_hsfb_que(que[m], g[m], 0, NULL, NULL, NULL);
     hasfb[m] = 1;
     nz[m] = 1; /* if (lookup), nz means fb != 0,
                otherwise nz means no clique separator */
@@ -654,33 +656,39 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
             nnz = 0;
             nfb = 0;
             hasnfb = 1;
-          } else if ( dg_nedges(ng) == n ) { /* ring */
-            /* in high dimensions, the ring diagram dominates
-             * the cost of calling dg_nedges(ng) seems to be negligible */
-            nnz = 1;
-            nfb = 1 - (n % 2) * 2; /* 1 or -1 */
-            hasnfb = 1;
-          } else if ( dg_cliquesep(ng) != 0 ) {
-            /* if there is a clique separator, fb == 0,
-             * otherwise fb is likely but not always nonzero */
-            nnz = 0;
-            nfb = 0;
-            hasnfb = 1;
-          } else { /* very likely nonzero fb */
-            nnz = 1;
-            /* we need to compute `nfb' if `sys' == 3 */
-            if ( sys0[m] >= 2 ) { /* if we must compute the new fb */
+          } else { /* biconnected */
+            int ned = -1;
+            static int degs[DG_NMAX];
+            int sc, err;
+
+            /* detect special cases, including ring diagrams
+             * and clique separators */
+            sc = dg_rhsc_spec0(ng, 0, &ned, degs, &err);
+            if (err == 0) { /* special case worked */
               hasnfb = 1;
-              /* if the connectivity is unchanged, use the old fb */
-              if (hasfb[m] && g[m]->c[i] == ng->c[i]) {
-                nfb = fb[m];
+              if (sc != 0) {
+                nnz = 1;
+                nfb = 1 - (ned % 2) * 2;
               } else {
-                nfb = dg_hsfb_que(que[m], ng, 1, &neval[sys0[m]]);
+                nnz = 0;
+                nfb = 0;
               }
-            } else { /* indicate fb has not been computed */
-              hasnfb = nfb = 0;
-            }
-          }
+            } else { /* general case */
+              nnz = 1; /* no clique separator */
+              /* we need to compute `nfb' if `sys' == 3 */
+              if ( sys0[m] >= 2 ) { /* if we must compute the new fb */
+                hasnfb = 1;
+                /* if the connectivity is unchanged, use the old fb */
+                if (hasfb[m] && g[m]->c[i] == ng->c[i]) {
+                  nfb = fb[m];
+                } else {
+                  nfb = dg_hsfb_que(que[m], ng, 1, &ned, degs, &neval[sys0[m]]);
+                }
+              } else { /* indicate fb has not been computed */
+                hasnfb = nfb = 0;
+              }
+            } /* end of the general case */
+          } /* end if biconnected */
 
           if (sys0[m] == 0) {
             acc1 = nbc;
@@ -709,10 +717,11 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
       }
 
       if ( !eql ) {
-        /* compute fb only when necessary */
+        /* compute fb only when necessary
+         * this usually happens after an accepted move */
         ifb[m] = (nstfb == 1 || rnd0() < 1./nstfb);
         if ( !hasfb[m] && (ifb[m] || sys0[m] >= 2) ) {
-          fb[m] = nz[m] ? dg_hsfb_que(que[m], g[m], 1, &neval[sys0[m]]) : 0;
+          fb[m] = nz[m] ? dg_hsfb_que(que[m], g[m], 1, NULL, NULL, &neval[sys0[m]]) : 0;
 	  hasfb[m] = 1;
         }
 
@@ -749,7 +758,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
           die_if (sys[m] != 0, "sys[%d] %d must be 0 during equilibration\n", m, sys[m]);
           nbc = dg_biconnected(g[m]);
           nz[m] = nbc ? (dg_cliquesep(g[m]) == 0) : 0;
-          fb[m] = nz[m] ? dg_hsfb_que(que[m], g[m], 1, NULL) : 0;
+          fb[m] = nz[m] ? dg_hsfb_que(que[m], g[m], 1, NULL, NULL, NULL) : 0;
           hasfb[m] = 1;
         }
       }
@@ -843,8 +852,8 @@ int main(int argc, char **argv)
   {
     for (i = 0; i < 2; i++) rvir[i] = fbav1[i] * Zbvir;
     printf("D %d, n %d, fbav %g, %g; nrat %g(+), %g(-), Z %g/%g\nvir:\n"
-        "    %.7f, %.7f, %.7f (importance sampling)\n"
-        "    %.7f, %.7f, %.7f (multiple histogram)\n",
+        "    %.12f, %.12f, %.12f (importance sampling)\n"
+        "    %.12f, %.12f, %.12f (multiple histogram)\n",
         D, n, fbav1[0], fbav1[1], nrat1[3]/nrat1[2], nrat1[1]/nrat1[0], Zb, Zbvir,
         rvir[0], rvir[0] * 2, rvir[0] * ndvol(D),
         rvir[1], rvir[1] * 2, rvir[1] * ndvol(D));
@@ -858,8 +867,8 @@ int main(int argc, char **argv)
     for (i = 0; i < 2; i++)
       rvir[i] = fbav1[i]/fbav2[i] * pow(nrc, D) * nr2/nr1 * (1. - n)/(2. - n)/n;
     printf("D %d, n %d, fbav %g/%g, %g/%g; nrat %g/%g = %g\nvir%d/vir%d:\n"
-        "    %.7f, %.7f, %.7f (importance sampling)\n"
-        "    %.7f, %.7f, %.7f (multiple histogram)\n",
+        "    %.12f, %.12f, %.12f (importance sampling)\n"
+        "    %.12f, %.12f, %.12f (multiple histogram)\n",
         D, n, fbav1[0], fbav2[0], fbav1[1], fbav2[1],
         nr2, nr1, nr2/nr1, n, n - 1,
         rvir[0], rvir[0] * 2, rvir[0] * ndvol(D),
