@@ -11,6 +11,17 @@
 
 
 
+#define SC2FB(sc, ned) dg_rhsc2hsfb(sc, ned)
+#define FB2SC(fb, ned) SC2FB(fb, ned)
+
+/* conversion between star-content and hard-sphere weight */
+INLINE int dg_rhsc2hsfb(int sc, int ned)
+{
+  return sc * (1 - (ned % 2) * 2);
+}
+
+
+
 /* Ree-Hoover formula for the star content of a larger diagram of
  * n vertices from that of a smaller diagram of n-1 vertices */
 static int dg_rhiter(int n, int n0, int sc)
@@ -88,7 +99,7 @@ static int dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
  *   if *err = 1, the diagram has no clique separator on return
  * *ned: number of edges; degs: unsorted degree sequence
  * if ned != NULL, *ned is computed on return */
-static int dg_rhsc_spec0(const dg_t *g, int nocsep,
+INLINE int dg_rhsc_spec0(const dg_t *g, int nocsep,
     int *ned, int *degs, int *err)
 {
   int i, j, n = g->n, ned0, ned1;
@@ -116,7 +127,7 @@ static int dg_rhsc_spec0(const dg_t *g, int nocsep,
      * (b) if the two deg-3 vertices are connected to deg-2 vertices
      * then no subgraph is biconnected, for removing any edge creates
      * a deg-1 vertex, making the subgraph impossible to be biconnected
-     * we try to find which case by the degree seq.
+     * we try to find which case by the degree sequence
      * this should be faster than computing the clique separator */
     for (i = 0; i < n; i++)
       if (degs[i] == 3) break;

@@ -178,6 +178,7 @@ INLINE int dg_hsfb_rjw(const dg_t *g)
   static int nmax, *faarr, *fbarr;
   int i, n = g->n;
 
+  /* the memory requirement is 2^n * n */
   if (fbarr == NULL) {
     nmax = n;
     xnew(faarr, (nmax + 1) << nmax);
@@ -210,9 +211,9 @@ INLINE int dg_hsfb_mixed0(const dg_t *g, int nocsep, int *ned, int *degs)
   sgn = 1 - (*ned % 2) * 2;
   if ( err == 0 ) {
     return sc * sgn;
-  } else if ( *ned < 2*n - 2 ) {
+  } else if ( *ned <= 2*n - 3 || n > 25) {
     return dg_rhsc_directlow(g) * sgn;
-  } else {
+  } else { /* hsfb_rjw() requires 2^(n + 1) * (n + 1) memory */
     return dg_hsfb_rjw(g);
   }
 }

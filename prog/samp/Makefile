@@ -2,7 +2,7 @@
 CC = gcc -O0 -Wall -Wunused -Wextra -g
 LM = -lm
 # optimized compiling
-CX = icc -O3 -Wall -Wunused -Wextra -march=native
+CX = icc -g -O3 -Wall -Wunused -Wextra -march=native
 LMX =
 
 deps = dg.h dgcsep.h dgrjw.h dgdb.h zcom.h Makefile \

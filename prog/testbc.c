@@ -1,7 +1,5 @@
-#include "dgrjw.h"
-
 #include <time.h>
-#include "dgsc.h"
+#include "dg.h"
 
 
 typedef struct {

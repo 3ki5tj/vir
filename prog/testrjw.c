@@ -1,7 +1,6 @@
+#include <time.h>
 #include "dgrjw.h"
 
-#include <time.h>
-#include "dgsc.h"
 
 
 typedef struct {
@@ -39,54 +38,102 @@ static void cmpref(int n, edges_t *ref)
 
 
 
-static void testspeed(int n, int nsteps, int lookup)
+/* test the speed of computing fb */
+static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
 {
-  int t, ipr, npr = n * (n - 1)/2, i, j, sum = 0, nequil = 1000;
+  int t, fb, ipr, npr = n * (n - 1)/2, i, j, ned, sum = 0;
+  int eql = 1, nequil = 1000, isamp = 0, acc;
   dg_t *g;
-  clock_t t0, t1;
+  clock_t t0;
+  double tsum = 0;
 
-  t0 = clock();
+  printf("speed test for n %d, nsamp %d, nedmax %d, method %c\n",
+      n, nsamp, nedmax, method);
   g = dg_open(n);
   dg_full(g);
-  if (lookup) {
+
+  method = ctolower(method);
+  if (method == 'l') { /* lookup */
+    t0 = clock();
     dg_hsfb(g); /* initialization */
     printf("hard-sphere weight, n %d, initialization: %gs\n",
       n, 1.*(clock() - t0) / CLOCKS_PER_SEC);
   }
-  for (t = 0; t < nequil + nsteps; t++) {
+
+  ned = dg_nedges(g);
+
+  for (t = 0; ; t++) {
     /* randomly switch an edge */
     ipr = (int) (npr * rnd0());
     parsepairindex(ipr, n, &i, &j);
-    if (dg_linked(g, i, j)) {
+    if (dg_linked(g, i, j)) { /* unlink (i, j) */
       dg_unlink(g, i, j);
-      if ( !dg_biconnected(g) )
+      acc = dg_biconnected(g);
+      if ( acc ) {
+        ned--;
+      } else {
         dg_link(g, i, j);
-    } else {
-      dg_link(g, i, j);
+      }
+    } else { /* link (i, j) */
+      acc = 1;
+      if (ned >= nedmax) /* avoid increasing edges */
+        acc = (rnd0() < 0.1);
+      if (acc) {
+        ned++;
+        dg_link(g, i, j);
+      }
     }
-    if (t >= nequil) {
-      if (t == nequil) t1 = clock();
+    if (eql && t >= nequil) {
+      t = 0;
+      eql = 0; /* stop equilibration */
+    }
+
+    if (t % 10 != 0) continue; /* avoid successive correlation */
+
+    die_if (dg_nedges(g) != ned, "ned %d vs. %d\n", ned, dg_nedges(g));   
+    if ( ned < nedmin || ned > nedmax) continue; 
+    if ( dg_cliquesep(g) ) continue; /* avoid clique separable */
+    
+    t0 = clock();
+    if (method == 'l') {
       /* the default function dg_hsfb() automatically invokes
        * the lookup table when possible */
-      sum += lookup ? dg_hsfb(g) : dg_hsfb_mixed(g);
-#if 0
-      if (dg_hsfb_mixed(g) != dg_hsfb_rjw(g)) {
-        printf("corruption %d vs %d csep %d\n", dg_hsfb_mixed(g), dg_hsfb_rjw(g), dg_cliquesep(g));
-        dg_print(g);
-        exit(1);
-      }
-#endif
+      fb = dg_hsfb(g);
+    } else if (method == 's' || method == 'r') { /* Ree-Hoover star content*/
+      fb = dg_rhsc_direct(g) * (1 - (ned % 2) * 2);
+    } else if (method == 'w') { /* Wheatley */
+      fb = dg_hsfb_rjw(g);
+    } else { /* default */
+      fb = dg_hsfb_mixed(g);
     }
+    tsum += clock() - t0;
+    sum += fb;
+    printf("i %d, t %d, ned %d, fb %d\n", isamp, t, ned, fb);
+#if 0
+    if (dg_hsfb_mixed(g) != dg_hsfb_rjw(g)) {
+      printf("corruption %d vs %d csep %d\n", dg_hsfb_mixed(g), dg_hsfb_rjw(g), dg_cliquesep(g));
+      dg_print(g);
+      exit(1);
+    }
+#endif
+    if (++isamp >= nsamp) break;
   }
-  printf("star content, n %d, method %s, time used: %gs/%d\n", n,
-      lookup ? "lookup" : "direct", 1.*(clock() - t1) / CLOCKS_PER_SEC, nsteps);
+
+  tsum /= CLOCKS_PER_SEC;
+  printf("star content, n %d, samples %d, steps %d, nedges %d-%d; "
+      "method %c, fbav %g, time used: %gs/%d = %gms\n", 
+      n, nsamp, t, nedmin, nedmax, method,
+      1.*sum/nsamp, tsum, nsamp, tsum / nsamp * 1000);
   dg_close(g);
 }
 
 
 
-int main(void)
+int main(int argc, char **argv)
 {
+  int n = 12, nsamp = 1000, nedmin = 0, nedmax = 1000000;
+  char method = 'd'; /* default */
+
   edges_t ref4[] = {
     {0, {{0, 0}}, -2},
     {1, {{0, 1}}, 0},
@@ -119,9 +166,12 @@ int main(void)
   cmpref(4, ref4);
   cmpref(5, ref5);
   cmpref(6, ref6);
-  //testspeed(7, 1000000, 1);
-  //testspeed(8, 10000000, 1);
-  testspeed(12, 10000, 0);
+
+  if (argc >= 2) n = atoi(argv[1]);
+  if (argc >= 3) nsamp = atoi(argv[2]);
+  if (argc >= 4) nedmax = atoi(argv[3]);
+  if (argc >= 5) method = argv[4][0];
+  testspeed(n, nsamp, nedmin, nedmax, method);
   mtsave(NULL);
   return 0;
 }

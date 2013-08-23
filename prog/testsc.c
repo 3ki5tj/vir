@@ -39,19 +39,23 @@ static void cmpref(int n, edges_t *ref)
 
 
 
-static void testspeed(int n, int nsteps, int lookup)
+/* test the speed of computing star content
+ * see the function with the same name for a more advanced version */
+static void testspeed(int n, int nsamp, char method)
 {
   int t, ipr, npr = n * (n - 1)/2, i, j, sum = 0, nequil = 1000;
+  int eql = 1, isamp = 0;
   dg_t *g;
-  clock_t t0, t1;
+  clock_t t0;
+  double tsum = 0;
 
-  t0 = clock();
   g = dg_open(n);
   dg_full(g);
-  if (lookup) {
+  if (method == 'l') {
     int ig, sc1, sc2;
     dg_t *g2;
 
+    t0 = clock();
     dg_rhsc(g); /* automatically activate the look up table */
     printf("star content, n %d, initialization: %gs\n",
       n, 1.*(clock() - t0) / CLOCKS_PER_SEC);
@@ -71,7 +75,8 @@ static void testspeed(int n, int nsteps, int lookup)
     }
     dg_close(g2);
   }
-  for (t = 0; t < nequil + nsteps; t++) {
+
+  for (t = 0; ; t++) {
     /* randomly switch an edge */
     ipr = (int) (npr * rnd0());
     parsepairindex(ipr, n, &i, &j);
@@ -82,14 +87,29 @@ static void testspeed(int n, int nsteps, int lookup)
     } else {
       dg_link(g, i, j);
     }
-    if (t >= nequil) {
-      if (t == nequil) t1 = clock();
-      sum += lookup ? dg_rhsc(g) : dg_rhsc_direct(g);
-      //sum += lookup ? dg_hsfb(g) : dg_cliquesep(g) ? 0 : dg_hsfbrjw(g);
+
+    if (eql && t >= nequil) {
+      t = 0;
+      eql = 0; /* stop equilibration */
     }
+
+    if (t % 10 != 0) continue; /* avoid successive correlation */
+
+    if ( dg_cliquesep(g) ) continue;
+
+    t0 = clock();
+    if (method == 'l') {
+      /* this function invokes the lookup table when possible */
+      sum += dg_rhsc(g);
+    } else {
+      sum += dg_rhsc_direct(g);
+    }
+    tsum += clock() - t0;
+    if (++isamp >= nsamp) break;
   }
-  printf("star content, n %d, method %s, time used: %gs/%d\n", n,
-      lookup ? "lookup" : "direct", 1.*(clock() - t1) / CLOCKS_PER_SEC, nsteps);
+  tsum /= CLOCKS_PER_SEC;
+  printf("star content, n %d, method %c, sum %d, time used: %gs/%d = %gms\n",
+      n, method, sum, tsum, nsamp, tsum/nsamp*1000);
   dg_close(g);
 }
 
@@ -121,10 +141,10 @@ int main(void)
 
   cmpref(5, ref5);
   cmpref(6, ref6);
-  testspeed(5, 1000000, 1);
-  testspeed(6, 1000000, 1);
-  testspeed(7, 1000000, 1);
-  testspeed(8, 10000000, 1);
-  testspeed(8, 10000, 0);
+  testspeed(5, 100000, 'l');
+  testspeed(6, 100000, 'l');
+  testspeed(7, 100000, 'l');
+  testspeed(8, 1000000, 'l');
+  testspeed(8, 1000, 'd');
   return 0;
 }

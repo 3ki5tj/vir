@@ -8,7 +8,18 @@ Files
 ------
 dg.h        basic diagram
 dgcsep.h    clique separator
-dgrjw.h     total weight of the hard sphere
-dgcs.h      star content (deprecated)
+dgcs.h      Ree-Hoover star content, which can be used to compute
+            the total weight of a configuration of a hard-sphere system
+dgrjw.h     the total weight of a configuration of a hard-sphere system
+            alternative algorithm by R. J. Wheatley
 dgdb.h      database
+dgque.h     short history list
+
+
+Utility programs
+-----------------
+bcstat.c    compute the probability of making a biconnected diagram
+            from a chain configuration (as in the MC integration)
+
+testrjw.c   test the speed
 

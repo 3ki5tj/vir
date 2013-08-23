@@ -20,8 +20,15 @@ const char *fnin = NULL; /* input file */
 const char *fnout = NULL; /* output file */
 int nsted = 10;
 int nstcs = 100;
-int nstfb = 1000;
-
+int nstfb = -1;
+/* maximal number of extra edges to invoke fb calculation
+ * reference T60 timing data (no clique separator):
+ * nedxmax  time per evaluation (ms)
+ *  10         15
+ *  11         50
+ *  12        150
+ * */
+int nedxmax = -1;
 
 
 /* handle arguments */
@@ -42,6 +49,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-e",   "%d",  &nsted,   "interval of computing the # of edges");
   argopt_add(ao, "-s",   "%d",  &nstcs,   "interval of computing clique separator");
   argopt_add(ao, "-f",   "%d",  &nstfb,   "interval of computing fb");
+  argopt_add(ao, "-x",   "%d",  &nedxmax, "maximal number of extra edges for computing fb");
   argopt_parse(ao, argc, argv);
 
   /* Monte Carlo move amplitude */
@@ -49,9 +57,27 @@ static void doargs(int argc, char **argv)
 
   if (rc <= 0) rc = 1;
 
+  if (nstfb < 0) {
+    if (D <= 10) {
+      nstfb = (100 + nstcs - 1) / nstcs * nstcs;
+    } else {
+      nstfb = nstcs;
+    }
+  }
+
+  if (nedxmax < 0) {
+    if (D < 8) nedxmax = 10;
+    else if (D < 15) nedxmax = 12;
+    else nedxmax = 14; /* a generous upper bound */
+  }
   argopt_dump(ao);
   argopt_close(ao);
 }
+
+
+
+#define mkfnZrdef(fn, fndef, d) \
+  if (fn == NULL) { sprintf(fndef, "ZrD%d.dat", D); fn = fndef; }
 
 
 
@@ -65,20 +91,22 @@ static int saveZr(const char *fn, const double *Zr, int nmax,
   FILE *fp;
   int i;
   char fndef[64];
-  double x;
+  double x, fbav, fact;
 
-  if (fn == NULL) {
-    sprintf(fndef, "ZrD%d.dat", D);
-    fn = fndef;
-  }
+  mkfnZrdef(fn, fndef, D);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "# %d %d 0\n", D, nmax);
-  for (x = 1, i = 1; i < nmax; i++) {
+  fprintf(fp, "# %d %d 0 %d\n", D, nmax, nedxmax);
+  for (fact = 1, x = 1, i = 1; i < nmax; i++) {
     x *= Zr[i];
-    fprintf(fp, "%2d %24.14f %24.14e %14.0f %16.14f %16.14f "
-        "%+18.14f %18.14f %.14f %.14f\n",
-        i, Zr[i], x, hist[i + 1], ncsp[2*i + 3] / ncsp[2*i + 2],
-        fbsm[3*i + 5] / fbsm[3*i + 3], fbsm[3*i + 4] / fbsm[3*i + 3],
+    fact *= 2./(i + 1);
+    fbav = fbsm[3*i + 4] / fbsm[3*i + 3];
+    fprintf(fp, "%3d %18.14f %20.14e %14.0f "
+        "%16.14f %+17.14f %+17.14f %16.14f %+20.14f "
+        "%18.14f %.14f %.14f\n",
+        i, Zr[i], x, hist[i + 1],
+        ncsp[3*i + 4] / ncsp[3*i + 3], ncsp[3*i + 5] / ncsp[3*i + 3],
+        fbav, fbsm[3*i + 5] / fbsm[3*i + 3],
+        (-i)*fact * x * fbav, /* B(i+1) = 2^i (-i) / (i+1)! Z(i+1) <fb(i+1)> */ 
         nedg[2*i + 3] / nedg[2*i + 2],
         nacc[4*i + 3] / nacc[4*i + 2], nacc[4*i + 5] / nacc[4*i + 4]);
   }
@@ -94,8 +122,9 @@ static int loadZr(const char *fn, double *Zr, int nmax)
 {
   FILE *fp;
   int i = -1, n;
-  char s[256];
+  char s[512], fndef[64];
 
+  mkfnZrdef(fn, fndef, D);
   xfopen(fp, fn, "r", return -1);
 
   /* handle the information line */
@@ -133,21 +162,14 @@ static int loadZr(const char *fn, double *Zr, int nmax)
 static int initZr(const char *fn, double *Zr, int nmax)
 {
   int i, i0 = 4, imax;
-  double Zr32, Zr43;
 
-  /* set the exact values */
+  i0 = loadZr(fn, Zr, DG_NMAX);
+  /* reset the exact results */
   Zr[0] = Zr[1] = 1;
-  Zr[2] = Zr32 = Z3rat(D);
-  Zr[3] = Zr43 = Z4rat(D)/Zr[2]; /* approximate for D > 12 */
+  Zr[2] = Z3rat(D);
+  if (D <= 12 || i0 < 4) Zr[3] = Z4rat(D)/Zr[2];
+  if (i0 < 4) i0 = 4;
 
-  if (fn != NULL) {
-    i0 = loadZr(fn, Zr, DG_NMAX);
-    if (i0 <= 0) i0 = 4;
-    /* reset the exact results */
-    Zr[0] = Zr[1] = 1;
-    Zr[2] = Zr32;
-    if (D <= 12) Zr[3] = Zr43;
-  }
   if (nmax > i0) { /* guess the unknown */
     fprintf(stderr, "guessing Zr for n = %d to %d\n", i0 + 1, nmax);
     for (i = i0; i < nmax; i++) Zr[i] = Zr[i0 - 1];
@@ -167,28 +189,64 @@ static int initZr(const char *fn, double *Zr, int nmax)
 static void accumdata(const dg_t *g, double t, int nsted, int nstcs, int nstfb,
     double *nedg, double *ncsp, double *fbsm)
 {
+  int ned = -1, n = g->n, ncs, sc, err, fb = 0;
+  int nlookup = DGMAP_NMAX;
+  static int degs[DG_NMAX];
+
+  /* we will always compute fb if a lookup table is available
+   * i.e., for a small n, but the n = 8 case costs 30s-70s,
+   * which is a bit long for a short simulation */
+  if (nsteps < 5e8) nlookup = 7;
+
   if (nsted > 0 && (int) fmod(t, nsted) == 0) {
-    int ned = -1;
-    static int degs[DG_NMAX];
-
     ned = dg_degs(g, degs);
-    nedg[2*g->n] += 1;
-    nedg[2*g->n + 1] += ned;
-    if (nstcs > 0 && (int) fmod(t, nstcs) == 0) {
-      int ncs;
+    nedg[2*n] += 1;
+    nedg[2*n + 1] += ned;
 
-      if (ned == g->n) { /* ring diagram */
-        ncs = 1;
-      } else { /* general case */
-        ncs = dg_cliquesep(g);
+    if (n <= nlookup || (nstcs > 0 && (int) fmod(t, nstcs) == 0) ) {
+      /* check if the graph has a clique separator */
+      if (n <= nlookup) { /* lookup table */
+        code_t code;
+        unqid_t uid;
+        dgmap_t *m = dgmap_ + n;
+
+        dg_encode(g, &code);
+        ncs = (dg_ncsep_lookuplow(g, code) == 0);
+        dgmap_init(m, n);
+        uid = m->map[code];
+        fb = dg_hsfb_lookuplow(n, uid);
+        err = 0;
+      } else {
+        /* this function implicitly computes the clique separator
+         * with very small overhead */
+        sc = dg_rhsc_spec0(g, 0, &ned, degs, &err);
+        if (err == 0) {
+          ncs = (sc != 0);
+          fb = sc * (1 - (ned % 2) * 2);
+        } else { /* no clique separator */
+          ncs = 1;
+        }
       }
-      ncsp[2*g->n] += 1;
-      ncsp[2*g->n + 1] += ncs;
-      if (nstfb > 0 && (int) fmod(t, nstfb) == 0) {
-        int fb = ncs ? dg_hsfb_mixed0(g, 1, &ned, degs) : 0;
-        fbsm[3*g->n] += 1;
-        fbsm[3*g->n + 1] += fb;
-        fbsm[3*g->n + 2] += abs(fb);
+      ncsp[3*n] += 1;
+      ncsp[3*n + 1] += ncs;
+      /* this is assuming that SC = 1 for all diagrams
+       * without clique separators */
+      ncsp[3*n + 2] += ncs * (1 - (ned % 2) * 2);
+
+      if (n <= nlookup || (nstfb > 0 && (int) fmod(t, nstfb) == 0)) {
+        /* compute fb, if it is cheap */
+        if ( err ) { /* if dg_rhsc_spec0() fails, no clique separator */
+          if (ned > n + nedxmax && n > nedxmax + 2) {
+            fprintf(stderr, "t %.6e/%g D %d assume fb = 0 n %d ned %d\n",
+                t, nsteps, D, n, ned);
+            fb = 0;
+          } else {
+            fb = dg_hsfb_mixed0(g, 1, &ned, degs);
+          }
+        }
+        fbsm[3*n] += 1;
+        fbsm[3*n + 1] += fb;
+        fbsm[3*n + 2] += abs(fb);
       }
     }
   }
@@ -205,9 +263,9 @@ static void mcgc(int nmin, int nmax, real rc,
   double t, r, vol, cacc = 0, ctot = 0;
   double Zr[DG_NMAX + 1]; /* ratio of the partition function, measured by V */
   double hist[DG_NMAX + 1]; /* histogram */
-  double ncsp[DG_NMAX * 2 + 2]; /* no clique separator */
-  double fbsm[DG_NMAX * 3 + 3]; /* sum of weights */
   double nedg[DG_NMAX * 2 + 2]; /* number of edges */
+  double ncsp[DG_NMAX * 3 + 3]; /* no clique separator */
+  double fbsm[DG_NMAX * 3 + 3]; /* sum of weights */
   double nacc[DG_NMAX * 4 + 8]; /* acceptance probabilities */
   rvn_t x[DG_NMAX], xi;
 
@@ -215,6 +273,8 @@ static void mcgc(int nmin, int nmax, real rc,
   Znmax = initZr(fnin, Zr, nmax); /* initialize the partition function */
   for (i = 0; i <= DG_NMAX; i++) {
     hist[i] = 1e-14;
+    ncsp[3*i] = 1e-14;
+    ncsp[3*i + 1] = ncsp[3*i + 2] = 0;
     fbsm[3*i] = 1e-14;
     fbsm[3*i + 1] = fbsm[3*i + 2] = 0;
     nedg[2*i] = 1e-14;
@@ -307,9 +367,11 @@ STEP_END:
   }
 
   for (i = 1; i <= nmax; i++) {
-    printf("%4d %16.8f %12.0f %10.8f %+11.8f %11.8f %12.8f %.8f %.8f\n",
-        i, Zr[i], hist[i], ncsp[2*i + 1] / ncsp[2*i], fbsm[3*i + 1] / fbsm[3*i],
-        fbsm[3*i + 2] / fbsm[3*i], nedg[2*i + 1] / nedg[2*i],
+    printf("%2d %9.6f%13.0f %10.8f %+11.8f %+11.8f %11.8f %7.4f %.5f %.5f\n",
+        i, Zr[i], hist[i],
+        ncsp[3*i + 1] / ncsp[3*i], ncsp[3*i + 2] / ncsp[3*i],
+        fbsm[3*i + 1] / fbsm[3*i], fbsm[3*i + 2] / fbsm[3*i],
+        nedg[2*i + 1] / nedg[2*i],
         nacc[4*i + 3] / nacc[4*i + 2], nacc[4*i + 5] / nacc[4*i + 4]);
   }
   saveZr(fnout, Zr, Znmax, hist, ncsp, fbsm, nedg, nacc);
