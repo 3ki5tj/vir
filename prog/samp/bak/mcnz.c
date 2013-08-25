@@ -64,7 +64,7 @@ static double mcrun(int n, double nequil, double nsteps, double amp[2])
     rvn_rnd(x[i], (real) (-0.5 / sqrt(D)), (real) (0.5 / sqrt(D)) );
   g = dg_open(n);
   ng = dg_open(n);
-  mkgraph(g, x);
+  mkgraph(g, x, n);
   die_if (!dg_biconnected(g), "initial diagram not biconnected D %d\n", D);
   fb = dg_hsfb(g);
   sys = 0;

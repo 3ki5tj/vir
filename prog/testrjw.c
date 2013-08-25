@@ -162,10 +162,17 @@ int main(int argc, char **argv)
     {5, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}}, -4},
     {-1, {{0, 0}}, 0},
   };
+  edges_t ref7[] = {
+    {0, {{0, 0}}, -120},
+    {1, {{0, 1}}, 0},
+    {2, {{0, 1}, {2, 3}}, 60},
+    {-1, {{0, 0}}, 0},
+  };
 
   cmpref(4, ref4);
   cmpref(5, ref5);
   cmpref(6, ref6);
+  cmpref(7, ref7);
 
   if (argc >= 2) n = atoi(argv[1]);
   if (argc >= 3) nsamp = atoi(argv[2]);

@@ -9,12 +9,13 @@
 
 
 
-int nmin = 3; /* the minimal number of particles */
-int nmax = DG_NMAX - 1;
+int nmin = 3; /* the minimal order of virial coefficients */
+int nmax = DG_NMAX - 1; /* the maximal order of virial coefficients */
 real mcamp = 1.5f;
 double nequil = 100000;
 double nsteps = 10000000;
-double ratn = 0.1;
+double ratn = 0.1; /* frequency of n-moves */
+                   /* this parameter is to be improved */
 real rc = 0;
 const char *fnin = NULL; /* input file */
 const char *fnout = NULL; /* output file */
@@ -29,6 +30,8 @@ int nstfb = -1;
  *  12        150
  * */
 int nedxmax = -1;
+int gaussdisp = 0;
+
 
 
 /* handle arguments */
@@ -37,8 +40,8 @@ static void doargs(int argc, char **argv)
   argopt_t *ao;
 
   ao = argopt_open(0);
-  argopt_add(ao, "--n0", "%d",  &nmin,    "minimal order n");
-  argopt_add(ao, "-n",   "%d",  &nmax,    "maximal order n");
+  argopt_add(ao, "--n0", "%d",  &nmin,    "minimal order of virial coefficients");
+  argopt_add(ao, "-n",   "%d",  &nmax,    "maximal order of virial coefficients");
   argopt_add(ao, "-0",   "%lf", &nequil,  "number of equilibration steps");
   argopt_add(ao, "-1",   "%lf", &nsteps,  "number of simulation steps");
   argopt_add(ao, "-a",   "%r",  &mcamp,   "MC amplitude for biconnected diagrams");
@@ -101,12 +104,12 @@ static int saveZr(const char *fn, const double *Zr, int nmax,
     fact *= 2./(i + 1);
     fbav = fbsm[3*i + 4] / fbsm[3*i + 3];
     fprintf(fp, "%3d %18.14f %20.14e %14.0f "
-        "%16.14f %+17.14f %+17.14f %16.14f %+20.14f "
+        "%16.14f %+17.14f %16.14f %+20.14f "
         "%18.14f %.14f %.14f\n",
         i, Zr[i], x, hist[i + 1],
-        ncsp[3*i + 4] / ncsp[3*i + 3], ncsp[3*i + 5] / ncsp[3*i + 3],
+        ncsp[2*(i + 1) + 1] / ncsp[2*(i + 1)],
         fbav, fbsm[3*i + 5] / fbsm[3*i + 3],
-        (-i)*fact * x * fbav, /* B(i+1) = 2^i (-i) / (i+1)! Z(i+1) <fb(i+1)> */ 
+        (-i)*fact * x * fbav, /* B(i+1) = 2^i (-i) / (i+1)! Z(i+1) <fb(i+1)> */
         nedg[2*i + 3] / nedg[2*i + 2],
         nacc[4*i + 3] / nacc[4*i + 2], nacc[4*i + 5] / nacc[4*i + 4]);
   }
@@ -177,6 +180,7 @@ static int initZr(const char *fn, double *Zr, int nmax)
   } else {
     imax = i0;
   }
+  Zr[nmax] = Zr[nmax - 1];
   fprintf(stderr, "initial Zr (i0 %d, imax %d, nmax %d):\n", i0, imax, nmax);
   for (i = 1; i < imax; i++)
     fprintf(stderr, "%4d %16.8f\n", i, Zr[i]);
@@ -222,16 +226,13 @@ static void accumdata(const dg_t *g, double t, int nsted, int nstcs, int nstfb,
         sc = dg_rhsc_spec0(g, 0, &ned, degs, &err);
         if (err == 0) {
           ncs = (sc != 0);
-          fb = sc * (1 - (ned % 2) * 2);
+          fb = DG_SC2FB(sc, ned);
         } else { /* no clique separator */
           ncs = 1;
         }
       }
-      ncsp[3*n] += 1;
-      ncsp[3*n + 1] += ncs;
-      /* this is assuming that SC = 1 for all diagrams
-       * without clique separators */
-      ncsp[3*n + 2] += ncs * (1 - (ned % 2) * 2);
+      ncsp[2*n] += 1;
+      ncsp[2*n + 1] += ncs;
 
       if (n <= nlookup || (nstfb > 0 && (int) fmod(t, nstfb) == 0)) {
         /* compute fb, if it is cheap */
@@ -258,13 +259,13 @@ static void accumdata(const dg_t *g, double t, int nsted, int nstcs, int nstfb,
 static void mcgc(int nmin, int nmax, real rc,
     double nsteps, double mcamp)
 {
-  int i, j, deg, conn[DG_NMAX], Znmax;
+  int i, j, deg, conn[DG_NMAX], Znmax, acc1;
   dg_t *g, *ng;
   double t, r, vol, cacc = 0, ctot = 0;
   double Zr[DG_NMAX + 1]; /* ratio of the partition function, measured by V */
   double hist[DG_NMAX + 1]; /* histogram */
   double nedg[DG_NMAX * 2 + 2]; /* number of edges */
-  double ncsp[DG_NMAX * 3 + 3]; /* no clique separator */
+  double ncsp[DG_NMAX * 2 + 2]; /* no clique separator */
   double fbsm[DG_NMAX * 3 + 3]; /* sum of weights */
   double nacc[DG_NMAX * 4 + 8]; /* acceptance probabilities */
   rvn_t x[DG_NMAX], xi;
@@ -273,8 +274,8 @@ static void mcgc(int nmin, int nmax, real rc,
   Znmax = initZr(fnin, Zr, nmax); /* initialize the partition function */
   for (i = 0; i <= DG_NMAX; i++) {
     hist[i] = 1e-14;
-    ncsp[3*i] = 1e-14;
-    ncsp[3*i + 1] = ncsp[3*i + 2] = 0;
+    ncsp[2*i] = 1e-14;
+    ncsp[2*i + 1] = 0;
     fbsm[3*i] = 1e-14;
     fbsm[3*i + 1] = fbsm[3*i + 2] = 0;
     nedg[2*i] = 1e-14;
@@ -284,9 +285,8 @@ static void mcgc(int nmin, int nmax, real rc,
     nacc[i] = 1e-6;
   g = dg_open(nmax);
   ng = dg_open(nmax);
-  for (i = 0; i < nmax; i++) rvn_zero(x[i]);
-  g->n = nmin;
-  mkgraph(g, x);
+  initx(x, nmax);
+  mkgraph(g, x, nmin);
 
   for (t = 1; t <= nsteps; t += 1) {
     die_if (g->n < nmin || g->n > nmax, "bad n %d, t %g\n", g->n, t);
@@ -334,24 +334,9 @@ static void mcgc(int nmin, int nmax, real rc,
     }
     else /* configuration sampling */
     {
-      i = (int) (rnd0() * g->n);
-      rvn_rnddisp(xi, x[i], mcamp);
-      ng->n = g->n;
-      dg_copy(ng, g);
-      for (j = 0; j < g->n; j++) {
-        if (j == i) continue;
-        if (rvn_dist2(xi, x[j]) < 1)
-          dg_link(ng, i, j);
-        else
-          dg_unlink(ng, i, j);
-      }
-
+      BCSTEP(acc1, i, g->n, g, ng, x, xi, mcamp, gaussdisp);
       ctot += 1;
-      if ( dg_biconnected(ng) ) {
-        rvn_copy(x[i], xi);
-        dg_copy(g, ng);
-        cacc += 1;
-      }
+      cacc += acc1;
     }
 STEP_END:
     hist[g->n] += 1;
@@ -367,9 +352,9 @@ STEP_END:
   }
 
   for (i = 1; i <= nmax; i++) {
-    printf("%2d %9.6f%13.0f %10.8f %+11.8f %+11.8f %11.8f %7.4f %.5f %.5f\n",
+    printf("%2d %9.6f%13.0f %10.8f %+11.8f %11.8f %7.4f %.5f %.5f\n",
         i, Zr[i], hist[i],
-        ncsp[3*i + 1] / ncsp[3*i], ncsp[3*i + 2] / ncsp[3*i],
+        ncsp[2*i + 1] / ncsp[2*i],
         fbsm[3*i + 1] / fbsm[3*i], fbsm[3*i + 2] / fbsm[3*i],
         nedg[2*i + 1] / nedg[2*i],
         nacc[4*i + 3] / nacc[4*i + 2], nacc[4*i + 5] / nacc[4*i + 4]);

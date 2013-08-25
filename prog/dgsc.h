@@ -11,14 +11,9 @@
 
 
 
-#define SC2FB(sc, ned) dg_rhsc2hsfb(sc, ned)
-#define FB2SC(fb, ned) SC2FB(fb, ned)
-
 /* conversion between star-content and hard-sphere weight */
-INLINE int dg_rhsc2hsfb(int sc, int ned)
-{
-  return sc * (1 - (ned % 2) * 2);
-}
+#define DG_SC2FB(sc, ned) ((sc) * (1 - (ned % 2) * 2))
+#define DG_FB2SC(fb, ned) DG_SC2FB(fb, ned)
 
 
 

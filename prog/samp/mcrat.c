@@ -26,7 +26,7 @@ double nequil = 100000; /* number of equilibration steps */
 double nsteps = 10000000;
 double nsteps2 = 0;
 real mcamp[NSYS] = {1.5f, 0.9f, 0.9f};
-int usegrand = 0; /* normally distributed */
+int gaussdisp = 0; /* normally distributed */
 int nstfb = 0; /* interval of evaluting the weight */
 int nstnmv = 100; /* frequency of the n move */
 int nstrep = 100000000; /* interval of reporting */
@@ -60,7 +60,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-w", "%d", &nstfb, "interval of evaluating the weight");
   argopt_add(ao, "-y", "%d", &nstnmv, "interval of the n-move");
   argopt_add(ao, "-q", "%d", &nstrep, "interval of reporting");
-  argopt_add(ao, "-G", "%b", &usegrand, "normally-distributed displacement");
+  argopt_add(ao, "-G", "%b", &gaussdisp, "normally-distributed displacement");
   argopt_add(ao, "-C", "%d", &cachesize, "cache size of recently visited diagrams");
   argopt_add(ao, "-R", "%lf", &ratcr, "rate of coordinates replacement");
   argopt_add(ao, "-c", "%r", &nrc, "radius of n-move");
@@ -232,11 +232,11 @@ INLINE int movesys_heatbath(int sys, int fb,
 /* compute the sign of the virial coefficient,
  * assuming a lookup table */
 static void mcrat_lookup(int n, double nequil, double nsteps,
-    real amp[], int usegrand,
+    real amp[], int gaussdisp,
     int nstnmv, double *nrat, double *tacc, double *fbav)
 {
   rvn_t *x, *xm, *nx, xi;
-  int i, j, pid, m, it, *fb, nfb = 0, wt, nwt, *nz, nnz, nbc, eql;
+  int i, j, pid, m, it, *fb, nfb = 0, wt, nwt, *nz, nnz, nbc;
   dg_t *g, *ng;
   code_t *code, ncode;
   double *nzsm, (*fbsm)[NSYS], (*hist)[NSYS];
@@ -259,9 +259,8 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   ng = dg_open(n);
   for (m = 0; m < ncopy; m++) {
     xm = x + m * n;
-    for (i = 0; i < n; i++)
-      rvn_rnd(xm[i], (real) (-0.5 / sqrt(D)), (real) (0.5 / sqrt(D)) );
-    mkgraph(g, xm);
+    initx(xm, n);
+    mkgraph(g, xm, n);
     die_if (!dg_biconnected(g),
         "m %d, initial diagram not biconnected D %d\n", m, D);
     /* initialize the code */
@@ -276,7 +275,6 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
       hist[m][i] = 1e-6;
     }
   }
-  eql = 1;
   nrat[0] = nrat[2] = 1e-6; nrat[1] = nrat[3] = 0;
   tacc[0] = tacc[2] = 1e-6; tacc[1] = tacc[3] = 0;
   for (i = 0; i < NSYS; i++) {
@@ -285,6 +283,22 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   }
   racc = 0;
   rtot = 1e-6;
+
+  /* equilibration */
+  for (t = 1; t <= nequil; t += 1)
+    for (m = 0; m < ncopy; m++) {
+      BCSTEP(acc1, i, n, g, ng, x + m*n, xi, amp[0], gaussdisp);
+    }
+  printf("equilibrated at t %g, nstfb %d\n", nequil, nstfb);
+  for (m = 0; m < ncopy; m++) {
+    mkgraph(g, x + m*n, n);
+    dg_encode(g, &code[m]);
+    gmapid = dgmap_[n].map[code[m]];
+    nbc = dg_biconnected_lookuplow(n, gmapid);
+    fb[m] = nbc ? dg_hsfb_lookuplow(n, gmapid) : 0;
+    nz[m] = (fb[m] != 0);
+  }
+
 
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
@@ -304,7 +318,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
       } else {
         /* randomly displace a particle */
         i = (int) (rnd0() * n);
-        if (usegrand)
+        if (gaussdisp)
           rvn_granddisp(xi, xm[i], amp[sys0[m]]);
         else
           rvn_rnddisp(xi, xm[i], amp[sys0[m]]);
@@ -324,98 +338,67 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
           else
             ncode |= (1u << pid);
 
-        if (eql) {
-          if (ncode == code[m]) { /* topology unchanged */
-            rvn_copy(xm[i], xi);
-          } else {
-            gmapid = dgmap_[n].map[ncode];
-            nbc = dg_biconnected_lookuplow(n, gmapid);
-            if ( nbc ) { /* accept the move */
-              rvn_copy(xm[i], xi);
-              code[m] = ncode;
-            }
-          }
+        if (ncode == code[m]) { /* topology unchanged */
+          acc1 = 1;
+          rvn_copy(xm[i], xi);
         } else {
-          if (ncode == code[m]) { /* topology unchanged */
-            acc1 = 1;
-            rvn_copy(xm[i], xi);
-          } else {
-            gmapid = dgmap_[n].map[ncode];
-            nbc = dg_biconnected_lookuplow(n, gmapid);
-            /* the weight `fb' is computed from the lookup table
-             * for a small n, so it can be updated in every step */
-            nfb = nbc ? dg_hsfb_lookuplow(n, gmapid) : 0;
-            nnz = (nfb != 0);
+          gmapid = dgmap_[n].map[ncode];
+          nbc = dg_biconnected_lookuplow(n, gmapid);
+          /* the weight `fb' is computed from the lookup table
+           * for a small n, so it can be updated in every step */
+          nfb = nbc ? dg_hsfb_lookuplow(n, gmapid) : 0;
+          nnz = (nfb != 0);
 
-            if (sys0[m] == 0) {
-              acc1 = nbc;
-            } else if (sys0[m] == 1) {
-              acc1 = nnz;
-            } else { /* sys0[m] == 2 */
-              if (nnz) {
-                WTSYS2(wt, fb[m]);
-                WTSYS2(nwt, nfb);
-                if (nwt >= wt) acc1 = 1;
-                else acc1 = (rnd0() < 1.*nwt/wt);
-              } else acc1 = 0;
-            }
-
-            if ( acc1 ) { /* accept the move */
-              rvn_copy(xm[i], xi);
-              code[m] = ncode;
-              nz[m] = nnz;
-              fb[m] = nfb;
-            }
+          if (sys0[m] == 0) {
+            acc1 = nbc;
+          } else if (sys0[m] == 1) {
+            acc1 = nnz;
+          } else { /* sys0[m] == 2 */
+            if (nnz) {
+              WTSYS2(wt, fb[m]);
+              WTSYS2(nwt, nfb);
+              if (nwt >= wt) acc1 = 1;
+              else acc1 = (rnd0() < 1.*nwt/wt);
+            } else acc1 = 0;
           }
 
-          /* change `sys', this costs about 16% of simulation time */
-          if (nz[m]) /* if fb == 0, then it belongs to system 0 */
-            sys[m] = movesys_heatbath(sys0[m], fb[m], Z, tacc);
+          if ( acc1 ) { /* accept the move */
+            rvn_copy(xm[i], xi);
+            code[m] = ncode;
+            nz[m] = nnz;
+            fb[m] = nfb;
+          }
+        }
 
-          /* the cost of accumulating acc is negligible */
-          cacc[sys0[m]] += acc1;
-          ctot[sys0[m]] += 1;
+        /* change `sys', this costs about 16% of simulation time */
+        if (nz[m]) /* if fb == 0, then it belongs to system 0 */
+          sys[m] = movesys_heatbath(sys0[m], fb[m], Z, tacc);
+
+        /* the cost of accumulating acc is negligible */
+        cacc[sys0[m]] += acc1;
+        ctot[sys0[m]] += 1;
 
 #ifdef CHECK
-          /* verify if fb has been correctly computed */
-          {
-            int fb1, nfb1;
-            dg_decode(g, &code[m]);
-            dg_decode(ng, &ncode);
-            fb1 = dg_hsfb(g), nfb1 = dg_hsfb(ng);
-            if (fb[m] != fb1) {
-              printf("t %g, sys %d, nz %d (%d), fb %d (%d), "
-                  "acc %d, nfb %d (%d)\n",
-                  t, sys[m], nz[m], fb[m] != 0,
-                  fb[m], fb1, acc1, nfb, nfb1);
-              dg_print(g);
-              exit(1);
-            }
+        /* verify if fb has been correctly computed */
+        {
+          int fb1, nfb1;
+          dg_decode(g, &code[m]);
+          dg_decode(ng, &ncode);
+          fb1 = dg_hsfb(g), nfb1 = dg_hsfb(ng);
+          if (fb[m] != fb1) {
+            printf("t %g, sys %d, nz %d (%d), fb %d (%d), "
+                "acc %d, nfb %d (%d)\n",
+                t, sys[m], nz[m], fb[m] != 0,
+                fb[m], fb1, acc1, nfb, nfb1);
+            dg_print(g);
+            exit(1);
           }
+        }
 #endif
-        }
       }
     }
 
-    if (eql) {
-      if (t >= nequil) {
-        printf("equilibrated at t %g, nstfb %d\n", t, nstfb);
-        t = 0;
-        it = 0;
-        eql = 0;
-        /* we only compute `fb' after equilibration */
-        for (m = 0; m < ncopy; m++) {
-          die_if (sys[m] != 0, "sys[%d] %d must be 0 during equilibration\n", m, sys[m]);
-          gmapid = dgmap_[n].map[code[m]];
-          nbc = dg_biconnected_lookuplow(n, gmapid);
-          fb[m] = nbc ? dg_hsfb_lookuplow(n, gmapid) : 0;
-          nz[m] = (fb[m] != 0);
-        }
-      }
-      continue;
-    }
-
-    /* accumulate data after equilibration, doing this every step
+    /* accumulate data, doing this every step
      * costs about 5% of the simulation time */
     for (m = 0; m < ncopy; m++) {
       if (sys[m] == 0) nzsm[m] += nz[m];
@@ -530,18 +513,18 @@ INLINE int dg_hsfb_que(dgque_t *q, const dg_t *g, int nocsep,
 /* compute the sign of the virial coefficient by importance sampling
  * direct version without lookup table */
 INLINE void mcrat_direct(int n, double nequil, double nsteps,
-    real amp[], int usegrand, int nstfb,
+    real amp[], int gaussdisp, int nstfb,
     int nstnmv, double *nrat, double *tacc, double *fbav)
 {
   rvn_t **x, *nx, xi;
-  int i, j, m, it, *fb, nfb = 0, wt, nwt, *nz, nnz, nbc, eql;
+  int i, m, it, *fb, nfb = 0, wt, nwt, *nz, nnz, nbc;
   dg_t **g, *ng;
   double *nzsm, (*fbsm)[NSYS], (*hist)[NSYS];
   double t, cacc[NSYS], ctot[NSYS], racc, rtot;
   int *sys, *sys0, acc1;
   int *ifb; /* if fb is randomly computed */
   int *hasfb; /* if fb has been computed for the step */
-  int hasnfb = 1; /* if fb has been computed for the MC trial */
+  int hasnfb = 0; /* if fb has been computed for the MC trial */
   int neval[3] = {0, 0, 0};
   dgque_t **que;
 
@@ -561,10 +544,9 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   ng = dg_open(n);
   for (m = 0; m < ncopy; m++) {
     xnew(x[m], n + 1);
-    for (i = 0; i < n; i++)
-      rvn_rnd(x[m][i], (real) (-0.5 / sqrt(D)), (real) (0.5 / sqrt(D)) );
+    initx(x[m], n);
     g[m] = dg_open(n);
-    mkgraph(g[m], x[m]);
+    mkgraph(g[m], x[m], n);
     die_if (!dg_biconnected(g[m]),
         "m %d, initial diagram not biconnected D %d\n", m, D);
     que[m] = dgque_open(cachesize, (n * (n - 1) / 2 + 31) / 32);
@@ -581,8 +563,6 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     ifb[m] = 0;
     hasfb[m] = 0;
   }
-  eql = 1;
-  hasnfb = 0;
   nrat[0] = nrat[2] = 1e-6; nrat[1] = nrat[3] = 0;
   tacc[0] = tacc[2] = 1e-6; tacc[1] = tacc[3] = 0;
   for (i = 0; i < NSYS; i++) {
@@ -592,9 +572,23 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   racc = 0;
   rtot = 1e-6;
 
+  /* equilibration */
+  for (t = 1; t <= nequil; t++)
+    for (m = 0; m < ncopy; m++) {
+      BCSTEP(acc1, i, n, g[m], ng, x[m], xi, amp[0], gaussdisp);
+    }
+  printf("equilibrated at t %g, nstfb %d\n", nequil, nstfb);
+  for (m = 0; m < ncopy; m++) {
+    nbc = dg_biconnected(g[m]);
+    nz[m] = nbc ? (dg_cliquesep(g[m]) == 0) : 0;
+    fb[m] = nz[m] ? dg_hsfb_que(que[m], g[m], 1, NULL, NULL, NULL) : 0;
+    hasfb[m] = 1;
+  }
+
+  /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
     for (m = 0; m < ncopy; m++) {
-      /* register the system, 0: biconnected; 1: nocsep; 2: w ~ 1/|fb| */
+      /* save the system, 0: biconnected; 1: nocsep; 2: w ~ 1/|fb| */
       sys0[m] = sys[m];
 
 #ifdef CHECK
@@ -607,7 +601,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
           dg_print(g[m]);
           exit(1);
         }
-      } else if ( !eql ) {
+      } else {
         int nz1 = (dg_cliquesep(g[m]) == 0), ncl = dg_ncsep(g[m]);
         int fb1 = dg_hsfb(g[m]);
         if (nz[m] != nz1) {
@@ -629,144 +623,102 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
           racc += 1;
         }
       } else {  /* randomly displace a particle */
-        i = (int) (rnd0() * n);
-        if (usegrand)
-          rvn_granddisp(xi, x[m][i], amp[sys0[m]]);
-        else
-          rvn_rnddisp(xi, x[m][i], amp[sys0[m]]);
-        dg_copy(ng, g[m]);
-        for (j = 0; j < n; j++) {
-          if (j == i) continue;
-          if (rvn_dist2(xi, x[m][j]) >= 1)
-            dg_unlink(ng, i, j);
-          else
-            dg_link(ng, i, j);
-        }
+        CMOVE(i, n, g[m], ng, x[m], xi, amp[sys0[m]], gaussdisp);
 
-        if (eql) { /* during equilibration */
-          /* only sample the biconnected system */
-          if ( dg_biconnected(ng) ) { /* accept the move */
-            rvn_copy(x[m][i], xi);
-            dg_copy(g[m], ng);
-          }
-        } else {
-          /* try to avoid the expensive computation of fb */
-          nbc = dg_biconnected(ng);
-          if ( !nbc ) {
-            nnz = 0;
-            nfb = 0;
+        /* try to avoid the expensive computation of fb */
+        nbc = dg_biconnected(ng);
+        if ( !nbc ) {
+          nnz = 0;
+          nfb = 0;
+          hasnfb = 1;
+        } else { /* biconnected */
+          int ned = -1;
+          static int degs[DG_NMAX];
+          int sc, err;
+
+          /* detect special cases, including ring diagrams
+           * and clique separators */
+          sc = dg_rhsc_spec0(ng, 0, &ned, degs, &err);
+          if (err == 0) { /* special case worked */
             hasnfb = 1;
-          } else { /* biconnected */
-            int ned = -1;
-            static int degs[DG_NMAX];
-            int sc, err;
-
-            /* detect special cases, including ring diagrams
-             * and clique separators */
-            sc = dg_rhsc_spec0(ng, 0, &ned, degs, &err);
-            if (err == 0) { /* special case worked */
+            if (sc != 0) {
+              nnz = 1;
+              nfb = DG_SC2FB(sc, ned);
+            } else {
+              nnz = 0;
+              nfb = 0;
+            }
+          } else { /* general case */
+            nnz = 1; /* no clique separator */
+            /* we need to compute `nfb' if `sys' == 3 */
+            if ( sys0[m] >= 2 ) { /* if we must compute the new fb */
               hasnfb = 1;
-              if (sc != 0) {
-                nnz = 1;
-                nfb = 1 - (ned % 2) * 2;
+              /* if the connectivity is unchanged, use the old fb */
+              if (hasfb[m] && g[m]->c[i] == ng->c[i]) {
+                nfb = fb[m];
               } else {
-                nnz = 0;
-                nfb = 0;
+                nfb = dg_hsfb_que(que[m], ng, 1, &ned, degs, &neval[sys0[m]]);
               }
-            } else { /* general case */
-              nnz = 1; /* no clique separator */
-              /* we need to compute `nfb' if `sys' == 3 */
-              if ( sys0[m] >= 2 ) { /* if we must compute the new fb */
-                hasnfb = 1;
-                /* if the connectivity is unchanged, use the old fb */
-                if (hasfb[m] && g[m]->c[i] == ng->c[i]) {
-                  nfb = fb[m];
-                } else {
-                  nfb = dg_hsfb_que(que[m], ng, 1, &ned, degs, &neval[sys0[m]]);
-                }
-              } else { /* indicate fb has not been computed */
-                hasnfb = nfb = 0;
-              }
-            } /* end of the general case */
-          } /* end if biconnected */
+            } else { /* indicate fb has not been computed */
+              hasnfb = nfb = 0;
+            }
+          } /* end of the general case */
+        } /* end if biconnected */
 
-          if (sys0[m] == 0) {
-            acc1 = nbc;
-          } else if (sys0[m] == 1) {
-            acc1 = nnz;
-          } else { /* sys0[m] == 2 */
-            if (nnz) {
-              WTSYS2(wt, fb[m]);
-              WTSYS2(nwt, nfb);
-              if (nwt >= wt) acc1 = 1;
-              else acc1 = (rnd0() < 1.*nwt/wt);
-            } else acc1 = 0;
-          }
-
-          if ( acc1 ) { /* accept the move */
-            rvn_copy(x[m][i], xi);
-            dg_copy(g[m], ng);
-            nz[m] = nnz;
-            hasfb[m] = hasnfb;
-            if (hasfb[m]) fb[m] = nfb;
-          } /* if rejected, maintain the old `hasfb' value */
-
-          cacc[sys0[m]] += acc1;
-          ctot[sys0[m]] += 1;
+        if (sys0[m] == 0) {
+          acc1 = nbc;
+        } else if (sys0[m] == 1) {
+          acc1 = nnz;
+        } else { /* sys0[m] == 2 */
+          if (nnz) {
+            WTSYS2(wt, fb[m]);
+            WTSYS2(nwt, nfb);
+            if (nwt >= wt) acc1 = 1;
+            else acc1 = (rnd0() < 1.*nwt/wt);
+          } else acc1 = 0;
         }
+
+        if ( acc1 ) { /* accept the move */
+          rvn_copy(x[m][i], xi);
+          dg_copy(g[m], ng);
+          nz[m] = nnz;
+          hasfb[m] = hasnfb;
+          if (hasfb[m]) fb[m] = nfb;
+        } /* if rejected, maintain the old `hasfb' value */
+
+        cacc[sys0[m]] += acc1;
+        ctot[sys0[m]] += 1;
       }
 
-      if ( !eql ) {
-        /* compute fb only when necessary
-         * this usually happens after an accepted move */
-        ifb[m] = (nstfb == 1 || rnd0() < 1./nstfb);
-        if ( !hasfb[m] && (ifb[m] || sys0[m] >= 2) ) {
-          fb[m] = nz[m] ? dg_hsfb_que(que[m], g[m], 1, NULL, NULL, &neval[sys0[m]]) : 0;
-	  hasfb[m] = 1;
-        }
+      /* compute fb only when necessary
+       * this usually happens after an accepted move */
+      ifb[m] = (nstfb == 1 || rnd0() < 1./nstfb);
+      if ( !hasfb[m] && (ifb[m] || sys0[m] >= 2) ) {
+        fb[m] = nz[m] ? dg_hsfb_que(que[m], g[m], 1, NULL, NULL, &neval[sys0[m]]) : 0;
+        hasfb[m] = 1;
+      }
 
-        /* change `sys', we do this after equilibration */
-        sys[m] = movesys(sys0[m], fb[m], nz[m], ifb[m], Z, tacc);
+      /* change `sys' */
+      sys[m] = movesys(sys0[m], fb[m], nz[m], ifb[m], Z, tacc);
 
 #ifdef CHECK
-        /* check if fb has been correctly computed */
-        if (hasfb[m]) {
-        //if (!eql && (ifb[m] || sys[m] >= 2)) {
-          int nz1 = (dg_cliquesep(g[m]) == 0), ncl = dg_ncsep(g[m]);
-          int fb1 = dg_hsfb(g[m]), nfb1 = dg_hsfb(ng);
-          if (!hasfb[m] || nz[m] != nz1 || fb[m] != fb1) {
-            printf("t %g, ifb %d, sys %d, hasfb %d, nz %d (%d), ncl %d, fb %d (%d), "
-                "hasnfb %d, nfb %d (%d)\n",
-                t, ifb[m], sys[m], hasfb[m], nz[m], nz1, ncl,
-                fb[m], fb1, hasnfb, nfb, nfb1);
-            dg_print(g[m]);
-            exit(1);
-          }
-        }
-#endif
-      } /* end if !eql */
-    } /* loop over copies */
-
-    if (eql) {
-      if (t >= nequil) {
-        printf("equilibrated at t %g, nstfb %d\n", t, nstfb);
-        t = 0;
-        it = 0;
-        eql = 0;
-        /* we only compute `fb' after equilibration */
-        for (m = 0; m < ncopy; m++) {
-          die_if (sys[m] != 0, "sys[%d] %d must be 0 during equilibration\n", m, sys[m]);
-          nbc = dg_biconnected(g[m]);
-          nz[m] = nbc ? (dg_cliquesep(g[m]) == 0) : 0;
-          fb[m] = nz[m] ? dg_hsfb_que(que[m], g[m], 1, NULL, NULL, NULL) : 0;
-          hasfb[m] = 1;
+      /* check if fb has been correctly computed */
+      if (hasfb[m]) {
+      //if ((ifb[m] || sys[m] >= 2)) {
+        int nz1 = (dg_cliquesep(g[m]) == 0), ncl = dg_ncsep(g[m]);
+        int fb1 = dg_hsfb(g[m]), nfb1 = dg_hsfb(ng);
+        if (!hasfb[m] || nz[m] != nz1 || fb[m] != fb1) {
+          printf("t %g, m %d, acc %d, ifb %d, sys %d/%d, hasfb %d, nz %d (%d), "
+              "ncl %d, fb %d (%d), hasnfb %d, nfb %d (%d)\n",
+              t, m, acc1, ifb[m], sys0[m], sys[m], hasfb[m], nz[m], nz1,
+              ncl, fb[m], fb1, hasnfb, nfb, nfb1);
+          dg_print(g[m]);
+          exit(1);
         }
       }
-      continue;
-    }
+#endif
 
-    for (m = 0; m < ncopy; m++) {
-      /* accumulate data after equilibration */
+      /* accumulate data */
       if (ifb[m] || sys0[m] >= 2) {
         if (sys[m] == 0) nzsm[m] += nz[m];
         hist[m][sys[m]] += 1;
@@ -782,7 +734,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         rvn_rmcom(x[m], n); /* remove the origin to the center of mass */
         if (sys[m] == 0) nmove(x[m], n, xi, g[m], nrat, nrc);
       }
-    }
+    } /* loop over copies */
 
 #define REPORT_DIRECT() { REPORT(0); \
     printf("eval %d/%d/%d\n", neval[0], neval[1], neval[2]); }
@@ -817,18 +769,18 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 
 /* compute the sign of the virial coefficient */
 static void mcrat(int n, double nequil, double nsteps,
-    real amp[], int usegrand, int nstfb, int lookup,
+    real amp[], int gaussdisp, int nstfb, int lookup,
     int nstnmv, double *nrat, double *tacc, double *fbav)
 {
   if (nsteps < nequil) nsteps = nequil;
 
   printf("D %d, n %d, %s version, %s displacement\n", D, n,
-      lookup ? "lookup" : "direct", usegrand ? "Gaussian" : "uniform");
+      lookup ? "lookup" : "direct", gaussdisp ? "Gaussian" : "uniform");
   if (lookup)
-    mcrat_lookup(n, nequil, nsteps, amp, usegrand,
+    mcrat_lookup(n, nequil, nsteps, amp, gaussdisp,
         nstnmv, nrat, tacc, fbav);
   else
-    mcrat_direct(n, nequil, nsteps, amp, usegrand,
+    mcrat_direct(n, nequil, nsteps, amp, gaussdisp,
         nstfb, nstnmv, nrat, tacc, fbav);
 }
 
@@ -845,7 +797,7 @@ int main(int argc, char **argv)
       D, n, (double) nsteps, nsteps2, mcamp[0], mcamp[1], mcamp[2],
       nstfb, (int) sizeof(code_t) * 8, Zb, Zbvir);
 
-  mcrat(n, nequil, nsteps, mcamp, usegrand,
+  mcrat(n, nequil, nsteps, mcamp, gaussdisp,
       nstfb, lookup, nstnmv, nrat1, tr1, fbav1);
 
   if (nsteps2 <= 0) /* a single simulation */
@@ -860,7 +812,7 @@ int main(int argc, char **argv)
   }
   else /* a second simulation */
   {
-    mcrat(n - 1, nequil, nsteps2, mcamp, usegrand,
+    mcrat(n - 1, nequil, nsteps2, mcamp, gaussdisp,
         nstfb, lookup, nstnmv, nrat2, tr2, fbav2);
     nr1 = nrat1[3]/nrat1[2]; /* remove a vertex n --> n - 1 */
     nr2 = nrat2[1]/nrat2[0]; /* add a vertex, n - 1 --> n */

@@ -9,11 +9,12 @@
 
 
 
-/* compute a Ree-Hoover diagram from the coordinates */
-INLINE void mkgraph(dg_t *g, rvn_t *x)
+/* compute the Ree-Hoover diagram from the coordinates */
+INLINE void mkgraph(dg_t *g, rvn_t *x, int n)
 {
-  int i, j, n = g->n;
+  int i, j;
 
+  g->n = n;
   dg_empty(g);
   for (i = 0; i < n - 1; i++)
     for (j = i + 1; j < n; j++)
@@ -139,13 +140,13 @@ INLINE double B4rat_diamond(int d)
     -6347./3360,
     -8 + 12*SQRT3OVERPI + 173./135*ONEOVERPISQR,
     -20830913./24600576.,
-    -8 + 72./5*SQRT3OVERPI - 193229./37800*ONEOVERPISQR,
+    -8 + 72./5*SQRT3OVERPI - 193229./37800.*ONEOVERPISQR,
     -87059799799./217947045888.,
-    -8 + 558./35*SQRT3OVERPI - 76667881./7276500*ONEOVERPISQR,
+    -8 + 558./35*SQRT3OVERPI - 76667881./7276500.*ONEOVERPISQR,
     -332647803264707./1711029608251392.,
-    -8 + 594./35*SQRT3OVERPI - 9653909./654885*ONEOVERPISQR,
+    -8 + 594./35*SQRT3OVERPI - 9653909./654885.*ONEOVERPISQR,
     -865035021570458459./8949618140032008192.,
-    -8 + 972./55*SQRT3OVERPI - 182221984415./10188962784*ONEOVERPISQR
+    -8 + 972./55*SQRT3OVERPI - 182221984415./10188962784.*ONEOVERPISQR
   };
   if (d <= 12) return tab[d];
   die_if (d > 12, "d %d is not supported\n", d);
@@ -170,7 +171,7 @@ INLINE double B4rat_full(int d)
     (-283003297./141892608. - 159966456685./217947045888.*SQRT2OVERPI
             + 292926667005./48432676864.*ACOS13OVERPI) * 4,
     8 - 837./35*SQRT3OVERPI + 5765723./110250 * ONEOVERPISQR,
-    (-88041062201./34810986496 - 2698457589952103./2851716013752320.*SQRT2OVERPI
+    (-88041062201./34810986496. - 2698457589952103./2851716013752320.*SQRT2OVERPI
             + 8656066770083523./1140686405500928.*ACOS13OVERPI) * 4,
     8 - 891./35*SQRT3OVERPI + 41696314./694575 * ONEOVERPISQR,
     (-66555106087399./22760055898112. - 16554115383300832799./14916030233386680320.*SQRT2OVERPI
@@ -265,6 +266,46 @@ INLINE double getZrat(int d, int n, const char *fn)
 
 
 
+/* initialize a fully-connected configuration */
+static void initx(rvn_t *x, int n)
+{
+  int i;
+  real a = (real) (0.5 / sqrt(D));
+
+  for (i = 0; i < n; i++)
+    rvn_rnd(x[i], -a, a);
+}
+
+
+
+/* regular configuration sampling
+ * the function-version is slower */
+#define CMOVE(i, nv, g, ng, x, xi, amp, gauss) { int j; \
+  i = (int) (rnd0() * (nv)); \
+  if (gauss) rvn_granddisp(xi, (x)[i], amp); \
+  else rvn_rnddisp(xi, (x)[i], amp); \
+  ng->n = (nv); \
+  dg_copy(ng, g); \
+  for (j = 0; j < (nv); j++) { \
+    if (j == i) continue; \
+    if (rvn_dist2(xi, (x)[j]) < 1) dg_link(ng, i, j); \
+    else dg_unlink(ng, i, j); \
+  } }
+
+
+
+/* sampling biconnected configurations
+ * the function-version is slower */
+#define BCSTEP(acc, i, n, g, ng, x, xi, amp, gauss) { \
+  CMOVE(i, n, g, ng, x, xi, amp, gauss); \
+  if ( dg_biconnected(ng) ) { \
+    rvn_copy((x)[i], xi); \
+    dg_copy(g, ng); \
+    acc = 1; \
+  } else acc = 0; }
+
+
+
 /* get sig2 that optimizes the acceptance rates */
 INLINE double getgsig2(int n)
 {
@@ -329,7 +370,7 @@ INLINE int grepl(rvn_t *x, rvn_t *nx, dg_t *g, dg_t *ng)
   int n = g->n;
 
   lognwt = gengconf(nx, n);
-  mkgraph(ng, nx);
+  mkgraph(ng, nx, n);
   if ( !dg_biconnected(ng) ) return 0;
   logwt = getloggwt(x, n);
   if (logwt > lognwt || rnd0() < exp(logwt - lognwt)) {

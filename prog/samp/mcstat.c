@@ -93,7 +93,7 @@ static double mcrun(int n, double nequil, double nsteps, real amp,
     rvn_rnd(x[i], (real) (-0.05 / sqrt(D)), (real) (0.05 / sqrt(D)) );
   g = dg_open(n);
   ng = dg_open(n);
-  mkgraph(g, x);
+  mkgraph(g, x, n);
   die_if (!dg_biconnected(g), "initial diagram not biconnected D %d\n", D);
   fb = dg_hsfb(g);
 
@@ -166,7 +166,7 @@ static double mcrun(int n, double nequil, double nsteps, real amp,
 
   { /* print out fb as a function of the # of edges */
     double hsm2, xx, yy;
- 
+
     printf("nedgs     his     hisnz          fbnz         <fb>\n");
     for (hsm = hsm2 = 0, i = n; i <= n*(n-1)/2; i++) {
       hsm += Hed[i][0]; /* biconnected diagrams */

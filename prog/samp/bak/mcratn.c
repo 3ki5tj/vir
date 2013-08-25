@@ -276,7 +276,7 @@ INLINE void mcrat_lookup(int n, double nequil, double nsteps,
   g = dg_open(n);
   ng = dg_open(n);
   sg = dg_open(n - 1);
-  mkgraph(g, x);
+  mkgraph(g, x, n);
   die_if (!dg_biconnected(g), "initial diagram not biconnected D %d\n", D);
   fb = dg_hsfb_lookup(g);
   ncl = dg_ncsep_lookup(g);
@@ -491,7 +491,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   g = dg_open(n);
   ng = dg_open(n);
   sg = dg_open(n - 1);
-  mkgraph(g, x);
+  mkgraph(g, x, n);
   die_if (!dg_biconnected(g), "initial diagram not biconnected D %d\n", D);
 
   ncl = dg_ncsep(g);

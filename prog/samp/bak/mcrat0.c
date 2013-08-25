@@ -18,20 +18,6 @@ double nstepsmc = 10000000.0;
 
 
 
-/* compute a Ree-Hoover diagram from the coordinates */
-static void mkgraph(dg_t *g, rvn_t *x)
-{
-  int i, j, n = g->n;
-
-  dg_empty(g);
-  for (i = 0; i < n - 1; i++)
-    for (j = i + 1; j < n; j++)
-      if (rvn_dist2(x[i], x[j]) < 1)
-        dg_link(g, i, j);
-}
-
-
-
 /* compute the sign of the virial coefficient */
 static double mcrun(int n, double nsteps, real amp, int plus, double *nrat)
 {
@@ -54,7 +40,7 @@ static double mcrun(int n, double nsteps, real amp, int plus, double *nrat)
   g = dg_open(n);
   ng = dg_open(n);
   sg = dg_open(n - 1);
-  mkgraph(g, x);
+  mkgraph(g, x, n);
   die_if (!dg_biconnected(g), "initial diagram not biconnected D %d\n", D);
   fb = dg_hsfb(g);
 
@@ -62,7 +48,7 @@ static double mcrun(int n, double nsteps, real amp, int plus, double *nrat)
 #ifdef MVALL
     for (i = 0; i < n; i++)
       rvn_rnddisp(y[i], x[i], amp);
-    mkgraph(ng, y);
+    mkgraph(ng, y, n);
 #else
     i = (int) (rnd0() * n);
     rvn_rnddisp(xi, x[i], amp);
