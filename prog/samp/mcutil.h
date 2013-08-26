@@ -1,10 +1,12 @@
 #ifndef MCUTIL_H__
 #define MCUTIL_H__
 /* utilities for MC sampling */
+
+
+
 #define ZCOM_PICK
 #define ZCOM_RVN
 #include "zcom.h"
-
 #include "dg.h"
 
 
@@ -19,7 +21,7 @@ INLINE void mkgraph(dg_t *g, rvn_t *x, int n)
   for (i = 0; i < n - 1; i++)
     for (j = i + 1; j < n; j++)
       if (rvn_dist2(x[i], x[j]) < 1)
-        dg_link(g, i, j);
+        DG_LINK(g, i, j);
 }
 
 
@@ -278,31 +280,36 @@ static void initx(rvn_t *x, int n)
 
 
 
-/* regular configuration sampling
- * the function-version is slower */
-#define CMOVE(i, nv, g, ng, x, xi, amp, gauss) { int j; \
+/* randomly displace a vertex */
+#define DISPRNDI(i, nv, x, xi, amp, gauss) { \
   i = (int) (rnd0() * (nv)); \
   if (gauss) rvn_granddisp(xi, (x)[i], amp); \
-  else rvn_rnddisp(xi, (x)[i], amp); \
+  else rvn_rnddisp(xi, (x)[i], amp); }
+
+
+
+/* construct a new graph `ng', with vertex i displaced */
+#define UPDGRAPH(i, nv, g, ng, x, xi) { int j; \
   ng->n = (nv); \
   dg_copy(ng, g); \
   for (j = 0; j < (nv); j++) { \
     if (j == i) continue; \
-    if (rvn_dist2(xi, (x)[j]) < 1) dg_link(ng, i, j); \
-    else dg_unlink(ng, i, j); \
+    if (rvn_dist2(xi, (x)[j]) < 1) { DG_LINK(ng, i, j); } \
+    else { DG_UNLINK(ng, i, j); } \
   } }
 
 
 
-/* sampling biconnected configurations
- * the function-version is slower */
-#define BCSTEP(acc, i, n, g, ng, x, xi, amp, gauss) { \
-  CMOVE(i, n, g, ng, x, xi, amp, gauss); \
+/* A Monte Carlo step of sampling biconnected configurations
+ * This is a macro for the function-version is slower */
+#define BCSTEP(acc, i, nv, g, ng, x, xi, amp, gauss) { \
+  DISPRNDI(i, nv, x, xi, amp, gauss); \
+  UPDGRAPH(i, nv, g, ng, x, xi); \
   if ( dg_biconnected(ng) ) { \
     rvn_copy((x)[i], xi); \
     dg_copy(g, ng); \
     acc = 1; \
-  } else acc = 0; }
+  } else { acc = 0; } }
 
 
 
@@ -457,6 +464,21 @@ INLINE int dgmc_nremove1(const dg_t *g, dg_t *sg, int n, int *i)
 
 
 
+/* recommended trial volume for docked-vertex moves between n and n + 1 */
+INLINE double trialvol(int n, int d)
+{
+  double vol = 1;
+  static double ab[][2] = {{0.7, 1.8},
+    {0.70, 1.8}, {0.70, 1.8}, {0.82, 1.9}, {0.90, 2.0}, {0.94, 2.0},
+    {0.95, 2.0}, {0.95, 1.8}, {0.95, 1.8}, {0.95, 2.6}, {0.95, 3.0}};
+  if (d <= 10) vol = ab[d][0] * n - ab[d][1];
+  /* TODO: the optimal trial vol should be the ratio of partition function
+   * it is currently hard to obtain a good formula for d > 10, use unity */
+  return (vol > 1) ? vol : 1;
+}
+
+
+
 /* compute the relative probability of adding a vertex (n + 1)
  * that preserves the biconnectivity of the graph
  * return the trial volume if successful, or 0 otherwise */
@@ -480,20 +502,21 @@ INLINE int rvn_voladd_dock(rvn_t *x, int n, rvn_t xi, real rc)
 
 
 /* return if removing vertex i leaves the diagram biconnected */
-INLINE int dgmc_nremove_dock(const dg_t *g, rvn_t *x, int n, int *i, real rc)
+INLINE int dgmc_nremove_dock(const dg_t *g, rvn_t *x, int n, real rc)
 {
   code_t vs = ((code_t) 1u << n) - 1u;
-  int j, k;
+  int i, j, k;
 
-  *i = (int) (rnd0() * n);
-  k = (int) (rnd0() * (n - 1)); /* choose a dock */
-  if (k >= *i) k++;
-  if (rvn_dist2(x[*i], x[k]) > rc * rc)
+  j = (int) (rnd0() * n * (n - 1));
+  i = j % n;
+  k = j / n; /* choose a dock */
+  if (k >= i) k++;
+  if (rvn_dist2(x[i], x[k]) > rc * rc)
     return 0;
-  vs ^= (code_t) 1u << (*i);
+  vs ^= (code_t) 1u << i;
   for (j = 0; j < n; j++)
     /* see if removing i and j leaves the diagram connected */
-    if ( j != (*i) && !dg_connectedvs(g, vs ^ ((code_t) 1u << j)))
+    if ( j != i && !dg_connectedvs(g, vs ^ ((code_t) 1u << j) ) )
       return 0;
   return 1;
 }

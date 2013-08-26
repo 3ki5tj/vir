@@ -68,12 +68,12 @@ static int dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
       /* try to remove the edge i-j */
       if (!dg_linked(g, i, j) || dg_deg(g, j) <= 2)
         continue;
-      dg_unlink(g, i, j);
+      DG_UNLINK(g, i, j);
       if ( dg_biconnected(g) ) {
         sc += sgn /* add the diagram without (i, j) */
             + dg_rhsc_recur(g, -sgn, i, j); /* diagrams without (i, j) */
       }
-      dg_link(g, i, j); /* link back, find subdiagrams with (i, j) */
+      DG_LINK(g, i, j); /* link back, find subdiagrams with (i, j) */
     }
   }
   return sc;

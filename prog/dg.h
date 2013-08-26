@@ -4,6 +4,7 @@
  * using bitwise operations */
 
 
+
 #define ZCOM_PICK
 #define ZCOM_UTIL
 #define ZCOM_RV3
@@ -12,17 +13,27 @@
 
 
 
-/* currently only support 32-bit */
-typedef uint32_t code_t;
-
+#ifndef CODEBITS
 /* Note:
  * #define CODEBITS (sizeof(code_t) * 8)
  * doesn't work, because the compiler cannot compute sizeof() in time
  * */
 #define CODEBITS 32
+#endif
+
+
+
+#if CODEBITS == 32
+typedef uint32_t code_t;
+#else
+typedef uint64_t code_t;
+#endif
+
 
 /* we only support a graph with at most CODEBITS vertices */
 #define DG_NMAX CODEBITS
+
+
 
 typedef struct {
   int n;
@@ -101,27 +112,32 @@ INLINE int bitfirst(code_t x)
 
 
 /* return if the edge between i and j are connected */
-INLINE int dg_linked(const dg_t *g, int i, int j)
-{
-  return (g->c[i] >> j) & 1u;
-}
+#define dg_linked(g, i, j) ( ( (g)->c[i] >> (j) ) & 1u )
 
 
 
 /* add an edge between i and j */
+#define DG_LINK(g, i, j) { \
+  (g)->c[i] |= 1u << (j); \
+  (g)->c[j] |= 1u << (i); }
+
+/* safer function version */
 INLINE void dg_link(dg_t *g, int i, int j)
 {
-  g->c[i] |= (1u << j);
-  g->c[j] |= (1u << i);
+  DG_LINK(g, i, j);
 }
 
 
 
 /* remove an edge between i and j */
+#define DG_UNLINK(g, i, j) { \
+  (g)->c[i] &= ~(1u << (j)); \
+  (g)->c[j] &= ~(1u << (i)); }
+
+/* safer function version */
 INLINE void dg_unlink(dg_t *g, int i, int j)
 {
-  g->c[i] &= ~(1u << j);
-  g->c[j] &= ~(1u << i);
+  DG_UNLINK(g, i, j);
 }
 
 
@@ -143,10 +159,7 @@ INLINE dg_t *dg_shrink1(dg_t *sg, const dg_t *g, int i0)
 
 
 /* degree of vertex i */
-INLINE int dg_deg(const dg_t *g, int i)
-{
-  return bitcount(g->c[i]);
-}
+#define dg_deg(g, i) bitcount( (g)->c[i] )
 
 
 
@@ -156,7 +169,7 @@ INLINE int dg_degs(const dg_t *g, int *degs)
   int i, sum = 0, n = g->n;
 
   for (i = 0; i < n; i++)
-    sum += ( degs[i] = bitcount(g->c[i]) );
+    sum += ( degs[i] = dg_deg(g, i) );
   return sum / 2;
 }
 
@@ -189,9 +202,9 @@ INLINE int dg_nedges(const dg_t *g)
 /* remove all edges */
 INLINE void dg_empty(dg_t *g)
 {
-  int i;
+  int i, n = g->n;
 
-  for (i = 0; i < g->n; i++)
+  for (i = 0; i < n; i++)
     g->c[i] = 0;
 }
 
@@ -213,10 +226,10 @@ INLINE void dg_full(dg_t *g)
 /* the complement diagram of h: link <---> g: unlink */
 INLINE dg_t *dg_complement(dg_t *h, dg_t *g)
 {
-  int i;
+  int i, n = g->n;
   code_t mask = (1 << g->n) - 1;
 
-  for (i = 0; i < g->n; i++)
+  for (i = 0; i < n; i++)
     h->c[i] = ~(g->c[i] | (1 << i)) & mask;
   return h;
 }
@@ -252,7 +265,7 @@ INLINE dg_t *dg_decode(dg_t *g, code_t *code)
   for (i = 0; i < n - 1; i++) {
     for (j = i + 1; j < n; j++) {
       if ((*c >> ib) & 1u)
-        dg_link(g, i, j);
+        DG_LINK(g, i, j);
       if (++ib == CODEBITS) {
         ib = 0;
         c++;
@@ -271,9 +284,8 @@ static dg_t *dg_open(int n)
 
   xnew(g, 1);
   g->n = n;
-  die_if (n >= CODEBITS, "do not support %d atoms\n", n);
+  die_if (n >= DG_NMAX, "do not support %d atoms\n", n);
   xnew(g->c, g->n);
-  dg_empty(g);
   return g;
 }
 
@@ -302,9 +314,7 @@ INLINE dg_t *dg_copy(dg_t *a, const dg_t *b)
 
 INLINE dg_t *dg_clone(const dg_t *b)
 {
-  dg_t *a;
-
-  a = dg_open(b->n);
+  dg_t *a = dg_open(b->n);
   return dg_copy(a, b);
 }
 
@@ -387,7 +397,7 @@ INLINE int dg_biconnectedvs(const dg_t *g, code_t vs)
   code_t b, todo;
 
   for (todo = vs; todo; todo ^= b) {
-    bitfirstlow(todo, &b); /* first vertex (1-bit) of the todo list */
+    b = todo & (-todo); /* first vertex (1-bit) of the todo list */
     if ( !dg_connectedvs(g, vs ^ b) )
       return 0;
   }

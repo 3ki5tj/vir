@@ -55,7 +55,7 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
       /* only update the label after we have done with it
        * the l2[w]++ operation only applies to a vertex once */
       l2[w]++;
-      if (f) dg_link(f, v, w);
+      if (f) DG_LINK(f, v, w);
     }
 
     /* search paths from v
@@ -73,7 +73,7 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
           if ((l = l2[z]/2) > j) {
             reach[l] |= bz;
             l2[z]++;
-            if (f) dg_link(f, v, z);
+            if (f) DG_LINK(f, v, z);
           } else { /* lower label encountered, count it as label j */
             reach[j] |= bz;
           }
@@ -181,7 +181,8 @@ INLINE int dg_decompcsep(const dg_t *g, code_t * RESTRICT cl)
   static int a[DG_NMAX], p[DG_NMAX]; /* a[k] is the kth vertex, p = a^(-1) */
   int n = g->n;
 
-  if (fs[n] == NULL) f = fs[n] = dg_open(n);
+  if (fs[n] == NULL) fs[n] = dg_open(n);
+  f = fs[n];
 
   /* 1. find a minimal ordering and its fill-in */
   dg_minimalorder(g, f, a, p);

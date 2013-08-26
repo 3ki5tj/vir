@@ -14,11 +14,12 @@ int nmax = DG_NMAX - 1; /* the maximal order of virial coefficients */
 real mcamp = 1.5f;
 double nequil = 100000;
 double nsteps = 10000000;
-double ratn = 0.1; /* frequency of n-moves */
-                   /* this parameter is to be improved */
-real rc = 0;
+double ratn = 0.5; /* frequency of n-moves */
+  /* this version used a simple n-move, which is on average faster than
+   * configurational sampling, so we should use a larger ratn */
 const char *fnin = NULL; /* input file */
 const char *fnout = NULL; /* output file */
+int nstcom = 1000;
 int nsted = 10;
 int nstcs = 100;
 int nstfb = -1;
@@ -46,7 +47,6 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-1",   "%lf", &nsteps,  "number of simulation steps");
   argopt_add(ao, "-a",   "%r",  &mcamp,   "MC amplitude for biconnected diagrams");
   argopt_add(ao, "-r",   "%lf", &ratn,    "rate of particle moves");
-  argopt_add(ao, "-c",   "%r",  &rc,      "radius of particle insersion");
   argopt_add(ao, "-i",   NULL,  &fnin,    "input file");
   argopt_add(ao, "-o",   NULL,  &fnout,   "output file");
   argopt_add(ao, "-e",   "%d",  &nsted,   "interval of computing the # of edges");
@@ -58,7 +58,8 @@ static void doargs(int argc, char **argv)
   /* Monte Carlo move amplitude */
   mcamp /= D;
 
-  if (rc <= 0) rc = 1;
+  /* make nstcs a multiple of nsted */
+  nstcs = (nstcs + nsted - 1) / nsted * nsted;
 
   if (nstfb < 0) {
     if (D <= 10) {
@@ -109,7 +110,7 @@ static int saveZr(const char *fn, const double *Zr, int nmax,
         i, Zr[i], x, hist[i + 1],
         ncsp[2*(i + 1) + 1] / ncsp[2*(i + 1)],
         fbav, fbsm[3*i + 5] / fbsm[3*i + 3],
-        (-i)*fact * x * fbav, /* B(i+1) = 2^i (-i) / (i+1)! Z(i+1) <fb(i+1)> */
+        (-i) * fact * x * fbav, /* B(i+1) = 2^i (-i) / (i+1)! Z(i+1) <fb(i+1)> */
         nedg[2*i + 3] / nedg[2*i + 2],
         nacc[4*i + 3] / nacc[4*i + 2], nacc[4*i + 5] / nacc[4*i + 4]);
   }
@@ -172,6 +173,9 @@ static int initZr(const char *fn, double *Zr, int nmax)
   Zr[2] = Z3rat(D);
   if (D <= 12 || i0 < 4) Zr[3] = Z4rat(D)/Zr[2];
   if (i0 < 4) i0 = 4;
+  /* to avoid bad data */
+  for (i = 0; i < DG_NMAX; i++)
+    if (Zr[i] <= 0) Zr[i] = 1;
 
   if (nmax > i0) { /* guess the unknown */
     fprintf(stderr, "guessing Zr for n = %d to %d\n", i0 + 1, nmax);
@@ -190,7 +194,7 @@ static int initZr(const char *fn, double *Zr, int nmax)
 
 
 /* accumulate data */
-static void accumdata(const dg_t *g, double t, int nsted, int nstcs, int nstfb,
+static void accumdata(const dg_t *g, double t, int nstcs, int nstfb,
     double *nedg, double *ncsp, double *fbsm)
 {
   int ned = -1, n = g->n, ncs, sc, err, fb = 0;
@@ -202,53 +206,51 @@ static void accumdata(const dg_t *g, double t, int nsted, int nstcs, int nstfb,
    * which is a bit long for a short simulation */
   if (nsteps < 5e8) nlookup = 7;
 
-  if (nsted > 0 && (int) fmod(t, nsted) == 0) {
-    ned = dg_degs(g, degs);
-    nedg[2*n] += 1;
-    nedg[2*n + 1] += ned;
+  ned = dg_degs(g, degs);
+  nedg[2*n] += 1;
+  nedg[2*n + 1] += ned;
 
-    if (n <= nlookup || (nstcs > 0 && (int) fmod(t, nstcs) == 0) ) {
-      /* check if the graph has a clique separator */
-      if (n <= nlookup) { /* lookup table */
-        code_t code;
-        unqid_t uid;
-        dgmap_t *m = dgmap_ + n;
+  if (n <= nlookup || ((int) fmod(t, nstcs) == 0) ) {
+    /* check if the graph has a clique separator */
+    if (n <= nlookup) { /* lookup table */
+      code_t code;
+      unqid_t uid;
+      dgmap_t *m = dgmap_ + n;
 
-        dg_encode(g, &code);
-        ncs = (dg_ncsep_lookuplow(g, code) == 0);
-        dgmap_init(m, n);
-        uid = m->map[code];
-        fb = dg_hsfb_lookuplow(n, uid);
-        err = 0;
-      } else {
-        /* this function implicitly computes the clique separator
-         * with very small overhead */
-        sc = dg_rhsc_spec0(g, 0, &ned, degs, &err);
-        if (err == 0) {
-          ncs = (sc != 0);
-          fb = DG_SC2FB(sc, ned);
-        } else { /* no clique separator */
-          ncs = 1;
+      dg_encode(g, &code);
+      ncs = (dg_ncsep_lookuplow(g, code) == 0);
+      dgmap_init(m, n);
+      uid = m->map[code];
+      fb = dg_hsfb_lookuplow(n, uid);
+      err = 0;
+    } else {
+      /* this function implicitly computes the clique separator
+       * with very small overhead */
+      sc = dg_rhsc_spec0(g, 0, &ned, degs, &err);
+      if (err == 0) {
+        ncs = (sc != 0);
+        fb = DG_SC2FB(sc, ned);
+      } else { /* no clique separator */
+        ncs = 1;
+      }
+    }
+    ncsp[2*n] += 1;
+    ncsp[2*n + 1] += ncs;
+
+    if (n <= nlookup || (nstfb > 0 && (int) fmod(t, nstfb) == 0)) {
+      /* compute fb, if it is cheap */
+      if ( err ) { /* if dg_rhsc_spec0() fails, no clique separator */
+        if (ned > n + nedxmax && n > nedxmax + 2) {
+          fprintf(stderr, "t %.6e/%g D %d assume fb = 0 n %d ned %d\n",
+              t, nsteps, D, n, ned);
+          fb = 0;
+        } else {
+          fb = dg_hsfb_mixed0(g, 1, &ned, degs);
         }
       }
-      ncsp[2*n] += 1;
-      ncsp[2*n + 1] += ncs;
-
-      if (n <= nlookup || (nstfb > 0 && (int) fmod(t, nstfb) == 0)) {
-        /* compute fb, if it is cheap */
-        if ( err ) { /* if dg_rhsc_spec0() fails, no clique separator */
-          if (ned > n + nedxmax && n > nedxmax + 2) {
-            fprintf(stderr, "t %.6e/%g D %d assume fb = 0 n %d ned %d\n",
-                t, nsteps, D, n, ned);
-            fb = 0;
-          } else {
-            fb = dg_hsfb_mixed0(g, 1, &ned, degs);
-          }
-        }
-        fbsm[3*n] += 1;
-        fbsm[3*n + 1] += fb;
-        fbsm[3*n + 2] += abs(fb);
-      }
+      fbsm[3*n] += 1;
+      fbsm[3*n + 1] += fb;
+      fbsm[3*n + 2] += abs(fb);
     }
   }
 }
@@ -256,12 +258,11 @@ static void accumdata(const dg_t *g, double t, int nsted, int nstcs, int nstfb,
 
 
 /* grand canonical simulation, main function */
-static void mcgc(int nmin, int nmax, real rc,
-    double nsteps, double mcamp)
+static void mcgc(int nmin, int nmax, double nsteps, double mcamp)
 {
-  int i, j, deg, conn[DG_NMAX], Znmax, acc1;
+  int i, j, deg, conn[DG_NMAX], Znmax, acc1, it;
   dg_t *g, *ng;
-  double t, r, vol, cacc = 0, ctot = 0;
+  double t, r, cacc = 0, ctot = 0;
   double Zr[DG_NMAX + 1]; /* ratio of the partition function, measured by V */
   double hist[DG_NMAX + 1]; /* histogram */
   double nedg[DG_NMAX * 2 + 2]; /* number of edges */
@@ -269,9 +270,15 @@ static void mcgc(int nmin, int nmax, real rc,
   double fbsm[DG_NMAX * 3 + 3]; /* sum of weights */
   double nacc[DG_NMAX * 4 + 8]; /* acceptance probabilities */
   rvn_t x[DG_NMAX], xi;
+  real rc[DG_NMAX + 1], rc2[DG_NMAX + 1], vol[DG_NMAX + 1];
 
-  vol = pow(rc, D);
   Znmax = initZr(fnin, Zr, nmax); /* initialize the partition function */
+  for (i = 0; i <= DG_NMAX; i++) {
+    vol[i] = Zr[i]; /* setting vol == Zr avoid the additional
+                       acceptance step */
+    rc[i] = pow(vol[i], 1./D);
+    rc2[i] = rc[i] * rc[i];
+  }
   for (i = 0; i <= DG_NMAX; i++) {
     hist[i] = 1e-14;
     ncsp[2*i] = 1e-14;
@@ -288,13 +295,13 @@ static void mcgc(int nmin, int nmax, real rc,
   initx(x, nmax);
   mkgraph(g, x, nmin);
 
-  for (t = 1; t <= nsteps; t += 1) {
+  for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
     die_if (g->n < nmin || g->n > nmax, "bad n %d, t %g\n", g->n, t);
-    if (rnd0() < ratn) { /* switching the ensemble */
+    if (rnd0() < ratn) { /* switching the ensemble, O(n) */
       if (rnd0() < 0.5) { /* add an vertex */
         if (g->n >= nmax) goto STEP_END;
         /* attach a new vertex to the first vertex */
-        rvn_rndball(xi, rc);
+        rvn_rndball(xi, rc[g->n]);
         rvn_inc(xi, x[0]);
         /* test if adding xi leaves the diagram biconnected */
         for (deg = 0, j = 0; j < g->n; j++) {
@@ -308,7 +315,11 @@ static void mcgc(int nmin, int nmax, real rc,
         nacc[g->n*4 + 2] += 1;
         /* the extended configuration is biconnected if xi
          * is connected two vertices */
-        if ( deg >= 2 && rnd0() < vol / Zr[g->n] ) {
+        if ( deg >= 2 )
+#if 0 /* if vol[g->n] != Zr[g->n] */
+        if ( deg >= 2 && rnd0() < vol[g->n] / Zr[g->n] )
+#endif
+        {
           nacc[g->n*4 + 3] += 1;
           rvn_copy(x[g->n], xi);
           g->n += 1;
@@ -321,9 +332,11 @@ static void mcgc(int nmin, int nmax, real rc,
         }
       } else if (g->n > nmin) { /* remove the last vertex */
         nacc[g->n*4] += 1;
-        if ( rvn_dist2(x[g->n - 1], x[0]) < rc * rc
-          && dg_biconnectedvs(g, (1u << (g->n - 1)) - 1)
-          && rnd0() < Zr[g->n - 1] / vol)
+        if ( rvn_dist2(x[g->n - 1], x[0]) < rc2[g->n - 1]
+          && dg_biconnectedvs(g, (1u << (g->n - 1)) - 1) )
+#if 0  /* if vol[g->n - 1] != Zr[g->n - 1] */
+          && rnd0() < Zr[g->n - 1] / vol[g->n - 1]
+#endif
         {
           nacc[g->n*4 + 1] += 1;
           g->n--;
@@ -339,13 +352,19 @@ static void mcgc(int nmin, int nmax, real rc,
       cacc += acc1;
     }
 STEP_END:
-    hist[g->n] += 1;
-    accumdata(g, t, nsted, nstcs, nstfb, nedg, ncsp, fbsm);
+    if (it % nsted == 0) {
+      hist[g->n] += 1;
+      accumdata(g, t, nstcs, nstfb, nedg, ncsp, fbsm);
+    }
+    if (it % nstcom == 0) { /* remove the center of mass motion */
+      rvn_rmcom(x, g->n);
+      it = 0;
+    }
   }
 
   for (i = nmin + 1; i <= nmax; i++) {
     r = nacc[4*i - 1] / nacc[4*i - 2] / (nacc[4*i + 1] / nacc[4*i]);
-    /* make sure enough data and not to erase the exact data */
+    /* make sure enough data points and not to change the exact data */
     if ( (i >= 5 || (i == 4 && D > 12)) &&
         nacc[4*i - 1] >= 100 && nacc[4*i + 1] >= 100)
       Zr[i - 1] *= r;
@@ -370,7 +389,7 @@ STEP_END:
 int main(int argc, char **argv)
 {
   doargs(argc, argv);
-  mcgc(nmin, nmax, rc, nsteps, mcamp);
+  mcgc(nmin, nmax, nsteps, mcamp);
   mtsave(NULL);
   return 0;
 }

@@ -34,8 +34,8 @@ int lookup = -1; /* if to use the lookup table */
 double Z[NSYS] = {1, -1, -1}; /* inverse weights (etimated partition function) */
 int cachesize = 5; /* number of recently visited diagrams */
 double ratcr = 0; /* rate of coordinates replacement */
-real nrc = 1.f; /* radius for particle moves */
 double Zb = 0, Zbvir = 1;
+real nrc = (real) 1; /* radius for particle moves */
 
 
 
@@ -75,8 +75,10 @@ static void doargs(int argc, char **argv)
   if (nstfb <= 0) {
     if (lookup) {
       nstfb = 1;
-    } else {
-      for (nstfb = 10, i = 8; i < n; i++) nstfb *= 3;
+    } else { /* TODO: improve this */
+      if (D >= 15) nstfb = 10;
+      else if (D >= 10) nstfb = 100;
+      else for (nstfb = 10, i = 8; i < n; i++) nstfb *= 3;
     }
   }
 
@@ -102,10 +104,10 @@ static void doargs(int argc, char **argv)
   if (Zb <= 0)
     Zb = getZrat(D, n, NULL);
   if (Zb > 0) {
-    /* Zbvir = (1 - n) * 2^(n - 1) / n!, where B2 = V/2 */
+    /* Zbvir = Zb * (1 - n) / n! */
     Zbvir = Zb * (1 - n);
     for (i = 2; i <= n; i++)
-      Zbvir *= 2./n;
+      Zbvir *= 1./i;
   }
 
   argopt_dump(ao);
@@ -116,21 +118,18 @@ static void doargs(int argc, char **argv)
 
 /* compute the probability of biconnectivity after adding and
  * removing a particle */
-static int nmove(rvn_t *x, int n, rvn_t xi, const dg_t *g,
-    double *nrat, real rc)
+static void nmove(rvn_t *x, int n, rvn_t xi, const dg_t *g,
+    double *nrat, real rcp, real rcm)
 {
-  int i = -1;
-
   if (rnd0() < 0.5) {
     /* the rate of biconnectivity after adding a random vertex */
     nrat[0] += 1;
-    nrat[1] += rvn_voladd_dock(x, n, xi, rc);
+    nrat[1] += rvn_voladd_dock(x, n, xi, rcp);
   } else {
     /* the rate of biconnectivity after removing a random vertex */
     nrat[2] += 1;
-    nrat[3] += dgmc_nremove_dock(g, x, n, &i, rc);
+    nrat[3] += dgmc_nremove_dock(g, x, n, rcm);
   }
-  return i;
 }
 
 
@@ -243,6 +242,12 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   double t, cacc[NSYS], ctot[NSYS], racc, rtot;
   int *sys, *sys0, acc1;
   unqid_t gmapid;
+#ifdef UNITVOL
+  real rcp = nrc, rcm = nrc;
+#else
+  real rcp = nrc * (real) pow(trialvol(n, D), 1./D);
+  real rcm = nrc * (real) pow(trialvol(n - 1, D), 1./D);
+#endif
 
   die_if (n > DGMAP_NMAX, "no diagram map for n %d\n", n);
   xnew(x, ncopy * n);
@@ -289,7 +294,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
     for (m = 0; m < ncopy; m++) {
       BCSTEP(acc1, i, n, g, ng, x + m*n, xi, amp[0], gaussdisp);
     }
-  printf("equilibrated at t %g, nstfb %d\n", nequil, nstfb);
+  printf("equilibrated at t %g, nstfb %d, rc+ %g, rc- %g\n", nequil, nstfb, rcp, rcm);
   for (m = 0; m < ncopy; m++) {
     mkgraph(g, x + m*n, n);
     dg_encode(g, &code[m]);
@@ -414,10 +419,10 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
     if (it % nstnmv == 0) { /* compute the n-move rates */
       for (m = 0; m < ncopy; m++) {
         xm = x + m*n;
-        rvn_rmcom(xm, n); /* remove the origin to the center of mass */
+        rvn_rmcom(xm, n); /* move the center of mass to the origin */
         if (sys[m] == 0) {
           dg_decode(g, &code[m]);
-          nmove(xm, n, xi, g, nrat, nrc);
+          nmove(xm, n, xi, g, nrat, rcp, rcm);
         }
       }
     }
@@ -527,6 +532,12 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   int hasnfb = 0; /* if fb has been computed for the MC trial */
   int neval[3] = {0, 0, 0};
   dgque_t **que;
+#ifdef UNITVOL
+  real rcp = nrc, rcm = nrc;
+#else
+  real rcp = nrc * (real) pow(trialvol(n, D), 1./D);
+  real rcm = nrc * (real) pow(trialvol(n - 1, D), 1./D);
+#endif
 
   xnew(x, ncopy);
   xnew(nx, n + 1);
@@ -573,11 +584,11 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   rtot = 1e-6;
 
   /* equilibration */
-  for (t = 1; t <= nequil; t++)
+  for (t = 1; t <= nequil; t += 1)
     for (m = 0; m < ncopy; m++) {
       BCSTEP(acc1, i, n, g[m], ng, x[m], xi, amp[0], gaussdisp);
     }
-  printf("equilibrated at t %g, nstfb %d\n", nequil, nstfb);
+  printf("equilibrated at t %g, nstfb %d, rc+ %g, rc- %g\n", nequil, nstfb, rcp, rcm);
   for (m = 0; m < ncopy; m++) {
     nbc = dg_biconnected(g[m]);
     nz[m] = nbc ? (dg_cliquesep(g[m]) == 0) : 0;
@@ -623,7 +634,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
           racc += 1;
         }
       } else {  /* randomly displace a particle */
-        CMOVE(i, n, g[m], ng, x[m], xi, amp[sys0[m]], gaussdisp);
+        DISPRNDI(i, n, x[m], xi, amp[sys0[m]], gaussdisp);
+        UPDGRAPH(i, n, g[m], ng, x[m], xi);
 
         /* try to avoid the expensive computation of fb */
         nbc = dg_biconnected(ng);
@@ -732,7 +744,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 
       if (it % nstnmv == 0) { /* compute the acceptance rates */
         rvn_rmcom(x[m], n); /* remove the origin to the center of mass */
-        if (sys[m] == 0) nmove(x[m], n, xi, g[m], nrat, nrc);
+        if (sys[m] == 0) nmove(x[m], n, xi, g[m], nrat, rcp, rcm);
       }
     } /* loop over copies */
 
@@ -790,6 +802,7 @@ int main(int argc, char **argv)
 {
   double fbav1[2], fbav2[2], rvir[2];
   double nrat1[4], nrat2[4], tr1[4], tr2[4], nr1, nr2;
+  double vol;
   int i;
 
   doargs(argc, argv);
@@ -802,23 +815,29 @@ int main(int argc, char **argv)
 
   if (nsteps2 <= 0) /* a single simulation */
   {
-    for (i = 0; i < 2; i++) rvir[i] = fbav1[i] * Zbvir;
-    printf("D %d, n %d, fbav %g, %g; nrat %g(+), %g(-), Z %g/%g\nvir:\n"
+    for (i = 0; i < 2; i++)
+      rvir[i] = fbav1[i] * Zbvir;
+    printf("D %d, n %d, fbav %.8f, %.8f; nrat %g(+), %g(-), Z %g/%g\nvir:\n"
         "    %.12f, %.12f, %.12f (importance sampling)\n"
         "    %.12f, %.12f, %.12f (multiple histogram)\n",
         D, n, fbav1[0], fbav1[1], nrat1[3]/nrat1[2], nrat1[1]/nrat1[0], Zb, Zbvir,
-        rvir[0], rvir[0] * 2, rvir[0] * ndvol(D),
-        rvir[1], rvir[1] * 2, rvir[1] * ndvol(D));
+        rvir[0], rvir[0] * pow(2, n - 1), rvir[0] * pow(ndvol(D), n - 1),
+        rvir[1], rvir[1] * pow(2, n - 1), rvir[1] * pow(ndvol(D), n - 1));
   }
   else /* a second simulation */
   {
+#ifdef UNITVOL
+    vol = pow(nrc, D);
+#else
+    vol = pow(nrc, D) * trialvol(n - 1, D);
+#endif
     mcrat(n - 1, nequil, nsteps2, mcamp, gaussdisp,
         nstfb, lookup, nstnmv, nrat2, tr2, fbav2);
     nr1 = nrat1[3]/nrat1[2]; /* remove a vertex n --> n - 1 */
     nr2 = nrat2[1]/nrat2[0]; /* add a vertex, n - 1 --> n */
     for (i = 0; i < 2; i++)
-      rvir[i] = fbav1[i]/fbav2[i] * pow(nrc, D) * nr2/nr1 * (1. - n)/(2. - n)/n;
-    printf("D %d, n %d, fbav %g/%g, %g/%g; nrat %g/%g = %g\nvir%d/vir%d:\n"
+      rvir[i] = fbav1[i]/fbav2[i] * vol * nr2/nr1 * (1. - n)/(2. - n)/n;
+    printf("D %d, n %d, fbav %.8f/%.8f, %.8f/%.8f; nrat %g/%g = %g\nvir%d/vir%d:\n"
         "    %.12f, %.12f, %.12f (importance sampling)\n"
         "    %.12f, %.12f, %.12f (multiple histogram)\n",
         D, n, fbav1[0], fbav2[0], fbav1[1], fbav2[1],
