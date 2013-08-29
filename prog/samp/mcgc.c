@@ -105,7 +105,7 @@ static int saveZr(const char *fn, const double *Zr, int nmax,
     fact *= 2./(i + 1);
     fbav = fbsm[3*i + 4] / fbsm[3*i + 3];
     fprintf(fp, "%3d %18.14f %20.14e %14.0f "
-        "%16.14f %+17.14f %16.14f %+20.14f "
+        "%16.14f %+17.14f %16.14f %+20.14e "
         "%18.14f %.14f %.14f\n",
         i, Zr[i], x, hist[i + 1],
         ncsp[2*(i + 1) + 1] / ncsp[2*(i + 1)],

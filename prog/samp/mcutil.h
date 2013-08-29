@@ -94,7 +94,7 @@ INLINE double b3rat(int d)
  * divided by the square of the unit spherial volume */
 INLINE double Z3rat(int d)
 {
-  return 3./4 * b3rat(d);
+  return 3./4 * b3rat(d); /* (-1) * 6! / (-2) / (2^2) */
 }
 
 
@@ -268,8 +268,8 @@ INLINE double getZrat(int d, int n, const char *fn)
 
 
 
-/* initialize a fully-connected configuration */
-static void initx(rvn_t *x, int n)
+/* initialize a random, but fully-connected configuration */
+INLINE void initx(rvn_t *x, int n)
 {
   int i;
   real a = (real) (0.5 / sqrt(D));
