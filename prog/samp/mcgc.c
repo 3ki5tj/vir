@@ -70,10 +70,11 @@ static void doargs(int argc, char **argv)
   }
 
   if (nedxmax < 0) {
-    if (D < 8) nedxmax = 10;
-    else if (D < 15) nedxmax = 12;
-    else nedxmax = 14; /* a generous upper bound */
+    int nedarr[] = {0, 10, 10, 10, 10, 10, 10, 11, 11, 12,
+                       12, 12, 13, 13, 14, 14, 14, 14, 14};
+    nedxmax = (D < 20) ? nedarr[D] : 14;
   }
+
   argopt_dump(ao);
   argopt_close(ao);
 }
@@ -110,7 +111,7 @@ static int saveZr(const char *fn, const double *Zr, int nmax,
         i, Zr[i], x, hist[i + 1],
         ncsp[2*(i + 1) + 1] / ncsp[2*(i + 1)],
         fbav, fbsm[3*i + 5] / fbsm[3*i + 3],
-        (-i) * fact * x * fbav, /* B(i+1) = 2^i (-i) / (i+1)! Z(i+1) <fb(i+1)> */
+        (-i) * fact * x * fbav, /* B(i+1)/B(2)^i = (-i) 2^i / (i+1)! Z(i+1)/Z(2)^i <fb(i+1)> */
         nedg[2*i + 3] / nedg[2*i + 2],
         nacc[4*i + 3] / nacc[4*i + 2], nacc[4*i + 5] / nacc[4*i + 4]);
   }
