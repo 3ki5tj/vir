@@ -439,14 +439,14 @@ INLINE double rvn_voladd(rvn_t *x, int n, rvn_t xi)
 /* return if removing vertex i leaves the diagram biconnected */
 INLINE int dgmc_nremove(const dg_t *g, int n, int *i)
 {
-  code_t vs = ((code_t) 1u << n) - 1u;
+  code_t vs = mkbitsmask(n);
   int j;
 
   *i = (int) (rnd0() * n);
-  vs ^= (code_t) 1u << (*i);
+  vs ^= MKBIT(*i);
   for (j = 0; j < n; j++)
     /* see if removing i and j leaves the diagram connected */
-    if ( j != (*i) && !dg_connectedvs(g, vs ^ ((code_t) 1u << j)))
+    if ( j != (*i) && !dg_connectedvs(g, vs ^ MKBIT(j)))
       return 0;
   return 1;
 }
@@ -504,7 +504,7 @@ INLINE int rvn_voladd_dock(rvn_t *x, int n, rvn_t xi, real rc)
 /* return if removing vertex i leaves the diagram biconnected */
 INLINE int dgmc_nremove_dock(const dg_t *g, rvn_t *x, int n, real rc)
 {
-  code_t vs = ((code_t) 1u << n) - 1u;
+  code_t vs = mkbitsmask(n);
   int i, j, k;
 
   j = (int) (rnd0() * n * (n - 1));
@@ -513,10 +513,10 @@ INLINE int dgmc_nremove_dock(const dg_t *g, rvn_t *x, int n, real rc)
   if (k >= i) k++;
   if (rvn_dist2(x[i], x[k]) > rc * rc)
     return 0;
-  vs ^= (code_t) 1u << i;
+  vs ^= MKBIT(i);
   for (j = 0; j < n; j++)
     /* see if removing i and j leaves the diagram connected */
-    if ( j != i && !dg_connectedvs(g, vs ^ ((code_t) 1u << j) ) )
+    if ( j != i && !dg_connectedvs(g, vs ^ MKBIT(j) ) )
       return 0;
   return 1;
 }

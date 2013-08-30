@@ -2,7 +2,10 @@
 #define DGCSEP_H__
 /* find clique separator */
 
+
+
 #include "dg.h"
+
 
 
 /* compute a minimal order and the corresponding fill-in of a graph
@@ -20,7 +23,7 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
   code_t reach[DG_NMAX]; /* reach[label] gives a set of vertices */
   int cnt[DG_NMAX * 2];
 
-  mask = ((code_t) 1 << n) - 1;
+  mask = mkbitsmask(n);
   if (f) dg_copy(f, g);
   for (i = 0; i < n; i++) l2[i] = 0; /* l(i) * 2 */
   reached = numbered = 0;
@@ -115,17 +118,17 @@ INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
     const int *a, const int *p, code_t * RESTRICT cl, int stop1)
 {
   int v, w, i, n = g->n, ncl = 0;
-  code_t cb, c, bw, r, unvisited;
+  code_t cb, c, bw, r, unvisited = mkbitsmask(n);
 
-  for (unvisited = ((code_t) 1u << n) - 1, i = 0; i < n; i++) {
+  for (i = 0; i < n; i++) {
     v = a[i];
-    unvisited &= ~((code_t) 1 << v); /* remove the `v' bit */
+    unvisited &= ~MKBIT(v); /* remove the `v' bit */
     /* compute C(v), the set of succeeding vertices that
      * are adjacent to v */
     for (c = 0, r = (unvisited & f->c[v]); r; r ^= bw) {
       w = bitfirstlow(r, &bw);
       if (p[w] > p[v])
-        c |= (code_t) 1u << w;
+        c |= MKBIT(w);
     }
     /* test if C(v) is a clique, a fully-connected subgraph */
     for (r = c; r; r ^= bw) {
@@ -200,7 +203,7 @@ INLINE int dg_ncsep_lookuplow(const dg_t *g, code_t c)
   int n = g->n;
 
   if (ncl[n] == NULL) {
-    int ipr, npr = (code_t) 1u << (n * (n - 1) / 2);
+    int ipr, npr = 1u << (n * (n - 1) / 2);
     xnew(ncl[n], npr);
     for (ipr = 0; ipr < npr; ipr++) ncl[n][ipr] = (char) (-1);
   }

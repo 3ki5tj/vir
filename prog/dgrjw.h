@@ -86,11 +86,11 @@ INLINE int dg_hsfcrjw(const dg_t *g)
     xrenew(fcarr, 1u << nmax);
     xrenew(fqarr, 1u << nmax);
   }
-  for (i = 0; i < (1 << n); i++) {
+  for (i = 0; i < (1u << n); i++) {
     fcarr[i] = FBDIRTY;
     fqarr[i] = FBDIRTY;
   }
-  return dg_hsfcrjwlow(g->c, (1 << n) - 1, fcarr, fqarr);
+  return dg_hsfcrjwlow(g->c, mkbitsmask(n), fcarr, fqarr);
 }
 
 
@@ -107,7 +107,7 @@ INLINE int dg_hsfb_rjwlow(const code_t *c, int n, int v, code_t vs,
     int * RESTRICT faarr, int * RESTRICT fbarr)
 {
   int fb, id, i;
-  code_t r, b, bv = (code_t) 1u << v;
+  code_t r, b, bv = MKBIT(v);
 
   if ((i = bitcount(vs)) <= 1) return 1;
   else if (i == 2) return (c[ bitfirst(vs) ] & vs) ? -1 : 0;
@@ -120,7 +120,7 @@ INLINE int dg_hsfb_rjwlow(const code_t *c, int n, int v, code_t vs,
   /* remove diagrams with the lowest articulation points at i < v */
   for (r = vs & (bv - 1); r; r ^= b) {
     i = bitfirstlow(r, &b);
-    id = ((i + 1) << n) + vs;
+    id = ((i + 1) << n) + vs; /* (i + 1) * 2^n + vs */
     if ( FBINVALID(faarr[id]) )
       faarr[id] = dg_hsfarjwlow(c, n, i, vs, faarr, fbarr);
     fbarr[id] = (fb -= faarr[id]);

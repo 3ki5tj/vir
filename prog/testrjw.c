@@ -46,6 +46,7 @@ static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
   dg_t *g;
   clock_t t0;
   double tsum = 0;
+  double rnp = 0.1; /* rate for moves increasing edges */
 
   printf("speed test for n %d, nsamp %d, nedmax %d, method %c\n",
       n, nsamp, nedmax, method);
@@ -62,7 +63,7 @@ static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
 
   ned = dg_nedges(g);
 
-  for (t = 0; ; t++) {
+  for (t = 1; ; t++) {
     /* randomly switch an edge */
     ipr = (int) (npr * rnd0());
     parsepairindex(ipr, n, &i, &j);
@@ -77,7 +78,7 @@ static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
     } else { /* link (i, j) */
       acc = 1;
       if (ned >= nedmax) /* avoid increasing edges */
-        acc = (rnd0() < 0.1);
+        acc = (rnd0() < rnp);
       if (acc) {
         ned++;
         dg_link(g, i, j);
@@ -86,14 +87,19 @@ static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
     if (eql && t >= nequil) {
       t = 0;
       eql = 0; /* stop equilibration */
+      continue;
     }
 
     if (t % 10 != 0) continue; /* avoid successive correlation */
 
-    die_if (dg_nedges(g) != ned, "ned %d vs. %d\n", ned, dg_nedges(g));   
-    if ( ned < nedmin || ned > nedmax) continue; 
+    if (t % 1000000 == 0) { /* adjust rnp */
+      rnp *= 0.5;
+      printf("adjusting rnp to %g\n", rnp);
+    }
+    die_if (dg_nedges(g) != ned, "ned %d vs. %d\n", ned, dg_nedges(g));
+    if ( ned < nedmin || ned > nedmax) continue;
     if ( dg_cliquesep(g) ) continue; /* avoid clique separable */
-    
+
     t0 = clock();
     if (method == 'l') {
       /* the default function dg_hsfb() automatically invokes
@@ -121,7 +127,7 @@ static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
 
   tsum /= CLOCKS_PER_SEC;
   printf("star content, n %d, samples %d, steps %d, nedges %d-%d; "
-      "method %c, fbav %g, time used: %gs/%d = %gms\n", 
+      "method %c, fbav %g, time used: %gs/%d = %gms\n",
       n, nsamp, t, nedmin, nedmax, method,
       1.*sum/nsamp, tsum, nsamp, tsum / nsamp * 1000);
   dg_close(g);

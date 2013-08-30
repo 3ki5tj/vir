@@ -35,11 +35,12 @@ static int dg_rhiter(int n, int n0, int sc)
 static dg_t *dg_mintop(dg_t *g)
 {
   int i;
+  code_t mask = mkbitsmask(g->n);
 
   /* remove fully-connected vertices until it is no longer biconnected */
   for (i = 0; i < g->n; i++) {
     /* construct a vertex set without i */
-    code_t vs = (((code_t) 1u << g->n) - 1) ^ ((code_t) 1u << i);
+    code_t vs = mask ^ MKBIT(i);
     /* see if removing a fully-connected vertex leaves
      * the diagram biconnected */
     if ( g->c[i] == vs && dg_biconnectedvs(g, vs) ) {

@@ -10,7 +10,7 @@
 
 
 int nmin = 3; /* the minimal order of virial coefficients */
-int nmax = DG_NMAX - 1; /* the maximal order of virial coefficients */
+int nmax = DG_NMAX; /* the maximal order of virial coefficients */
 real mcamp = 1.5f;
 double nequil = 100000;
 double nsteps = 10000000;
@@ -352,7 +352,7 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp)
         i = 1 + (int) (rnd0() * (g->n - 1));
         die_if (i <= 0 || i >= g->n, "bad i %d, n %d\n", i, g->n);
         if ( rvn_dist2(x[i], x[0]) < rc2[g->n - 1]
-          && dg_biconnectedvs(g, ((1u << g->n) - 1) ^ (1 << i)) )
+          && dg_biconnectedvs(g, mkbitsmask(g->n) ^ MKBIT(i)) )
 #if 0  /* if vol[g->n - 1] != Zr[g->n - 1] */
           && rnd0() < Zr[g->n - 1] / vol[g->n - 1]
 #endif

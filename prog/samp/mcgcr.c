@@ -10,7 +10,7 @@
 
 
 int nmin = 3; /* the minimal order of virial coefficients */
-int nmax = DG_NMAX - 1; /* the maximal order of virial coefficients */
+int nmax = DG_NMAX; /* the maximal order of virial coefficients */
 int mtiers = 2;
 real mcamp = 1.5f;
 double nequil = 100000;
@@ -604,7 +604,7 @@ static int nmove_pureuptorestrained(dg_t *g,
 INLINE int nmove_restraineddowntopure(dg_t *g, double Zr)
 {
   int i, n1 = g->n - 1;
-  code_t mask = ((code_t) 1u << n1) - 1;
+  code_t mask = mkbitsmask(n1);
 
   if ( dg_biconnectedvs(g, mask) && (Zr >= 1 || rnd0() < Zr) ) {
     g->n = n1;

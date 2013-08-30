@@ -30,6 +30,7 @@ typedef uint64_t code_t;
 #endif
 
 
+
 /* we only support a graph with at most CODEBITS vertices */
 #define DG_NMAX CODEBITS
 
@@ -39,6 +40,20 @@ typedef struct {
   int n;
   code_t *c; /* if two particles are connected */
 } dg_t;
+
+
+
+/* make the ith bit */
+#define MKBIT(n) ((code_t) 1u << (n))
+
+
+
+/* make a mask with the lowest n bits being 1 */
+INLINE code_t mkbitsmask(int n)
+{
+  if (n == CODEBITS) return (code_t) -1;
+  else return MKBIT(n) - 1;
+}
 
 
 
@@ -118,8 +133,8 @@ INLINE int bitfirst(code_t x)
 
 /* add an edge between i and j */
 #define DG_LINK(g, i, j) { \
-  (g)->c[i] |= 1u << (j); \
-  (g)->c[j] |= 1u << (i); }
+  (g)->c[i] |= MKBIT(j); \
+  (g)->c[j] |= MKBIT(i); }
 
 /* safer function version */
 INLINE void dg_link(dg_t *g, int i, int j)
@@ -131,14 +146,15 @@ INLINE void dg_link(dg_t *g, int i, int j)
 
 /* remove an edge between i and j */
 #define DG_UNLINK(g, i, j) { \
-  (g)->c[i] &= ~(1u << (j)); \
-  (g)->c[j] &= ~(1u << (i)); }
+  (g)->c[i] &= ~MKBIT(j); \
+  (g)->c[j] &= ~MKBIT(i); }
 
 /* safer function version */
 INLINE void dg_unlink(dg_t *g, int i, int j)
 {
   DG_UNLINK(g, i, j);
 }
+
 
 
 /* construct `sg' by removing vertex `i0' from `g'
@@ -148,7 +164,7 @@ INLINE dg_t *dg_shrink1(dg_t *sg, dg_t *g, int i0)
   int i, is = 0, n = g->n;
   code_t maskl, maskh;
 
-  maskl = (1 << i0) - 1;
+  maskl = mkbitsmask(i0);
   maskh = ~maskl;
   for (i = 0; i < n; i++) {
     if (i0 == i) continue;
@@ -216,11 +232,11 @@ INLINE void dg_empty(dg_t *g)
 INLINE void dg_full(dg_t *g)
 {
   int i;
-  code_t mask = (1 << g->n) - 1; /* the lowest n-bits are 1s */
+  code_t mask = mkbitsmask(g->n); /* the lowest n-bits are 1s */
 
   for (i = 0;  i < g->n; i++)
     /* all bits, except the ith, are 1s */
-    g->c[i] = ~(1 << i) & mask;
+    g->c[i] = mask ^ MKBIT(i);
 }
 
 
@@ -229,10 +245,10 @@ INLINE void dg_full(dg_t *g)
 INLINE dg_t *dg_complement(dg_t *h, dg_t *g)
 {
   int i, n = g->n;
-  code_t mask = (1 << g->n) - 1;
+  code_t mask = mkbitsmask(g->n);
 
   for (i = 0; i < n; i++)
-    h->c[i] = ~(g->c[i] | (1 << i)) & mask;
+    h->c[i] = mask ^ (g->c[i] | MKBIT(i));
   return h;
 }
 
@@ -286,7 +302,8 @@ static dg_t *dg_open(int n)
 
   xnew(g, 1);
   g->n = n;
-  die_if (n >= DG_NMAX, "do not support %d atoms\n", n);
+  /* NOTE: some functions may not work for n == DG_NMAX */
+  die_if (n > DG_NMAX, "do not support %d atoms\n", n);
   xnew(g->c, g->n);
   return g;
 }
@@ -353,7 +370,7 @@ INLINE void dg_print(const dg_t *g)
 
 
 /* check if a diagram is connected */
-#define dg_connected(g) dg_connectedvs(g, ((code_t) 1u << g->n) - 1u)
+#define dg_connected(g) dg_connectedvs(g, mkbitsmask(g->n))
 
 /* check if the subdiagram of the vertex set `vs' is connected */
 INLINE int dg_connectedvs(const dg_t *g, code_t vs)
@@ -376,10 +393,11 @@ INLINE int dg_connectedvs(const dg_t *g, code_t vs)
 INLINE int dg_biconnected(const dg_t *g)
 {
   int i, n = g->n;
+  code_t mask = mkbitsmask(n);
 
   if (n > 2) {
     for (i = 0; i < n; i++) {
-      code_t vs = (((code_t) 1u << n) - 1u) ^ ((code_t) 1u << i);
+      code_t vs = mask ^ MKBIT(i);
       if ( !dg_connectedvs(g, vs) )
         return 0;
     }
@@ -416,6 +434,7 @@ typedef struct {
                  `short' works for n <= 8 */
   code_t *first; /* index of the first unique diagram */
 } dgmap_t;
+
 
 
 /* static diagram map for n <= DGMAP_NMAX */
@@ -479,7 +498,7 @@ INLINE int dgmap_init(dgmap_t *m, int n)
   if (n >= 8) printf("n %d: initializing the diagram map\n", n);
 
   npr = n * (n - 1) / 2;
-  ng = (code_t) 1u << npr;
+  ng = (int)( 1u << npr );
   xnew(m->map, ng);
   for (c = 0; c < ng; c++) m->map[c] = -1;
   xnew(m->first, sz = 1024);
@@ -492,7 +511,7 @@ INLINE int dgmap_init(dgmap_t *m, int n)
     for (ipr = 0, i = 0; i < n - 1; i++)
       for (j = i + 1; j < n; j++, ipr++)
         masks[ipm * npr + ipr] /* code bit of the pair (i, j) */
-          = (code_t) 1u << getpairindex(pm[ipm*n + i], pm[ipm*n + j], n);
+          = MKBIT( getpairindex(pm[ipm*n + i], pm[ipm*n + j], n) );
   free(pm);
 
   /* loop over all diagrams */
@@ -587,3 +606,4 @@ INLINE int dg_biconnected_lookuplow(int n, unqid_t id)
 
 
 #endif
+
