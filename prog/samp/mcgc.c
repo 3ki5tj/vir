@@ -70,9 +70,8 @@ static void doargs(int argc, char **argv)
   }
 
   if (nedxmax < 0) {
-    int nedarr[] = {0, 10, 10, 10, 10, 10, 10, 11, 11, 12,
-                       12, 12, 13, 13, 14, 14, 14, 14, 14};
-    nedxmax = (D < 20) ? nedarr[D] : 14;
+    int nedarr[] = {0, 10, 10, 10, 10, 10, 10, 11, 11, 12, 12, 12, 13, 13, 13};
+    nedxmax = (D < 15) ? nedarr[D] : 14;
   }
 
   argopt_dump(ao);
@@ -81,40 +80,54 @@ static void doargs(int argc, char **argv)
 
 
 
-#define mkfnZrdef(fn, fndef, d) \
-  if (fn == NULL) { sprintf(fndef, "ZrD%d.dat", D); fn = fndef; }
+/* compute the partition function */
+static void computeZ(double *Z, double *B, const double *Zr, int nmax,
+    const double *fbsm)
+{
+  int i;
+  double x, fbav, fac;
+
+  Z[0] = Z[1] = 1;
+  B[0] = B[1] = 1;
+  for (fac = 1, x = 1, i = 1; i < nmax; i++) {
+    x *= Zr[i];
+    fac *= 2./(i + 1);
+    fbav = fbsm[3*i + 4] / fbsm[3*i + 3];
+    Z[i + 1] = x;
+    /* B(i+1)/B(2)^i = (-i) 2^i / (i+1)! Z(i+1)/Z(2)^i <fb(i+1)> */
+    B[i + 1] = (-i) * fac * x * fbav;
+  }
+}
+
+
+
+#define mkfnZrdef(fn, fndef, d, n) \
+  if (fn == NULL) { sprintf(fndef, "ZrD%dn%d.dat", D, n); fn = fndef; }
 
 
 
 /* save the partition function to file
  * we save the ratio of the successive values, such that one can modify
  * a particular value without affecting later ones */
-static int saveZr(const char *fn, const double *Zr, int nmax,
+static int saveZr(const char *fn, int nmax,
+    const double *Zr, const double *Z, const double *B,
     const double *hist, const double *ncsp, const double *fbsm,
-    const double *nedg, const double *nacc)
+    const double *nedg, const double *ndown, const double *nup)
 {
   FILE *fp;
   int i;
   char fndef[64];
-  double x, fbav, fact;
 
-  mkfnZrdef(fn, fndef, D);
+  mkfnZrdef(fn, fndef, D, nmax);
   xfopen(fp, fn, "w", return -1);
   fprintf(fp, "# %d %d 0 %d\n", D, nmax, nedxmax);
-  for (fact = 1, x = 1, i = 1; i < nmax; i++) {
-    x *= Zr[i];
-    fact *= 2./(i + 1);
-    fbav = fbsm[3*i + 4] / fbsm[3*i + 3];
-    fprintf(fp, "%3d %18.14f %20.14e %14.0f "
-        "%16.14f %+17.14f %16.14f %+20.14e "
-        "%18.14f %.14f %.14f\n",
-        i, Zr[i], x, hist[i + 1],
-        ncsp[2*(i + 1) + 1] / ncsp[2*(i + 1)],
-        fbav, fbsm[3*i + 5] / fbsm[3*i + 3],
-        (-i) * fact * x * fbav, /* B(i+1)/B(2)^i = (-i) 2^i / (i+1)! Z(i+1)/Z(2)^i <fb(i+1)> */
-        nedg[2*i + 3] / nedg[2*i + 2],
-        nacc[4*i + 3] / nacc[4*i + 2], nacc[4*i + 5] / nacc[4*i + 4]);
-  }
+  for (i = 1; i < nmax; i++)
+    fprintf(fp, "%3d %18.14f %20.14e %14.0f %.14f %.14f "
+        "%18.14f %16.14f %16.14f %+17.14f %+20.14e\n",
+        i, Zr[i], Z[i + 1], hist[i + 1],
+        nup[2*i + 1] / nup[2*i], ndown[2*(i+1) + 1] / ndown[2*(i+1)],
+        nedg[2*i + 3] / nedg[2*i + 2], ncsp[2*(i + 1) + 1] / ncsp[2*(i + 1)],
+        fbsm[3*i + 5] / fbsm[3*i + 3], fbsm[3*i + 4] / fbsm[3*i + 3], B[i + 1]);
   fclose(fp);
   return 0;
 }
@@ -129,7 +142,7 @@ static int loadZr(const char *fn, double *Zr, int nmax)
   int i = -1, n;
   char s[512], fndef[64];
 
-  mkfnZrdef(fn, fndef, D);
+  mkfnZrdef(fn, fndef, D, nmax);
   xfopen(fp, fn, "r", return -1);
 
   /* handle the information line */
@@ -168,7 +181,7 @@ static int initZr(const char *fn, double *Zr, int nmax)
 {
   int i, i0 = 4, imax;
 
-  i0 = loadZr(fn, Zr, DG_NMAX);
+  i0 = loadZr(fn, Zr, nmax);
   /* reset the exact results */
   Zr[0] = Zr[1] = 1;
   Zr[2] = Z3rat(D);
@@ -180,7 +193,7 @@ static int initZr(const char *fn, double *Zr, int nmax)
 
   if (nmax > i0) { /* guess the unknown */
     fprintf(stderr, "guessing Zr for n = %d to %d\n", i0 + 1, nmax);
-    for (i = i0; i < nmax; i++) Zr[i] = Zr[i0 - 1];
+    for (i = i0; i < nmax; i++) Zr[i] = 0.66 * i;
     imax = nmax;
   } else {
     imax = i0;
@@ -265,11 +278,14 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp)
   dg_t *g, *ng;
   double t, r, cacc = 0, ctot = 0;
   double Zr[DG_NMAX + 1]; /* ratio of the partition function, measured by V */
+  double Z[DG_NMAX + 1]; /* partition function (for output) */
+  double B[DG_NMAX + 1]; /* virial coefficients (for output) */
   double hist[DG_NMAX + 1]; /* histogram */
   double nedg[DG_NMAX * 2 + 2]; /* number of edges */
   double ncsp[DG_NMAX * 2 + 2]; /* no clique separator */
   double fbsm[DG_NMAX * 3 + 3]; /* sum of weights */
-  double nacc[DG_NMAX * 4 + 8]; /* acceptance probabilities */
+  double ndown[DG_NMAX * 2 + 2]; /* acceptance probabilities */
+  double nup[DG_NMAX * 2 + 2]; /* acceptance probabilities */
   rvn_t x[DG_NMAX], xi;
   real rc[DG_NMAX + 1], rc2[DG_NMAX + 1], vol[DG_NMAX + 1];
 
@@ -288,9 +304,9 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp)
     fbsm[3*i + 1] = fbsm[3*i + 2] = 0;
     nedg[2*i] = 1e-14;
     nedg[2*i + 1] = 0;
+    nup[2*i] = ndown[2*i] = 1e-6;
+    nup[2*i + 1] = ndown[2*i + 1] = 0;
   }
-  for (i = 0; i < DG_NMAX * 4 + 8; i++)
-    nacc[i] = 1e-6;
   g = dg_open(nmax);
   ng = dg_open(nmax);
   initx(x, nmax);
@@ -313,7 +329,7 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp)
             conn[j] = 0;
           }
         }
-        nacc[g->n*4 + 2] += 1;
+        nup[g->n*2] += 1;
         /* the extended configuration is biconnected if xi
          * is connected two vertices */
         if ( deg >= 2 )
@@ -321,7 +337,7 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp)
         if ( deg >= 2 && rnd0() < vol[g->n] / Zr[g->n] )
 #endif
         {
-          nacc[g->n*4 + 3] += 1;
+          nup[g->n*2 + 1] += 1;
           rvn_copy(x[g->n], xi);
           g->n += 1;
           for (j = 0; j < g->n - 1; j++) {
@@ -331,18 +347,21 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp)
               dg_unlink(g, j, g->n - 1);
           }
         }
-      } else if (g->n > nmin) { /* remove the last vertex */
-        nacc[g->n*4] += 1;
-        if ( rvn_dist2(x[g->n - 1], x[0]) < rc2[g->n - 1]
-          && dg_biconnectedvs(g, (1u << (g->n - 1)) - 1) )
+      } else if (g->n > nmin) { /* remove a random vertex */
+        ndown[g->n*2] += 1;
+        i = 1 + (int) (rnd0() * (g->n - 1));
+        die_if (i <= 0 || i >= g->n, "bad i %d, n %d\n", i, g->n);
+        if ( rvn_dist2(x[i], x[0]) < rc2[g->n - 1]
+          && dg_biconnectedvs(g, ((1u << g->n) - 1) ^ (1 << i)) )
 #if 0  /* if vol[g->n - 1] != Zr[g->n - 1] */
           && rnd0() < Zr[g->n - 1] / vol[g->n - 1]
 #endif
         {
-          nacc[g->n*4 + 1] += 1;
-          g->n--;
-          for (j = 0; j < g->n; j++)
-            g->c[j] &= (1u << g->n) - 1;
+          ndown[g->n*2 + 1] += 1;
+          //for (j = i; j < g->n - 1; j++) rvn_copy(x[j], x[j + 1]);
+          dg_shrink1(g, g, i); /* g->n is decreased by 1 here */
+          if (i < g->n)
+            memmove(x[i], x[i + 1], (g->n - i) * sizeof(rvn_t));
         }
       }
     }
@@ -353,10 +372,9 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp)
       cacc += acc1;
     }
 STEP_END:
-    if (it % nsted == 0) {
-      hist[g->n] += 1;
+    hist[g->n] += 1;
+    if (it % nsted == 0)
       accumdata(g, t, nstcs, nstfb, nedg, ncsp, fbsm);
-    }
     if (it % nstcom == 0) { /* remove the center of mass motion */
       rvn_rmcom(x, g->n);
       it = 0;
@@ -364,22 +382,22 @@ STEP_END:
   }
 
   for (i = nmin + 1; i <= nmax; i++) {
-    r = nacc[4*i - 1] / nacc[4*i - 2] / (nacc[4*i + 1] / nacc[4*i]);
+    r = nup[2*(i-1) + 1] / nup[2*(i-1)] / (ndown[2*i + 1] / ndown[2*i]);
     /* make sure enough data points and not to change the exact data */
     if ( (i >= 5 || (i == 4 && D > 12)) &&
-        nacc[4*i - 1] >= 100 && nacc[4*i + 1] >= 100)
+        nup[2*(i-1) + 1] >= 100 && ndown[2*i + 1] >= 100)
       Zr[i - 1] *= r;
   }
 
+  computeZ(Z, B, Zr, Znmax, fbsm);
+  saveZr(fnout, Znmax, Zr, Z, B, hist, ncsp, fbsm, nedg, ndown, nup);
   for (i = 1; i <= nmax; i++) {
-    printf("%2d %9.6f%13.0f %10.8f %+11.8f %11.8f %7.4f %.5f %.5f\n",
-        i, Zr[i], hist[i],
-        ncsp[2*i + 1] / ncsp[2*i],
-        fbsm[3*i + 1] / fbsm[3*i], fbsm[3*i + 2] / fbsm[3*i],
-        nedg[2*i + 1] / nedg[2*i],
-        nacc[4*i + 3] / nacc[4*i + 2], nacc[4*i + 5] / nacc[4*i + 4]);
+    printf("%2d %9.6f %.6e %12.0f %.5f %.5f %7.4f %10.8f %9.6f %+9.6f %+.7e\n",
+        i, Zr[i], Z[i], hist[i],
+        nup[2*i + 1] / nup[2*i], ndown[2*(i+1) + 1] / ndown[2*(i+1)],
+        nedg[2*i + 1] / nedg[2*i], ncsp[2*i + 1] / ncsp[2*i],
+        fbsm[3*i + 2] / fbsm[3*i], fbsm[3*i + 1] / fbsm[3*i], B[i]);
   }
-  saveZr(fnout, Zr, Znmax, hist, ncsp, fbsm, nedg, nacc);
   printf("cacc %g\n", cacc/ctot);
   dg_close(g);
   dg_close(ng);

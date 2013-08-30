@@ -72,9 +72,8 @@ static void doargs(int argc, char **argv)
   if (nstfb < 0) nstfb = nstcs;
 
   if (nedxmax < 0) {
-    int nedarr[] = {0, 10, 10, 10, 10, 10, 10, 11, 11, 12,
-                       12, 12, 13, 13, 14, 14, 14, 14, 14};
-    nedxmax = (D < 20) ? nedarr[D] : 14;
+    int nedarr[] = {0, 10, 10, 10, 10, 10, 10, 11, 11, 12, 12, 12, 13, 13, 13};
+    nedxmax = (D < 15) ? nedarr[D] : 14;
   }
 
   argopt_dump(ao);
@@ -466,15 +465,6 @@ static int gcx_load(gcx_t *gcx, const char *fn)
 
 
 
-/* initial */
-static void gcx_init(gcx_t *gcx, const char *fn)
-{
-  gcx_load(gcx, fn);
-  gcx_print(gcx, 1);
-}
-
-
-
 /* compute the distance matrix */
 INLINE void calcr2ij(real r2ij[][DG_NMAX], rvn_t *x, int n)
 {
@@ -671,7 +661,8 @@ static void mcgcr(int nmin, int nmax, int mtiers,
   g1 = dg_open(nmax);
   ng1 = dg_open(nmax);
   gcx = gcx_open(nmin, nmax, mtiers, rc0, sr0, sx0);
-  gcx_init(gcx, fninp);
+  gcx_load(gcx, fninp);
+  gcx_print(gcx, 1);
   //initx(x, nmax);
   /* initial n is nmin */
   calcr2ij(r2ij, x, nmin);

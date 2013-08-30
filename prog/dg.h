@@ -143,7 +143,7 @@ INLINE void dg_unlink(dg_t *g, int i, int j)
 
 /* construct `sg' by removing vertex `i0' from `g'
  * `sg' and `g' can be the same */
-INLINE dg_t *dg_shrink1(dg_t *sg, const dg_t *g, int i0)
+INLINE dg_t *dg_shrink1(dg_t *sg, dg_t *g, int i0)
 {
   int i, is = 0, n = g->n;
   code_t maskl, maskh;
@@ -154,8 +154,10 @@ INLINE dg_t *dg_shrink1(dg_t *sg, const dg_t *g, int i0)
     if (i0 == i) continue;
     sg->c[is++] = (g->c[i] & maskl) | ((g->c[i] >> 1) & maskh);
   }
+  sg->n = n - 1;
   return sg;
 }
+
 
 
 /* degree of vertex i */
