@@ -303,7 +303,7 @@ static void gcx_update(gcx_t *gcx)
       } else {
         gcx->sr[i] *= pow(r, 1./D);
       }
-      printf("update i %3d, n %2d, r %.7f, rc %.7f, sr %.7f\n", i, gcx->n[i], r, gcx->rc[i], gcx->sr[i]);
+      //printf("update i %3d, n %2d, r %.7f, rc %.7f, sr %.7f\n", i, gcx->n[i], r, gcx->rc[i], gcx->sr[i]);
     }
   }
 }
@@ -699,7 +699,8 @@ static void mcgcr(int nmin, int nmax, int mtiers,
           /* ordinary n-move */
           //acc = (rnd0() < 1. / gcx->Zr[iens + 1]);
           /* move after a scaling between the first and last vertices */
-          acc = nmove_scale(g, ng, x, xi, r2ij, r2i, gcx->sr[iens + 1], gcx->Zr[iens + 1]);
+          acc = nmove_scale(g, ng, x, xi, r2ij, r2i,
+              gcx->sr[iens + 1], gcx->Zr[iens + 1]);
           //printf("t %g, n+ move 2, acc %d, iens %d, n %d, n1 %d\n", t, acc, iens, g->n, g1->n);
         }
         gcx->nup[iens*2] += 1;

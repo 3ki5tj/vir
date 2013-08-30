@@ -89,8 +89,8 @@ static double foo_n1(int nsteps, int n, real rc)
   int t, nacc = 0, ntot = 0, cacc = 0, ctot = 0;
   real amp = 1.5/D;
 
-  g = dg_open(DG_NMAX - 1);
-  ng = dg_open(DG_NMAX - 1);
+  g = dg_open(DG_NMAX);
+  ng = dg_open(DG_NMAX);
   g->n = n + 1;
   dg_full(g);
 
@@ -154,8 +154,8 @@ static double foo_n(int nsteps, int n, real rc)
   real amp = 1.5/D;
   int conn[DG_NMAX];
 
-  g = dg_open(DG_NMAX - 1);
-  ng = dg_open(DG_NMAX - 1);
+  g = dg_open(DG_NMAX);
+  ng = dg_open(DG_NMAX);
   g->n = n;
   dg_full(g);
 
@@ -178,13 +178,12 @@ static double foo_n(int nsteps, int n, real rc)
 
 
 /* scale the distance between x[n-1] and x[0] */
-static int nmove_scale(dg_t *g, dg_t *ng, rvn_t *x, real *xi, real sig)
+static int nmove_scale(dg_t *g, dg_t *ng, rvn_t *x, real *xi, real s)
 {
   int j, n1 = g->n - 1;
 
   rvn_diff(xi, x[n1], x[0]);
-  rvn_smul(xi, sig);
-  rvn_inc(xi, x[0]);
+  rvn_inc( rvn_smul(xi, s), x[0] );
   ng->n = g->n;
   dg_copy(ng, g);
   for (j = 0; j < n1; j++) {
@@ -202,22 +201,22 @@ static int nmove_scale(dg_t *g, dg_t *ng, rvn_t *x, real *xi, real sig)
 
 
 /* restricted simulation */
-static double foo_restricted(int nsteps, int n, real rc, real sig)
+static double foo_restricted(int nsteps, int n, real rc, real s)
 {
   dg_t *g, *ng;
   rvn_t x[DG_NMAX] = {{0}}, xi;
   int t, nacc = 0, ntot = 0, cacc = 0, ctot = 0;
   real amp = 1.5/D;
 
-  g = dg_open(DG_NMAX - 1);
-  ng = dg_open(DG_NMAX - 1);
-  g->n = n + 1;
+  g = dg_open(DG_NMAX);
+  ng = dg_open(DG_NMAX);
+  g->n = n;
   dg_full(g);
 
   for (t = 1; t <= nsteps; t++) {
     if (rnd0() < 0.1) {
       ntot++;
-      nacc += nmove_scale(g, ng, x, xi, sig);
+      nacc += nmove_scale(g, ng, x, xi, s);
     } else {
       ctot++;
       cacc += bcrstep(g, ng, x, xi, amp, rc);
@@ -234,16 +233,16 @@ static double foo_restricted(int nsteps, int n, real rc, real sig)
 
 
 /* pure-state simulation */
-static double foo_pure(int nsteps, int n, real rc, real sig)
+static double foo_pure(int nsteps, int n, real rc, real s)
 {
   dg_t *g, *ng;
   rvn_t x[DG_NMAX] = {{0}}, xi;
   int t, nacc = 0, ntot = 0, cacc = 0, ctot = 0;
-  real amp = 1.5/D, rcs2 = rc * rc * sig * sig;
+  real amp = 1.5/D, rcs2 = rc * rc * s * s;
   int conn[DG_NMAX];
 
-  g = dg_open(DG_NMAX - 1);
-  ng = dg_open(DG_NMAX - 1);
+  g = dg_open(DG_NMAX);
+  ng = dg_open(DG_NMAX);
   g->n = n;
   dg_full(g);
 
@@ -251,7 +250,7 @@ static double foo_pure(int nsteps, int n, real rc, real sig)
     if (rnd0() < 0.1) {
       ntot++;
       if (rvn_dist2(x[0], x[g->n - 1]) < rcs2 ) {
-        nacc += nmove_scale(g, ng, x, xi, 1./sig);
+        nacc += nmove_scale(g, ng, x, xi, 1./s);
       }
     } else {
       ctot++;
@@ -269,8 +268,8 @@ static double foo_pure(int nsteps, int n, real rc, real sig)
 
 int main(int argc, char **argv)
 {
-  real rc = 1, sig = 1;
-  double r1, r2, r3, r4;
+  real rc = 1, s = 1;
+  double r1 = 1, r2 = 1, r3 = 1, r4 = 1;
   int n = 31, nsteps = 1000000;
 
   if (argc > 1) n = atoi(argv[1]);
@@ -282,14 +281,16 @@ int main(int argc, char **argv)
   r2 = foo_n1(nsteps, n - 1, rc);
   r1 = foo_n(nsteps, n - 1, rc);
 
-  if (argc > 4) sig = (real) atof(argv[4]);
-  else sig = (real) pow(0.66 * n * (r2/r1), 1./D) / rc;
-  printf("sig %g\n", sig);
-  r3 = foo_restricted(nsteps, n, rc, sig);
-  r4 = foo_pure(nsteps, n, rc, sig);
+  if (argc > 4) s = (real) atof(argv[4]);
+  else s = (real) pow(0.66 * n * (r2/r1), 1./D) / rc;
+  printf("s %g\n", s);
+  r3 = foo_restricted(nsteps, n, rc, s);
+  r4 = foo_pure(nsteps, n, rc, s);
   printf("r1 %.7f, r2 %.7f, r12 %.7f\n"
-      "r3 %.7f, r4 %.7f, r34 %.7f\nr %.7f\n",
-      r1, r2, r1/r2, r3, r4, r3/r4, r1/r2*r3/r4*pow(rc*sig, D));
+      "r3 %.7f, r4 %.7f, r34 %.7f\n"
+      "rc^D %.7f, s^D %.7f r %.7f\n",
+      r1, r2, r1/r2, r3, r4, r3/r4,
+      pow(rc, D), pow(s, D), r1/r2*r3/r4*pow(rc*s, D));
   mtsave(NULL);
   return 0;
 }
