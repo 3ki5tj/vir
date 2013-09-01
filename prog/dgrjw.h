@@ -77,6 +77,7 @@ INLINE int dg_hsfcrjw(const dg_t *g)
   static int nmax, *fcarr, *fqarr;
   int i, n = g->n;
 
+  die_if (n >= 31, "n = %d requires too much memory\n");
   if (fcarr == NULL) {
     nmax = n;
     xnew(fcarr, 1u << nmax);
@@ -86,7 +87,7 @@ INLINE int dg_hsfcrjw(const dg_t *g)
     xrenew(fcarr, 1u << nmax);
     xrenew(fqarr, 1u << nmax);
   }
-  for (i = 0; i < (1u << n); i++) {
+  for (i = 0; (unsigned) i < (1u << n); i++) {
     fcarr[i] = FBDIRTY;
     fqarr[i] = FBDIRTY;
   }

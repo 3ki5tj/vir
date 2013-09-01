@@ -70,8 +70,8 @@ static void doargs(int argc, char **argv)
   }
 
   if (nedxmax < 0) {
-    int nedarr[] = {0, 10, 10, 10, 10, 10, 10, 11, 11, 12, 12, 12, 13, 13, 13};
-    nedxmax = (D < 15) ? nedarr[D] : 14;
+    int nedarr[] = {0, 9, 9, 9, 9, 9, 9, 11, 11, 12, 12, 12, 13, 13};
+    nedxmax = (D < 14) ? nedarr[D] : 14;
   }
 
   argopt_dump(ao);
@@ -129,6 +129,7 @@ static int saveZr(const char *fn, int nmax,
         nedg[2*i + 3] / nedg[2*i + 2], ncsp[2*(i + 1) + 1] / ncsp[2*(i + 1)],
         fbsm[3*i + 5] / fbsm[3*i + 3], fbsm[3*i + 4] / fbsm[3*i + 3], B[i + 1]);
   fclose(fp);
+  printf("saved Zr to %s\n", fn);
   return 0;
 }
 
@@ -171,6 +172,7 @@ static int loadZr(const char *fn, double *Zr, int nmax)
     }
   }
   fclose(fp);
+  printf("loaded Zr from %s\n", fn);
   return i;
 }
 
@@ -277,7 +279,7 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp)
   int i, j, deg, conn[DG_NMAX], Znmax, acc1, it;
   dg_t *g, *ng;
   double t, r, cacc = 0, ctot = 0;
-  double Zr[DG_NMAX + 1]; /* ratio of the partition function, measured by V */
+  double Zr[DG_NMAX + 1] = {0}; /* ratio of the partition function, measured by V */
   double Z[DG_NMAX + 1]; /* partition function (for output) */
   double B[DG_NMAX + 1]; /* virial coefficients (for output) */
   double hist[DG_NMAX + 1]; /* histogram */
@@ -317,12 +319,12 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp)
     if (rnd0() < ratn) { /* switching the ensemble, O(n) */
       if (rnd0() < 0.5) { /* add an vertex */
         if (g->n >= nmax) goto STEP_END;
-        /* attach a new vertex to the first vertex */
-        rvn_rndball(xi, rc[g->n]);
-        rvn_inc(xi, x[0]);
-        /* test if adding xi leaves the diagram biconnected */
+        /* attach a new vertex to a random vertex */
+        i = (int) (rnd0() * g->n);
+        rvn_inc(rvn_rndball(x[g->n], rc[g->n]), x[i]);
+        /* test if adding x[n] leaves the diagram biconnected */
         for (deg = 0, j = 0; j < g->n; j++) {
-          if ( rvn_dist2(xi, x[j]) < 1 ) {
+          if ( rvn_dist2(x[g->n], x[j]) < 1 ) {
             conn[j] = 1;
             ++deg;
           } else {
@@ -330,15 +332,14 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp)
           }
         }
         nup[g->n*2] += 1;
-        /* the extended configuration is biconnected if xi
-         * is connected two vertices */
+        /* the extended configuration is biconnected
+         * if x[n] is connected two vertices */
         if ( deg >= 2 )
 #if 0 /* if vol[g->n] != Zr[g->n] */
         if ( deg >= 2 && rnd0() < vol[g->n] / Zr[g->n] )
 #endif
         {
           nup[g->n*2 + 1] += 1;
-          rvn_copy(x[g->n], xi);
           g->n += 1;
           for (j = 0; j < g->n - 1; j++) {
             if ( conn[j] )
@@ -349,17 +350,19 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp)
         }
       } else if (g->n > nmin) { /* remove a random vertex */
         ndown[g->n*2] += 1;
-        i = 1 + (int) (rnd0() * (g->n - 1));
-        die_if (i <= 0 || i >= g->n, "bad i %d, n %d\n", i, g->n);
-        if ( rvn_dist2(x[i], x[0]) < rc2[g->n - 1]
-          && dg_biconnectedvs(g, mkbitsmask(g->n) ^ MKBIT(i)) )
+        i = randpair(g->n, &j); /* random root at j */
+        die_if (i == j || i >= g->n || j >= g->n, "bad i %d, j %d, n %d\n", i, j, g->n);
+        /* test if * the graph is biconnected without i
+         * and the pair i and j are connected */
+        if ( dg_biconnectedvs(g, mkbitsmask(g->n) ^ MKBIT(i))
+          && rvn_dist2(x[i], x[j]) < rc2[g->n - 1] )
 #if 0  /* if vol[g->n - 1] != Zr[g->n - 1] */
           && rnd0() < Zr[g->n - 1] / vol[g->n - 1]
 #endif
         {
           ndown[g->n*2 + 1] += 1;
           //for (j = i; j < g->n - 1; j++) rvn_copy(x[j], x[j + 1]);
-          dg_shrink1(g, g, i); /* g->n is decreased by 1 here */
+          dg_remove1(g, g, i); /* g->n is decreased by 1 here */
           if (i < g->n)
             memmove(x[i], x[i + 1], (g->n - i) * sizeof(rvn_t));
         }

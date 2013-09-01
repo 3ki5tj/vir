@@ -47,10 +47,10 @@ static void bcstat(int nmax, double nsteps)
   }
 
   /* compute the ratio of biconnected diagrams */
-  printf("%2d %-10d", D, 1);
+  printf("%2d %-14d", D, 1);
   for (n = 3; n <= nmax; n++) {
     cnt[n] /= (nmax - n + 1) * nsteps;
-    printf(" %.8f", cnt[n]);
+    printf(" %.12f", cnt[n]);
   }
   printf("\n");
   free(v);

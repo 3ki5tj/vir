@@ -44,8 +44,7 @@ static dg_t *dg_mintop(dg_t *g)
     /* see if removing a fully-connected vertex leaves
      * the diagram biconnected */
     if ( g->c[i] == vs && dg_biconnectedvs(g, vs) ) {
-      dg_shrink1(g, g, i);
-      g->n--;
+      dg_remove1(g, g, i);
     } /* otherwise keep searching */
   }
   return g;

@@ -4,6 +4,8 @@
 #include "zcom.h"
 #include "dg.h"
 
+
+
 int nmin = 3;
 int nmax = DG_NMAX - 1;
 
@@ -71,7 +73,7 @@ static int bcrstep(dg_t *g, dg_t *ng, rvn_t *x, rvn_t xi,
 
 
 /* restricted state n + 1 to n, remove the last particle */
-static int nmove_remove(dg_t *g) 
+static int nmove_remove(dg_t *g)
 {
   if ( dg_biconnectedvs(g, (1u << (g->n - 1)) - 1) ) {
     return 1;
@@ -81,11 +83,32 @@ static int nmove_remove(dg_t *g)
 
 
 
+/* restricted state n + 1 to n, remove the last particle */
+static int nmove_sremove(dg_t *g, dg_t *ng, rvn_t *x, rvn_t *nx, real s)
+{
+  int i, j, n1 = g->n - 1;
+
+  for (i = 0; i < n1; i++)
+    rvn_smul2(nx[i], x[i], s);
+  dg_empty(ng);
+  for (i = 1; i < n1; i++)
+    for (j = 0; j < i; j++)
+      if (rvn_dist2(nx[i], nx[j]) < 1) {
+        dg_link(ng, i, j);
+      }
+  if ( dg_biconnected(ng) ) {
+    return 1;
+  }
+  return 0;
+}
+
+
+
 /* the n + 1 simulation */
-static double foo_n1(int nsteps, int n, real rc)
+static double foo_n1(int nsteps, int n, real rc, real s)
 {
   dg_t *g, *ng;
-  rvn_t x[DG_NMAX] = {{0}}, xi;
+  rvn_t x[DG_NMAX] = {{0}}, nx[DG_NMAX] = {{0}};
   int t, nacc = 0, ntot = 0, cacc = 0, ctot = 0;
   real amp = 1.5/D;
 
@@ -97,10 +120,14 @@ static double foo_n1(int nsteps, int n, real rc)
   for (t = 1; t <= nsteps; t++) {
     if (rnd0() < 0.1) {
       ntot++;
-      nacc += nmove_remove(g);
+      if (s == 1) {
+        nacc += nmove_remove(g);
+      } else {
+        nacc += nmove_sremove(g, ng, x, nx, s);
+      }
     } else {
       ctot++;
-      cacc += bcrstep(g, ng, x, xi, amp, rc);
+      cacc += bcrstep(g, ng, x, nx[0], amp, rc);
       die_if (rvn_dist(x[0], x[g->n - 1]) > rc, "bad t %d\n", t);
     }
   }
@@ -144,12 +171,36 @@ static int nmove_add(dg_t *g, dg_t *ng, rvn_t *x, real *xi,
 
 
 
+/* scale the coordinates, and add a vertex */
+static int nmove_sadd(dg_t *g, dg_t *ng, rvn_t *x, rvn_t *nx,
+    real rc, real s)
+{
+  int i, j, n = g->n;
 
-/* n to n + 1*/
-static double foo_n(int nsteps, int n, real rc)
+  for (i = 0; i < n; i++)
+   rvn_smul2(nx[i], x[i], s); 
+  rvn_inc( rvn_rndball(nx[n], rc), nx[0] );
+  ng->n = n + 1;
+  dg_empty(ng);
+  for (i = 1; i <= n; i++)
+    for (j = 0; j < i; j++)
+      if (rvn_dist2(nx[i], nx[j]) < 1) {
+        DG_LINK(ng, i, j);
+      }
+  if ( dg_biconnected(ng) ) { /* accept */
+    return 1;
+  }
+  return 0;
+}
+
+
+
+
+/* n to n + 1 restrained */
+static double foo_n(int nsteps, int n, real rc, real s)
 {
   dg_t *g, *ng;
-  rvn_t x[DG_NMAX] = {{0}}, xi;
+  rvn_t x[DG_NMAX] = {{0}}, nx[DG_NMAX] = {{0}};
   int t, nacc = 0, ntot = 0, cacc = 0, ctot = 0;
   real amp = 1.5/D;
   int conn[DG_NMAX];
@@ -162,10 +213,14 @@ static double foo_n(int nsteps, int n, real rc)
   for (t = 1; t <= nsteps; t++) {
     if (rnd0() < 0.1) {
       ntot++;
-      nacc += nmove_add(g, ng, x, xi, conn, rc);
+      if (s == 1) {
+        nacc += nmove_add(g, ng, x, nx[0], conn, rc);
+      } else {
+        nacc += nmove_sadd(g, ng, x, nx, rc, s);
+      }
     } else {
       ctot++;
-      cacc += bcstep(g, ng, x, xi, amp);
+      cacc += bcstep(g, ng, x, nx[0], amp);
     }
   }
   printf("%d --> %d, nacc %g, cacc %g\n",
@@ -268,7 +323,7 @@ static double foo_pure(int nsteps, int n, real rc, real s)
 
 int main(int argc, char **argv)
 {
-  real rc = 1, s = 1;
+  real rc = 1, s = 1, s1 = 1;
   double r1 = 1, r2 = 1, r3 = 1, r4 = 1;
   int n = 31, nsteps = 1000000;
 
@@ -278,8 +333,8 @@ int main(int argc, char **argv)
 
   //rc = 2 * pow(n, 1./D);
   printf("n %d, rc %g\n", n, rc);
-  r2 = foo_n1(nsteps, n - 1, rc);
-  r1 = foo_n(nsteps, n - 1, rc);
+  r2 = foo_n1(nsteps, n - 1, rc, s1);
+  r1 = foo_n(nsteps, n - 1, rc, s1);
 
   if (argc > 4) s = (real) atof(argv[4]);
   else s = (real) pow(0.66 * n * (r2/r1), 1./D) / rc;

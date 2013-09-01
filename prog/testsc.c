@@ -23,9 +23,9 @@ static void cmpref(int n, edges_t *ref)
     dg_full(g);
     for (j = 0; j < ref[i].npr; j++)
       dg_unlink(g, ref[i].id[j][0], ref[i].id[j][1]);
-    sc = dg_rhsc_direct(g);
     if (!dg_biconnected(g))
       continue;
+    sc = dg_rhsc_direct(g);
     if (sc != ref[i].sc) {
       printf("n %d: model %d sc mismatch %d vs %d (ref)\n",
           n, i, sc, ref[i].sc);

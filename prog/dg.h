@@ -25,8 +25,10 @@
 
 #if CODEBITS == 32
 typedef uint32_t code_t;
-#else
+#elif CODEBITS == 64
 typedef uint64_t code_t;
+#else
+#error "bad CODEBITS definition"
 #endif
 
 
@@ -38,21 +40,21 @@ typedef uint64_t code_t;
 
 typedef struct {
   int n;
-  code_t *c; /* if two particles are connected */
+  code_t *c; /* the jth bit of c[i] is 1 if the vertices i and j are adjacent */
 } dg_t;
 
 
 
 /* make the ith bit */
-#define MKBIT(n) ((code_t) 1u << (n))
+#define MKBIT(n) (((code_t) 1u) << (code_t) (n))
 
 
 
 /* make a mask with the lowest n bits being 1 */
 INLINE code_t mkbitsmask(int n)
 {
-  if (n == CODEBITS) return (code_t) -1;
-  else return MKBIT(n) - 1;
+  if (n == CODEBITS) return (code_t) (-1);
+  else return MKBIT(n) - (code_t) 1;
 }
 
 
@@ -92,14 +94,11 @@ const int bruijn_index_[32] =
   { 0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
     31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9};
 
-#define BRUIJNID32(b) bruijn_index_[((b) * 0x077CB531u) >> 27]
-#define BRUIJNID64(b) (((b) & 0xFFFFFFFFu) \
-    ? BRUIJNID32((b) & 0xFFFFFFFFu) : 32 + BRUIJNID32((b) >> 16))
-#if CODEBITS == 32
-  #define BRUIJNID(b) BRUIJNID32(b)
-#elif CODEBITS == 64
-  #define BRUIJNID(b) BRUIJNID64(b)
-#endif
+#define BRUIJNID32(b) \
+  bruijn_index_[((b) * 0x077CB531) >> 27]
+
+#define BRUIJNID32_(b) \
+  bruijn_index_[((((b) * 0x077CB531)) >> 27) & 0x1f]
 
 
 
@@ -111,8 +110,18 @@ const int bruijn_index_[32] =
  * http://supertech.csail.mit.edu/papers/debruijn.pdf */
 INLINE int bitfirstlow(code_t x, code_t *b)
 {
-  (*b) = x & -x; /* such that only the lowest 1-bit survives */
-  return BRUIJNID(*b);
+  (*b) = x & (-x); /* such that only the lowest 1-bit survives */
+#if CODEBITS == 32
+  return BRUIJNID32(*b);
+#elif CODEBITS == 64
+  if (*b == 0) {
+    return *b;
+  } else {
+    uint32_t low = *b & 0xffffffff;
+    if (low) return BRUIJNID32_(low);
+    else return BRUIJNID32_(((*b) >> 32) & 0xffffffff) + 32;
+  }
+#endif
 }
 
 
@@ -159,7 +168,7 @@ INLINE void dg_unlink(dg_t *g, int i, int j)
 
 /* construct `sg' by removing vertex `i0' from `g'
  * `sg' and `g' can be the same */
-INLINE dg_t *dg_shrink1(dg_t *sg, dg_t *g, int i0)
+INLINE dg_t *dg_remove1(dg_t *sg, dg_t *g, int i0)
 {
   int i, is = 0, n = g->n;
   code_t maskl, maskh;
@@ -377,10 +386,17 @@ INLINE int dg_connectedvs(const dg_t *g, code_t vs)
 {
   code_t stack = vs & (-vs), b;
 
+  //printf("testing g->n %d, vs %#x, stack %#x\n", g->n, (unsigned) vs, (unsigned) stack);
   while (stack) {
     int k = bitfirstlow(stack, &b); /* first vertex (1-bit) in the stack */
+    //printf("b %#x, %d\n", (unsigned) (stack & (-stack)), BRUIJNID32_((uint32_t)b));
     vs ^= b; /* remove the vertex (1-bit) from the to-do list */
+    //printf("k %d, vs %#x, b %#x ck %#x\n", k, (unsigned) vs, (unsigned) stack, (unsigned) b, (unsigned) g->c[k]);
+#ifdef DBG
+    die_if (k < 0 || k >= g->n, "bad k %d, n %d, stack %#" PRIx64 ", b %#" PRIx64 "\n", k, g->n, stack, b);
+#endif
     stack = (stack | g->c[k]) & vs; /* update the stack */
+    //printf("X %d, vs %#x, b %#x ck %#x\n", k, (unsigned) vs, (unsigned) stack, (unsigned) b, (unsigned) g->c[k]);
     if ((stack ^ vs) == 0) return 1;
   }
   return 0;
@@ -417,9 +433,62 @@ INLINE int dg_biconnectedvs(const dg_t *g, code_t vs)
   code_t b, todo;
 
   for (todo = vs; todo; todo ^= b) {
-    b = todo & (-todo); /* first vertex (1-bit) of the todo list */
+    b = todo & (code_t) (-todo); /* first vertex (1-bit) of the todo list */
     if ( !dg_connectedvs(g, vs ^ b) )
       return 0;
+  }
+  return 1;
+}
+
+
+
+/* check if a graph is biconnected
+ * standard algorithm used as a reference
+ * slower than the default bitwise version */
+INLINE int dg_biconnected_std(const dg_t *g)
+{
+  int i0, v, par, n = g->n, id, root = 0;
+  static int stack[DG_NMAX + 1], parent[DG_NMAX], dfn[DG_NMAX], low[DG_NMAX];
+
+  for (v = 0; v < n; v++) {
+    dfn[v] = 0; /* no vertex is visited */
+    parent[v] = -1; /* no parent */
+  }
+  dfn[root] = low[root] = id = 1;
+  stack[0] = root;
+  stack[1] = -1;
+  /* depth-first search to construct the spanning tree */
+  for (i0 = 1; i0; ) {
+    par = (i0 >= 1) ? stack[i0 - 1] : -1;
+    if (i0 == n) {
+      v = n; /* last level, no need to DFS */
+    } else {
+      /* v == the first unvisited vertex adjacent to `par' */
+      for (v = ++stack[i0]; v < n; stack[i0] = ++v)
+        /* dfn[] of an unvisited vertex is 0 */
+        if ( dfn[v] == 0 && dg_linked(g, par, v) ) {
+          dfn[v] = low[v] = ++id;
+          parent[v] = par;
+          stack[++i0] = -1; /* push `v', clear the next level */
+          break; /* break the loop to go to the next level */
+        }
+    }
+    if (v == n) { /* all children of `par' are visited, ready to pop */
+      for (v = 0; v < n; v++) { /* update lowpoints */
+        /* if we get here with i0 == 1, it means no vertex is connected to `root'
+           if we get here with i0 == 2, it means there is vertex not connected
+             to the first branch of the tree grown from `root', the graph is
+             either unconnected or not biconnected */
+        if ( i0 <= 2 && dfn[v] == 0 ) return 0;
+        if ( !dg_linked(g, par, v) ) continue;
+        if ( low[v] < low[par] && v != parent[par] )
+          low[par] = low[v];
+        /* the i0 == 1 case means `par' is the root, so it must be excluded */
+        if ( i0 > 1 && low[v] >= dfn[par] && parent[v] == par )
+          return 0;
+      }
+      i0--; /* pop */
+    }
   }
   return 1;
 }

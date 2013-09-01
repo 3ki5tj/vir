@@ -13,7 +13,7 @@ typedef struct {
 /* test the star contents of diagrams against the reference values */
 static void cmpref(int n, edges_t *ref)
 {
-  int i, j, cn, bc;
+  int i, j, cn, bc, bc1;
   dg_t *g;
 
   g = dg_open(n);
@@ -23,9 +23,10 @@ static void cmpref(int n, edges_t *ref)
       dg_link(g, ref[i].id[j][0], ref[i].id[j][1]);
     cn = dg_connected(g);
     bc = dg_biconnected(g);
-    if (cn != ref[i].cn || bc != ref[i].bc) {
-      printf("n %d: model %d, connected %d vs %d, biconnected %d vs %d (ref)\n",
-          n, i, cn, ref[i].cn, bc, ref[i].bc);
+    bc1 = dg_biconnected(g);
+    if (cn != ref[i].cn || bc != ref[i].bc || bc != ref[i].bc) {
+      printf("n %d: model %d, connected %d vs %d, biconnected %d, %d vs %d (ref)\n",
+          n, i, cn, ref[i].cn, bc, bc1, ref[i].bc);
       dg_print(g);
       exit(1);
     }
@@ -40,7 +41,7 @@ static void speed_connected(int n, int nsteps)
 {
   dg_t *g = dg_open(n);
   clock_t t0;
-  int t, npr = n*(n-1)/2, i, j, sum = 0;
+  int t, npr = n*(n-1)/2, i = 0, j = 1, sum = 0;
 
   dg_full(g);
 
@@ -62,7 +63,7 @@ static void speed_biconnected(int n, int nsteps)
 {
   dg_t *g = dg_open(n);
   clock_t t0;
-  int t, npr = n*(n-1)/2, i, j, sum = 0;
+  int t, npr = n*(n-1)/2, i = 0, j = 1, sum = 0;
 
   dg_full(g);
 
@@ -93,7 +94,32 @@ static void speed_biconnected(int n, int nsteps)
 
 
 
-int main(void)
+/* check biconnectivity by two algorithms */
+static void verify_biconnected(int n, int nsteps)
+{
+  dg_t *g = dg_open(n);
+  int t, npr = n*(n-1)/2, i = 0, j = 1, bc1, bc2;
+
+  dg_full(g);
+  for (t = 0; t < nsteps; t++) {
+    parsepairindex((int) (npr *rnd0()), n, &i, &j);
+    if (dg_linked(g, i, j)) dg_unlink(g, i, j);
+    else dg_link(g, i, j);
+    bc1 = dg_biconnected(g);
+    bc2 = dg_biconnected_std(g);
+    if (bc1 != bc2) {
+      printf("bc1 %d vs bc2 %d\n", bc1, bc2);
+      dg_print(g);
+      exit(1);
+    }
+  }
+  printf("verify biconnectivity of %d diagrams\n", nsteps);
+  dg_close(g);
+}
+
+
+
+int main(int argc, char **argv)
 {
   edges_t ref3[] = {
     {0, {{0, 0}}, 0, 0},
@@ -104,7 +130,7 @@ int main(void)
     {2, {{0, 1}, {0, 2}}, 1, 0},
     {2, {{0, 2}, {1, 2}}, 1, 0},
     {3, {{0, 1}, {1, 2}, {0, 2}}, 1, 1},
-    {-1, {{0, 0}}, 1},
+    {-1, {{0, 0}}, 1, 1},
   };
 
   edges_t ref4[] = {
@@ -121,8 +147,8 @@ int main(void)
     {4, {{0, 1}, {1, 3}, {0, 3}, {1, 2}}, 1, 0},
     {4, {{0, 1}, {1, 2}, {2, 3}, {3, 0}}, 1, 1},
     {5, {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {1, 3}}, 1, 1},
-    {6, {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {1, 3}, {2, 4}}, 1, 1},
-    {-1, {{0, 0}}, 1},
+    {6, {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {1, 3}, {2, 0}}, 1, 1},
+    {-1, {{0, 0}}, 1, 1},
   };
 
   edges_t ref5[] = {
@@ -146,13 +172,23 @@ int main(void)
     {7, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}, {0, 3}, {1, 4}}, 1, 1},
     {7, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}, {0, 2}, {0, 3}}, 1, 1},
     {8, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}, {0, 2}, {0, 3}, {1, 4}}, 1, 1},
-    {-1, {{0, 0}}, 1},
+    {-1, {{0, 0}}, 1, 1},
   };
+  int n = DG_NMAX, nsteps = 1000000;
+  int n1 = 9, nsteps1 = 100000000;
 
   cmpref(3, ref3);
   cmpref(4, ref4);
   cmpref(5, ref5);
-  speed_connected(9, 100000000);
-  speed_biconnected(9, 100000000);
+  
+  if (argc > 1) n = atoi(argv[1]);
+  if (argc > 2) nsteps = atoi(argv[2]);
+  printf("n %d, nsteps %d\n", n, nsteps);
+  verify_biconnected(n, nsteps);
+  
+  if (argc > 3) n1 = atoi(argv[3]);
+  if (argc > 4) nsteps1 = atoi(argv[4]);
+  speed_connected(n1, nsteps1);
+  speed_biconnected(n1, nsteps1);
   return 0;
 }

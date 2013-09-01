@@ -457,7 +457,7 @@ INLINE int dgmc_nremove(const dg_t *g, int n, int *i)
 INLINE int dgmc_nremove1(const dg_t *g, dg_t *sg, int n, int *i)
 {
   *i = (int) (rnd0() * n);
-  dg_shrink1(sg, g, *i);
+  dg_remove1(sg, g, *i);
   return dg_biconnected(sg);
 }
 #endif
