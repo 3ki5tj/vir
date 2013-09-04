@@ -10,6 +10,12 @@ mcrat.c     calculate the ratio of two successive virial coefficients
 
 mcstat.c    compute some statisitics of the diagrams
 
+mcgc.c      grand canonical simulation (basic algorithm)
+
+mcgcr.c     grand canonical simulation, multiple intermediate states
+            with a distance restraint between a pair of special vertices
+
+
 
 bak: old programs
 ~~~~~~~~~~~~~~~~~~~
@@ -28,6 +34,10 @@ mcwt.c      prototype code for sampling in three ensembles
 
 mcnz.c      prototype code for sampling in two ensembles
             biconnected and nonzero fb
+
+mcgcx.c     supposed to be a better version than mcgcr.c
+            involves a scaling of diagrams
+            developed before mcgcr.c
 
 
 
