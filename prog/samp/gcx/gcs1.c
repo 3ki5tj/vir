@@ -83,7 +83,8 @@ static int nmove_remove(dg_t *g)
 
 
 
-/* restricted state n + 1 to n, remove the last particle */
+/* restricted state n + 1 to n, remove the last particle
+ * with a scaling of coordinates */
 static int nmove_sremove(dg_t *g, dg_t *ng, rvn_t *x, rvn_t *nx, real s)
 {
   int i, j, n1 = g->n - 1;

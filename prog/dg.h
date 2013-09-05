@@ -226,6 +226,30 @@ INLINE int dg_nedges(const dg_t *g)
 
 
 
+/* choose a random edge, return the number of edges */
+INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
+{
+  int i, j, k, n = g->n, ne, ipr;
+  code_t c, b;
+  static int cnt[DG_NMAX];
+
+  for (ne = 0, i = 1; i < n; i++)
+    ne += cnt[i] = bitcount(g->c[i] & mkbitsmask(i));
+  ipr = (int) (rnd0() * ne);
+  for (i = 1; i < n; ipr -= cnt[i], i++) {
+    if (ipr < cnt[i]) { /* found it */
+      for (c = g->c[i] & mkbitsmask(i), j = 0; j <= ipr; j++, c ^= b)
+        k = bitfirstlow(c, &b);
+      *i0 = i;
+      *i1 = k;
+      break;
+    }
+  }
+  return ne;
+}
+
+
+
 /* remove all edges */
 INLINE void dg_empty(dg_t *g)
 {
@@ -560,7 +584,7 @@ INLINE int dgmap_init(dgmap_t *m, int n)
   int ipm, npm, *pm, i, j, ipr, npr, sz;
   clock_t t0;
 
-  die_if (n > DGMAP_NMAX, "n %d is too large\n", n);
+  die_if (n > DGMAP_NMAX || n <= 0, "bad n %d\n", n);
   if (m->ng > 0) return 0; /* already initialized */
 
   t0 = clock();
@@ -571,6 +595,12 @@ INLINE int dgmap_init(dgmap_t *m, int n)
   xnew(m->map, ng);
   for (c = 0; c < ng; c++) m->map[c] = -1;
   xnew(m->first, sz = 1024);
+
+  if (n == 1) {
+    m->map[0] = 0;
+    m->first[0] = 0;
+    return 0;
+  }
 
   /* compute all permutations */
   npm = dgmap_getperm(n, &pm);

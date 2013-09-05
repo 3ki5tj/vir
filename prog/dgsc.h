@@ -209,6 +209,7 @@ INLINE int dg_rhsc_lookup(const dg_t *g)
   dgmap_t *m = dgmap_ + n;
   code_t c;
 
+  if (n <= 1) return 1;
   if (sc[n] == NULL) { /* initialize the look-up table */
     dg_t *g1;
     int k, cnt = 0, nz = 0;

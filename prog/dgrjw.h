@@ -226,6 +226,7 @@ INLINE int dg_hsfb_lookuplow(int n, unqid_t id)
 {
   static int *fb[DGMAP_NMAX + 1]; /* fb of unique diagrams */
 
+  if (n <= 1) return 1;
   if (fb[n] == NULL) { /* initialize the look-up table */
     dg_t *g;
     dgmap_t *m = dgmap_ + n;
