@@ -259,7 +259,7 @@ static int loadZr(const char *fn, double *Zr, int nmax,
 
     if (fgets(s, sizeof s, fp) == NULL)
       break;
-    if (3 != sscanf(s, "%d%lf%lf%n", &n, &Zr[i], &Z, &next) 
+    if (3 != sscanf(s, "%d%lf%lf%n", &n, &Zr[i], &Z, &next)
         || i != n + offset) {
       fprintf(stderr, "%s ends on line %d, version %d\n%s", fn, i, ver, s);
       break;
@@ -269,7 +269,7 @@ static int loadZr(const char *fn, double *Zr, int nmax,
       if (12 != sscanf(p, "%lf%lf%lf%lf%lf%lf%lf%lf%lf%lf%lf%lf",
             &hist[i], &nup[i-1][0], &ndown[i][0],
             &nup[i-1][1], &ndown[i][1],
-            &nedg[i][0], &ncsp[i][0], &fbsm[i][0], 
+            &nedg[i][0], &ncsp[i][0], &fbsm[i][0],
             &nedg[i][1], &ncsp[i][1], &fbsm[i][2], &fbsm[i][1]) ) {
         fprintf(stderr, "%s corrupted on line %d\n%s", fn, i, s);
         break;
