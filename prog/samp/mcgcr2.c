@@ -745,8 +745,10 @@ INLINE int bcrstep(int i0, int j0, dg_t *g, dg_t *ng,
 
 
 /* attach a vertex to a random vertex i0, become a restrained state
- *  pure: bc(r^n)
- *  restrained: step(Rc - R_{i0, n}) bc(R^{n+1}) c(R^{n+1}\{i0, n})
+ *  pure:
+ *    bc(r^n) dr^n
+ *  restrained:
+ *    step(Rc - R_{i0, n}) bc(R^{n+1}) c(R^{n+1}\{i0, n}) dR^{n+1}
  *  transition state:
  *    bc(r^n) step(Rc - R_{i0, n}) bi(R^{n+1}) d R^{n+1}
  *  since bc(r^n) implies c(r^n\{i0}) == c(R^{n+1}\{i0, n})
@@ -780,9 +782,12 @@ INLINE int nmove_pureup2restrained(int *i0, dg_t *g,
 
 /* remove the one vertex out of the restrained bond (i0, j0),
  * and move from a mixed state down to a pure state
- *  restrained: bc(r^n) step(rc - r_{i0, j0}) c(r^{n}\{i0,j0})
- *  pure: bc(r^{n-1})
- *  transition state:  bc(r^{n-1}) step(rc - r_{i0, j0}) bi(r^n)
+ *  restrained:
+ *    bc(R^n) step(Rc - R_{i0, j0}) c(R^{n}\{i0,j0}) dR^n
+ *  pure:
+ *    bc(r^{n-1}) dr^{n-1}
+ *  transition state:
+ *    bc(r^{n-1}) step(Rc - R_{i0, j0}) bc(R^n) dR^n
  * and the transition probability is < bc(r^{n-1}) > */
 INLINE int nmove_restraineddown2pure(int i0, int j0,
     dg_t *g, rvn_t *x, real r2ij[][DG_NMAX], double Zr)
@@ -1104,7 +1109,7 @@ static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
         if (gcx->type[iens] == GCX_PURE) { /* pure up to restrained */
           /*  bc(r^n) dr^n
            *    -->
-           *  bc(R^{n+1}) step(Rc - R_{i0, n}) c(r^{n+1}\{i0, n}) dR^{n+1} */
+           *  bc(R^{n+1}) step(Rc - R_{i0, n}) c(R^{n+1}\{i0, n}) dR^{n+1} */
           pj = g->n;
           acc = nmove_pureup2restrained(&pi, g, x, r2ij,
               gcx->rc[iens + 1], 1. / gcx->Zr[iens + 1]);
@@ -1219,6 +1224,7 @@ STEP_END:
         gcx_update(gcx, mindata, updrc, gcx->Zr, gcx->rc, gcx->sr);
         gcx_computeZ(gcx, gcx->Zr, gcx->rc, gcx->sr);
         gcx_print(gcx, 0, NULL, NULL, NULL);
+        gcx_saveZrr(gcx, "Zrr.tmp", gcx->Zr, gcx->rc, gcx->sr);
         printf("equilibration stage %d/%d\n", ieql, neql);
         gcx_cleardata(gcx);
         t = 0; it = 0; /* reset time */

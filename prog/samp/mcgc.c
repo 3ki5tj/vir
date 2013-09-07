@@ -517,7 +517,7 @@ STEP_END:
       }
     }
   }
-  printZr(nmax, Zr, Z, hist, nup, ndown, nedg, ncsp, fbsm, B);
+  printZr(nmax, Zr1, Z, hist, nup, ndown, nedg, ncsp, fbsm, B);
   printf("cacc %g\n", cacc/ctot);
   dg_close(g);
   dg_close(ng);
