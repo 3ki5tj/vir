@@ -391,7 +391,7 @@ static void accumdata(const dg_t *g, double t, int nstcs, int nstfb,
 static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
     int neql, int nequil, int nstsave)
 {
-  int i, j, deg, conn[DG_NMAX], Znmax, acc1, it, ieql;
+  int i, j, n, deg, conn[DG_NMAX], Znmax, acc1, it, ieql;
   dg_t *g, *ng;
   double t, cacc = 0, ctot = 0;
   rvn_t x[DG_NMAX], xi;
@@ -427,62 +427,63 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
   ieql = (neql > 0); /* rounds of equilibrations */
 
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
-    die_if (g->n < nmin || g->n > nmax, "bad n %d, t %g\n", g->n, t);
+    n = g->n;
+    die_if (n < nmin || n > nmax, "bad n %d, t %g\n", n, t);
     if (rnd0() < ratn) { /* switching the ensemble, O(n) */
       if (rnd0() < 0.5) { /* add an vertex */
-        if (g->n >= nmax) goto STEP_END;
+        if (n >= nmax) goto STEP_END;
         /* attach a new vertex to a random vertex */
-        i = (int) (rnd0() * g->n);
-        rvn_inc(rvn_rndball(x[g->n], rc[g->n + 1]), x[i]);
+        i = (int) (rnd0() * n);
+        rvn_inc(rvn_rndball(x[n], rc[n + 1]), x[i]);
         /* test if adding x[n] leaves the diagram biconnected */
-        for (deg = 0, j = 0; j < g->n; j++) {
-          if ( rvn_dist2(x[g->n], x[j]) < 1 ) {
+        for (deg = 0, j = 0; j < n; j++) {
+          if ( rvn_dist2(x[n], x[j]) < 1 ) {
             conn[j] = 1;
             ++deg;
           } else {
             conn[j] = 0;
           }
         }
-        nup[g->n][0] += 1;
+        nup[n][0] += 1;
         /* the extended configuration is biconnected
          * if x[n] is connected two vertices */
         if ( deg >= 2 )
-#if 0 /* if vol[g->n + 1] != Zr[g->n + 1] */
-        if ( deg >= 2 && rnd0() < vol[g->n + 1] / Zr[g->n + 1] )
+#if 0 /* if vol[n + 1] != Zr[n + 1] */
+        if ( deg >= 2 && rnd0() < vol[n + 1] / Zr[n + 1] )
 #endif
         {
-          nup[g->n][1] += 1;
-          g->n += 1;
-          for (j = 0; j < g->n - 1; j++) {
+          nup[n][1] += 1;
+          g->n  = n + 1;
+          for (j = 0; j < n; j++) {
             if ( conn[j] )
-              dg_link(g, j, g->n - 1);
+              dg_link(g, j, n);
             else
-              dg_unlink(g, j, g->n - 1);
+              dg_unlink(g, j, n);
           }
         }
-      } else if (g->n > nmin) { /* remove a random vertex */
-        ndown[g->n][0] += 1;
-        i = randpair(g->n, &j); /* random root at j */
-        die_if (i == j || i >= g->n || j >= g->n, "bad i %d, j %d, n %d\n", i, j, g->n);
+      } else if (n > nmin) { /* remove a random vertex */
+        ndown[n][0] += 1;
+        i = randpair(n, &j); /* random root at j */
+        die_if (i == j || i >= n || j >= n, "bad i %d, j %d, n %d\n", i, j, g->n);
         /* test if * the graph is biconnected without i
          * and the pair i and j are connected */
-        if ( dg_biconnectedvs(g, mkbitsmask(g->n) ^ MKBIT(i))
-          && rvn_dist2(x[i], x[j]) < rc2[g->n] )
-#if 0  /* if vol[g->n] != Zr[g->n] */
-          && rnd0() < Zr[g->n] / vol[g->n]
+        if ( dg_biconnectedvs(g, mkbitsmask(n) ^ MKBIT(i))
+          && rvn_dist2(x[i], x[j]) < rc2[n] )
+#if 0  /* if vol[n] != Zr[n] */
+          && rnd0() < Zr[n] / vol[n]
 #endif
         {
-          ndown[g->n][1] += 1;
-          //for (j = i; j < g->n - 1; j++) rvn_copy(x[j], x[j + 1]);
+          ndown[n][1] += 1;
+          //for (j = i; j < n - 1; j++) rvn_copy(x[j], x[j + 1]);
           dg_remove1(g, g, i); /* g->n is decreased by 1 here */
-          if (i < g->n)
-            memmove(x[i], x[i + 1], (g->n - i) * sizeof(rvn_t));
+          if (i < n - 1)
+            memmove(x[i], x[i + 1], (n - 1 - i) * sizeof(rvn_t));
         }
       }
     }
     else /* configuration sampling */
     {
-      BCSTEP(acc1, i, g->n, g, ng, x, xi, mcamp, gaussdisp);
+      BCSTEP(acc1, i, n, g, ng, x, xi, mcamp, gaussdisp);
       ctot += 1;
       cacc += acc1;
     }

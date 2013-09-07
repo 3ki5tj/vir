@@ -26,6 +26,34 @@ INLINE void mkgraph(dg_t *g, rvn_t *x, int n)
 
 
 
+/* compute the distance matrix */
+INLINE void calcr2ij(real r2ij[][DG_NMAX], rvn_t *x, int n)
+{
+  int i, j;
+
+  for (i = 1; i < n; i++)
+    for (j = 0; j < i; j++)
+      r2ij[j][i] = r2ij[i][j] = rvn_dist2(x[i], x[j]);
+}
+
+
+
+/* build graph from the distance matrix r2ij (lower block) */
+INLINE void mkgraphr2ij(dg_t *g, real r2ij[][DG_NMAX], real s, int n)
+{
+  int i, j;
+  real s2 = s * s;
+
+  g->n = n;
+  dg_empty(g);
+  for (i = 1; i < n; i++)
+    for (j = 0; j < i; j++)
+      if (r2ij[i][j] < s2)
+        DG_LINK(g, i, j);
+}
+
+
+
 /* remove the center of mass */
 INLINE void rvn_rmcom(rvn_t *x, int n)
 {
@@ -37,6 +65,30 @@ INLINE void rvn_rmcom(rvn_t *x, int n)
   rvn_smul(xc, (real) 1./n);
   for (i = 0; i < n; i++) rvn_dec(x[i], xc);
 }
+
+
+
+/* center the configuration, recompute r2ij for better precision */
+INLINE void shiftr2ij(const dg_t *g, rvn_t *x, real r2ij[][DG_NMAX])
+{
+  int i, j, n = g->n;
+
+  /* put the first vertex to the center */
+  for (i = 1; i < n; i++) rvn_dec(x[i], x[0]);
+  rvn_zero(x[0]);
+  /* recompute the matrix r2ij */
+  for (i = 1; i < n; i++)
+    for (j = 0; j < i; j++) {
+      real r2 = rvn_dist2(x[i], x[j]);
+      int lnk = dg_linked(g, i, j);
+      die_if ( fabs(r2 - r2ij[i][j]) > 1e-6
+            || (r2 < 1 && !lnk) || (r2 >= 1 && lnk),
+        "r2ij[%d][%d] = %g vs. %g, link %d\n",
+        i, j, r2, r2ij[i][j], lnk);
+      r2ij[i][j] = r2ij[j][i] = r2;
+    }
+}
+
 
 
 
@@ -308,6 +360,45 @@ INLINE void initx(rvn_t *x, int n)
   if ( dg_biconnected(ng) ) { \
     rvn_copy((x)[i], xi); \
     dg_copy(g, ng); \
+    acc = 1; \
+  } else { acc = 0; } }
+
+
+
+/* construct a new graph with a single vertex i displaced
+ * and save the corresponding array of displacements */
+#define UPDGRAPHR2(i, nv, g, ng, x, xi, r2, r2i) { int j; \
+  ng->n = (nv); \
+  dg_copy(ng, g); \
+  for ( (r2i)[i] = 0, j = 0; j < (nv); j++) { \
+    if ( j == i ) continue; \
+    if ( ((r2i)[j] = rvn_dist2(xi, x[j])) < (r2) ) { \
+      DG_LINK(ng, i, j); \
+    } else { \
+      DG_UNLINK(ng, i, j); \
+    } \
+  } }
+
+
+
+/* update the matrix r2ij */
+#define UPDR2(r2ij, r2i, nv, i, j) { \
+  for (j = 0; j < (nv); j++) { \
+    if (j != i) (r2ij)[i][j] = (r2ij)[j][i] = (r2i)[j]; \
+  } }
+
+
+
+/* A Monte Carlo step of sampling biconnected configurations
+ * updating the r2ij[][] matrix */
+#define BCSTEPR2(acc, i, nv, g, ng, x, xi, r2ij, r2i, amp, gauss) { \
+  int j_; \
+  DISPRNDI(i, nv, x, xi, amp, gauss); \
+  UPDGRAPHR2(i, nv, g, ng, x, xi, 1, r2i); \
+  if ( dg_biconnected(ng) ) { \
+    rvn_copy((x)[i], xi); \
+    dg_copy(g, ng); \
+    UPDR2(r2ij, r2i, nv, i, j_); \
     acc = 1; \
   } else { acc = 0; } }
 
