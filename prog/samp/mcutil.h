@@ -479,6 +479,7 @@ INLINE int grepl(rvn_t *x, rvn_t *nx, dg_t *g, dg_t *ng)
 }
 
 
+
 #if 0
 /* compute the relative probability of adding a vertex
  * that preserves the biconnectivity of the graph
@@ -610,6 +611,24 @@ INLINE int dgmc_nremove_dock(const dg_t *g, rvn_t *x, int n, real rc)
     if ( j != i && !dg_connectedvs(g, vs ^ MKBIT(j) ) )
       return 0;
   return 1;
+}
+
+
+
+/* return the ratio a/b of two transition rates
+ * minr and maxr are for insufficient data needs to be close to 1 */
+INLINE double getrrat(double a1, double a0, double b1, double b0,
+    double mindata, double minr, double maxr)
+{
+  /* we have a1 ~ b1 by detailed balance, so the ratio
+   * can be estimated from either b0/a0 or a1/a0 * b0/b1 */
+  if (a1 > mindata && b1 > mindata)
+    return a1/a0 * b0/b1;
+  /* if we don't have enough data, get some estimate from
+   * the histogram, to avoid a deadlock */
+  if (a0 < 1) a0 = 1;
+  if (b0 < 1) b0 = 1;
+  return dblconfine(b0/a0, minr, maxr);
 }
 
 

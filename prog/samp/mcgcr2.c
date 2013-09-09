@@ -333,15 +333,14 @@ static void gc_update(gc_t *gc, double mindata, int updzr,
   if (rc != gc->rc) memcpy(rc, gc->rc, sizeof(rc[0]) * gc->nens);
   if (sr != gc->sr) memcpy(sr, gc->sr, sizeof(sr[0]) * gc->nens);
   for (i = gc->ens0 + 1; i < gc->nens; i++) {
-    /* make sure enough data points and not to change the exact data */
-    if (gc->ndown[i][1] >= mindata && gc->nup[i-1][1] >= mindata) {
-      r = (gc->nup[i-1][1] / gc->nup[i-1][0])
-        / (gc->ndown[i][1] / gc->ndown[i][0]);
-      if (gc->type[i - 1] == GCX_PURE) {
-        Zr[i] *= r;
-      } else {
-        sr[i - 1] *= pow(r, 1./D);
-      }
+    /* compute the ratio, limit the value between 0.1 and 10.
+     * in case the value is limited */
+    r = getrrat(gc->nup[i-1][1], gc->nup[i-1][0],
+        gc->ndown[i][1], gc->ndown[i][0], mindata, 0.5, 2.);
+    if (gc->type[i - 1] == GCX_PURE) {
+      Zr[i] *= r;
+    } else {
+      sr[i - 1] *= pow(r, 1./D);
     }
   }
 }

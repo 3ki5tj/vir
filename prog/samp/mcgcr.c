@@ -336,28 +336,25 @@ static void gc_update(gc_t *gc, double mindata, int updrc,
   if (rc != gc->rc) memcpy(rc, gc->rc, sizeof(rc[0]) * gc->nens);
   if (sr != gc->sr) memcpy(sr, gc->sr, sizeof(sr[0]) * gc->nens);
   for (i = gc->ens0 + 1; i < gc->nens; i++) {
-    /* make sure enough data points and not to change the exact data */
-    if (gc->ndown[i][1] >= mindata && gc->nup[i-1][1] >= mindata) {
-      r = (gc->nup[i-1][1] / gc->nup[i-1][0])
-        / (gc->ndown[i][1] / gc->ndown[i][0]);
-      if (gc->type[i - 1] == GCX_PURE) {
-        if (updrc) { /* updating rc is disabled by default */
-          /* NOTE: we update rc such that the forward acceptance ratio equals
-           * the backward one, but it may settle in a sub-optimal value
-           * for the forward (adding vertex) acceptance ratio is not monotonic
-           * with respect to the magnitude of rc */
-          /* it appear r^(1/4) converges better than r^(1/D), but 1./D
-           * is more stable, and we don't want to change rc much */
-          rc[i] *= pow(r, 1./D);
-        } else {
-          Zr[i] *= r;
-        }
+    r = getrrat(gc->nup[i-1][1], gc->nup[i-1][0],
+        gc->ndown[i][1], gc->ndown[i][0], mindata, 0.5, 2.);
+    if (gc->type[i - 1] == GCX_PURE) {
+      if (updrc) { /* updating rc is disabled by default */
+        /* NOTE: we update rc such that the forward acceptance ratio equals
+         * the backward one, but it may settle in a sub-optimal value
+         * for the forward (adding vertex) acceptance ratio is not monotonic
+         * with respect to the magnitude of rc */
+        /* it appear r^(1/4) converges better than r^(1/D), but 1./D
+         * is more stable, and we don't want to change rc much */
+        rc[i] *= pow(r, 1./D);
       } else {
-        /* A_down / A_up = s^D / Zr (1)
-         * ideally 1 = A*_down / A*_up = s*^D / Zr (2)
-         * (2)/(1) --> A_up / A_down = (s* / s)^D */
-        sr[i - 1] *= pow(r, 1./D);
+        Zr[i] *= r;
       }
+    } else {
+      /* A_down / A_up = s^D / Zr (1)
+       * ideally 1 = A*_down / A*_up = s*^D / Zr (2)
+       * (2)/(1) --> A_up / A_down = (s* / s)^D */
+      sr[i - 1] *= pow(r, 1./D);
     }
   }
 }
