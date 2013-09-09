@@ -82,7 +82,7 @@ static void doargs(int argc, char **argv)
   die_if (nmax > DG_NMAX, "too many %d atoms >= %d\n", nmax, DG_NMAX);
 
   mtiers = m1 + 1;
-  die_if (mtiers <= 2, "mtiers %d should be at least 3\n", mtiers);
+  die_if (mtiers <= 1, "mtiers %d should be at least 2\n", mtiers);
 
   /* Monte Carlo move amplitude */
   mcamp /= D;
@@ -203,7 +203,7 @@ INLINE gc_t *gc_open(int nmin, int nmax, int m,
     } else {
       /* rc = pow(rc0, 1.*(m - i % m)/(m - 1)); */
       /* linear interpolation, including the boundary value 1 */
-      rc = rc0 + (1. - rc0) * (i % m - 1) / (m - 2);
+      rc = rc0 + (1. - rc0) * (i % m - 1) / (m - 1);
     }
     gc->rc[i] = (real) rc;
 
@@ -220,8 +220,6 @@ INLINE gc_t *gc_open(int nmin, int nmax, int m,
     } else if ( sr0 > 1 && i > 0 && gc->type[i - 1] == GCX_PURE ) {
       /* the given value is only used for the first rc */
       sr = sr0;
-    } else if ( gc->type[i + 1] == GCX_PURE ) {
-      sr = 1;
     } else { /* guess from the ratios of the successive radii */
       if (gc->rc[i] > 1) sr = 1;
       else sr = gc->rc[i + 1] / gc->rc[i];
@@ -340,9 +338,6 @@ static void gc_update(gc_t *gc, double mindata, int updzr,
       r = (gc->nup[i-1][1] / gc->nup[i-1][0])
         / (gc->ndown[i][1] / gc->ndown[i][0]);
       if (gc->type[i - 1] == GCX_PURE) {
-        Zr[i] *= r;
-      } else if (gc->type[i] == GCX_PURE) {
-        /* the actual sr is always 1 */
         Zr[i] *= r;
       } else {
         sr[i - 1] *= pow(r, 1./D);
@@ -745,7 +740,7 @@ INLINE int changenapair_metro(int *i, int *j, const dg_t *g,
 /* scale the distance between x[i0] and x[j0] and test the biconnectivity */
 INLINE int nmove_scale(int i0, int j0, dg_t *g, dg_t *ng,
     rvn_t *x, real *xj0, real r2ij[][DG_NMAX], real *r2i,
-    real sr, real Zr)
+    real sr, real Zr, int extra)
 {
   int k, n = g->n;
 
@@ -767,6 +762,7 @@ INLINE int nmove_scale(int i0, int j0, dg_t *g, dg_t *ng,
       dg_unlink(ng, k, j0);
   }
   if ( !dg_biconnected(ng) ) return 0;
+  if ( extra && rnd0() >= 1.*Zr/dg_nedges(ng) ) return 0;
   dg_copy(g, ng);
   rvn_copy(x[j0], xj0);
   UPDR2(r2ij, r2i, n, j0, k);
@@ -894,17 +890,18 @@ static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
         } else if (gc->type[iens + 1] == GCX_PURE) { /* restrained up to pure */
           /*  bc(r^n) step(rc - r_{i0, j0}) c(r^n\{i0, j0}) dr^n
            *    -->
-           *  bc(r^n) dr^n */
-          acc = ( rnd0() < 1. / (gc->Zr[iens + 1] * dg_nedges(g)) );
-        } else { /* restrained up to a restrained state */
+           *  bc(R^n) dR^n */
+          if ( r2ij[pi][pj] * dblsqr(gc->sr[iens]) < dblsqr(gc->rc[iens + 1]) )
+            acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i,
+              gc->sr[iens], 1. / gc->Zr[iens + 1], 1);
+        } else { /* restrained up to a less restrained state */
           /*  c(r^n\{i0, j0}) step(rc - r_{i0, j0}) bc(r^n) dr^n
            *    -->
            *  c(R^n\{i0, j0}) step(Rc - R_{i0, j0}) bc(R^n) dR^n
            * where rc < Rc */
           if ( r2ij[pi][pj] * dblsqr(gc->sr[iens]) < dblsqr(gc->rc[iens + 1]) )
-            /* move after a scaling between the first and last vertices */
             acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i,
-              gc->sr[iens], 1. / gc->Zr[iens + 1]);
+              gc->sr[iens], 1., 0);
           //printf("t %g, n+ move 2, acc %d, iens %d, n %d, n1 %d\n", t, acc, iens, g->n, g1->n);
 #ifdef CHECK
           check(g, x, r2ij, gc, iens + acc, pi, pj, t, "nmove_scaleup");
@@ -924,21 +921,23 @@ static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
           /*  bc(R^n) step(Rc - R_{i0, j0}) c(R^n\{i0, j0}) dR^n
            *    -->
            *  bc(r^{n-1}) dr^{n-1} */
-          acc = nmove_restraineddown2pure(pi, pj, g, x, r2ij,
-              gc->Zr[iens]);
+          acc = nmove_restraineddown2pure(pi, pj, g, x, r2ij, gc->Zr[iens]);
           //printf("t %g, nmove- 2, acc %d, iens %d, n %d\n", t, acc, iens, g->n);
 #ifdef CHECK
           check(g, x, r2ij, gc, iens - acc, pi, pj, t, "nmove_restraineddown2pure");
 #endif
         } else if (gc->type[iens] == GCX_PURE) {
-          /*  bc(r^n) dr^n
+          /*  bc(R^n) dR^n
            *    -->
            *  bc(r^n) step(rc - r_{i0, j0}) c(r^n\{i0, j0}) dr^n */
-          real sr = 1; //gc->sr[iens - 1];
           int ned = dg_randedge(g, &pi, &pj);
 
-          if (rnd0() < gc->Zr[iens] * ned)
-            acc = dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(pi) ^ MKBIT(pj));
+          if ( dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(pi) ^ MKBIT(pj))
+            && r2ij[pj][pi] < dblsqr(gc->rc[iens - 1] * gc->sr[iens - 1])
+            && rnd0() < gc->Zr[iens] * ned ) {
+            acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i,
+                  1. / gc->sr[iens - 1], 1., 0);
+          }
 #ifdef CHECK
           //printf("acc %d, t %g, iens %d-->%d, type %d, pi %d, pj %d, rc %g, sr %g\n", acc, t, iens, iens - 1, gc->type[iens], pi, pj, gc->rc[iens - 1], gc->sr[iens - 1]);
           check(g, x, r2ij, gc, iens - acc, pi, pj, t, "nmove_purescaledown");
@@ -950,7 +949,7 @@ static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
            * with Rc > rc */
           if (r2ij[pj][pi] < dblsqr(gc->rc[iens - 1] * gc->sr[iens - 1]))
             acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i,
-                  1. / gc->sr[iens - 1], gc->Zr[iens]);
+                  1. / gc->sr[iens - 1], 1., 0);
           //printf("t %g, nmove- 1, acc %d, iens %d, n %d\n", t, acc, iens, g->n);
 #ifdef CHECK
           check(g, x, r2ij, gc, iens - acc, pi, pj, t, "nmove_restraineddown2pure");
