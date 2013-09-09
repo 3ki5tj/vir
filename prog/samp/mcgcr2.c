@@ -134,7 +134,6 @@ typedef struct {
   double nedg[DG_NMAX + 1][2]; /* number of edges */
   double ncsp[DG_NMAX + 1][2]; /* no clique separator */
   double fbsm[DG_NMAX + 1][3]; /* hard-sphere weight */
-  double ngpr[DG_NMAX + 1][2]; /* number of good pairs */
   double B[DG_NMAX + 1]; /* virial coefficients */
 } gc_t;
 
@@ -157,8 +156,6 @@ static void gc_cleardata(gc_t *gc)
     gc->ncsp[i][1] = 0;
     gc->fbsm[i][0] = 1e-20;
     gc->fbsm[i][1] = gc->fbsm[i][2] = 0;
-    gc->ngpr[i][0] = 1e-20;
-    gc->ngpr[i][1] = 0;
   }
 }
 
@@ -346,24 +343,8 @@ static void gc_update(gc_t *gc, double mindata, int updzr,
         Zr[i] *= r;
       } else if (gc->type[i] == GCX_PURE) {
         /* the actual sr is always 1 */
-        // sr[i - 1] = pow(r, 1./D);
-        sr[i - 1] = 1;
         Zr[i] *= r;
       } else {
-#if 0
-        /* use the scaling parameter as the effective parameter */
-        if (gc->type[i] == GCX_PURE && updzr) {
-          /* we choose Zr as 1/|ngpr|, but we also update sr and use it
-           * as the effective partition function, so this doesn't work */
-          int n = gc->n[i];
-          double nZr = Zr[i];
-          if (gc->ngpr[n][1] > mindata)
-            nZr = gc->ngpr[n][0] / gc->ngpr[n][1];
-          r *= Zr[i] / nZr;
-          printf("n %d, updating Zr[%d] from %g to %g\n", n, i, Zr[i], nZr);
-          Zr[i] = nZr;
-        }
-#endif
         sr[i - 1] *= pow(r, 1./D);
       }
     }
@@ -434,8 +415,7 @@ static void gc_print(const gc_t *gc, int compact,
         gc->ndown[i][1] / gc->ndown[i][0]);
       if (gc->type[i] == GCX_PURE) {
         int n = gc->n[i];
-        printf("%6.3f %6.3f %8.6f %+9.7f %+.5e",
-          gc->ngpr[n][1] / gc->ngpr[n][0],
+        printf("%6.3f %8.6f %+9.7f %+.5e",
           gc->nedg[n][1] / gc->nedg[n][0],
           gc->ncsp[n][1] / gc->ncsp[n][0],
           gc->fbsm[n][1] / gc->fbsm[n][0],
@@ -726,81 +706,8 @@ INLINE int nmove_restraineddown2pure(int i0, int j0,
 
 
 
-static int napr_[DG_NMAX*(DG_NMAX - 1)/2];
-
-/* list all non-articulated pairs within rc */
-INLINE int listnapairs(const dg_t *g, real r2ij[][DG_NMAX], real rc)
-{
-  int npr = 0, i, j, n = g->n;
-  code_t mask = mkbitsmask(n);
-
-  for (i = 1; i < n; i++)
-    for (j = 0; j < i; j++)
-      if ( r2ij[i][j] < rc * rc )
-        napr_[npr++] = i * DG_NMAX + j;
-  return npr;
-}
-
-
-
-/* randomly choose a non-articulated pair within rc
- * return the number of qualified pairs */
-INLINE int choosenapair(int *pi, int *pj, const dg_t *g,
-    real r2ij[][DG_NMAX], real rc)
-{
-  int npr = 0, id;
-
-  npr = listnapairs(g, r2ij, rc);
-  if (npr && pi != NULL && pj != NULL) {
-    id = napr_[ (int) (rnd0() * npr) ];
-    *pi = id / DG_NMAX;
-    *pj = id - (*pi) * DG_NMAX;
-    if ( !dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(*pi) ^ MKBIT(*pj)) )
-      return 0;
-  }
-  return npr;
-}
-
-
-
-#if 0
-/* list all non-articulated pairs within rc */
-INLINE int listnapairs(const dg_t *g, real r2ij[][DG_NMAX], real rc)
-{
-  int npr = 0, i, j, n = g->n;
-  code_t mask = mkbitsmask(n);
-
-  for (i = 1; i < n; i++)
-    for (j = 0; j < i; j++)
-      if ( r2ij[i][j] < rc * rc
-        && dg_connectedvs(g, mask ^ MKBIT(i) ^ MKBIT(j)) )
-        napr_[npr++] = i * DG_NMAX + j;
-  return npr;
-}
-
-
-
-/* randomly choose a non-articulated pair within rc
- * return the number of qualified pairs */
-INLINE int choosenapair(int *pi, int *pj, const dg_t *g,
-    real r2ij[][DG_NMAX], real rc)
-{
-  int npr = 0, id;
-
-  npr = listnapairs(g, r2ij, rc);
-  if (npr && pi != NULL && pj != NULL) {
-    id = napr_[ (int) (rnd0() * npr) ];
-    *pi = id / DG_NMAX;
-    *pj = id - (*pi) * DG_NMAX;
-  }
-  return npr;
-}
-#endif
-
-
-
 #define changenapair(i, j, g, r2ij, rc) \
-    changenapair_simple(i, j, g, r2ij, rc)
+    changenapair_metro(i, j, g, r2ij, rc)
 
 /* change the distance-restrained pair */
 INLINE int changenapair_simple(int *i, int *j, const dg_t *g,
@@ -822,98 +729,15 @@ INLINE int changenapair_metro(int *i, int *j, const dg_t *g,
   int ni, nj;
 
   ni = randpair(g->n, &nj);
-  if (ni == *i && nj == *j) return 0;
-  if (ni == *j && nj == *i) {
-    *i = ni;
-    *j = nj;
-    return 0;
-  }
-  if ( dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(ni) ^ MKBIT(nj))
+  if ( !(ni == *i && nj == *j) && !(ni == *j && nj == *i)
+    && dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(ni) ^ MKBIT(nj))
     && r2ij[ni][nj] < rc * rc ) {
     *i = ni;
     *j = nj;
     return 1;
   }
+  ni = *i, *i = *j, *j = ni;
   return 0;
-}
-
-
-
-/* change the distance-restrained pair, heat bath algorithm */
-INLINE int changenapair_heatbath(int *pi, int *pj, const dg_t *g,
-    real r2ij[][DG_NMAX], real rc)
-{
-  int npr, ipr, ipr0, pid;
-
-  npr = listnapairs(g, r2ij, rc);
-  if (npr <= 1) { /* we can at least swap i and j */
-    pid = *pi, *pi = *pj, *pj = pid;
-    return 0;
-  }
-  pid = (*pi > *pj) ? (*pi * DG_NMAX + *pj) : (*pj * DG_NMAX + *pi);
-  for (ipr0 = 0; ipr0 < npr; ipr0++)
-    if (napr_[ipr0] == pid) break;
-  if (ipr0 >= npr) {
-    fprintf(stderr, "cannot find pair %d, %d, npr %d, n %d\n",
-        *pi, *pj, npr, g->n);
-    dg_print(g);
-    for (ipr = 0; ipr < npr; ipr++)
-      printf("ipr %3d, %d %d\n", ipr, napr_[ipr] / DG_NMAX, napr_[ipr] % DG_NMAX);
-    exit(1);
-  }
-  ipr = (int) (rnd0() * (npr - 1));
-  if (ipr >= ipr0) ipr++;
-  pid = napr_[ipr];
-  *pi = pid / DG_NMAX;
-  *pj = pid - (*pi) * DG_NMAX;
-  if (rnd0() < 0.5) {
-    pid = *pi, *pi = *pj, *pj = pid;
-  }
-  return 1;
-}
-
-
-
-/* scale the distance between x[i0] and x[j0] and test the biconnectivity
- *  bc(r^n) step(rc - r_{i0, j0}) c(r^n\{i0, j0}) dr^n
- *  =
- *  bc(r^n) step(rc * sr - R_{i0, j0}) c(R^n\{i0, j0}) dR^n / sr^D
- *    -->
- *  bc(R^n) dR^n */
-INLINE int nmove_scaleup2pure(int i0, int j0, dg_t *g, dg_t *ng,
-    rvn_t *x, real *xj0, real r2ij[][DG_NMAX], real *r2i,
-    real rc, real sr, real Zr)
-{
-  int k, n = g->n;
-
-  /* randomly choose i0 or j0 as the root */
-  if (rnd0() < 0.5) { k = i0, i0 = j0, j0 = k; }
-  /* xj0 = x[i0] + (x[j0] - x[i0]) * s */
-  rvn_diff(xj0, x[j0], x[i0]);
-  rvn_inc(rvn_smul(xj0, sr), x[i0]);
-  /* make a new graph with the new xj0 */
-  ng->n = g->n;
-  dg_copy(ng, g);
-  for (k = 0; k < n; k++) {
-    /* update connection from j0 to others */
-    if ( k == j0 ) continue;
-    if ( (r2i[k] = rvn_dist2(x[k], xj0)) < 1 )
-      dg_link(ng, k, j0);
-    else
-      dg_unlink(ng, k, j0);
-  }
-  if ( !dg_biconnected(ng) ) return 0;
-
-  /* count the number of non-articulated pairs */
-  k = listnapairs(ng, r2ij, sr * rc);
-  die_if (k <= 0, "scaleup2pure dead k %d\n", k);
-  Zr *= 1. / k;
-  if (Zr < 1 && rnd0() >= Zr) return 0;
-
-  dg_copy(g, ng);
-  rvn_copy(x[j0], xj0);
-  UPDR2(r2ij, r2i, n, j0, k);
-  return 1;
 }
 
 
@@ -1070,10 +894,8 @@ static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
         } else if (gc->type[iens + 1] == GCX_PURE) { /* restrained up to pure */
           /*  bc(r^n) step(rc - r_{i0, j0}) c(r^n\{i0, j0}) dr^n
            *    -->
-           *  bc(R^n) dR^n */
-          real sr = 1; // gc->sr[iens];
-          acc = nmove_scaleup2pure(pi, pj, g, ng, x, xi, r2ij, r2i,
-            gc->rc[iens], sr, 1. / gc->Zr[iens + 1]);
+           *  bc(r^n) dr^n */
+          acc = ( rnd0() < 1. / (gc->Zr[iens + 1] * dg_nedges(g)) );
         } else { /* restrained up to a restrained state */
           /*  c(r^n\{i0, j0}) step(rc - r_{i0, j0}) bc(r^n) dr^n
            *    -->
@@ -1109,20 +931,14 @@ static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
           check(g, x, r2ij, gc, iens - acc, pi, pj, t, "nmove_restraineddown2pure");
 #endif
         } else if (gc->type[iens] == GCX_PURE) {
-          /*  bc(R^n) dR^n
+          /*  bc(r^n) dr^n
            *    -->
            *  bc(r^n) step(rc - r_{i0, j0}) c(r^n\{i0, j0}) dr^n */
           real sr = 1; //gc->sr[iens - 1];
-          int ngpr = choosenapair(&pi, &pj, g, r2ij, gc->rc[iens - 1] * sr);
-          int n = gc->n[iens];
-          if (ngpr) { /* ngpr is the number of non-articulated pairs */
-            /* move after a scaling of two vertices */
-            acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i,
-                1. / sr, gc->Zr[iens] * ngpr);
-            gc->ngpr[n][0] += 1;
-            gc->ngpr[n][1] += ngpr;
-          }
-          //printf("t %g, nmove- 1, acc %d, iens %d, n %d\n", t, acc, iens, g->n);
+          int ned = dg_randedge(g, &pi, &pj);
+
+          if (rnd0() < gc->Zr[iens] * ned)
+            acc = dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(pi) ^ MKBIT(pj));
 #ifdef CHECK
           //printf("acc %d, t %g, iens %d-->%d, type %d, pi %d, pj %d, rc %g, sr %g\n", acc, t, iens, iens - 1, gc->type[iens], pi, pj, gc->rc[iens - 1], gc->sr[iens - 1]);
           check(g, x, r2ij, gc, iens - acc, pi, pj, t, "nmove_purescaledown");

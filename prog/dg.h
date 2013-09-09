@@ -229,19 +229,20 @@ INLINE int dg_nedges(const dg_t *g)
 /* choose a random edge, return the number of edges */
 INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
 {
-  int i, j, k, n = g->n, ne, ipr;
+  int i, j, k, n = g->n, ne, ipr, rr;
   code_t c, b;
   static int cnt[DG_NMAX];
 
   for (ne = 0, i = 1; i < n; i++)
     ne += cnt[i] = bitcount(g->c[i] & mkbitsmask(i));
-  ipr = (int) (rnd0() * ne);
+  rr = (int) (rnd0() * 2 * ne);
+  ipr = rr / 2;
   for (i = 1; i < n; ipr -= cnt[i], i++) {
     if (ipr < cnt[i]) { /* found it */
       for (c = g->c[i] & mkbitsmask(i), j = 0; j <= ipr; j++, c ^= b)
         k = bitfirstlow(c, &b);
-      *i0 = i;
-      *i1 = k;
+      if (rr % 2) { *i0 = i, *i1 = k; }
+      else { *i0 = k, *i1 = i; }
       break;
     }
   }
