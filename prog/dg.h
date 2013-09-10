@@ -1,5 +1,5 @@
-#ifndef DIAGRAM_H__
-#define DIAGRAM_H__
+#ifndef DG_H__
+#define DG_H__
 /* handling diagrams in the virial expansion
  * using bitwise operations */
 
@@ -239,8 +239,9 @@ INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
   ipr = rr / 2;
   for (i = 1; i < n; ipr -= cnt[i], i++) {
     if (ipr < cnt[i]) { /* found it */
-      for (c = g->c[i] & mkbitsmask(i), j = 0; j <= ipr; j++, c ^= b)
+      for (c = g->c[i] & mkbitsmask(i), k = -1, j = 0; j <= ipr; j++, c ^= b)
         k = bitfirstlow(c, &b);
+      die_if (k < 0, "i %d, k %d\n", i, k);
       if (rr % 2) { *i0 = i, *i1 = k; }
       else { *i0 = k, *i1 = i; }
       break;
