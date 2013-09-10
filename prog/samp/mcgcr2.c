@@ -39,9 +39,13 @@ int nedxmax = -1;
 
 int neql = 0; /* rounds of equilibration (in which Z is updated) */
 int nstsave = 1000000000; /* interval of saving data */
+int nstcheck = 0;
 
 int restart = 0; /* restartable simulation */
 int bsim0 = 0; /* first simulation */
+
+/* nmove type, 0: metropolis, 1: heat-bath */
+int nmvtype = 1;
 
 
 
@@ -72,8 +76,10 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-E",    "%d",   &neql,    "number of equilibration rounds");
   argopt_add(ao, "-0",    "%lf",  &nequil,  "number of equilibration steps per round");
   argopt_add(ao, "-M",    "%d",   &nstcom,  "interval of centering the structure");
+  argopt_add(ao, "-K",    "%d",   &nstcheck,"interval of checking");
   argopt_add(ao, "-R",    "%b",   &restart, "run a restartable simulation");
   argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation");
+  argopt_add(ao, "-W",    "%d",   &nmvtype, "nmove type, 0: metropolis, 1: heatbath");
 
   argopt_parse(ao, argc, argv);
 
@@ -195,7 +201,7 @@ INLINE gc_t *gc_open(int nmin, int nmax, int m,
 
   for (i = 0; i < nensmax; i++) {
     n = gc->n[i];
-    /* guess rc */
+
     if ( gc->type[i] == GCX_PURE ) {
       rc = 1;
     } else {
@@ -211,7 +217,7 @@ INLINE gc_t *gc_open(int nmin, int nmax, int m,
     gc->Z[i] = 1; /* absolute partition function */
   }
 
-  /* sr requires a separate loop for it needs rc of a higher ensemble */
+  /* sr[i] requires a separate loop for it needs rc[i + 1] */
   for (i = 0; i < nensmax; i++) {
     if ( i == nensmax - 1 || gc->type[i] == GCX_PURE ) {
       sr = 1;
@@ -331,13 +337,14 @@ static void gc_update(gc_t *gc, double mindata,
   if (rc != gc->rc) memcpy(rc, gc->rc, sizeof(rc[0]) * gc->nens);
   if (sr != gc->sr) memcpy(sr, gc->sr, sizeof(sr[0]) * gc->nens);
   for (i = gc->ens0 + 1; i < gc->nens; i++) {
-    /* compute the ratio, limit the value between 0.1 and 10.
-     * in case the value is limited */
     r = getrrat(gc->nup[i-1][1], gc->nup[i-1][0],
-        gc->ndown[i][1], gc->ndown[i][0], mindata, 0.5, 2.);
+        gc->ndown[i][1], gc->ndown[i][0], mindata, 0.7, 1.4);
     if (gc->type[i - 1] == GCX_PURE) {
       Zr[i] *= r;
     } else {
+      /* A_down / A_up = s^D / Zr (1)
+       * ideally 1 = A*_down / A*_up = s*^D / Zr (2)
+       * (2)/(1) --> A_up / A_down = (s* / s)^D */
       sr[i - 1] *= pow(r, 1./D);
     }
   }
@@ -364,10 +371,10 @@ static void gc_computeZ(gc_t *gc,
     } else {
       z *= pow(rc[i], D);
     }
-    //printf("compute Z, i %d, n %d, rc %.7f, sr %.7f, Z %.6e\n", i, n, rc[i], sr[i - 1], x);
     /* use the the exact result if available */
     if (gc->type[i] == GCX_PURE) {
-      z *= n * (n - 1) * .5; /* pair generation bias */
+      if (nmvtype == 1)
+        z *= n * (n - 1) * .5; /* pair generation bias */
       if (n == 3 && nmin < 3)
         printf("Z3 %g vs %g(ref)\n", z, Z3rat(D));
       if (n == 4)
@@ -382,7 +389,6 @@ static void gc_computeZ(gc_t *gc,
       fbav = gc->fbsm[n][1] / gc->fbsm[n][0];
       /* Bn/B2^(n-1) = (1 - n) 2^(n - 1) / n! Zn/Z2^(n-1) < fb > */
       gc->B[n] = (1. - n) * fac * z * fbav;
-      //printf("B[%d] = %g\n", n, gc->B[n]);
     }
   }
 }
@@ -449,8 +455,10 @@ static int gc_saveZr(gc_t *gc, const char *fn)
         gc->nup[i-1][1] / gc->nup[i-1][0],
         gc->ndown[i][1] / gc->ndown[i][0],
         gc->nedg[n][0], gc->ncsp[n][0], gc->fbsm[n][0],
-        gc->nedg[n][1] / gc->nedg[n][0], gc->ncsp[n][1] / gc->ncsp[n][0],
-        gc->fbsm[n][2] / gc->fbsm[n][0], gc->fbsm[n][1] / gc->fbsm[n][0],
+        gc->nedg[n][1] / gc->nedg[n][0],
+        gc->ncsp[n][1] / gc->ncsp[n][0],
+        gc->fbsm[n][2] / gc->fbsm[n][0],
+        gc->fbsm[n][1] / gc->fbsm[n][0],
         gc->B[n]);
     tot += gc->hist[i];
     prevZ = gc->Z[i];
@@ -478,7 +486,7 @@ static int gc_saveZrr(gc_t *gc, const char *fn,
 
   mkfnZrrdef(fn, fndef, D, gc->m - 1, gc->nmax);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "#R %d %d %d %d %d %d V2 %d\n",
+  fprintf(fp, "#%c %d %d %d %d %d %d V2 %d\n", nmvtype ? 'R' : 'S',
       D, gc->nens, gc->ens0, gc->nmin, gc->nmax, gc->m, nedxmax);
   for (i = 1; i < gc->nens; i++) {
     fprintf(fp, "%4d %d %3d %20.14e %20.14e %18.14f %18.14f "
@@ -511,7 +519,7 @@ static int gc_saveZrr(gc_t *gc, const char *fn,
 static int gc_load(gc_t *gc, const char *fn, int loadall)
 {
   FILE *fp;
-  int i = -1, nens, d = 0, n, tp, ens0 = 0, n0, m = 0, ver = 0, next;
+  int i = -1, nens, d = 0, n, tp, ens0 = 0, n0 = 1, m = 0, ver = 0, next;
   char s[512], fndef[64], sver[16], *p;
 
   mkfnZrrdef(fn, fndef, D, gc->m - 1, gc->nmax);
@@ -523,7 +531,7 @@ static int gc_load(gc_t *gc, const char *fn, int loadall)
     fclose(fp);
     return -1;
   }
-  if ( s[0] != '#' || s[1] != 'R'
+  if ( s[0] != '#' || s[1] != (nmvtype ? 'R' : 'S')
     || 7 != sscanf(s + 2, "%d%d%d%d%d%d%8s",
                    &d, &nens, &ens0, &n0, &n, &m, sver)
     || d != D || m != gc->m || ens0 != gc->ens0 ) {
@@ -627,6 +635,42 @@ INLINE int bcrstep(int i0, int j0, dg_t *g, dg_t *ng,
 
 
 
+#define changenapair(i, j, g, r2ij, rc) \
+    changenapair_metro(i, j, g, r2ij, rc)
+
+/* change the distance-restrained pair */
+INLINE int changenapair_simple(int *i, int *j, const dg_t *g,
+    real r2ij[][DG_NMAX], real rc)
+{
+  int tmp;
+
+  (void) g; (void) r2ij; (void) rc;
+  tmp = *i, *i = *j, *j = tmp;
+  return 1;
+}
+
+
+
+/* change the distance-restrained pair */
+INLINE int changenapair_metro(int *i, int *j, const dg_t *g,
+    real r2ij[][DG_NMAX], real rc)
+{
+  int ni, nj;
+
+  ni = randpair(g->n, &nj);
+  if ( !(ni == *i && nj == *j) && !(ni == *j && nj == *i)
+    && dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(ni) ^ MKBIT(nj))
+    && r2ij[ni][nj] < rc * rc ) {
+    *i = ni;
+    *j = nj;
+    return 1;
+  }
+  ni = *i, *i = *j, *j = ni;
+  return 0;
+}
+
+
+
 /* attach a vertex to a random vertex i0, become a restrained state
  *  pure:
  *    bc(r^n) dr^n
@@ -699,42 +743,6 @@ INLINE int nmove_restraineddown2pure(int i0, int j0,
 
 
 
-#define changenapair(i, j, g, r2ij, rc) \
-    changenapair_metro(i, j, g, r2ij, rc)
-
-/* change the distance-restrained pair */
-INLINE int changenapair_simple(int *i, int *j, const dg_t *g,
-    real r2ij[][DG_NMAX], real rc)
-{
-  int tmp;
-
-  (void) g; (void) r2ij; (void) rc;
-  tmp = *i, *i = *j, *j = tmp;
-  return 1;
-}
-
-
-
-/* change the distance-restrained pair */
-INLINE int changenapair_metro(int *i, int *j, const dg_t *g,
-    real r2ij[][DG_NMAX], real rc)
-{
-  int ni, nj;
-
-  ni = randpair(g->n, &nj);
-  if ( !(ni == *i && nj == *j) && !(ni == *j && nj == *i)
-    && dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(ni) ^ MKBIT(nj))
-    && r2ij[ni][nj] < rc * rc ) {
-    *i = ni;
-    *j = nj;
-    return 1;
-  }
-  ni = *i, *i = *j, *j = ni;
-  return 0;
-}
-
-
-
 /* scale the distance between x[i0] and x[j0] and test the biconnectivity */
 INLINE int nmove_scale(int i0, int j0, dg_t *g, dg_t *ng,
     rvn_t *x, real *xj0, real r2ij[][DG_NMAX], real *r2i,
@@ -769,10 +777,9 @@ INLINE int nmove_scale(int i0, int j0, dg_t *g, dg_t *ng,
 
 
 
-#ifdef CHECK
 /* check if everything is okay */
-INLINE int check(const dg_t *g, rvn_t *x, real (*r2ij)[DG_NMAX],
-    const gc_t *gc, int iens, int i0, int j0,
+static int check(const dg_t *g, rvn_t *x, real (*r2ij)[DG_NMAX],
+    const gc_t *gc, int iens0, int iens, int i0, int j0,
     double t, const char *msg)
 {
   int i, j, n = g->n, err = 0, type = gc->type[iens];
@@ -822,11 +829,10 @@ INLINE int check(const dg_t *g, rvn_t *x, real (*r2ij)[DG_NMAX],
       err++;
     }
   }
-  die_if (err, "t %g, iens %d, type %d, n %d, message %s, err %d\n",
-      t, iens, gc->type[iens], gc->n[i], msg, err);
+  die_if (err, "%s: t %g, iens %d (%d) -> %d (%d), n %d, err %d\n",
+      msg, t, iens0, gc->type[iens0], iens, gc->type[iens], gc->n[i], err);
   return err;
 }
-#endif
 
 
 
@@ -834,12 +840,13 @@ static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
     real mcamp, int neql, double nequil, int nstsave)
 {
   double t, ctot = 0, cacc = 0, prtot = 0, pracc = 0;
-  int iens, ensmax, ensmin, acc, it, ieql;
+  int iens0, iens, ensmax, ensmin, acc, it, ieql, ned;
   int pi = 0, pj = 1; /* indices of the distance-restrained pair */
   gc_t *gc;
   dg_t *g, *ng, *g1, *ng1;
   rvn_t x[DG_NMAX] = {{0}}, xi;
   real r2ij[DG_NMAX][DG_NMAX] = {{0}}, r2i[DG_NMAX] = {0};
+  const char *smove;
 
   gc = gc_open(nmin, nmax, mtiers, rc0, sr0);
   gc_load(gc, fninp, restart && !bsim0);
@@ -859,14 +866,10 @@ static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
 
   ieql = (neql > 0); /* rounds of equilibrations */
 
-#ifdef CHECK
-  fprintf(stderr, "checking code enabled\n");
-#endif
-
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
-    //printf("t %g, iens %d, ensmin %d, ensmax %d, n %d\n", t, iens, ensmin, ensmax, g->n);
     die_if (g->n < nmin || g->n > nmax, "bad n %d, t %g, iens %d, mtiers %d, ensmax %d\n", g->n, t, iens, mtiers, ensmax);
+    iens0 = iens;
     if (rnd0() < ratn) /* n-move, switching ensemble */
     {
       if (rnd0() < 0.5) { /* increase the ensemble index */
@@ -880,30 +883,25 @@ static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
           pj = g->n;
           acc = nmove_pureup2restrained(&pi, g, x, r2ij,
               gc->rc[iens + 1], 1. / gc->Zr[iens + 1]);
-          //printf("t %g, n+ move 1, acc %d, iens %d, n %d\n", t, acc, iens, g->n);
-#ifdef CHECK
-          check(g, x, r2ij, gc, iens + acc, pi, pj, t, "nmove_pureup2restrained");
-#endif
-          die_if (g->n < nmin || g->n > nmax, "p2m BAD n %d, t %g, iens %d\n", g->n, t, iens);
+          die_if (g->n < nmin || g->n > nmax, "p2r bad n %d, t %g, iens %d\n", g->n, t, iens);
         } else if (gc->type[iens + 1] == GCX_PURE) { /* restrained up to pure */
           /*  bc(r^n) step(rc - r_{i0, j0}) c(r^n\{i0, j0}) dr^n
            *    -->
            *  bc(R^n) dR^n */
-          if ( r2ij[pi][pj] * dblsqr(gc->sr[iens]) < dblsqr(gc->rc[iens + 1]) )
+          /* in case of heat-bath move, there is an implicit intermediate state
+           *  bc(R^n) step(1 - R_{i0, j0}) c(R^n\{i0, j0}) dR^n */
+          if ( nmvtype == 0
+            || r2ij[pi][pj] * dblsqr(gc->sr[iens]) < 1 ) //dblsqr(gc->rc[iens + 1])
             acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i,
-              gc->sr[iens], 1. / gc->Zr[iens + 1], 1);
+              gc->sr[iens], 1. / gc->Zr[iens + 1], nmvtype == 1);
         } else { /* restrained up to a less restrained state */
-          /*  c(r^n\{i0, j0}) step(rc - r_{i0, j0}) bc(r^n) dr^n
+          /*  bc(r^n) step(rc - r_{i0, j0}) c(r^n\{i0, j0}) dr^n
            *    -->
-           *  c(R^n\{i0, j0}) step(Rc - R_{i0, j0}) bc(R^n) dR^n
+           *  bc(R^n) step(Rc - R_{i0, j0}) c(R^n\{i0, j0}) dR^n
            * where rc < Rc */
           if ( r2ij[pi][pj] * dblsqr(gc->sr[iens]) < dblsqr(gc->rc[iens + 1]) )
             acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i,
               gc->sr[iens], 1., 0);
-          //printf("t %g, n+ move 2, acc %d, iens %d, n %d, n1 %d\n", t, acc, iens, g->n, g1->n);
-#ifdef CHECK
-          check(g, x, r2ij, gc, iens + acc, pi, pj, t, "nmove_scaleup");
-#endif
         }
         gc->nup[iens][0] += 1;
         gc->nup[iens][1] += acc;
@@ -920,43 +918,37 @@ static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
            *    -->
            *  bc(r^{n-1}) dr^{n-1} */
           acc = nmove_restraineddown2pure(pi, pj, g, x, r2ij, gc->Zr[iens]);
-          //printf("t %g, nmove- 2, acc %d, iens %d, n %d\n", t, acc, iens, g->n);
-#ifdef CHECK
-          check(g, x, r2ij, gc, iens - acc, pi, pj, t, "nmove_restraineddown2pure");
-#endif
-        } else if (gc->type[iens] == GCX_PURE) {
+        } else if (gc->type[iens] == GCX_PURE) { /* pure down to restrained */
           /*  bc(R^n) dR^n
            *    -->
            *  bc(r^n) step(rc - r_{i0, j0}) c(r^n\{i0, j0}) dr^n */
-          int ned = dg_randedge(g, &pi, &pj);
+          /* in case of the heat-bath move, there is an intermediate state
+           *  bc(R^n) step(1 - R_{i0, j0}) c(R^n\{i0, j0}) dR^n */
+          if (nmvtype == 1) /* select an edge */
+            ned = dg_randedge(g, &pi, &pj);
+          else /* select a random pair */
+            pj = randpair(g->n, &pi);
 
           if ( (g->n <= 3 || dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(pi) ^ MKBIT(pj)))
             && r2ij[pj][pi] < dblsqr(gc->rc[iens - 1] * gc->sr[iens - 1])
-            && rnd0() < gc->Zr[iens] * ned ) {
+            && (nmvtype == 0 || rnd0() < gc->Zr[iens] * ned) ) {
             acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i,
                   1. / gc->sr[iens - 1], 1., 0);
           }
-#ifdef CHECK
-          //printf("acc %d, t %g, iens %d-->%d, type %d, pi %d, pj %d, rc %g, sr %g\n", acc, t, iens, iens - 1, gc->type[iens], pi, pj, gc->rc[iens - 1], gc->sr[iens - 1]);
-          check(g, x, r2ij, gc, iens - acc, pi, pj, t, "nmove_purescaledown");
-#endif
         } else { /* restrained down to a more restrained state */
           /*  bc(R^n) step(Rc - R_{i0, j0}) c(R^n\{i0, j0}) dR^n
            *    -->
            *  bc(r^n) step(rc - r_{i0, j0}) c(r^n\{i0, j0}) dr^n
-           * with Rc > rc */
-          if (r2ij[pj][pi] < dblsqr(gc->rc[iens - 1] * gc->sr[iens - 1]))
+           * where Rc > rc */
+          if ( r2ij[pj][pi] < dblsqr(gc->rc[iens - 1] * gc->sr[iens - 1]) )
             acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i,
                   1. / gc->sr[iens - 1], 1., 0);
-          //printf("t %g, nmove- 1, acc %d, iens %d, n %d\n", t, acc, iens, g->n);
-#ifdef CHECK
-          check(g, x, r2ij, gc, iens - acc, pi, pj, t, "nmove_restraineddown2pure");
-#endif
         }
         gc->ndown[iens][0] += 1;
         gc->ndown[iens][1] += acc;
         if ( acc ) iens--;
       }
+      smove = "nmove";
     }
     else /* configuration sampling */
     {
@@ -965,24 +957,19 @@ static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
         cacc += 1;
       } else if (iens % mtiers == 0) { /* pure state sampling */
         int i;
-        //printf("t %g, cmove 0\n", t);
         BCSTEPR2(acc, i, g->n, g, ng, x, xi, r2ij, r2i, mcamp, gaussdisp);
         cacc += acc;
-#ifdef CHECK
-        check(g, x, r2ij, gc, iens, pi, pj, t, "cfg");
-#endif
       } else { /* distance-restrained sampling */
-        //printf("t %g, cmove 1\n", t);
         cacc += bcrstep(pi, pj, g, ng, x, xi, r2ij, r2i,
             gc->rc[iens], mcamp, gaussdisp);
         prtot += 1;
         pracc += changenapair(&pi, &pj, g, r2ij, gc->rc[iens]);
-#ifdef CHECK
-        check(g, x, r2ij, gc, iens, pi, pj, t, "cfgr");
-#endif
       }
+      smove = "cfg";
     }
 STEP_END:
+    if (nstcheck > 0 && it % nstcheck == 0)
+      check(g, x, r2ij, gc, iens0, iens, pi, pj, t, smove);
     /* center the structure */
     if (it % nstcom == 0) shiftr2ij(g, x, r2ij);
     gc->hist[iens] += 1;

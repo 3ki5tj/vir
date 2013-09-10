@@ -39,7 +39,8 @@ mcgcx.c     supposed to be a better version than mcgcr.c
             involves a scaling of diagrams
             developed before mcgcr.c
 
-
+mcgcr.v1.c  Metropolis and heat-bath algorithms for mcgcr
+mcgcr2.v1.c very few differences
 
 
 Monte Carlo sampling
