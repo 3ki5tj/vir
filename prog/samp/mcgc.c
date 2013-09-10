@@ -9,10 +9,10 @@
 
 
 
-int nmin = 3; /* the minimal order of virial coefficients */
+int nmin = 1; /* the minimal order of virial coefficients */
 int nmax = DG_NMAX; /* the maximal order of virial coefficients */
 real mcamp = 1.5f;
-int nequil = 10000000;
+double nequil = 10000000;
 double nsteps = 10000000;
 double ratn = 0.5; /* frequency of n-moves */
   /* this version used a simple n-move, which is on average faster than
@@ -63,7 +63,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-Q",    "%lf",  &mindata, "minimal number of data points to warrant parameter update");
   argopt_add(ao, "-q",    "%d",   &nstsave, "interval of saving data");
   argopt_add(ao, "-E",    "%d",   &neql,    "number of equilibration rounds");
-  argopt_add(ao, "-0",    "%d",   &nequil,  "number of equilibration steps per round");
+  argopt_add(ao, "-0",    "%lf",  &nequil,  "number of equilibration steps per round");
   argopt_add(ao, "-M",    "%d",   &nstcom,  "interval of centering the structure");
   argopt_add(ao, "-R",    "%b",   &restart, "run a restartable simulation");
   argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation");
@@ -166,7 +166,7 @@ static void printZr(int nmax, const double *Zr, const double *Z,
 {
   int i;
 
-  for (i = 3; i <= nmax; i++) {
+  for (i = nmin; i <= nmax; i++) {
     printf("%2d %9.6f %.6e %12.0f %.5f %.5f %7.4f %10.8f %9.6f %+9.6f %+.7e\n",
         i, Zr[i], Z[i], hist[i],
         nup[i-1][1] / nup[i-1][0], ndown[i][1] / ndown[i][0],
@@ -185,7 +185,7 @@ static void printZr(int nmax, const double *Zr, const double *Z,
 /* save the partition function to file
  * we save the ratio of the successive values, such that one can modify
  * a particular value without affecting later ones */
-static int saveZr(const char *fn, int nmax,
+static int saveZr(const char *fn, int nmin, int nmax,
     const double *Zr, const double *Z, const double *hist,
     double (*nup)[2], double (*ndown)[2],
     double (*nedg)[2], double (*ncsp)[2],
@@ -198,8 +198,8 @@ static int saveZr(const char *fn, int nmax,
 
   mkfnZrdef(fn, fndef, D, nmax);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "# %d %d V2 %d\n", D, nmax, nedxmax);
-  for (i = 3; i <= nmax; i++) {
+  fprintf(fp, "# %d %d V3 %d %d\n", D, nmax, nmin, nedxmax);
+  for (i = nmin; i <= nmax; i++) {
     fprintf(fp, "%3d %18.14f %20.14e %14.0f %14.0f %14.0f %.14f %.14f "
         "%14.0f %14.0f %14.0f %18.14f %16.14f %16.14f %+17.14f %+20.14e\n",
         i, Zr[i], Z[i], hist[i], nup[i-1][0], ndown[i][0],
@@ -223,7 +223,7 @@ static int loadZr(const char *fn, double *Zr, int nmax,
     double (*nedg)[2], double (*ncsp)[2], double (*fbsm)[3])
 {
   FILE *fp;
-  int i = -1, d = 0, n = 0, offset = 0, next = 0, ver = 0;
+  int i = -1, d = 0, n = 0, n0 = 3, offset = 0, next = 0, ver = 0;
   char s[512], fndef[64], sver[16] = "", *p;
 
   mkfnZrdef(fn, fndef, D, nmax);
@@ -236,7 +236,7 @@ static int loadZr(const char *fn, double *Zr, int nmax,
     return -1;
   }
   if (s[0] == '#') {
-    if (sscanf(s + 1, "%d%d%8s", &d, &n, sver) != 3
+    if (sscanf(s + 1, "%d%d%8s%d", &d, &n, sver, &n0) != 4
      || d != D) {
       fprintf(stderr, "%s dimension %d vs. D %d\n%s", fn, d, D, s);
       fclose(fp);
@@ -254,7 +254,8 @@ static int loadZr(const char *fn, double *Zr, int nmax,
   /* offset is 1 in version 0 */
   offset = (ver == 0) ? 1 : 0;
   Zr[0] = Zr[1] = 1;
-  for (i = 3 - offset; i <= nmax; i++) {
+  if (ver == 0) n0 = 2; else if (ver <= 2) n0 = 3;
+  for (i = n0; i <= nmax; i++) {
     double Z;
 
     if (fgets(s, sizeof s, fp) == NULL)
@@ -316,7 +317,7 @@ static int initZr(double *Zr, int nmax, int i0)
     imax = i0;
   }
   fprintf(stderr, "initial Zr (i0 %d, imax %d, nmax %d):\n", i0, imax, nmax);
-  for (i = 3; i <= imax; i++)
+  for (i = 1; i <= imax; i++)
     fprintf(stderr, "%4d %16.8f\n", i, Zr[i]);
   return imax;
 }
@@ -342,7 +343,12 @@ static void accumdata(const dg_t *g, double t, int nstcs, int nstfb,
 
   if (n <= nlookup || ((int) fmod(t, nstcs) == 0) ) {
     /* check if the graph has a clique separator */
-    if (n <= nlookup) { /* lookup table */
+    if (n <= 3) {
+      int fbarr[4] = {1, 1, -1, -1};
+      err = 0;
+      ncs = 1;
+      fb = fbarr[n];
+    } else if (n <= nlookup) { /* lookup table */
       code_t code;
       unqid_t uid;
       dgmap_t *m = dgmap_ + n;
@@ -389,9 +395,9 @@ static void accumdata(const dg_t *g, double t, int nstcs, int nstfb,
 
 /* grand canonical simulation, main function */
 static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
-    int neql, int nequil, int nstsave)
+    int neql, double nequil, int nstsave)
 {
-  int i, j, n, deg, conn[DG_NMAX], Znmax, acc1, it, ieql;
+  int i, j, n, deg, conn[DG_NMAX], Znmax, acc, it, ieql;
   dg_t *g, *ng;
   double t, cacc = 0, ctot = 0;
   rvn_t x[DG_NMAX], xi;
@@ -433,7 +439,7 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
       if (rnd0() < 0.5) { /* add an vertex */
         if (n >= nmax) goto STEP_END;
         /* attach a new vertex to a random vertex */
-        i = (int) (rnd0() * n);
+        i = (n == 1) ? 0 : (int) (rnd0() * n);
         rvn_inc(rvn_rndball(x[n], rc[n + 1]), x[i]);
         /* test if adding x[n] leaves the diagram biconnected */
         for (deg = 0, j = 0; j < n; j++) {
@@ -444,14 +450,11 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
             conn[j] = 0;
           }
         }
-        nup[n][0] += 1;
+        if ( n == 1 ) deg *= 2;
         /* the extended configuration is biconnected
          * if x[n] is connected two vertices */
-        if ( deg >= 2 )
-#if 0 /* if vol[n + 1] != Zr[n + 1] */
-        if ( deg >= 2 && rnd0() < vol[n + 1] / Zr[n + 1] )
-#endif
-        {
+        nup[n][0] += 1;
+        if ( deg >= 2 ) {
           nup[n][1] += 1;
           g->n  = n + 1;
           for (j = 0; j < n; j++) {
@@ -467,12 +470,8 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
         die_if (i == j || i >= n || j >= n, "bad i %d, j %d, n %d\n", i, j, g->n);
         /* test if * the graph is biconnected without i
          * and the pair i and j are connected */
-        if ( dg_biconnectedvs(g, mkbitsmask(n) ^ MKBIT(i))
-          && rvn_dist2(x[i], x[j]) < rc2[n] )
-#if 0  /* if vol[n] != Zr[n] */
-          && rnd0() < Zr[n] / vol[n]
-#endif
-        {
+        if ( ( n == 2 || dg_biconnectedvs(g, mkbitsmask(n) ^ MKBIT(i)) )
+          && rvn_dist2(x[i], x[j]) < rc2[n] ) {
           ndown[n][1] += 1;
           //for (j = i; j < n - 1; j++) rvn_copy(x[j], x[j + 1]);
           dg_remove1(g, g, i); /* g->n is decreased by 1 here */
@@ -483,9 +482,9 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
     }
     else /* configuration sampling */
     {
-      BCSTEP(acc1, i, n, g, ng, x, xi, mcamp, gaussdisp);
+      if ( n > 1 ) BCSTEP(acc, i, n, g, ng, x, xi, mcamp, gaussdisp);
       ctot += 1;
-      cacc += acc1;
+      cacc += acc;
     }
 STEP_END:
     hist[g->n] += 1;
@@ -494,9 +493,10 @@ STEP_END:
     if (it % nstcom == 0) /* remove the center of mass motion */
       rvn_rmcom(x, g->n);
     if (ieql) { /* equilibration */
-      if (it % nequil == 0) {
+      if ((int) fmod(t + .5, nequil) == 0) {
         updateZr(nmin, nmax, Zr, nup, ndown, mindata);
         computeZ(nmax, Z, B, Zr, fbsm);
+        saveZr("Zr.tmp", nmin, Znmax, Zr, Z, hist, nup, ndown, nedg, ncsp, fbsm, B);
         printZr(nmax, Zr, Z, hist, nup, ndown, nedg, ncsp, fbsm, B);
         printf("equilibration stage %d/%d\n", ieql, neql);
         cleardata(nmax, hist, nup, ndown, nedg, ncsp, fbsm);
@@ -510,9 +510,9 @@ STEP_END:
         updateZr(nmin, nmax, Zr1, nup, ndown, mindata);
         computeZ(nmax, Z, B, Zr1, fbsm);
         if (restart) { /* don't write the new Zr for a restartable simulation */
-          saveZr(fnout, Znmax, Zr, Z, hist, nup, ndown, nedg, ncsp, fbsm, B);
+          saveZr(fnout, nmin, Znmax, Zr, Z, hist, nup, ndown, nedg, ncsp, fbsm, B);
         } else {
-          saveZr(fnout, Znmax, Zr1, Z, hist, nup, ndown, nedg, ncsp, fbsm, B);
+          saveZr(fnout, nmin, Znmax, Zr1, Z, hist, nup, ndown, nedg, ncsp, fbsm, B);
         }
         it = 0;
       }

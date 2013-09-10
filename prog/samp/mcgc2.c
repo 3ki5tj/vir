@@ -13,7 +13,7 @@
 int nmin = 1; /* the minimal order of virial coefficients */
 int nmax = DG_NMAX; /* the maximal order of virial coefficients */
 real mcamp = 1.5f;
-int nequil = 10000000;
+double nequil = 10000000;
 double nsteps = 10000000;
 double ratn = 0.5; /* frequency of n-moves */
   /* this version used a simple n-move, which is on average faster than
@@ -67,7 +67,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-Q",    "%lf",  &mindata, "minimal number of data points to warrant parameter update");
   argopt_add(ao, "-q",    "%d",   &nstsave, "interval of saving data");
   argopt_add(ao, "-E",    "%d",   &neql,    "number of equilibration rounds");
-  argopt_add(ao, "-0",    "%d",   &nequil,  "number of equilibration steps per round");
+  argopt_add(ao, "-0",    "%lf",  &nequil,  "number of equilibration steps per round");
   argopt_add(ao, "-M",    "%d",   &nstcom,  "interval of centering the structure");
   argopt_add(ao, "-R",    "%b",   &restart, "run a restartable simulation (do not overwrite Zr & rc on output)");
   argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation");
@@ -231,7 +231,7 @@ static void printZr(int nmax, int nmin, const double *Zr,
 /* save the partition function to file
  * we save the ratio of the successive values, such that one can modify
  * a particular value without affecting later ones */
-static int saveZr(const char *fn, int nmax, int nmin,
+static int saveZr(const char *fn, int nmin, int nmax,
     const double *Zr, const real *rc,
     const double *Z, const double *hist,
     double (*nup)[2], double (*ndown)[2],
@@ -240,15 +240,14 @@ static int saveZr(const char *fn, int nmax, int nmin,
     double (*fbsm)[3], const double *B)
 {
   FILE *fp;
-  int i = 3;
   char fndef[64];
+  int i;
   double tot = 0;
 
   mkfnZrdef(fn, fndef, D, nmax);
   xfopen(fp, fn, "w", return -1);
   fprintf(fp, "#H %d %d V3 %d %d\n", D, nmax, nmin, nedxmax);
-  if (i > nmin) i = nmin;
-  for (; i <= nmax; i++) {
+  for (i = nmin; i <= nmax; i++) {
     fprintf(fp, "%3d %18.14f %20.14e %18.14f "
         "%14.0f %14.0f %14.0f %.14f %.14f %14.0f %.14f "
         "%14.0f %14.0f %14.0f %18.14f %16.14f %16.14f %+17.14f %+20.14e\n",
@@ -302,6 +301,7 @@ static int loadZr(const char *fn, double *Zr, real *rc, int nmax,
   }
 
   Zr[0] = Zr[1] = 1;
+  if (ver <= 2) n0 = 3;
   for (i = n0; i <= nmax; i++) {
     double Z, rc1;
 
@@ -445,7 +445,7 @@ INLINE int getpair(int *pi, int *pj, const dg_t *g,
 
 /* grand canonical simulation, main function */
 static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
-    int neql, int nequil, int nstsave)
+    int neql, double nequil, int nstsave)
 {
   int i, j, k, n, npr, deg, Znmax, acc, it, ieql;
   dg_t *g, *ng;
@@ -499,16 +499,17 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
       if (rnd0() < 0.5) { /* add an vertex */
         if (n >= nmax) goto STEP_END;
         /* attach a new vertex to a random vertex */
-        i = (int) (rnd0() * n);
+        i = (n == 1) ? 0 : (int) (rnd0() * n);
         rvn_inc(rvn_rndball(x[n], rc[n + 1]), x[i]);
         /* test if adding x[n] leaves the diagram biconnected */
         for (deg = 0, j = 0; j < n; j++)
           if ( (r2i[j] = rvn_dist2(x[n], x[j])) < 1 )
             ++deg;
-        nup[n][0] += 1;
+        if ( n == 1 ) deg *= 2;
         /* the extended configuration is biconnected
          * if x[n] is connected two vertices */
-        if (deg >= 2 || n == 1) {
+        nup[n][0] += 1;
+        if ( deg >= 2 ) {
           g->n = n + 1;
           for (j = 0; j < n; j++) {
             r2ij[j][n] = r2ij[n][j] = r2i[j];
@@ -570,10 +571,10 @@ STEP_END:
     if (it % nstcom == 0) /* remove the center of mass motion */
       shiftr2ij(g, x, r2ij);
     if (ieql) { /* equilibration */
-      if (it % nequil == 0) {
+      if ((int) fmod(t + .5, nequil) == 0) {
         updateZr(nmin, nmax, updrc, Zr, rc, Zr, rc, mindata, nup, ndown, ngpr);
         computeZ(nmax, Z, B, Zr, rc, fbsm);
-        saveZr("Zr.tmp", Znmax, nmin, Zr, rc, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
+        saveZr("Zrh.tmp", nmin, Znmax, Zr, rc, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
         printZr(nmax, nmin, Zr, rc, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
         printf("equilibration stage %d/%d\n", ieql, neql);
         cleardata(nmax, hist, nup, ndown, ngpr, nedg, ncsp, fbsm);
@@ -587,9 +588,9 @@ STEP_END:
         updateZr(nmin, nmax, updrc, Zr1, rc1, Zr, rc, mindata, nup, ndown, ngpr);
         computeZ(nmax, Z, B, Zr1, rc1, fbsm);
         if (restart) { /* don't write the new Zr for a restartable simulation */
-          saveZr(fnout, Znmax, nmin, Zr, rc, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
+          saveZr(fnout, nmin, Znmax, Zr, rc, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
         } else {
-          saveZr(fnout, Znmax, nmin, Zr1, rc1, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
+          saveZr(fnout, nmin, Znmax, Zr1, rc1, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
         }
         it = 0;
       }

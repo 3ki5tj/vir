@@ -9,11 +9,11 @@
 
 
 
-int nmin = 2; /* the minimal order of virial coefficients */
+int nmin = 1; /* the minimal order of virial coefficients */
 int nmax = DG_NMAX; /* the maximal order of virial coefficients */
 int mtiers = 2;
 real mcamp = 1.5f;
-int nequil = 10000000;
+double nequil = 10000000;
 double nsteps = 10000000;
 double ratn = 0.5;
 int gaussdisp = 0;
@@ -71,7 +71,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-Q",    "%lf",  &mindata, "minimal number of data points to warrant parameter update");
   argopt_add(ao, "-q",    "%d",   &nstsave, "interval of saving data");
   argopt_add(ao, "-E",    "%d",   &neql,    "number of equilibration rounds");
-  argopt_add(ao, "-0",    "%d",   &nequil,  "number of equilibration steps per round");
+  argopt_add(ao, "-0",    "%lf",  &nequil,  "number of equilibration steps per round");
   argopt_add(ao, "-M",    "%d",   &nstcom,  "interval of centering the structure");
   argopt_add(ao, "-R",    "%b",   &restart, "run a restartable simulation");
   argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation");
@@ -526,7 +526,7 @@ static int gc_saveZrr(gc_t *gc, const char *fn,
 static int gc_load(gc_t *gc, const char *fn, int loadall)
 {
   FILE *fp;
-  int i = -1, nens, d = 0, n, tp, ens0 = 0, n0, m = 0, ver = 0, next;
+  int i = -1, nens, d = 0, n, tp, ens0 = 0, n0 = 1, m = 0, ver = 0, next;
   char s[512], fndef[64], sver[16], *p;
 
   mkfnZrrdef(fn, fndef, D, gc->m - 1, gc->nmax);
@@ -677,13 +677,14 @@ INLINE int nmove_pureup2restrained(int *i0, dg_t *g,
   /* the Zr step is cheaper, so we do it first */
   if (Zr < 1 && rnd0() >= Zr) return 0;
 
-  *i0 = (int) (rnd0() * n); /* randomly choose a vertex as the root */
+  *i0 = (n == 1) ? 0 : (int) (rnd0() * n); /* randomly choose a vertex as the root */
   /* xn = x0 + rc * rndball */
   rvn_inc( rvn_rndball(x[n], rc), x[*i0] );
   /* biconnectivity means to be linked to two vertices */
   for (i = 0; i < n; i++)
     if ( (r2ij[n][i] = r2ij[i][n] = rvn_dist2(x[i], x[n])) < 1 )
       deg++;
+  if ( n == 1 ) deg *= 2;
   if ( deg < 2 ) return 0;
   /* update the graph */
   g->n = n + 1;
@@ -712,7 +713,7 @@ INLINE int nmove_restraineddown2pure(int i0, int j0,
 
   if (Zr < 1 && rnd0() >= Zr) return 0;
   i = (rnd0() > 0.5) ? i0 : j0;
-  if ( !dg_biconnectedvs(g, mkbitsmask(n) ^ MKBIT(i)) )
+  if ( n > 2 && !dg_biconnectedvs(g, mkbitsmask(n) ^ MKBIT(i)) )
     return 0;
   dg_remove1(g, g, i);
   /* update x */
@@ -830,7 +831,7 @@ INLINE int check(const dg_t *g, rvn_t *x, real (*r2ij)[DG_NMAX],
 
 
 static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
-    real mcamp, int neql, int nequil, int nstsave)
+    real mcamp, int neql, double nequil, int nstsave)
 {
   double t, ctot = 0, cacc = 0, pracc = 0;
   int iens, ensmax, ensmin, acc, it, ieql;
@@ -924,7 +925,7 @@ static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
           /* move after a scaling of two random vertices */
           if (gc->type[iens] == GCX_PURE) {
             pj = randpair(g->n, &pi); /* select a pair */
-            acc = dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(pi) ^ MKBIT(pj));
+            acc = (g->n <= 3 || dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(pi) ^ MKBIT(pj)));
           } else { /* (pi, pj) is certainly not articulated */
             acc = 1;
           }
@@ -955,7 +956,9 @@ static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
     else /* configuration sampling */
     {
       ctot += 1;
-      if (iens % mtiers == 0) { /* pure state sampling */
+      if (g->n == 1) {
+        cacc += 1;
+      } else if (iens % mtiers == 0) { /* pure state sampling */
         int i;
         //printf("t %g, cmove 0\n", t);
         BCSTEPR2(acc, i, g->n, g, ng, x, xi, r2ij, r2i, mcamp, gaussdisp);
@@ -980,7 +983,7 @@ STEP_END:
     if (gc->type[iens] == GCX_PURE && rnd0() * nsted < 1)
       gc_accumdata(gc, g, t, nstcs, nstfb);
     if (ieql) { /* equilibration */
-      if (it % nequil == 0) {
+      if ((int) fmod(t + .5, nequil) == 0) {
         gc_update(gc, mindata, updrc, gc->Zr, gc->rc, gc->sr);
         gc_computeZ(gc, gc->Zr, gc->rc, gc->sr);
         gc_saveZrr(gc, "Zrr.tmp", gc->Zr, gc->rc, gc->sr);
