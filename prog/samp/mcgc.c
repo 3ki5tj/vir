@@ -35,7 +35,10 @@ int nstfb = -1;
 int nedxmax = -1;
 int gaussdisp = 0;
 
-int neql = 0; /* rounds of equilibration (in which Z is updated) */
+int neql = -1; /* number of equilibration stages
+                 == 0: disable
+                 >  0: Zr, sr are updated after each round
+                 <  0: Zr, sr are not updated, one round */
 int nstsave = 1000000000; /* interval of saving data */
 
 int restart = 0; /* restartable simulation */
@@ -62,7 +65,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-X",    "%d",   &nedxmax, "maximal number of extra edges for computing fb");
   argopt_add(ao, "-Q",    "%lf",  &mindata, "minimal number of data points to warrant parameter update");
   argopt_add(ao, "-q",    "%d",   &nstsave, "interval of saving data");
-  argopt_add(ao, "-E",    "%d",   &neql,    "number of equilibration rounds");
+  argopt_add(ao, "-E",    "%d",   &neql,    "number of equilibration stages, 0: disable, > 0: update Zr & sr, < 0: 1 round no update");
   argopt_add(ao, "-0",    "%lf",  &nequil,  "number of equilibration steps per round");
   argopt_add(ao, "-M",    "%d",   &nstcom,  "interval of centering the structure");
   argopt_add(ao, "-R",    "%b",   &restart, "run a restartable simulation");
@@ -137,22 +140,33 @@ static void updateZr(int nmin, int nmax, double *Zr,
 
 
 
-/* compute the partition function */
+/* compute the partition function
+ * assuming updateZr() has been called */
 static void computeZ(int nmax, double *Z, double *B, const double *Zr,
     double (*fbsm)[3])
 {
   int i;
-  double x, fbav, fac;
+  double z, fbav, fac;
 
   Z[0] = Z[1] = 1;
   B[0] = B[1] = 1;
-  for (fac = 1, x = 1, i = 2; i <= nmax; i++) {
-    x *= Zr[i];
+  for (fac = 1, z = 1, i = 2; i <= nmax; i++) {
+    z *= Zr[i];
+    if (i <= 4) { /* reset the exact values */
+      if (i <= 2) z = 1;
+      else if (i == 3) {
+        printf("Z3: %g to %g (ref)\n", z, Z3rat(D));
+        z = Z3rat(D);
+      } else if (i == 4) {
+        printf("Z4: %g vs %g (ref. %s)\n", z, Z4rat(D), D > 12 ? "approx." : "exact");
+        if (D < 12) z = Z4rat(D);
+      }
+    }
     fac *= 2./i;
     fbav = fbsm[i][1] / fbsm[i][0];
-    Z[i] = x;
+    Z[i] = z;
     /* B(i)/B(2)^(i-1) = (1-i) 2^(i-1) / i! Z(i)/Z(2)^(i-1) <fb(i)> */
-    B[i] = (1-i) * fac * x * fbav;
+    B[i] = (1 - i) * fac * z * fbav;
   }
 }
 
@@ -198,7 +212,7 @@ static int saveZr(const char *fn, int nmin, int nmax,
 
   mkfnZrdef(fn, fndef, D, nmax);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "# %d %d V3 %d %d\n", D, nmax, nmin, nedxmax);
+  fprintf(fp, "# %d %d V3 %d 0 %d\n", D, nmax, nmin, nedxmax);
   for (i = nmin; i <= nmax; i++) {
     fprintf(fp, "%3d %18.14f %20.14e %14.0f %14.0f %14.0f %.14f %.14f "
         "%14.0f %14.0f %14.0f %18.14f %16.14f %16.14f %+17.14f %+20.14e\n",

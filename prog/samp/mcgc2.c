@@ -23,6 +23,7 @@ real rc0 = 1; /* initial rc */
 double mindata = 100; /* minimal # of data points to make update */
 const char *fninp = NULL; /* input file */
 const char *fnout = NULL; /* output file */
+const char *fnZrtmp = "Zrh.tmp"; /* temporary output file */
 int nstcom = 10000;
 int nsted = 10;
 int nstcs = 100;
@@ -44,6 +45,10 @@ int restart = 0; /* restartable simulation */
 int bsim0 = 0; /* first simulation */
 int updrc = 1; /* update rc */
 
+/* nmove type, 0: Metropolis, 1: heat-bath */
+int nmvtype = 1;
+
+
 
 /* handle arguments */
 static void doargs(int argc, char **argv)
@@ -60,6 +65,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-c",    "%r",   &rc0,     "initial rc");
   argopt_add(ao, "-i",    NULL,   &fninp,   "input file");
   argopt_add(ao, "-o",    NULL,   &fnout,   "output file");
+  argopt_add(ao, "-T",    NULL,   &fnZrtmp, "temporary output file");
   argopt_add(ao, "-G",    "%d",   &nsted,   "interval of computing the # of edges");
   argopt_add(ao, "-A",    "%d",   &nstcs,   "interval of computing clique separator");
   argopt_add(ao, "-F",    "%d",   &nstfb,   "interval of computing fb");
@@ -72,6 +78,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-R",    "%b",   &restart, "run a restartable simulation (do not overwrite Zr & rc on output)");
   argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation");
   argopt_add(ao, "-C",    "%b",   &norc,    "do not update rc");
+  argopt_add(ao, "-W",    "%d",   &nmvtype, "nmove type, 0: Metropolis, 1: heatbath");
 
   argopt_parse(ao, argc, argv);
 
@@ -79,6 +86,9 @@ static void doargs(int argc, char **argv)
   mcamp /= D;
 
   if (norc) updrc = 0;
+
+  /* Metropolis move */
+  if (nmvtype == 0) updrc = 0;
 
   /* make nstcs a multiple of nsted */
   nstcs = (nstcs + nsted - 1) / nsted * nsted;
@@ -141,8 +151,8 @@ static void updateZr(int nmin, int nmax, int updrc,
   for (i = nmin + 1; i <= nmax; i++) {
     if (i == 2) continue; /* exact */
     r = getrrat(nup[i - 1][1], nup[i - 1][0], ndown[i][1], ndown[i][0],
-        mindata, 0.5, 2.);
-    if (updrc && ngpr[i][1] > mindata) {
+        mindata, 0.7, 1.4);
+    if (nmvtype == 1 && updrc && ngpr[i][1] > mindata) {
       /* we treat Zr as the factor used in the acceptance probability
        *  Acc(n -> n-1) = min{1, Zr E}
        * and
@@ -160,13 +170,13 @@ static void updateZr(int nmin, int nmax, int updrc,
     } else { /* update Zr only */
       Zr[i] *= r;
     }
-    //printf("update: i %d, Zr %g, rc %g\n", i, Zr[i], rc[i]);
+    if (nmvtype == 0) rc[i] = pow(Zr[i], 1. / D);
   }
 }
 
 
 
-/* compute the partition function,
+/* compute the partition function
  * assuming updateZr() has been called */
 static void computeZ(int nmax, double *Z, double *B, const double *Zr,
     const double *rc, double (*fbsm)[3])
@@ -181,7 +191,8 @@ static void computeZ(int nmax, double *Z, double *B, const double *Zr,
      *  AR(n->n-1)/AR(n-1->n) = 1 = rc*^D f* n (n - 1) / ZZ
      * where, ZZ = Z(n)/Z(n-1) is the ratio of the actual
      * partition function. */
-    z *= Zr[i] * pow(rc[i], D) * i * (i - 1);
+    z *= Zr[i];
+    if (nmvtype == 1) z *= pow(rc[i], D) * i * (i - 1);
     if (i <= 4) { /* reset the exact values */
       if (i <= 2) z = 1;
       else if (i == 3) {
@@ -223,8 +234,9 @@ static void printZr(int nmax, int nmin, const double *Zr,
 
 
 
-#define mkfnZrdef(fn, fndef, d, n) \
-  if (fn == NULL) { sprintf(fndef, "ZrhD%dn%d.dat", d, n); fn = fndef; }
+#define mkfnZrdef(fn, fndef, d, n) if (fn == NULL) { \
+  sprintf(fndef, "Zr%sD%dn%d.dat", (nmvtype == 1) ? "h" : "", d, n); \
+  fn = fndef; }
 
 
 
@@ -246,15 +258,16 @@ static int saveZr(const char *fn, int nmin, int nmax,
 
   mkfnZrdef(fn, fndef, D, nmax);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "#H %d %d V3 %d %d\n", D, nmax, nmin, nedxmax);
+  fprintf(fp, "#%s %d %d %d %d V3 %d\n", (nmvtype == 1) ? "H" : "",
+      D, nmax, nmin, nmvtype, nedxmax);
   for (i = nmin; i <= nmax; i++) {
     fprintf(fp, "%3d %18.14f %20.14e %18.14f "
-        "%14.0f %14.0f %14.0f %.14f %.14f %14.0f %.14f "
-        "%14.0f %14.0f %14.0f %18.14f %16.14f %16.14f %+17.14f %+20.14e\n",
-        i, Zr[i], Z[i], rc[i],
-        hist[i], nup[i-1][0], ndown[i][0],
-        nup[i-1][1] / nup[i-1][0], ndown[i][1] / ndown[i][0],
-        ngpr[i][0], ngpr[i][1] / ngpr[i][0],
+        "%14.0f %14.0f %14.0f %.14f %.14f ",
+        i, Zr[i], Z[i], rc[i], hist[i], nup[i-1][0], ndown[i][0],
+        nup[i-1][1] / nup[i-1][0], ndown[i][1] / ndown[i][0]);
+    if (nmvtype == 1)
+      fprintf(fp, "%14.0f %.14f ", ngpr[i][0], ngpr[i][1] / ngpr[i][0]);
+    fprintf(fp, "%14.0f %14.0f %14.0f %18.14f %16.14f %16.14f %+17.14f %+20.14e\n",
         nedg[i][0], ncsp[i][0], fbsm[i][0],
         nedg[i][1] / nedg[i][0], ncsp[i][1] / ncsp[i][0],
         fbsm[i][2] / fbsm[i][0], fbsm[i][1] / fbsm[i][0], B[i]);
@@ -275,7 +288,7 @@ static int loadZr(const char *fn, double *Zr, real *rc, int nmax,
     double (*nedg)[2], double (*ncsp)[2], double (*fbsm)[3])
 {
   FILE *fp;
-  int i = -1, d = 0, n = 0, n0 = 3, next = 0, ver = 0;
+  int i = -1, d = 0, n = 0, n0 = 1, offset = 0, next = 0, ver = 0;
   char s[512], fndef[64], sver[16] = "", *p;
 
   mkfnZrdef(fn, fndef, D, nmax);
@@ -287,41 +300,58 @@ static int loadZr(const char *fn, double *Zr, real *rc, int nmax,
     fclose(fp);
     return -1;
   }
-  if ( s[0] != '#' || s[1] != 'H'
-    || sscanf(s + 2, "%d%d%8s%d", &d, &n, sver, &n0) != 4
+  if ( s[0] != '#' || (nmvtype == 1 && s[1] != 'H')
+    || sscanf(s + 2, "%d%d%8s%d%n", &d, &n, sver, &n0, &next) != 4
     || d != D) {
-    fprintf(stderr, "%s dimension %d vs. D %d\n%s", fn, d, D, s);
+    fprintf(stderr, "%s: D %d vs %d\n%s", fn, d, D, s);
     fclose(fp);
     return -1;
   }
   ver = atoi(sver[0] == 'V' ? sver + 1 : sver); /* strip V */
+  if ( ver >= 3
+    && ( sscanf(s + 2 + next, "%d", &i) != 1 || i != nmvtype ) ) {
+    fprintf(stderr, "%s: mvtype %d vs %d\n%s", fn, i, nmvtype, s);
+    fclose(fp);
+    return -1;
+  }
   if (loadall && ver <= 2) {
-    fprintf(stderr, "%s version %s does not have enough data\n", fn, sver);
+    fprintf(stderr, "%s: %s does not have enough data\n", fn, sver);
     loadall = 0;
   }
 
+  offset = (ver == 0) ? 1 : 0;
   Zr[0] = Zr[1] = 1;
-  if (ver <= 2) n0 = 3;
+  if (ver == 0) n0 = 2; else if (ver <= 2) n0 = 3;
   for (i = n0; i <= nmax; i++) {
     double Z, rc1;
 
     if (fgets(s, sizeof s, fp) == NULL)
       break;
-    if (4 != sscanf(s, "%d%lf%lf%lf%n", &n, &Zr[i], &Z, &rc1, &next)
-        || i != n) {
-      fprintf(stderr, "%s ends on line %d, version %d\n%s", fn, i, ver, s);
+    if ( 4 != sscanf(s, "%d%lf%lf%lf%n", &n, &Zr[i], &Z, &rc1, &next)
+      || i != n + offset) {
+      fprintf(stderr, "%s V%d: ends on line %d(n %d)\n%s", fn, ver, i, n, s);
       break;
     }
     rc[i] = (real) rc1;
     if (loadall) { /* try to get additional data */
       p = s + next;
-      if (14 != sscanf(p, "%lf%lf%lf%lf%lf%lf%lf%lf%lf%lf%lf%lf%lf%lf",
-            &hist[i], &nup[i-1][0], &ndown[i][0],
-            &nup[i-1][1], &ndown[i][1],
-            &ngpr[i][0], &ngpr[i][1],
-            &nedg[i][0], &ncsp[i][0], &fbsm[i][0],
-            &nedg[i][1], &ncsp[i][1], &fbsm[i][2], &fbsm[i][1]) ) {
-        fprintf(stderr, "%s corrupted on line %d\n%s", fn, i, s);
+      if ( 5 != sscanf(p, "%lf%lf%lf%lf%lf%n", &hist[i], &nup[i-1][0],
+                &ndown[i][0], &nup[i-1][1], &ndown[i][1], &next) ) {
+        fprintf(stderr, "%s: corrupted(I) on line %d\n%s", fn, i, s);
+        break;
+      }
+      p += next;
+      if (nmvtype == 1) {
+        if ( 2 != sscanf(p, "%lf%lf%n", &ngpr[i][0], &ngpr[i][1], &next) ) {
+          fprintf(stderr, "%s: corrupted(II) on line %d\n%s", fn, i, s);
+          break;
+        }
+        p += next;
+      }
+      if ( 7 != sscanf(p, "%lf%lf%lf%lf%lf%lf%lf",
+             &nedg[i][0], &ncsp[i][0], &fbsm[i][0],
+             &nedg[i][1], &ncsp[i][1], &fbsm[i][2], &fbsm[i][1]) ) {
+        fprintf(stderr, "%s: corrupted(III) on line %d\n%s", fn, i, s);
         break;
       }
       if (nup[i-1][0] <= 0) nup[i-1][0] = 1e-20;
@@ -415,7 +445,7 @@ static void accumdata(const dg_t *g, double t, int nstcs, int nstfb,
 
 
 
-/* get a pair of vertices within rc2 */
+/* get a pair of vertices within rc */
 INLINE int getpair(int *pi, int *pj, const dg_t *g,
     real r2ij[][DG_NMAX], real rc)
 {
@@ -470,17 +500,26 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
 
   cleardata(nmax, hist, nup, ndown, ngpr, nedg, ncsp, fbsm);
   /* initialize the partition function */
-  for (i = 0; i <= DG_NMAX; i++) {
-    Zr[i] = 1;
-    rc[i] = rc0;
+  if (nmvtype == 1) { /* heat-bath algorithm */
+    for (i = 0; i <= DG_NMAX; i++) {
+      Zr[i] = 1;
+      rc[i] = rc0;
+    }
+    Zr[2] = 0.5;
+    rc[2] = 1;
+  } else { /* Metropolis algorithm */
+    Zr[0] = Zr[1] = Zr[2] = 1;
+    Zr[3] = Z3rat(D);
+    Zr[4] = Z4rat(D) / Zr[3];
+    for (i = 5; i <= DG_NMAX; i++) Zr[i] = 0.66 * i;
   }
-  Zr[2] = 0.5;
-  rc[2] = 1;
   i = loadZr(fninp, Zr, rc, nmax, restart && !bsim0,
       hist, nup, ndown, ngpr, nedg, ncsp, fbsm);
   Znmax = (i > nmax) ? i : nmax;
-  for (i = nmin; i <= nmax; i++)
+  for (i = nmin; i <= nmax; i++) {
+    if (nmvtype == 0) rc[i] = pow(Zr[i], 1./D);
     printf("%3d: %.6f %.6f\n", i, Zr[i], rc[i]);
+  }
 
   g = dg_open(nmax);
   ng = dg_open(nmax);
@@ -489,11 +528,10 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
   calcr2ij(r2ij, x, nmin);
   mkgraphr2ij(g, r2ij, 1, nmin);
 
-  ieql = (neql > 0); /* rounds of equilibrations */
+  ieql = (neql != 0); /* rounds of equilibrations */
 
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
     n = g->n;
-    //printf("t %g, n %d: ", t, n);
     die_if (n < nmin || n > nmax, "bad n %d, t %g\n", n, t);
     if (rnd0() < ratn) { /* switching the ensemble, O(n) */
       if (rnd0() < 0.5) { /* add an vertex */
@@ -518,40 +556,50 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
             else
               dg_unlink(g, j, n);
           }
-          npr = getpair(NULL, NULL, g, r2ij, rc[n + 1]);
-          if (rnd0() < 1./(Zr[n + 1] * npr)) {
-            /* accept the move */
+          if (nmvtype == 1) { /* heat-bath algorithm */
+            npr = getpair(NULL, NULL, g, r2ij, rc[n + 1]);
+            if (rnd0() < 1./(Zr[n + 1] * npr)) {
+              /* accept the move */
+              nup[n][1] += 1;
+            } else { /* recover */
+              dg_remove1(g, g, n);
+            }
+          } else { /* Metropolis algorithm */
             nup[n][1] += 1;
-          } else { /* recover */
-            dg_remove1(g, g, n);
           }
         }
-        //printf("increase n %d\n", g->n);
       } else if (n > nmin) { /* remove a random vertex */
         ndown[n][0] += 1;
-        npr = getpair(&i, &j, g, r2ij, rc[n]);
-        if (npr > 0) {
+        if (nmvtype == 1) { /* heat-bath removal */
+          if ( (npr = getpair(&i, &j, g, r2ij, rc[n])) <= 0 )
+            goto STEP_END;
           ngpr[n][0] += 1;
           ngpr[n][1] += npr;
           die_if (n == 2 && npr != 2, "n %d, npr %d\n", n, npr);
-          if (rnd0() < npr * Zr[n]) {
-            ndown[n][1] += 1;
-            //for (j = i; j < n - 1; j++) rvn_copy(x[j], x[j + 1]);
-            dg_remove1(g, g, i); /* n is decreased by 1 here */
-            /* update x */
-            for (j = i; j < n - 1; j++)
-              rvn_copy(x[j], x[j + 1]);
-            //if (i < n - 1)
-            //  memmove(x[i], x[i + 1], (n - 1 - i) * sizeof(rvn_t));
-            /* update the r2ij matrix */
-            for (j = i; j < n - 1; j++) {
-              for (k = 0; k < i; k++)
-                r2ij[j][k] = r2ij[k][j] = r2ij[j + 1][k];
-              for (k = i; k < j; k++)
-                r2ij[j][k] = r2ij[k][j] = r2ij[j + 1][k + 1];
-              r2ij[j][j] = r2ij[j + 1][j + 1];
-            }
-            //printf("decrease n %d\n", g->n);
+          acc = (rnd0() < npr * Zr[n]);
+        } else { /* Metropolis removal */
+          i = randpair(n, &j);
+          die_if (i == j || i >= n || j >= n, "bad i %d, j %d, n %d\n", i, j, g->n);
+          /* test if * the graph is biconnected without i
+           * and the pair i and j are connected */
+          acc = ( ( n <= 2
+                 || dg_biconnectedvs(g, mkbitsmask(n) ^ MKBIT(i)) )
+              && rvn_dist2(x[i], x[j]) < rc[n] * rc[n] );
+        }
+
+        if (acc) { /* accept the removal */
+          ndown[n][1] += 1;
+          dg_remove1(g, g, i); /* n is decreased by 1 here */
+          /* update x */
+          for (j = i; j < n - 1; j++)
+            rvn_copy(x[j], x[j + 1]);
+          /* update the r2ij matrix */
+          for (j = i; j < n - 1; j++) {
+            for (k = 0; k < i; k++)
+              r2ij[j][k] = r2ij[k][j] = r2ij[j + 1][k];
+            for (k = i; k < j; k++)
+              r2ij[j][k] = r2ij[k][j] = r2ij[j + 1][k + 1];
+            r2ij[j][j] = r2ij[j + 1][j + 1];
           }
         }
       }
@@ -562,7 +610,6 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
       else BCSTEPR2(acc, i, n, g, ng, x, xi, r2ij, r2i, mcamp, gaussdisp);
       cacc += acc;
       ctot += 1;
-      //printf("configuration sampling\n");
     }
 STEP_END:
     hist[g->n] += 1;
@@ -572,23 +619,31 @@ STEP_END:
       shiftr2ij(g, x, r2ij);
     if (ieql) { /* equilibration */
       if ((int) fmod(t + .5, nequil) == 0) {
-        updateZr(nmin, nmax, updrc, Zr, rc, Zr, rc, mindata, nup, ndown, ngpr);
-        computeZ(nmax, Z, B, Zr, rc, fbsm);
-        saveZr("Zrh.tmp", nmin, Znmax, Zr, rc, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
-        printZr(nmax, nmin, Zr, rc, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
-        printf("equilibration stage %d/%d\n", ieql, neql);
-        cleardata(nmax, hist, nup, ndown, ngpr, nedg, ncsp, fbsm);
-        t = 0; it = 0; /* reset time */
-        if (++ieql >= neql) /* stop equilibration */
+        if (neql > 0) { /* active equilibration */
+          updateZr(nmin, nmax, updrc, Zr, rc, Zr, rc, mindata, nup, ndown, ngpr);
+          computeZ(nmax, Z, B, Zr, rc, fbsm);
+          saveZr(fnZrtmp, nmin, Znmax, Zr, rc, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
+          printZr(nmax, nmin, Zr, rc, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
+          printf("equilibration stage %d/%d\n", ieql, neql);
+          cleardata(nmax, hist, nup, ndown, ngpr, nedg, ncsp, fbsm);
+          t = 0; it = 0; /* reset time */
+          if (++ieql >= neql) /* stop equilibration */
+            ieql = 0;
+        } else { /* passive equilibration */
+          cleardata(nmax, hist, nup, ndown, ngpr, nedg, ncsp, fbsm);
+          it = 0; it = 0; /* reset time */
+          printf("t %g: equilibrated, n %d\n", t, g->n);
+          t = 0; it = 0; /* reset time */
           ieql = 0;
+        }
       }
     } else { /* production */
       if (it % nstsave == 0 || t > nsteps - 0.5) {
-        memcpy(Zr1, Zr, sizeof(Zr[0]) * (nmax + 1));
         updateZr(nmin, nmax, updrc, Zr1, rc1, Zr, rc, mindata, nup, ndown, ngpr);
         computeZ(nmax, Z, B, Zr1, rc1, fbsm);
         if (restart) { /* don't write the new Zr for a restartable simulation */
           saveZr(fnout, nmin, Znmax, Zr, rc, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
+          saveZr(fnZrtmp, nmin, Znmax, Zr1, rc1, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
         } else {
           saveZr(fnout, nmin, Znmax, Zr1, rc1, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
         }

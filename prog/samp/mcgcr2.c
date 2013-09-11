@@ -150,7 +150,7 @@ typedef struct {
   double (*nup)[2]; /* number of downward (vertex removing) moves */
   double (*ndown)[2]; /* number of upward (vertex adding) moves */
   double *Zr; /* Z[iens] / Z[iens - 1] */
-  real *rc; /* volume of the insertion */
+  real *rc; /* radius of the vertex insertion */
   real *sr; /* scaling between the special pair of vertices */
   double *Zr1; /* alternative buffer for Zr */
   real *rc1, *sr1; /* alternative buffer for rc and sr */
