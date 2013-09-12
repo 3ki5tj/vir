@@ -112,47 +112,117 @@ static void doargs(int argc, char **argv)
 
 
 
+typedef struct {
+  int nmin, nmax;
+  double Z[DG_NMAX + 1]; /* partition function */
+  double hist[DG_NMAX + 1]; /* histogram */
+  double nup[DG_NMAX + 1][2]; /* number of downward (vertex removing) moves */
+  double ndown[DG_NMAX + 1][2]; /* number of upward (vertex adding) moves */
+  double Zr[DG_NMAX + 1]; /* Z[n] / Z[n - 1] */
+  double Zr1[DG_NMAX + 1]; /* alternative buffer for Zr */
+  real rc[DG_NMAX + 1]; /* radius of vertex insertion */
+  real rc1[DG_NMAX + 1]; /* alternative buffer of rc */
+  double ngpr[DG_NMAX + 1][2]; /* number of good pairs */
+  double nedg[DG_NMAX + 1][2]; /* number of edges */
+  double ncsp[DG_NMAX + 1][2]; /* no clique separator */
+  double fbsm[DG_NMAX + 1][3]; /* hard-sphere weight */
+  double B[DG_NMAX + 1]; /* virial coefficients */
+  double ZZ[DG_NMAX + 1]; /* ratio of Z between two successive pure states */
+  int haserr;
+  double *eZZ, *eZ, *eB, *etmp;
+} gc_t;
+
+
+
 /* clear data */
-static void cleardata(int nmax, double *hist,
-    double (*nup)[2], double (*ndown)[2], double (*ngpr)[2],
-    double (*nedg)[2], double (*ncsp)[2], double (*fbsm)[3])
+static void gc_cleardata(gc_t *gc)
 {
   int i;
 
   for (i = 0; i <= nmax; i++) {
-    hist[i] = 0;
-    nup[i][0] = ndown[i][0] = 1e-20;
-    nup[i][1] = ndown[i][1] = 0;
-    ngpr[i][0] = 1e-20;
-    ngpr[i][1] = 0;
-    nedg[i][0] = 1e-20;
-    nedg[i][1] = 0;
-    ncsp[i][0] = 1e-20;
-    ncsp[i][1] = 0;
-    fbsm[i][0] = 1e-20;
-    fbsm[i][1] = fbsm[i][2] = 0;
+    gc->hist[i] = 0;
+    gc->nup[i][0] = gc->ndown[i][0] = 1e-20;
+    gc->nup[i][1] = gc->ndown[i][1] = 0;
+    gc->ngpr[i][0] = 1e-20;
+    gc->ngpr[i][1] = 0;
+    gc->nedg[i][0] = 1e-20;
+    gc->nedg[i][1] = 0;
+    gc->ncsp[i][0] = 1e-20;
+    gc->ncsp[i][1] = 0;
+    gc->fbsm[i][0] = 1e-20;
+    gc->fbsm[i][1] = gc->fbsm[i][2] = 0;
   }
 }
 
 
 
-/* update Zr */
-static void updateZr(int nmin, int nmax, int updrc,
-    double *Zr, double *rc,
-    const double *Zr0, const double *rc0, double mindata,
-    double (*nup)[2], double (*ndown)[2], double (*ngpr)[2])
+INLINE gc_t *gc_open(int nmin, int nmax, real rc0)
 {
-  int i;
-  double r, nZr;
+  gc_t *gc;
+  int n;
 
-  if (Zr != Zr0) for (i = 0; i <= nmax; i++) Zr[i] = Zr0[i];
-  if (rc != rc0) for (i = 0; i <= nmax; i++) rc[i] = rc0[i];
+  xnew(gc, 1);
+  gc->nmin = nmin;
+  gc->nmax = nmax;
+  gc->eZZ = NULL;
+  gc->eZ = NULL;
+  gc->eB = NULL;
+  gc->etmp = NULL;
+
+  for (n = 0; n <= nmax; n++) {
+    if (nmvtype == 1) { /* heat-bath algorithm */
+      if (n == 2) {
+        gc->Zr[2] = 0.5;
+        gc->rc[2] = 1;
+      } else {
+        gc->Zr[n] = 1;
+        gc->rc[n] = rc0;
+      }
+    } else { /* Metropolis algorithm */
+      if (n <= 2) {
+        gc->Zr[n] = 1;
+      } else if (n == 3) {
+        gc->Zr[3] = Z3rat(D);
+      } else if (n == 4) {
+        gc->Zr[4] = Z4rat(D) / gc->Zr[3];
+      } else {
+        gc->Zr[n] = 0.66 * n;
+      }
+    }
+  }
+  gc_cleardata(gc);
+  gc->haserr = 0;
+  return gc;
+}
+
+
+
+INLINE void gc_close(gc_t *gc)
+{
+  if (gc->eZZ) free(gc->eZZ);
+  if (gc->eZ) free(gc->Z);
+  if (gc->eB) free(gc->eB);
+  if (gc->etmp) free(gc->etmp);
+  free(gc);
+}
+
+
+
+/* update Zr and possibly rc */
+static void gc_update(gc_t *gc, int updrc, double mindata,
+    double *Zr, double *rc)
+{
+  int i, cnt = gc->nmax + 1;
+  double r, nZr;
+ 
+  if (Zr != gc->Zr) memcpy(Zr, gc->Zr, sizeof(Zr[0]) * cnt);
+  if (rc != gc->rc) memcpy(rc, gc->rc, sizeof(rc[0]) * cnt);
 
   for (i = nmin + 1; i <= nmax; i++) {
     if (i == 2) continue; /* exact */
-    r = getrrat(nup[i - 1][1], nup[i - 1][0], ndown[i][1], ndown[i][0],
-        mindata, 0.7, 1.4);
-    if (nmvtype == 1 && updrc && ngpr[i][1] > mindata) {
+    r = getrrat(gc->nup[i - 1][1], gc->nup[i - 1][0],
+        gc->ndown[i][1], gc->ndown[i][0], mindata, 0.7, 1.4);
+    if (nmvtype == 1 && updrc && gc->ngpr[i][1] > mindata) {
       /* we treat Zr as the factor used in the acceptance probability
        *  Acc(n -> n-1) = min{1, Zr E}
        * and
@@ -164,7 +234,7 @@ static void updateZr(int nmin, int nmax, int updrc,
        * partition function.
        * Ideally, the ratio of the two AR is 1, so
        *  rc*^D f* n (n - 1) / ZZ = 1. */
-      nZr = ngpr[i][0] / ngpr[i][1];
+      nZr = gc->ngpr[i][0] / gc->ngpr[i][1];
       rc[i] *= pow(r * Zr[i] / nZr, 1. / D);
       Zr[i] = nZr;
     } else { /* update Zr only */
@@ -177,15 +247,15 @@ static void updateZr(int nmin, int nmax, int updrc,
 
 
 /* compute the partition function
- * assuming updateZr() has been called */
-static void computeZ(int nmax, double *Z, double *B, const double *Zr,
-    const double *rc, double (*fbsm)[3])
+ * assuming gc_update() has been called */
+static void gc_computeZ(gc_t *gc, const double *Zr, const double *rc)
 {
   int i;
   double z, fbav, fac;
 
-  Z[0] = Z[1] = 1;
-  B[0] = B[1] = 1;
+  gc->Z[0] = gc->Z[1] = 1;
+  gc->B[0] = gc->B[1] = 1;
+  gc->ZZ[0] = gc->ZZ[1] = 1;
   for (fac = 1, z = 1, i = 2; i <= nmax; i++) {
     /* The adjusted acceptance ratios satisfy
      *  AR(n->n-1)/AR(n-1->n) = 1 = rc*^D f* n (n - 1) / ZZ
@@ -204,31 +274,36 @@ static void computeZ(int nmax, double *Z, double *B, const double *Zr,
       }
     }
     fac *= 2./i;
-    fbav = fbsm[i][1] / fbsm[i][0];
-    Z[i] = z;
+    fbav = gc->fbsm[i][1] / gc->fbsm[i][0];
+    gc->Z[i] = z;
     /* B(i)/B(2)^(i-1) = (1 - i) 2^(i-1) / i! Z(i)/Z(2)^(i-1) <fb(i)> */
-    B[i] = (1 - i) * fac * z * fbav;
+    gc->B[i] = (1 - i) * fac * z * fbav;
+    gc->ZZ[i] = gc->Z[i] / gc->Z[i - 1];
   }
 }
 
 
 
 /* print arrays to screen */
-static void printZr(int nmax, int nmin, const double *Zr,
-    const double *rc, const double *Z,
-    const double *hist, double (*nup)[2], double (*ndown)[2],
-    double (*ngpr)[2], double (*nedg)[2], double (*ncsp)[2],
-    double (*fbsm)[3], const double *B)
+static void gc_printZr(const gc_t *gc, const double *Zr, const real *rc)
 {
   int i;
 
-  for (i = nmin; i <= nmax; i++) {
-    printf("%2d %9.6f %8.6f %.6e %12.0f %.5f %.5f %7.4f %7.4f %10.8f %9.6f %+9.6f %+.7e\n",
-        i, Zr[i], rc[i], Z[i], hist[i],
-        nup[i-1][1] / nup[i-1][0], ndown[i][1] / ndown[i][0],
-        ngpr[i][1] / ngpr[i][0],
-        nedg[i][1] / nedg[i][0], ncsp[i][1] / ncsp[i][0],
-        fbsm[i][2] / fbsm[i][0], fbsm[i][1] / fbsm[i][0], B[i]);
+  for (i = gc->nmin; i <= gc->nmax; i++) {
+    printf("%2d %9.6f %8.6f %.6e %12.0f "
+        "%.5f %.5f %7.4f %7.4f %10.8f %9.6f %+9.6f %+.7e",
+        i, Zr[i], rc[i], gc->Z[i], gc->hist[i],
+        gc->nup[i-1][1] / gc->nup[i-1][0],
+        gc->ndown[i][1] / gc->ndown[i][0],
+        gc->ngpr[i][1] / gc->ngpr[i][0],
+        gc->nedg[i][1] / gc->nedg[i][0],
+        gc->ncsp[i][1] / gc->ncsp[i][0],
+        gc->fbsm[i][2] / gc->fbsm[i][0],
+        gc->fbsm[i][1] / gc->fbsm[i][0],
+        gc->B[i]);
+    if (gc->haserr)
+      printf(" %.3e", gc->eB[i]);
+    printf("\n");
   }
 }
 
@@ -243,13 +318,8 @@ static void printZr(int nmax, int nmin, const double *Zr,
 /* save the partition function to file
  * we save the ratio of the successive values, such that one can modify
  * a particular value without affecting later ones */
-static int saveZr(const char *fn, int nmin, int nmax,
-    const double *Zr, const real *rc,
-    const double *Z, const double *hist,
-    double (*nup)[2], double (*ndown)[2],
-    double (*ngpr)[2],
-    double (*nedg)[2], double (*ncsp)[2],
-    double (*fbsm)[3], const double *B)
+static int gc_saveZr(gc_t *gc, const char *fn,
+    const double *Zr, const real *rc)
 {
   FILE *fp;
   char fndef[64];
@@ -258,20 +328,29 @@ static int saveZr(const char *fn, int nmin, int nmax,
 
   mkfnZrdef(fn, fndef, D, nmax);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "#%s %d %d %d %d V3 %d\n", (nmvtype == 1) ? "H" : "",
+  fprintf(fp, "#%s %d %d V3 %d %d %d\n", (nmvtype == 1) ? "H" : "",
       D, nmax, nmin, nmvtype, nedxmax);
   for (i = nmin; i <= nmax; i++) {
     fprintf(fp, "%3d %18.14f %20.14e %18.14f "
         "%14.0f %14.0f %14.0f %.14f %.14f ",
-        i, Zr[i], Z[i], rc[i], hist[i], nup[i-1][0], ndown[i][0],
-        nup[i-1][1] / nup[i-1][0], ndown[i][1] / ndown[i][0]);
+        i, Zr[i], gc->Z[i], rc[i],
+        gc->hist[i], gc->nup[i-1][0], gc->ndown[i][0],
+        gc->nup[i-1][1] / gc->nup[i-1][0],
+        gc->ndown[i][1] / gc->ndown[i][0]);
     if (nmvtype == 1)
-      fprintf(fp, "%14.0f %.14f ", ngpr[i][0], ngpr[i][1] / ngpr[i][0]);
+      fprintf(fp, "%14.0f %.14f ", gc->ngpr[i][0],
+          gc->ngpr[i][1] / gc->ngpr[i][0]);
     fprintf(fp, "%14.0f %14.0f %14.0f %18.14f %16.14f %16.14f %+17.14f %+20.14e\n",
-        nedg[i][0], ncsp[i][0], fbsm[i][0],
-        nedg[i][1] / nedg[i][0], ncsp[i][1] / ncsp[i][0],
-        fbsm[i][2] / fbsm[i][0], fbsm[i][1] / fbsm[i][0], B[i]);
-    tot += hist[i];
+        gc->nedg[i][0], gc->ncsp[i][0], gc->fbsm[i][0],
+        gc->nedg[i][1] / gc->nedg[i][0],
+        gc->ncsp[i][1] / gc->ncsp[i][0],
+        gc->fbsm[i][2] / gc->fbsm[i][0],
+        gc->fbsm[i][1] / gc->fbsm[i][0],
+        gc->B[i]);
+    if ( gc->haserr )
+      fprintf(fp, " %12.6e %12.6e %12.6e",
+          gc->eB[i], gc->eZ[i], gc->eZZ[i]);
+    tot += gc->hist[i];
   }
   fclose(fp);
   printf("saved Zr to %s, tot %g\n", fn, tot);
@@ -282,10 +361,7 @@ static int saveZr(const char *fn, int nmin, int nmax,
 
 /* load the partition function from file
  * return the maximal `n' loaded */
-static int loadZr(const char *fn, double *Zr, real *rc, int nmax,
-    int loadall, double *hist, double (*nup)[2], double (*ndown)[2],
-    double (*ngpr)[2],
-    double (*nedg)[2], double (*ncsp)[2], double (*fbsm)[3])
+static int gc_loadZr(gc_t *gc, const char *fn, int loaddata)
 {
   FILE *fp;
   int i = -1, d = 0, n = 0, n0 = 1, offset = 0, next = 0, ver = 0;
@@ -314,59 +390,61 @@ static int loadZr(const char *fn, double *Zr, real *rc, int nmax,
     fclose(fp);
     return -1;
   }
-  if (loadall && ver <= 2) {
+  if (loaddata && ver <= 2) {
     fprintf(stderr, "%s: %s does not have enough data\n", fn, sver);
-    loadall = 0;
+    loaddata = 0;
   }
 
   offset = (ver == 0) ? 1 : 0;
-  Zr[0] = Zr[1] = 1;
   if (ver == 0) n0 = 2; else if (ver <= 2) n0 = 3;
   for (i = n0; i <= nmax; i++) {
     double Z, rc1;
 
     if (fgets(s, sizeof s, fp) == NULL)
       break;
-    if ( 4 != sscanf(s, "%d%lf%lf%lf%n", &n, &Zr[i], &Z, &rc1, &next)
+    if ( 4 != sscanf(s, "%d%lf%lf%lf%n", &n, &gc->Zr[i], &Z, &rc1, &next)
       || i != n + offset) {
       fprintf(stderr, "%s V%d: ends on line %d(n %d)\n%s", fn, ver, i, n, s);
       break;
     }
-    rc[i] = (real) rc1;
-    if (loadall) { /* try to get additional data */
+    gc->rc[i] = (real) rc1;
+    if (loaddata) { /* try to get additional data */
       p = s + next;
-      if ( 5 != sscanf(p, "%lf%lf%lf%lf%lf%n", &hist[i], &nup[i-1][0],
-                &ndown[i][0], &nup[i-1][1], &ndown[i][1], &next) ) {
+      if ( 5 != sscanf(p, "%lf%lf%lf%lf%lf%n", &gc->hist[i],
+                &gc->nup[i-1][0], &gc->ndown[i][0],
+                &gc->nup[i-1][1], &gc->ndown[i][1], &next) ) {
         fprintf(stderr, "%s: corrupted(I) on line %d\n%s", fn, i, s);
         break;
       }
       p += next;
       if (nmvtype == 1) {
-        if ( 2 != sscanf(p, "%lf%lf%n", &ngpr[i][0], &ngpr[i][1], &next) ) {
+        if ( 2 != sscanf(p, "%lf%lf%n",
+                  &gc->ngpr[i][0], &gc->ngpr[i][1], &next) ) {
           fprintf(stderr, "%s: corrupted(II) on line %d\n%s", fn, i, s);
           break;
         }
         p += next;
       }
       if ( 7 != sscanf(p, "%lf%lf%lf%lf%lf%lf%lf",
-             &nedg[i][0], &ncsp[i][0], &fbsm[i][0],
-             &nedg[i][1], &ncsp[i][1], &fbsm[i][2], &fbsm[i][1]) ) {
+             &gc->nedg[i][0], &gc->ncsp[i][0], &gc->fbsm[i][0],
+             &gc->nedg[i][1], &gc->ncsp[i][1],
+             &gc->fbsm[i][2], &gc->fbsm[i][1]) ) {
         fprintf(stderr, "%s: corrupted(III) on line %d\n%s", fn, i, s);
         break;
       }
-      if (nup[i-1][0] <= 0) nup[i-1][0] = 1e-20;
-      if (ndown[i][0] <= 0) ndown[i][0] = 1e-20;
-      nup[i-1][1] *= nup[i-1][0];
-      ndown[i][1] *= ndown[i][0];
-      if (ngpr[i][0] <= 0) ngpr[i][0] = 1e-20;
-      if (nedg[i][0] <= 0) nedg[i][0] = 1e-20;
-      if (ncsp[i][0] <= 0) ncsp[i][0] = 1e-20;
-      if (fbsm[i][0] <= 0) fbsm[i][0] = 1e-20;
-      ngpr[i][1] *= ngpr[i][0];
-      nedg[i][1] *= nedg[i][0];
-      ncsp[i][1] *= ncsp[i][0];
-      fbsm[i][1] *= fbsm[i][0];
-      fbsm[i][2] *= fbsm[i][0];
+      if (gc->nup[i-1][0] <= 0) gc->nup[i-1][0] = 1e-20;
+      if (gc->ndown[i][0] <= 0) gc->ndown[i][0] = 1e-20;
+      gc->nup[i-1][1] *= gc->nup[i-1][0];
+      gc->ndown[i][1] *= gc->ndown[i][0];
+      if (gc->ngpr[i][0] <= 0) gc->ngpr[i][0] = 1e-20;
+      if (gc->nedg[i][0] <= 0) gc->nedg[i][0] = 1e-20;
+      if (gc->ncsp[i][0] <= 0) gc->ncsp[i][0] = 1e-20;
+      if (gc->fbsm[i][0] <= 0) gc->fbsm[i][0] = 1e-20;
+      gc->ngpr[i][1] *= gc->ngpr[i][0];
+      gc->nedg[i][1] *= gc->nedg[i][0];
+      gc->ncsp[i][1] *= gc->ncsp[i][0];
+      gc->fbsm[i][1] *= gc->fbsm[i][0];
+      gc->fbsm[i][2] *= gc->fbsm[i][0];
     }
   }
   fclose(fp);
@@ -377,8 +455,8 @@ static int loadZr(const char *fn, double *Zr, real *rc, int nmax,
 
 
 /* accumulate data */
-static void accumdata(const dg_t *g, double t, int nstcs, int nstfb,
-    double (*nedg)[2], double (*ncsp)[2], double (*fbsm)[3])
+static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
+    int nstcs, int nstfb)
 {
   int ned = -1, n = g->n, ncs, sc, err, fb = 0;
   int nlookup = DGMAP_NMAX;
@@ -390,8 +468,8 @@ static void accumdata(const dg_t *g, double t, int nstcs, int nstfb,
   if (nsteps < 5e8) nlookup = 7;
 
   ned = dg_degs(g, degs);
-  nedg[n][0] += 1;
-  nedg[n][1] += ned;
+  gc->nedg[n][0] += 1;
+  gc->nedg[n][1] += ned;
 
   if (n <= nlookup || ((int) fmod(t, nstcs) == 0) ) {
     /* check if the graph has a clique separator */
@@ -422,8 +500,8 @@ static void accumdata(const dg_t *g, double t, int nstcs, int nstfb,
         ncs = 1;
       }
     }
-    ncsp[n][0] += 1;
-    ncsp[n][1] += ncs;
+    gc->ncsp[n][0] += 1;
+    gc->ncsp[n][1] += ncs;
 
     if (n <= nlookup || (nstfb > 0 && (int) fmod(t, nstfb) == 0)) {
       /* compute fb, if it is cheap */
@@ -436,9 +514,9 @@ static void accumdata(const dg_t *g, double t, int nstcs, int nstfb,
           fb = dg_hsfb_mixed0(g, 1, &ned, degs);
         }
       }
-      fbsm[n][0] += 1;
-      fbsm[n][1] += fb;
-      fbsm[n][2] += abs(fb);
+      gc->fbsm[n][0] += 1;
+      gc->fbsm[n][1] += fb;
+      gc->fbsm[n][2] += abs(fb);
     }
   }
 }
@@ -477,48 +555,18 @@ INLINE int getpair(int *pi, int *pj, const dg_t *g,
 static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
     int neql, double nequil, int nstsave)
 {
-  int i, j, k, n, npr, deg, Znmax, acc, it, ieql;
-  dg_t *g, *ng;
   double t, cacc = 0, ctot = 0;
+  int i, j, k, n, npr, deg, acc, it, ieql;
+  gc_t *gc;
+  dg_t *g, *ng;
   rvn_t x[DG_NMAX], xi;
   real r2ij[DG_NMAX][DG_NMAX], r2i[DG_NMAX];
 
-  /* parameters */
-  double Zr[DG_NMAX + 1] = {0}; /* ratio of the partition function, measured by V */
-  double Zr1[DG_NMAX + 1] = {0}; /* alternative buffer */
-  real rc1[DG_NMAX + 1]; /* alternative buffer */
-  double Z[DG_NMAX + 1]; /* partition function (for output) */
-  double B[DG_NMAX + 1]; /* virial coefficients (for output) */
-  double hist[DG_NMAX + 1]; /* histogram */
-  double nedg[DG_NMAX + 1][2]; /* number of edges */
-  double ncsp[DG_NMAX + 1][2]; /* no clique separator */
-  double fbsm[DG_NMAX + 1][3]; /* sum of weights */
-  double ndown[DG_NMAX + 1][2]; /* acceptance probabilities */
-  double nup[DG_NMAX + 1][2]; /* acceptance probabilities */
-  double ngpr[DG_NMAX + 1][2]; /* good pairs */
-  real rc[DG_NMAX + 1];
-
-  cleardata(nmax, hist, nup, ndown, ngpr, nedg, ncsp, fbsm);
-  /* initialize the partition function */
-  if (nmvtype == 1) { /* heat-bath algorithm */
-    for (i = 0; i <= DG_NMAX; i++) {
-      Zr[i] = 1;
-      rc[i] = rc0;
-    }
-    Zr[2] = 0.5;
-    rc[2] = 1;
-  } else { /* Metropolis algorithm */
-    Zr[0] = Zr[1] = Zr[2] = 1;
-    Zr[3] = Z3rat(D);
-    Zr[4] = Z4rat(D) / Zr[3];
-    for (i = 5; i <= DG_NMAX; i++) Zr[i] = 0.66 * i;
-  }
-  i = loadZr(fninp, Zr, rc, nmax, restart && !bsim0,
-      hist, nup, ndown, ngpr, nedg, ncsp, fbsm);
-  Znmax = (i > nmax) ? i : nmax;
+  gc = gc_open(nmin, nmax, rc0);
+  i = gc_loadZr(gc, fninp, restart && !bsim0);
   for (i = nmin; i <= nmax; i++) {
-    if (nmvtype == 0) rc[i] = pow(Zr[i], 1./D);
-    printf("%3d: %.6f %.6f\n", i, Zr[i], rc[i]);
+    if (nmvtype == 0) gc->rc[i] = pow(gc->Zr[i], 1./D);
+    printf("%3d: %.6f %.6f\n", i, gc->Zr[i], gc->rc[i]);
   }
 
   g = dg_open(nmax);
@@ -538,7 +586,7 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
         if (n >= nmax) goto STEP_END;
         /* attach a new vertex to a random vertex */
         i = (n == 1) ? 0 : (int) (rnd0() * n);
-        rvn_inc(rvn_rndball(x[n], rc[n + 1]), x[i]);
+        rvn_inc(rvn_rndball(x[n], gc->rc[n + 1]), x[i]);
         /* test if adding x[n] leaves the diagram biconnected */
         for (deg = 0, j = 0; j < n; j++)
           if ( (r2i[j] = rvn_dist2(x[n], x[j])) < 1 )
@@ -546,7 +594,7 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
         if ( n == 1 ) deg *= 2;
         /* the extended configuration is biconnected
          * if x[n] is connected two vertices */
-        nup[n][0] += 1;
+        gc->nup[n][0] += 1;
         if ( deg >= 2 ) {
           g->n = n + 1;
           for (j = 0; j < n; j++) {
@@ -557,50 +605,50 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
               dg_unlink(g, j, n);
           }
           if (nmvtype == 1) { /* heat-bath algorithm */
-            npr = getpair(NULL, NULL, g, r2ij, rc[n + 1]);
-            if (rnd0() < 1./(Zr[n + 1] * npr)) {
+            npr = getpair(NULL, NULL, g, r2ij, gc->rc[n + 1]);
+            if (rnd0() < 1./(gc->Zr[n + 1] * npr)) {
               /* accept the move */
-              nup[n][1] += 1;
+              gc->nup[n][1] += 1;
             } else { /* recover */
               dg_remove1(g, g, n);
             }
           } else { /* Metropolis algorithm */
-            nup[n][1] += 1;
+            gc->nup[n][1] += 1;
           }
         }
       } else if (n > nmin) { /* remove a random vertex */
-        ndown[n][0] += 1;
+        gc->ndown[n][0] += 1;
         if (nmvtype == 1) { /* heat-bath removal */
-          if ( (npr = getpair(&i, &j, g, r2ij, rc[n])) <= 0 )
+          if ( (npr = getpair(&i, &j, g, r2ij, gc->rc[n])) <= 0 )
             goto STEP_END;
-          ngpr[n][0] += 1;
-          ngpr[n][1] += npr;
+          gc->ngpr[n][0] += 1;
+          gc->ngpr[n][1] += npr;
           die_if (n == 2 && npr != 2, "n %d, npr %d\n", n, npr);
-          acc = (rnd0() < npr * Zr[n]);
+          if (rnd0() >= npr * gc->Zr[n]) goto STEP_END;
         } else { /* Metropolis removal */
           i = randpair(n, &j);
           die_if (i == j || i >= n || j >= n, "bad i %d, j %d, n %d\n", i, j, g->n);
           /* test if * the graph is biconnected without i
            * and the pair i and j are connected */
-          acc = ( ( n <= 2
-                 || dg_biconnectedvs(g, mkbitsmask(n) ^ MKBIT(i)) )
-              && rvn_dist2(x[i], x[j]) < rc[n] * rc[n] );
+          if ( ( n > 2
+              && !dg_biconnectedvs(g, mkbitsmask(n) ^ MKBIT(i)) )
+           || rvn_dist2(x[i], x[j]) >= dblsqr(gc->rc[n]) )
+            goto STEP_END;
         }
 
-        if (acc) { /* accept the removal */
-          ndown[n][1] += 1;
-          dg_remove1(g, g, i); /* n is decreased by 1 here */
-          /* update x */
-          for (j = i; j < n - 1; j++)
-            rvn_copy(x[j], x[j + 1]);
-          /* update the r2ij matrix */
-          for (j = i; j < n - 1; j++) {
-            for (k = 0; k < i; k++)
-              r2ij[j][k] = r2ij[k][j] = r2ij[j + 1][k];
-            for (k = i; k < j; k++)
-              r2ij[j][k] = r2ij[k][j] = r2ij[j + 1][k + 1];
-            r2ij[j][j] = r2ij[j + 1][j + 1];
-          }
+        /* accepted the removal */
+        gc->ndown[n][1] += 1;
+        dg_remove1(g, g, i); /* n is decreased by 1 here */
+        /* update x */
+        for (j = i; j < n - 1; j++)
+          rvn_copy(x[j], x[j + 1]);
+        /* update the r2ij matrix */
+        for (j = i; j < n - 1; j++) {
+          for (k = 0; k < i; k++)
+            r2ij[j][k] = r2ij[k][j] = r2ij[j + 1][k];
+          for (k = i; k < j; k++)
+            r2ij[j][k] = r2ij[k][j] = r2ij[j + 1][k + 1];
+          r2ij[j][j] = r2ij[j + 1][j + 1];
         }
       }
     }
@@ -612,25 +660,25 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
       ctot += 1;
     }
 STEP_END:
-    hist[g->n] += 1;
+    gc->hist[g->n] += 1;
     if (it % nsted == 0)
-      accumdata(g, t, nstcs, nstfb, nedg, ncsp, fbsm);
+      gc_accumdata(gc, g, t, nstcs, nstfb);
     if (it % nstcom == 0) /* remove the center of mass motion */
       shiftr2ij(g, x, r2ij);
     if (ieql) { /* equilibration */
       if ((int) fmod(t + .5, nequil) == 0) {
         if (neql > 0) { /* active equilibration */
-          updateZr(nmin, nmax, updrc, Zr, rc, Zr, rc, mindata, nup, ndown, ngpr);
-          computeZ(nmax, Z, B, Zr, rc, fbsm);
-          saveZr(fnZrtmp, nmin, Znmax, Zr, rc, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
-          printZr(nmax, nmin, Zr, rc, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
+          gc_update(gc, updrc, mindata, gc->Zr, gc->rc);
+          gc_computeZ(gc, gc->Zr, gc->rc);
+          gc_saveZr(gc, fnZrtmp, gc->Zr, gc->rc);
+          gc_printZr(gc, gc->Zr, gc->rc);
           printf("equilibration stage %d/%d\n", ieql, neql);
-          cleardata(nmax, hist, nup, ndown, ngpr, nedg, ncsp, fbsm);
+          gc_cleardata(gc);
           t = 0; it = 0; /* reset time */
           if (++ieql >= neql) /* stop equilibration */
             ieql = 0;
         } else { /* passive equilibration */
-          cleardata(nmax, hist, nup, ndown, ngpr, nedg, ncsp, fbsm);
+          gc_cleardata(gc);
           it = 0; it = 0; /* reset time */
           printf("t %g: equilibrated, n %d\n", t, g->n);
           t = 0; it = 0; /* reset time */
@@ -639,19 +687,19 @@ STEP_END:
       }
     } else { /* production */
       if (it % nstsave == 0 || t > nsteps - 0.5) {
-        updateZr(nmin, nmax, updrc, Zr1, rc1, Zr, rc, mindata, nup, ndown, ngpr);
-        computeZ(nmax, Z, B, Zr1, rc1, fbsm);
+        gc_update(gc, updrc, mindata, gc->Zr1, gc->rc1);
+        gc_computeZ(gc, gc->Zr1, gc->rc1);
         if (restart) { /* don't write the new Zr for a restartable simulation */
-          saveZr(fnout, nmin, Znmax, Zr, rc, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
-          saveZr(fnZrtmp, nmin, Znmax, Zr1, rc1, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
+          gc_saveZr(gc, fnout, gc->Zr, gc->rc);
+          gc_saveZr(gc, fnZrtmp, gc->Zr1, gc->rc1);
         } else {
-          saveZr(fnout, nmin, Znmax, Zr1, rc1, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
+          gc_saveZr(gc, fnout, gc->Zr1, gc->rc1);
         }
         it = 0;
       }
     }
   }
-  printZr(nmax, nmin, Zr1, rc1, Z, hist, nup, ndown, ngpr, nedg, ncsp, fbsm, B);
+  gc_printZr(gc, gc->Zr1, gc->rc1);
   printf("cacc %g\n", cacc/ctot);
   dg_close(g);
   dg_close(ng);
