@@ -633,5 +633,17 @@ INLINE double getrrat(double a1, double a0, double b1, double b0,
 
 
 
+/* append `i' to fn */
+char *fnappend(char *fn, int i)
+{
+  char *s;
+
+  xnew(s, strlen(fn) + 16);
+  sprintf(s, "%s%d", fn, i);
+  return s;
+}
+
+
+
 #endif
 

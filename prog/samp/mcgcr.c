@@ -839,7 +839,7 @@ static void mcgcr(int nmin, int nmax, int mtiers, double nsteps,
   dg_t *g, *ng, *g1, *ng1;
   rvn_t x[DG_NMAX] = {{0}}, xi;
   real r2ij[DG_NMAX][DG_NMAX] = {{0}}, r2i[DG_NMAX] = {0};
-  const char *smove;
+  const char *smove = "undefined";
 
   gc = gc_open(nmin, nmax, mtiers, rc0, sr0);
   gc_load(gc, fninp, restart && !bsim0);

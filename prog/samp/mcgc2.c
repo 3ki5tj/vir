@@ -1,6 +1,6 @@
 /* grand-canonical simulation to compute the partition function
  * of all biconnected diagrams
- * simple Widom insertion with heat-bath removal */
+ * simple Widom insertion with Metropolis or heat-bath removal */
 #define ZCOM_PICK
 #define ZCOM_ARGOPT
 #define ZCOM_RVN
@@ -12,11 +12,10 @@
 #include "mpi.h"
 #define MPI_MYREAL ( (sizeof(real) == sizeof(double)) ? MPI_DOUBLE : MPI_FLOAT )
 /* global variables */
-int nnodes = 1;
 MPI_Comm comm = MPI_COMM_WORLD;
 #endif
 #define MASTER 0
-int inode = MASTER;
+int inode = MASTER, nnodes = 1;
 
 
 
@@ -29,11 +28,12 @@ double ratn = 0.5; /* frequency of n-moves */
   /* this version used a simple n-move, which is on average faster than
    * configurational sampling, so we should use a larger ratn */
 real rc0 = 1; /* initial rc */
-
 double mindata = 100; /* minimal # of data points to make update */
-const char *fninp = NULL; /* input file */
-const char *fnout = NULL; /* output file */
-const char *fnZrtmp = "Zrh.tmp"; /* temporary output file */
+
+char *fninp = NULL; /* input file */
+char *fnout = NULL; /* output file */
+char *fnZrtmp = "Zrh.tmp"; /* temporary output file */
+
 int nstcom = 10000;
 int nsted = 10;
 int nstcs = 100;
@@ -122,8 +122,22 @@ static void doargs(int argc, char **argv)
     nedxmax = (D < 14) ? nedarr[D] : 14;
   }
 
-  if (inode == MASTER) argopt_dump(ao);
+#ifdef MPI
+  die_if (nnodes > 1 && neql > 0,
+      "no parameter updating with MPI, neql %d\n", neql);
+#endif
+
+  if (inode == MASTER) {
+    argopt_dump(ao);
+  } else { /* change file names for slave nodes */
+    if (fninp) fninp = fnappend(fninp, inode);
+    if (fnout) fnout = fnappend(fnout, inode);
+    if (fnZrtmp) fnZrtmp = fnappend(fnZrtmp, inode);
+  }
   argopt_close(ao);
+#ifdef MPI
+  MPI_Barrier(comm);
+#endif
 }
 
 
@@ -144,8 +158,6 @@ typedef struct {
   double fbsm[DG_NMAX + 1][3]; /* hard-sphere weight */
   double B[DG_NMAX + 1]; /* virial coefficients */
   double ZZ[DG_NMAX + 1]; /* ratio of Z between two successive pure states */
-  int haserr;
-  double *eZZ, *eZ, *eB, *etmp;
 } gc_t;
 
 
@@ -180,10 +192,6 @@ INLINE gc_t *gc_open(int nmin, int nmax, real rc0)
   xnew(gc, 1);
   gc->nmin = nmin;
   gc->nmax = nmax;
-  gc->eZZ = NULL;
-  gc->eZ = NULL;
-  gc->eB = NULL;
-  gc->etmp = NULL;
 
   for (n = 0; n <= nmax; n++) {
     if (nmvtype == 1) { /* heat-bath algorithm */
@@ -207,7 +215,6 @@ INLINE gc_t *gc_open(int nmin, int nmax, real rc0)
     }
   }
   gc_cleardata(gc);
-  gc->haserr = 0;
   return gc;
 }
 
@@ -215,10 +222,6 @@ INLINE gc_t *gc_open(int nmin, int nmax, real rc0)
 
 INLINE void gc_close(gc_t *gc)
 {
-  if (gc->eZZ) free(gc->eZZ);
-  if (gc->eZ) free(gc->Z);
-  if (gc->eB) free(gc->eB);
-  if (gc->etmp) free(gc->etmp);
   free(gc);
 }
 
@@ -230,7 +233,7 @@ static void gc_update(gc_t *gc, int updrc, double mindata,
 {
   int i, cnt = gc->nmax + 1;
   double r, nZr;
- 
+
   if (Zr != gc->Zr) memcpy(Zr, gc->Zr, sizeof(Zr[0]) * cnt);
   if (rc != gc->rc) memcpy(rc, gc->rc, sizeof(rc[0]) * cnt);
 
@@ -282,10 +285,10 @@ static void gc_computeZ(gc_t *gc, const double *Zr, const double *rc)
     if (i <= 4) { /* reset the exact values */
       if (i <= 2) z = 1;
       else if (i == 3) {
-        printf("%3d: Z3: %g to %g (ref)\n", inode, z, Z3rat(D));
+        printf("%4d: Z3: %.7f to %.7f (exact)\n", inode, z, Z3rat(D));
         z = Z3rat(D);
       } else if (i == 4) {
-        printf("%3d Z4: %g vs %g (ref. %s)\n", inode, z, Z4rat(D), D > 12 ? "approx." : "exact");
+        printf("%4d: Z4: %.7f vs %.7f (%s)\n", inode, z, Z4rat(D), D > 12 ? "approx." : "exact");
         if (D < 12) z = Z4rat(D);
       }
     }
@@ -305,9 +308,9 @@ static void gc_printZr(const gc_t *gc, const double *Zr, const real *rc)
 {
   int i;
 
-  for (i = gc->nmin; i <= gc->nmax; i++) {
+  for (i = gc->nmin; i <= gc->nmax; i++)
     printf("%2d %9.6f %8.6f %.6e %12.0f "
-        "%.5f %.5f %7.4f %7.4f %10.8f %9.6f %+9.6f %+.7e",
+        "%.5f %.5f %7.4f %7.4f %10.8f %9.6f %+9.6f %+.7e\n",
         i, Zr[i], rc[i], gc->Z[i], gc->hist[i],
         gc->nup[i-1][1] / gc->nup[i-1][0],
         gc->ndown[i][1] / gc->ndown[i][0],
@@ -317,100 +320,8 @@ static void gc_printZr(const gc_t *gc, const double *Zr, const real *rc)
         gc->fbsm[i][2] / gc->fbsm[i][0],
         gc->fbsm[i][1] / gc->fbsm[i][0],
         gc->B[i]);
-    if (gc->haserr)
-      printf(" %.1e", gc->eB[i]);
-    printf("\n");
-  }
 }
 
-
-
-#ifdef MPI
-/* broadcast parameters */
-static int gc_bcastparams(gc_t *gc)
-{
-  MPI_Bcast(gc->Zr, gc->nmax + 1, MPI_DOUBLE, MASTER, comm);
-  MPI_Bcast(gc->rc, gc->nmax + 1, MPI_MYREAL, MASTER, comm);
-  return 0;
-}
-
-
-
-/* collect data in all nodes */
-static int gc_reducedata(gc_t *gc_g, gc_t *gc)
-{
-  int cnt = gc->nmax + 1;
-
-  MPI_Reduce(gc->hist, gc_g->hist, cnt, MPI_DOUBLE, MPI_SUM, 0, comm);
-  MPI_Reduce(gc->nup, gc_g->nup, 2*cnt, MPI_MYREAL, MPI_SUM, 0, comm);
-  MPI_Reduce(gc->ndown, gc_g->ndown, 2*cnt, MPI_MYREAL, MPI_SUM, 0, comm);
-  MPI_Reduce(gc->ngpr, gc_g->ngpr, 2*cnt, MPI_DOUBLE, MPI_SUM, 0, comm);
-  MPI_Reduce(gc->nedg, gc_g->nedg, 2*cnt, MPI_DOUBLE, MPI_SUM, 0, comm);
-  MPI_Reduce(gc->ncsp, gc_g->ncsp, 2*cnt, MPI_DOUBLE, MPI_SUM, 0, comm);
-  MPI_Reduce(gc->fbsm, gc_g->fbsm, 3*cnt, MPI_DOUBLE, MPI_SUM, 0, comm);
-  return 0;
-}
-
-
-
-/* calculate the error of the array `arr' */
-static int gc_errarr(int cnt, double *arr, double *err, double *buf)
-{
-  int i, k;
-  double x, smx, smx2;
-
-  if (nnodes <= 1) return -1;
-  /* collect `arr' in different nodes into `buf' */
-  MPI_Gather(arr, cnt, MPI_DOUBLE, buf, cnt, MPI_DOUBLE, MASTER, comm);
-  if (inode != 0) return -1;
-  /* master node computes the error */
-  for (i = 0; i < cnt; i++) {
-    smx = smx2 = 0;
-    for (k = 0; k < nnodes; k++) {
-      x = buf[k*cnt + i];
-      smx += x;
-      smx2 += x * x;
-    }
-    smx /= nnodes;
-    smx2 = smx2 / nnodes - smx * smx;
-    if (smx2 <= 0) smx2 = 0;
-    /* use the standard deviation as an estimate */
-    err[i] = sqrt(smx2/(nnodes - 1));
-  }
-  return 0;
-}
-
-
-
-/* calculate the error */
-static int gc_calcerr(gc_t *gc_g, gc_t *gc)
-{
-  int cnt = gc->nmax + 1;
-  double *eB = NULL, *eZ = NULL, *eZZ = NULL, *etmp = NULL;
-
-  if (inode == MASTER) {
-    if (gc_g->eZZ == NULL) xnew(gc_g->eZZ, cnt);
-    if (gc_g->eZ == NULL) xnew(gc_g->eZ, cnt);
-    if (gc_g->eB == NULL) xnew(gc_g->eB, cnt);
-    if (gc_g->etmp == NULL) xnew(gc_g->etmp, cnt * nnodes);
-    /* since gc_g is undefined for nonmaster nodes, pointers
-     * like gc_g->eB are dangerous */
-    eB = gc_g->eB;
-    eZ = gc_g->eZ;
-    eZZ = gc_g->eZZ;
-    etmp = gc_g->etmp;
-  }
-  //printf("err inode %d/%d, %p, %p\n", inode, nnodes, eB, etmp); getchar();
-  gc_errarr(cnt, gc->B, eB,  etmp);
-  gc_errarr(cnt, gc->Z, eZ, etmp);
-  gc_errarr(cnt, gc->ZZ, eZZ, etmp);
-  gc_g->haserr = 1;
-  return 0;
-}
-
-
-
-#endif
 
 
 INLINE double gc_fprintZr(gc_t *gc, FILE *fp,
@@ -429,17 +340,13 @@ INLINE double gc_fprintZr(gc_t *gc, FILE *fp,
     if (nmvtype == 1)
       fprintf(fp, "%14.0f %.14f ", gc->ngpr[i][0],
           gc->ngpr[i][1] / gc->ngpr[i][0]);
-    fprintf(fp, "%14.0f %14.0f %14.0f %18.14f %16.14f %16.14f %+17.14f %+20.14e ",
+    fprintf(fp, "%14.0f %14.0f %14.0f %18.14f %16.14f %16.14f %+17.14f %+20.14e\n",
         gc->nedg[i][0], gc->ncsp[i][0], gc->fbsm[i][0],
         gc->nedg[i][1] / gc->nedg[i][0],
         gc->ncsp[i][1] / gc->ncsp[i][0],
         gc->fbsm[i][2] / gc->fbsm[i][0],
         gc->fbsm[i][1] / gc->fbsm[i][0],
         gc->B[i]);
-    if ( gc->haserr )
-      fprintf(fp, " %12.6e %12.6e %12.6e",
-          gc->eB[i], gc->eZ[i], gc->eZZ[i]);
-    fprintf(fp, "\n");
     tot += gc->hist[i];
   }
   return tot;
@@ -447,8 +354,9 @@ INLINE double gc_fprintZr(gc_t *gc, FILE *fp,
 
 
 
-#define mkfnZrdef(fn, fndef, d, n) if (fn == NULL) { \
-  sprintf(fndef, "Zr%sD%dn%d.dat", (nmvtype == 1) ? "h" : "", d, n); \
+#define mkfnZrdef(fn, fndef, d, n, inode) if (fn == NULL) { \
+  sprintf(fndef, "Zr%sD%dn%d.dat%d", (nmvtype == 1) ? "h" : "", d, n, inode); \
+  if (inode == MASTER) fndef[strlen(fndef) - 1] = '\0'; \
   fn = fndef; }
 
 
@@ -463,80 +371,15 @@ static int gc_saveZr(gc_t *gc, const char *fn,
   char fndef[64];
   double tot = 0;
 
-  mkfnZrdef(fn, fndef, D, nmax);
+  mkfnZrdef(fn, fndef, D, nmax, inode);
   xfopen(fp, fn, "w", return -1);
   fprintf(fp, "#%s %d %d V3 %d %d %d\n", (nmvtype == 1) ? "H" : "",
       D, gc->nmax, gc->nmin, nmvtype, nedxmax);
   tot = gc_fprintZr(gc, fp, Zr, rc);
   fclose(fp);
-  printf("%d: saved Zr to %s, tot %g\n", inode, fn, tot);
+  printf("%4d: saved Zr to %s, tot %g\n", inode, fn, tot);
   return 0;
 }
-
-
-
-#ifdef MPI
-/* save data from all nodes to file */
-static int gc_saveZrmpi(gc_t *gc_g, gc_t *gc, const char *fn,
-    const double *Zr_g, const real *rc_g,
-    const double *Zr, const real *rc)
-{
-  FILE *fp = NULL;
-  int i, j, err = 0;
-  char fndef[64];
-  double tot = 0;
-  MPI_Status status;
-
-  mkfnZrdef(fn, fndef, D, gc->nmax);
-  if (inode == MASTER) {
-    if ((fp = fopen(fn, "w")) == NULL) {
-      fprintf(stderr, "cannot write %s\n", fn);
-      goto SYNC;
-    }
-    fprintf(fp, "#%s %d %d V3 %d %d %d %d\n", (nmvtype == 1) ? "H" : "",
-        D, gc->nmax, gc->nmin, nmvtype, nnodes, nedxmax);
-    /* print global data */
-    tot = gc_fprintZr(gc_g, fp, Zr_g, rc_g);
-    /* print the local data of node 0 */
-    fprintf(fp, "#COPY %d\n", inode);
-    gc_fprintZr(gc, fp, Zr, rc);
-    /* close the file so other nodes can open it */
-    fclose(fp);
-  }
-
-SYNC:
-  /* broadcast the error on the master node */
-  MPI_Bcast(&err, 1, MPI_INT, MASTER, comm);
-  if (err) return -1;
-
-  if (inode == MASTER) {
-    /* handle non-master nodes */
-    for (i = 1; i < nnodes; i++) {
-      /* tell node i to write data */
-      MPI_Send(&i, 1, MPI_INT, i, 123, comm);
-      /* wait till node i is done */
-      MPI_Recv(&j, 1, MPI_INT, i, 321, comm, &status);
-      die_if (j != i, "master got bad msg %d from %d\n", j, i);
-    }
-  } else { /* send the master data on this node */
-    /* get the signal from the master */
-    MPI_Recv(&i, 1, MPI_INT, 0, 123, comm, &status);
-    die_if (i != inode, "node %d got bad msg %d from master\n", inode, i);
-    /* append the data in this node */
-    if ((fp = fopen(fn, "a")) != NULL) {
-      fprintf(fp, "#COPY %d\n", inode);
-      gc_fprintZr(gc, fp, Zr, rc);
-      fclose(fp);
-    }
-    /* tell the master I'm done */
-    MPI_Send(&inode, 1, MPI_INT, 0, 321, comm);
-  }
-
-  if (inode == MASTER)
-    printf("saved Zr to %s, tot %g\n", fn, tot);
-  return 0;
-}
-#endif
 
 
 
@@ -547,11 +390,11 @@ static int gc_fscanZr(gc_t *gc, FILE *fp, int loaddata,
   int i, n = 0, n0 = gc->nmin, offset, next = 0;
   char s[512], *p;
   double ZZ, Z, rc1;
- 
-  *tot = 0; 
+
+  *tot = 0;
   offset = (ver == 0) ? 1 : 0;
   if (ver == 0) n0 = 2; else if (ver <= 2) n0 = 3;
-  for (i = n0; i <= nmax; i++) {
+  for (i = n0; i <= gc->nmax; i++) {
     if (fgets(s, sizeof s, fp) == NULL)
       break;
     if ( 5 != sscanf(s, "%d%lf%lf%lf%lf%n",
@@ -564,7 +407,7 @@ static int gc_fscanZr(gc_t *gc, FILE *fp, int loaddata,
     if (nmvtype == 0)
       gc->rc[i] = pow(gc->Zr[i], 1./D);
     if (!loaddata) continue;
-    
+
     /* try to get additional data */
     p = s + next;
     if ( 5 != sscanf(p, "%lf%lf%lf%lf%lf%n", &gc->hist[i],
@@ -604,12 +447,12 @@ static int gc_fscanZr(gc_t *gc, FILE *fp, int loaddata,
     gc->fbsm[i][1] *= gc->fbsm[i][0];
     gc->fbsm[i][2] *= gc->fbsm[i][0];
   }
+  /* should be gc->nmax + 1 if successful */
   return i;
 }
 
 
 
-#ifndef MPI
 /* load the partition function from file
  * return the maximal `n' loaded */
 static int gc_loadZr(gc_t *gc, const char *fn, int loaddata)
@@ -619,7 +462,7 @@ static int gc_loadZr(gc_t *gc, const char *fn, int loaddata)
   char s[512], fndef[64], sver[16] = "";
   double tot;
 
-  mkfnZrdef(fn, fndef, D, nmax);
+  mkfnZrdef(fn, fndef, D, nmax, inode);
   xfopen(fp, fn, "r", return -1);
 
   /* handle the information line */
@@ -648,136 +491,10 @@ static int gc_loadZr(gc_t *gc, const char *fn, int loaddata)
   }
   i = gc_fscanZr(gc, fp, loaddata, fn, -1, ver, &tot);
   fclose(fp);
-  printf("loaded Zr from %s\n", fn);
-  return i - 1;
+  printf("%4d: loaded Zr %s, V%d, tot %g, data %d\n",
+      inode, fn, ver, tot, loaddata);
+  return i;
 }
-
-
-#else /* MPI version of gc_loadZr() */
-
-
-
-/* load the partition function from file */
-static int gc_loadZrmpi(gc_t *gc_g, gc_t *gc, const char *fn, int loaddata)
-{
-  FILE *fp = NULL;
-  int i = -1, cnt = gc->nmax + 1, d = 0, n, n0 = 1, ver = 0, next, err = 0;
-  long pos = 0;
-  char s[512], fndef[64], sver[16], *p;
-  MPI_Status status;
-  double tot = 0;
-
-  mkfnZrdef(fn, fndef, D, gc->nmax);
-  if (inode == MASTER) {
-    /* copy parameters from gc to gc_g in case file is unavailable */
-    memcpy(gc_g->Zr, gc->Zr, sizeof(gc->Zr[0]) * cnt);
-    memcpy(gc_g->rc, gc->rc, sizeof(gc->rc[0]) * cnt);
-
-    if ((fp = fopen(fn, "r")) == NULL) {
-      fprintf(stderr, "cannot open %s\n", fn);
-      err = 1;
-      goto SYNC_ERR;
-    }
-
-    /* handle the information line */
-    if (fgets(s, sizeof s, fp) == NULL) {
-      fprintf(stderr, "%s no tag line\n%s", fn, s);
-      err = 1;
-      goto SYNC_ERR;
-    }
-    p = s + 2;
-    if ( s[0] != '#' || (nmvtype == 1 && s[1] != 'H')
-      || 4 != sscanf(p, "%d%d%8s%d%n", &d, &n, sver, &n0, &next)
-      || d != D ) {
-      fprintf(stderr, "%s: D %d vs. %d\n%s", fn, d, D, s);
-      err = 1;
-      goto SYNC_ERR;
-    }
-    ver = atoi(sver[0] == 'V' ? sver + 1 : sver); /* strip V */
-    p += next;
-    if ( ver >= 3
-      && ( sscanf(p, "%d%n", &i, &next) != 1 || i != nmvtype ) ) {
-      fprintf(stderr, "%s: mvtype %d vs %d\n%s", fn, i, nmvtype, s);
-      err = 1;
-      goto SYNC_ERR;
-    }
-    if (loaddata && ver <= 2) {
-      fprintf(stderr, "%s: %s does not have restartable data\n", fn, sver);
-      loaddata = 0;
-    }
-    p += next;
-    if (1 != sscanf(p, "%d", &i) || i != nnodes) {
-      fprintf(stderr, "%s: # of copies mismatch %d vs %d\n", fn, i, nnodes);
-      loaddata = 0;
-    }
-
-    /* load the global data */
-    i = gc_fscanZr(gc_g, fp, loaddata, fn, -1, ver, &tot);
-    /* in case no node-specific data present, copy parameters
-     * so that they can be broadcast afterwards */
-    if (i > 0) {
-      memcpy(gc->Zr, gc_g->Zr, sizeof(gc->Zr[0]) * i);
-      memcpy(gc->rc, gc_g->rc, sizeof(gc->rc[0]) * i);
-    }
-    if (i < cnt) { err = 1; goto SYNC_ERR; }
-
-    /* load the local data for node 0 */
-    if (loaddata) {
-      if ( fgets(s, sizeof s, fp) == NULL
-        || s[0] != '#'
-        || 1 != sscanf(s + 5, "%d", &i) || i != inode ) {
-        fprintf(stderr, "%s: no info for copy %d (i %d), fpos %ld\n%s",
-            fn, inode, i, pos, s);
-        err = 1;
-        goto SYNC_ERR;
-      }
-      i = gc_fscanZr(gc, fp, loaddata, fn, inode, ver, &tot);
-      if (i < cnt) { err = 1; goto SYNC_ERR; }
-      pos = ftell(fp);
-      fprintf(stderr, "%s: %d/%d total %g\n", fn, inode, nnodes, tot);
-    } else { /* don't load data from any node */
-      err = 1; goto SYNC_ERR;
-    }
-
-SYNC_ERR:
-    if (fp != NULL) fclose(fp);
-  }
-
-  /* broadcast the error code */
-  MPI_Bcast(&err, 1, MPI_INT, MASTER, comm);
-  if (err) return -1;
-
-  /* let each node read node-specific data in order */
-  if (inode == MASTER) {
-    for (i = 1; i < nnodes; i++) {
-      /* let node i read its data */
-      MPI_Send(&pos, 1, MPI_LONG, i, 456, comm);
-      /* read data */
-      MPI_Recv(&pos, 1, MPI_LONG, i, 654, comm, &status);
-    }
-    printf("loaded Zr from %s, version %d\n", fn, ver);
-  } else {
-    MPI_Recv(&pos, 1, MPI_LONG, 0, 456, comm, &status);
-    if ((fp = fopen(fn, "r")) != NULL) {
-      fseek(fp, pos, SEEK_SET);
-      if ( fgets(s, sizeof s, fp) == NULL
-        || s[0] != '#'
-        || 1 != sscanf(s + 5, "%d", &i) || i != inode) {
-        fprintf(stderr, "%s: no info for copy %d (i %d), fpos %ld\n%s",
-            fn, inode, i, pos, s);
-      } else {
-        gc_fscanZr(gc, fp, loaddata, fn, inode, ver, &tot);
-        pos = ftell(fp);
-      }
-      fprintf(stderr, "%s: %d/%d total %g\n", fn, inode, nnodes, tot);
-      fclose(fp);
-    }
-    MPI_Send(&pos, 1, MPI_LONG, 0, 654, comm);
-  }
-  return 0;
-}
-#endif
-
 
 
 
@@ -879,34 +596,41 @@ INLINE int getpair(int *pi, int *pj, const dg_t *g,
 
 
 /* grand canonical simulation, main function */
-static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
+static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
     int neql, double nequil, int nstsave)
 {
   double t, cacc = 0, ctot = 0;
-  int ninit, i, j, k, n, npr, deg, acc, it, ieql, loaddata;
+  int ninit, i, j, k, n, npr, deg, acc, it = 0, ieql, loaddata, err;
   gc_t *gc;
   dg_t *g, *ng;
   rvn_t x[DG_NMAX], xi;
   real r2ij[DG_NMAX][DG_NMAX], r2i[DG_NMAX];
-  gc_t *gc_g = NULL;
 
   gc = gc_open(nmin, nmax, rc0);
   loaddata = restart && !bsim0;
+  err = (gc_loadZr(gc, fninp, loaddata) != gc->nmax + 1);
+  fprintf(stderr, "%4d: loadZrr err %d\n", inode, err);
 #ifdef MPI
-  gc_g = gc_open(nmin, nmax, rc0);
-  gc_loadZrmpi(gc_g, gc, fninp, loaddata);
-  gc_bcastparams(gc);
-  if (inode == MASTER) {
-    printf("MPI run with %d nodes\n", nnodes);
+  /* clear data if any node has corrupted input */
+  MPI_Reduce(&err, &it, 1, MPI_INT, MPI_SUM, MASTER, comm);
+  MPI_Bcast(&it, 1, MPI_INT, MASTER, comm);
+  if (it) {
+    if (inode == MASTER)
+      fprintf(stderr, "wipe all input data, err %d\n", it);
+    gc_cleardata(gc);
+  }
+  /* make sure the same parameters */
+  MPI_Bcast(gc->Zr, gc->nmax + 1, MPI_DOUBLE, MASTER, comm);
+  MPI_Bcast(gc->rc, gc->nmax + 1, MPI_MYREAL, MASTER, comm);
+  if (nnodes > 1) /* scramble the random number generator */
+    mtscramble(inode * 2034091783u + time(NULL));
+  MPI_Barrier(comm);
+  if (inode == MASTER)
     for (i = nmin; i <= nmax; i++)
       printf("%3d: %.6f %.6f\n", i, gc->Zr[i], gc->rc[i]);
-  }
   MPI_Barrier(comm);
-  /* scramble the random number generator */
-  mtscramble(inode * 2034091783u + time(NULL));
 #else
-  gc_g = gc;
-  i = gc_loadZr(gc, fninp, loaddata);
+  if (err) gc_cleardata(gc);
   for (i = nmin; i <= nmax; i++)
     printf("%3d: %.6f %.6f\n", i, gc->Zr[i], gc->rc[i]);
 #endif
@@ -923,19 +647,17 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
   /* initial n in nmin */
   calcr2ij(r2ij, x, ninit);
   mkgraphr2ij(g, r2ij, 1, ninit);
-  printf("%d: n %d [%d, %d]\n", inode, g->n, nmin, nmax);
-#ifdef MPI
-  MPI_Barrier(comm);
-#endif
+  printf("%4d/%-4d: n %d [%d, %d]\n", inode, nnodes, g->n, nmin, nmax);
 
-  ieql = (neql != 0); /* rounds of equilibrations */
+  ieql = (neql > 0) ? 1 : neql; /* stage of equilibrations if > 0 */
+  /* ieql < 0 means no data collection */
 
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
     n = g->n;
     die_if (n < nmin || n > nmax, "bad n %d, t %g\n", n, t);
-    if (rnd0() < ratn) { /* switching the ensemble, O(n) */
-      if (rnd0() < 0.5) { /* add an vertex */
-        if (n >= nmax) goto STEP_END;
+    if ( rnd0() < ratn ) { /* switching the ensemble, O(n) */
+      if ( rnd0() < 0.5 ) { /* add an vertex */
+        if ( n >= nmax ) goto STEP_END;
         /* attach a new vertex to a random vertex */
         i = (n == 1) ? 0 : (int) (rnd0() * n);
         rvn_inc(rvn_rndball(x[n], gc->rc[n + 1]), x[i]);
@@ -946,7 +668,7 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
         if ( n == 1 ) deg *= 2;
         /* the extended configuration is biconnected
          * if x[n] is connected two vertices */
-        gc->nup[n][0] += 1;
+        if ( ieql >= 0 ) gc->nup[n][0] += 1;
         if ( deg >= 2 ) {
           g->n = n + 1;
           for (j = 0; j < n; j++) {
@@ -956,25 +678,27 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
             else
               dg_unlink(g, j, n);
           }
-          if (nmvtype == 1) { /* heat-bath algorithm */
+          if ( nmvtype == 1 ) { /* heat-bath algorithm */
             npr = getpair(NULL, NULL, g, r2ij, gc->rc[n + 1]);
             if (rnd0() < 1./(gc->Zr[n + 1] * npr)) {
               /* accept the move */
-              gc->nup[n][1] += 1;
+              if ( ieql >= 0 ) gc->nup[n][1] += 1;
             } else { /* recover */
               dg_remove1(g, g, n);
             }
           } else { /* Metropolis algorithm */
-            gc->nup[n][1] += 1;
+            if ( ieql >= 0 ) gc->nup[n][1] += 1;
           }
         }
-      } else if (n > nmin) { /* remove a random vertex */
-        gc->ndown[n][0] += 1;
-        if (nmvtype == 1) { /* heat-bath removal */
+      } else if ( n > nmin ) { /* remove a random vertex */
+        if ( ieql >= 0 ) gc->ndown[n][0] += 1;
+        if ( nmvtype == 1 ) { /* heat-bath removal */
           if ( (npr = getpair(&i, &j, g, r2ij, gc->rc[n])) <= 0 )
             goto STEP_END;
-          gc->ngpr[n][0] += 1;
-          gc->ngpr[n][1] += npr;
+          if ( ieql >= 0 ) {
+            gc->ngpr[n][0] += 1;
+            gc->ngpr[n][1] += npr;
+          }
           die_if (n == 2 && npr != 2, "n %d, npr %d\n", n, npr);
           if (rnd0() >= npr * gc->Zr[n]) goto STEP_END;
         } else { /* Metropolis removal */
@@ -989,7 +713,7 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
         }
 
         /* accepted the removal */
-        gc->ndown[n][1] += 1;
+        if ( ieql >= 0 ) gc->ndown[n][1] += 1;
         dg_remove1(g, g, i); /* n is decreased by 1 here */
         /* update x */
         for (j = i; j < n - 1; j++)
@@ -1012,90 +736,54 @@ static void mcgc(int nmin, int nmax, double nsteps, double mcamp,
       ctot += 1;
     }
 STEP_END:
-    gc->hist[g->n] += 1;
-    if (it % nsted == 0)
-      gc_accumdata(gc, g, t, nstcs, nstfb);
+    if ( ieql >= 0 ) {
+      gc->hist[g->n] += 1;
+      if (it % nsted == 0)
+        gc_accumdata(gc, g, t, nstcs, nstfb);
+    }
     if (it % nstcom == 0) /* remove the center of mass motion */
       shiftr2ij(g, x, r2ij);
-    if (ieql) { /* equilibration */
+    if (ieql != 0) { /* equilibration */
       if ((int) fmod(t + .5, nequil) == 0) {
-        if (neql > 0) { /* active equilibration */
-#ifdef MPI
-          gc_reducedata(gc_g, gc);
-#endif
-          if (inode == MASTER) {
-            gc_update(gc_g, updrc, mindata, gc_g->Zr, gc_g->rc);
-            gc_computeZ(gc_g, gc_g->Zr, gc_g->rc);
-            gc_saveZr(gc_g, fnZrtmp, gc_g->Zr, gc_g->rc);
-            gc_printZr(gc_g, gc_g->Zr, gc_g->rc);
-            printf("equilibration stage %d/%d\n", ieql, neql);
-          }
-#ifdef MPI
-          if (inode == MASTER) {
-            memcpy(gc->Zr, gc_g->Zr, sizeof(gc->Zr[0]) * (gc->nmax + 1));
-            memcpy(gc->rc, gc_g->rc, sizeof(gc->rc[0]) * (gc->nmax + 1));
-          }
-          gc_bcastparams(gc);
-          MPI_Barrier(comm);
-#endif
+        if (ieql > 0) { /* update parameters */
+          gc_update(gc, updrc, mindata, gc->Zr, gc->rc);
+          gc_computeZ(gc, gc->Zr, gc->rc);
+          gc_saveZr(gc, fnZrtmp, gc->Zr, gc->rc);
+          gc_printZr(gc, gc->Zr, gc->rc);
+          printf("equilibration stage %d/%d\n", ieql, neql);
           gc_cleardata(gc);
-          t = 0; it = 0; /* reset time */
           if (++ieql > neql) /* stop equilibration */
             ieql = 0;
-        } else { /* passive equilibration */
-          gc_cleardata(gc);
-          it = 0; it = 0; /* reset time */
+        } else {
           printf("t %g: equilibrated, n %d\n", t, g->n);
-          t = 0; it = 0; /* reset time */
           ieql = 0;
         }
+        t = 0; it = 0; /* reset time */
       }
     } else { /* production */
       if (it % nstsave == 0 || t > nsteps - 0.5) {
         /* compute node-specific Z */
         gc_update(gc, updrc, mindata, gc->Zr1, gc->rc1);
         gc_computeZ(gc, gc->Zr1, gc->rc1);
-#ifdef MPI
-        gc_reducedata(gc_g, gc);
-        if (inode == MASTER) { /* compute the global Z */
-          gc_update(gc_g, updrc, mindata, gc_g->Zr1, gc_g->rc1);
-          gc_computeZ(gc_g, gc_g->Zr1, gc_g->rc1);
-        }
-        gc_calcerr(gc_g, gc);
-        if (restart) { /* don't write the new Zr for a restartable simulation */
-          gc_saveZrmpi(gc_g, gc, fnout, gc_g->Zr, gc_g->rc,
-              gc->Zr, gc->rc);
-          /* save a copy with updated parameters for future use */
-          if (inode == MASTER) 
-            gc_saveZr(gc_g, fnZrtmp, gc_g->Zr1, gc_g->rc1);
-        } else {
-          gc_saveZrmpi(gc_g, gc, fnout, gc_g->Zr1, gc_g->rc1,
-              gc->Zr1, gc->rc1);
-        }
-#else /* non-MPI code */
-        if (restart) { /* don't write the new Zr for a restartable simulation */
+        if (restart) {
           gc_saveZr(gc, fnout, gc->Zr, gc->rc);
           gc_saveZr(gc, fnZrtmp, gc->Zr1, gc->rc1);
         } else {
           gc_saveZr(gc, fnout, gc->Zr1, gc->rc1);
         }
-#endif
         it = 0;
       }
     }
   }
-  
+
+  printf("%d: cacc %g\n", inode, cacc/ctot);
   if (inode == MASTER) {
-#ifdef MPI
-    gc_printZr(gc_g, gc_g->Zr1, gc_g->rc1);
-#else
     gc_printZr(gc, gc->Zr1, gc->rc1);
-#endif
-    printf("cacc %g\n", cacc/ctot);
     mtsave(NULL);
-  } 
+  }
   dg_close(g);
   dg_close(ng);
+  return 0;
 }
 
 
