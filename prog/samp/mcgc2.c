@@ -240,7 +240,7 @@ static void gc_update(gc_t *gc, int updrc, double mindata,
   for (i = gc->nmin + 1; i <= gc->nmax; i++) {
     if (i == 2) continue; /* exact */
     r = getrrat(gc->nup[i - 1][1], gc->nup[i - 1][0],
-        gc->ndown[i][1], gc->ndown[i][0], mindata, 0.7, 1.4);
+        gc->ndown[i][1], gc->ndown[i][0], mindata, 0.9, 1.1);
     if (nmvtype == 1 && updrc && gc->ngpr[i][1] > mindata) {
       /* we treat Zr as the factor used in the acceptance probability
        *  Acc(n -> n-1) = min{1, Zr E}
@@ -373,8 +373,8 @@ static int gc_saveZr(gc_t *gc, const char *fn,
 
   mkfnZrdef(fn, fndef, D, nmax, inode);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "#%s %d %d V3 %d %d %d\n", (nmvtype == 1) ? "H" : "",
-      D, gc->nmax, gc->nmin, nmvtype, nedxmax);
+  fprintf(fp, "#%s %d %d V3 %d 1 %d\n", (nmvtype == 1) ? "H" : "",
+      D, gc->nmax, gc->nmin, nedxmax);
   tot = gc_fprintZr(gc, fp, Zr, rc);
   fclose(fp);
   printf("%4d: saved Zr to %s, tot %g\n", inode, fn, tot);
@@ -479,14 +479,8 @@ static int gc_loadZr(gc_t *gc, const char *fn, int loaddata)
     return -1;
   }
   ver = atoi(sver[0] == 'V' ? sver + 1 : sver); /* strip V */
-  if ( ver >= 3
-    && ( sscanf(s + 2 + next, "%d", &i) != 1 || i != nmvtype ) ) {
-    fprintf(stderr, "%s: mvtype %d vs %d\n%s", fn, i, nmvtype, s);
-    fclose(fp);
-    return -1;
-  }
-  if (loaddata && ver <= 2) {
-    fprintf(stderr, "%s: %s does not have enough data\n", fn, sver);
+  if (loaddata && (ver <= 2 || strstr(s, "dirty") || strstr(s, "DIRTY")) ) {
+    fprintf(stderr, "%s: %s has no restartable data\n", fn, sver);
     loaddata = 0;
   }
   i = gc_fscanZr(gc, fp, loaddata, fn, -1, ver, &tot);
@@ -600,7 +594,7 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
     int neql, double nequil, int nstsave)
 {
   double t, cacc = 0, ctot = 0;
-  int ninit, i, j, k, n, npr, deg, acc, it = 0, ieql, loaddata, err;
+  int ninit, i, j, k, n, npr, deg, acc, it, ieql, loaddata;
   gc_t *gc;
   dg_t *g, *ng;
   rvn_t x[DG_NMAX], xi;
@@ -608,17 +602,8 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
 
   gc = gc_open(nmin, nmax, rc0);
   loaddata = restart && !bsim0;
-  err = (gc_loadZr(gc, fninp, loaddata) != gc->nmax + 1);
-  fprintf(stderr, "%4d: loadZrr err %d\n", inode, err);
+  gc_loadZr(gc, fninp, loaddata);
 #ifdef MPI
-  /* clear data if any node has corrupted input */
-  MPI_Reduce(&err, &it, 1, MPI_INT, MPI_SUM, MASTER, comm);
-  MPI_Bcast(&it, 1, MPI_INT, MASTER, comm);
-  if (it) {
-    if (inode == MASTER)
-      fprintf(stderr, "wipe all input data, err %d\n", it);
-    gc_cleardata(gc);
-  }
   /* make sure the same parameters */
   MPI_Bcast(gc->Zr, gc->nmax + 1, MPI_DOUBLE, MASTER, comm);
   MPI_Bcast(gc->rc, gc->nmax + 1, MPI_MYREAL, MASTER, comm);
@@ -630,7 +615,6 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
       printf("%3d: %.6f %.6f\n", i, gc->Zr[i], gc->rc[i]);
   MPI_Barrier(comm);
 #else
-  if (err) gc_cleardata(gc);
   for (i = nmin; i <= nmax; i++)
     printf("%3d: %.6f %.6f\n", i, gc->Zr[i], gc->rc[i]);
 #endif
@@ -652,7 +636,7 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
   ieql = (neql > 0) ? 1 : neql; /* stage of equilibrations if > 0 */
   /* ieql < 0 means no data collection */
 
-  for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
+  for (it = 1, t = 1; ieql || t <= nsteps; t += 1, it++) {
     n = g->n;
     die_if (n < nmin || n > nmax, "bad n %d, t %g\n", n, t);
     if ( rnd0() < ratn ) { /* switching the ensemble, O(n) */

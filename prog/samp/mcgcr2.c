@@ -388,7 +388,7 @@ static void gc_update(gc_t *gc, double mindata,
   if (sr != gc->sr) memcpy(sr, gc->sr, sizeof(sr[0]) * gc->nens);
   for (i = gc->ens0 + 1; i < gc->nens; i++) {
     r = getrrat(gc->nup[i-1][1], gc->nup[i-1][0],
-        gc->ndown[i][1], gc->ndown[i][0], mindata, 0.7, 1.4);
+        gc->ndown[i][1], gc->ndown[i][0], mindata, 0.9, 1.1);
     if (gc->type[i - 1] == GCX_PURE) {
       Zr[i] *= r;
     } else {
@@ -497,8 +497,8 @@ static int gc_saveZr(gc_t *gc, const char *fn)
 
   mkfnZrdef(fn, fndef, D, gc->m - 1, gc->nmax, inode);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "# %d %d V3 %d %d %d\n", D, gc->nmax,
-      gc->nmin, nmvtype, nedxmax);
+  fprintf(fp, "# %d %d V3 %d 1 %d\n", D, gc->nmax,
+      gc->nmin, nedxmax);
   for (i = gc->ens0; i < gc->nens; i++) {
     if (gc->type[i] != GCX_PURE) continue;
     n = gc->n[i];
@@ -571,7 +571,7 @@ static int gc_saveZrr(gc_t *gc, const char *fn,
 
   mkfnZrrdef(fn, fndef, D, gc->m - 1, gc->nmax, inode);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "#%c %d %d %d %d %d %d V2 %d\n", nmvtype ? 'R' : 'S',
+  fprintf(fp, "#%c %d %d %d %d %d %d V3 1 %d\n", nmvtype ? 'R' : 'S',
       D, gc->nens, gc->ens0, gc->nmin, gc->nmax, gc->m, nedxmax);
   tot = gc_fprintZrr(gc, fp, Zr, rc, sr);
   fclose(fp);
@@ -650,7 +650,7 @@ static int gc_fscanZrr(gc_t *gc, FILE *fp, int loaddata,
 static int gc_loadZrr(gc_t *gc, const char *fn, int loaddata)
 {
   FILE *fp;
-  int i = -1, nens, d = 0, n, ens0 = 0, n0 = 1, m = 0, ver = 0;
+  int i = -1, nens, d = 0, n, ens0 = 0, n0 = 1, m = 0, ver = 0, next = 0;
   char s[512], fndef[64], sver[16];
   double tot;
 
@@ -664,8 +664,8 @@ static int gc_loadZrr(gc_t *gc, const char *fn, int loaddata)
     return -1;
   }
   if ( s[0] != '#' || s[1] != (nmvtype ? 'R' : 'S')
-    || 7 != sscanf(s + 2, "%d%d%d%d%d%d%8s",
-                   &d, &nens, &ens0, &n0, &n, &m, sver)
+    || 7 != sscanf(s + 2, "%d%d%d%d%d%d%8s%n",
+                   &d, &nens, &ens0, &n0, &n, &m, sver, &next)
     || d != D || m != gc->m || ens0 != gc->ens0 ) {
     fprintf(stderr, "%s: D %d vs. %d, m %d vs %d, ens0 %d vs %d\n%s",
         fn, d, D, m, gc->m, ens0, gc->ens0, s);
@@ -673,8 +673,8 @@ static int gc_loadZrr(gc_t *gc, const char *fn, int loaddata)
     return -1;
   }
   ver = atoi(sver[0] == 'V' ? sver + 1 : sver); /* strip V */
-  if (loaddata && ver <= 0) {
-    fprintf(stderr, "%s version %s does not have restartable data\n", fn, sver);
+  if ( loaddata && (ver <= 0 || strstr(s, "dirty") || strstr(s, "DIRTY")) ) {
+    fprintf(stderr, "%s: %s has no restartable data\n", fn, sver);
     loaddata = 0;
   }
   i = gc_fscanZrr(gc, fp, loaddata, fn, -1, ver, &tot);
@@ -871,7 +871,7 @@ static int check(const dg_t *g, rvn_t *x, real (*r2ij)[DG_NMAX],
   for (i = 1; i < n; i++) {
     for (j = 0; j < i; j++) {
       r2 = rvn_dist2(x[i], x[j]);
-      if (r2ij[i][j] != r2ij[j][i]) {
+      if (fabs(r2ij[i][j] - r2ij[j][i]) > 1e-6)  {
         fprintf(stderr, "mat %d and %d, r2 %g vs %g\n",
             i, j, r2ij[i][j], r2ij[j][i]);
         err++;
@@ -922,7 +922,7 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
     real mcamp, int neql, double nequil, int nstsave)
 {
   double t, ctot = 0, cacc = 0, prtot = 0, pracc = 0;
-  int ninit, iens0, iens, ensmax, ensmin, acc, it = 0, ieql, ned = 1, loaddata, err;
+  int ninit, iens0, iens, ensmax, ensmin, acc, it, ieql, ned = 1, loaddata;
   int pi = 0, pj = 1; /* indices of the distance-restrained pair */
   gc_t *gc;
   dg_t *g, *ng, *g1, *ng1;
@@ -932,17 +932,8 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
 
   gc = gc_open(nmin, nmax, mtiers, rc0, sr0);
   loaddata = restart && !bsim0;
-  err = (gc_loadZrr(gc, fninp, loaddata) != gc->nens);
-  fprintf(stderr, "%4d: loadZrr err %d\n", inode, err);
+  gc_loadZrr(gc, fninp, loaddata);
 #ifdef MPI
-  /* clear data if any node has corrupted input */
-  MPI_Reduce(&err, &it, 1, MPI_INT, MPI_SUM, MASTER, comm);
-  MPI_Bcast(&it, 1, MPI_INT, MASTER, comm);
-  if (it) {
-    if (inode == MASTER)
-      fprintf(stderr, "wipe all input data, err %d\n", it);
-    gc_cleardata(gc);
-  }
   /* make sure all nodes are using the same parameters */
   MPI_Bcast(gc->Zr, gc->nens, MPI_DOUBLE, MASTER, comm);
   MPI_Bcast(gc->rc, gc->nens, MPI_MYREAL, MASTER, comm);
@@ -954,7 +945,6 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
     gc_print(gc, 1, NULL, NULL, NULL);
   MPI_Barrier(comm);
 #else
-  if (err) gc_cleardata(gc);
   gc_print(gc, 1, NULL, NULL, NULL);
 #endif
 
@@ -982,7 +972,7 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
   /* ieql < 0 means no data collection */
 
   /* main loop */
-  for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
+  for (it = 1, t = 1; ieql || t <= nsteps; t += 1, it++) {
     die_if (g->n < nmin || g->n > nmax, "bad n %d, t %g, iens %d, mtiers %d, ensmax %d\n", g->n, t, iens, mtiers, ensmax);
     iens0 = iens;
     if (rnd0() < ratn) /* n-move, switching ensemble */

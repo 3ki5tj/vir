@@ -146,7 +146,7 @@ INLINE double b3rat(int d)
  * divided by the square of the unit spherial volume */
 INLINE double Z3rat(int d)
 {
-  return 3./4 * b3rat(d); /* (-1) * 6! / (-2) / (2^2) */
+  return 3./4 * b3rat(d); /* (-1) * 3! / (-2) / (2^2) */
 }
 
 
@@ -180,7 +180,6 @@ INLINE double B4rat_ring(int d)
     }
     return 8 - sum * 8 * ONEOVERPISQR;
   }
-  return 0;
 }
 
 
@@ -241,7 +240,7 @@ INLINE double B4rat_full(int d)
 
 INLINE double B4rat(int d)
 {
-  return -3*B4rat_ring(d)/8 - 3*B4rat_diamond(d)/4 - B4rat_full(d)/8;
+  return -3*(B4rat_ring(d)/8 + B4rat_diamond(d)/4 + B4rat_full(d)/24);
 }
 
 
@@ -341,13 +340,13 @@ INLINE void initx(rvn_t *x, int n)
 
 
 /* construct a new graph `ng', with vertex i displaced */
-#define UPDGRAPH(i, nv, g, ng, x, xi) { int j; \
+#define UPDGRAPH(i, nv, g, ng, x, xi) { int k_; \
   ng->n = (nv); \
   dg_copy(ng, g); \
-  for (j = 0; j < (nv); j++) { \
-    if (j == i) continue; \
-    if (rvn_dist2(xi, (x)[j]) < 1) { DG_LINK(ng, i, j); } \
-    else { DG_UNLINK(ng, i, j); } \
+  for (k_ = 0; k_ < (nv); k_++) { \
+    if (k_ == i) continue; \
+    if (rvn_dist2(xi, (x)[k_]) < 1) { DG_LINK(ng, i, k_); } \
+    else { DG_UNLINK(ng, i, k_); } \
   } }
 
 
@@ -367,15 +366,15 @@ INLINE void initx(rvn_t *x, int n)
 
 /* construct a new graph with a single vertex i displaced
  * and save the corresponding array of displacements */
-#define UPDGRAPHR2(i, nv, g, ng, x, xi, r2, r2i) { int j; \
+#define UPDGRAPHR2(i, nv, g, ng, x, xi, r2, r2i) { int k_; \
   ng->n = (nv); \
   dg_copy(ng, g); \
-  for ( (r2i)[i] = 0, j = 0; j < (nv); j++) { \
-    if ( j == i ) continue; \
-    if ( ((r2i)[j] = rvn_dist2(xi, x[j])) < (r2) ) { \
-      DG_LINK(ng, i, j); \
+  for ( (r2i)[i] = 0, k_ = 0; k_ < (nv); k_++) { \
+    if ( k_ == i ) continue; \
+    if ( ((r2i)[k_] = rvn_dist2(xi, x[k_])) < (r2) ) { \
+      DG_LINK(ng, i, k_); \
     } else { \
-      DG_UNLINK(ng, i, j); \
+      DG_UNLINK(ng, i, k_); \
     } \
   } }
 
@@ -634,7 +633,7 @@ INLINE double getrrat(double a1, double a0, double b1, double b0,
 
 
 /* append `i' to fn */
-char *fnappend(char *fn, int i)
+INLINE char *fnappend(char *fn, int i)
 {
   char *s;
 

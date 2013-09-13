@@ -10,7 +10,7 @@
 
 
 /* third-order virial coefficients */
-double vir3(long nsteps)
+static double vir3(long nsteps)
 {
   long t, acc = 0;
   rvn_t v, u;
@@ -30,7 +30,7 @@ double vir3(long nsteps)
 
 
 /* fourth-order virial coefficients */
-double vir4(long nsteps)
+static double vir4(long nsteps)
 {
   long t, acc44 = 0, acc45 = 0, acc46 = 0;
   int lnk13, lnk02;
@@ -62,13 +62,13 @@ double vir4(long nsteps)
 
 
 /* fifth-order virial coefficients */
-double vir5(long nsteps)
+static double vir5(long nsteps)
 {
   long t, acc[10];
   rvn_t u, v[5];
   double tot, abstot, rat, x, y;
   int i, S[10] = {-10, 2, 12, -4, -2,  -12, 4, 8, -12, 120}, lnk[5][5];
-  char *names[10] = {"A55", "A56\'", "A56\'\'", "A57\'", "A57\'\'",
+  const char *names[10] = {"A55", "A56\'", "A56\'\'", "A57\'", "A57\'\'",
     "A57\'\'\'", "A58\'", "A58\'\'", "A59", "A510"};
 
   for (i = 0; i < 10; i++) acc[i] = 0;

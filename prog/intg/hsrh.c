@@ -13,7 +13,7 @@
 
 
 /* third-order virial coefficients */
-double vir3(long nsteps)
+static double vir3(long nsteps)
 {
   long t, acc = 0;
   rvn_t v, u;
@@ -33,7 +33,7 @@ double vir3(long nsteps)
 
 
 /* fourth-order virial coefficients */
-double vir4(long nsteps)
+static double vir4(long nsteps)
 {
   long t, acc44 = 0, acc46 = 0;
   int i, lnk02, lnk13;
@@ -60,14 +60,14 @@ double vir4(long nsteps)
 
 
 /* fifth-order virial coefficients */
-double vir5(long nsteps)
+static double vir5(long nsteps)
 {
   rvn_t u, v[5];
   double x, y, tot, norm1, norm2;
   long t, acc[6] = {0}; /* acc[5] is reserved for invalid diagrams */
   int sc[5] = {-6, 3, -2, 1, 1}, degen[5] = {1, 15, -30, 10, -12};
   int i, mul[5], dup[5] = {1, 6, 7, 1, 1}, map[64];
-  char *names[5] = {"A5_10", "A5_8", "A5_7", "A5_6", "A5_5"};
+  const char *names[5] = {"A5_10", "A5_8", "A5_7", "A5_6", "A5_5"};
   unsigned code;
 
   for (i = 0; i < 5; i++)
@@ -203,7 +203,7 @@ static int mktop(int n, int npr, int pr[][2], int k, int map[],
 
 
 /* six-order virial coefficients */
-double vir6(long nsteps)
+static double vir6(long nsteps)
 {
 #define NDG6 23 /* number of diagrams */
   long t, acc[NDG6 + 1] = {0};

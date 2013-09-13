@@ -625,7 +625,7 @@ INLINE int dgmap_init(dgmap_t *m, int n)
       /* `c1' is the code of the permutated diagram `c' */
       for (c1 = 0, ipr = 0; ipr < npr; ipr++, ms++)
         if ((c >> ipr) & 1u) c1 |= *ms;
-      if (m->map[c1] < 0) m->map[c1] = m->ng;
+      if (m->map[c1] < 0) m->map[c1] = (unqid_t) m->ng;
       else die_if (m->map[c1] != m->ng,
         "error: corruption code: %#x %#x, graph %d, %d\n",
         c, c1, m->map[c1], m->ng);

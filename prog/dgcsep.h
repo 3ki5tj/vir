@@ -207,7 +207,7 @@ INLINE int dg_ncsep_lookuplow(const dg_t *g, code_t c)
     xnew(ncl[n], npr);
     for (ipr = 0; ipr < npr; ipr++) ncl[n][ipr] = (char) (-1);
   }
-  if (ncl[n][c] < 0) ncl[n][c] = dg_ncsep(g);
+  if (ncl[n][c] < 0) ncl[n][c] = (char) dg_ncsep(g);
   return ncl[n][c];
 }
 

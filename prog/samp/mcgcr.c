@@ -334,7 +334,7 @@ static void gc_update(gc_t *gc, double mindata,
   if (sr != gc->sr) memcpy(sr, gc->sr, sizeof(sr[0]) * gc->nens);
   for (i = gc->ens0 + 1; i < gc->nens; i++) {
     r = getrrat(gc->nup[i-1][1], gc->nup[i-1][0],
-        gc->ndown[i][1], gc->ndown[i][0], mindata, 0.7, 1.4);
+        gc->ndown[i][1], gc->ndown[i][0], mindata, 0.9, 1.1);
     if (gc->type[i - 1] == GCX_PURE) {
       Zr[i] *= r;
     } else {
