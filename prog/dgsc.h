@@ -128,11 +128,12 @@ INLINE int dg_rhsc_spec0(const dg_t *g, int nocsep,
       if (degs[i] == 3) break;
     for (j = i + 1; j < n; j++)
       if (degs[j] == 3) break;
-    return !dg_linked(g, i, j);
+    /* if j >= n, diagram is not biconnected */
+    return j < n && !dg_linked(g, i, j);
   }
 
   /* densely-connected diagrams */
-  ned1 = n * (n - 1) /2 - ned0;
+  ned1 = n * (n - 1) / 2 - ned0;
   if (ned1 < 3) {
     /* with no clique separactor, this covers the following three cases
      * `ned1' can only be 0 or 2 */

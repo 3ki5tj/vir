@@ -6,6 +6,7 @@
 #define ZCOM_RVN
 #include "zcom.h"
 #include "dgrjw.h"
+#include "dgring.h"
 #include "mcutil.h"
 
 #ifdef MPI
@@ -33,6 +34,7 @@ double mindata = 100; /* minimal # of data points to make update */
 char *fninp = NULL; /* input file */
 char *fnout = NULL; /* output file */
 char *fnZrtmp = "Zrh.tmp"; /* temporary output file */
+char *fnBring = NULL; /* ring contribution file */
 
 int nstcom = 10000;
 int nsted = 10;
@@ -80,6 +82,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-i",    NULL,   &fninp,   "input file");
   argopt_add(ao, "-o",    NULL,   &fnout,   "output file");
   argopt_add(ao, "-T",    NULL,   &fnZrtmp, "temporary output file");
+  argopt_add(ao, "-I",    NULL,   &fnBring, "ring contribution file");
   argopt_add(ao, "-G",    "%d",   &nsted,   "interval of computing the # of edges");
   argopt_add(ao, "-A",    "%d",   &nstcs,   "interval of computing clique separator");
   argopt_add(ao, "-F",    "%d",   &nstfb,   "interval of computing fb");
@@ -109,13 +112,8 @@ static void doargs(int argc, char **argv)
   /* make nstcs a multiple of nsted */
   nstcs = (nstcs + nsted - 1) / nsted * nsted;
 
-  if (nstfb < 0) {
-    if (D <= 10) {
-      nstfb = (100 + nstcs - 1) / nstcs * nstcs;
-    } else {
-      nstfb = nstcs;
-    }
-  }
+  if (D >= 20) nstcs = nsted;
+  if (nstfb < 0) nstfb = nstcs;
 
   if (nedxmax < 0) {
     int nedarr[] = {0, 9, 9, 9, 9, 9, 9, 11, 11, 12, 12, 12, 13, 13};
@@ -156,7 +154,10 @@ typedef struct {
   double nedg[DG_NMAX + 1][2]; /* number of edges */
   double ncsp[DG_NMAX + 1][2]; /* no clique separator */
   double fbsm[DG_NMAX + 1][3]; /* hard-sphere weight */
+  double ring[DG_NMAX + 1][2]; /* # of ring subgraphs */
   double B[DG_NMAX + 1]; /* virial coefficients */
+  double B2[DG_NMAX + 1]; /* virial coefficients, ring route */
+  double Bring[DG_NMAX + 1]; /* ring contributions to the virial coefficients */
   double ZZ[DG_NMAX + 1]; /* ratio of Z between two successive pure states */
 } gc_t;
 
@@ -179,6 +180,8 @@ static void gc_cleardata(gc_t *gc)
     gc->ncsp[i][1] = 0;
     gc->fbsm[i][0] = 1e-20;
     gc->fbsm[i][1] = gc->fbsm[i][2] = 0;
+    gc->ring[i][0] = 1e-20;
+    gc->ring[i][1] = 0;
   }
 }
 
@@ -215,6 +218,11 @@ INLINE gc_t *gc_open(int nmin, int nmax, real rc0)
     }
   }
   gc_cleardata(gc);
+  if (inode == MASTER)
+    loadBring(D, 1, gc->nmax, gc->Bring, fnBring);
+#ifdef MPI
+  MPI_Bcast(gc->Bring, gc->nmax + 1, MPI_DOUBLE, MASTER, comm);
+#endif
   return gc;
 }
 
@@ -270,14 +278,14 @@ static void gc_update(gc_t *gc, int updrc, double mindata,
 static void gc_computeZ(gc_t *gc, const double *Zr, const double *rc)
 {
   int i;
-  double z, fbav, fac;
+  double z, fbav, fac, nr;
 
   gc->Z[0] = gc->Z[1] = 1;
   gc->B[0] = gc->B[1] = 1;
   gc->ZZ[0] = gc->ZZ[1] = 1;
   for (fac = 1, z = 1, i = 2; i <= nmax; i++) {
     /* The adjusted acceptance ratios satisfy
-     *  AR(n->n-1)/AR(n-1->n) = 1 = rc*^D f* n (n - 1) / ZZ
+     *  AR(n -> n-1) / AR(n-1 -> n) = 1 = rc*^D f* n (n - 1) / ZZ
      * where, ZZ = Z(n)/Z(n-1) is the ratio of the actual
      * partition function. */
     z *= Zr[i];
@@ -298,6 +306,9 @@ static void gc_computeZ(gc_t *gc, const double *Zr, const double *rc)
     /* B(i)/B(2)^(i-1) = (1 - i) 2^(i-1) / i! Z(i)/Z(2)^(i-1) <fb(i)> */
     gc->B[i] = (1 - i) * fac * z * fbav;
     gc->ZZ[i] = gc->Z[i] / gc->Z[i - 1];
+    nr = gc->ring[i][1] / gc->ring[i][0];
+    if (nr > 0)
+      gc->B2[i] = -fbav / nr * gc->Bring[i];
   }
 }
 
@@ -310,16 +321,16 @@ static void gc_printZr(const gc_t *gc, const double *Zr, const real *rc)
 
   for (i = gc->nmin; i <= gc->nmax; i++)
     printf("%2d %9.6f %8.6f %.6e %12.0f "
-        "%.5f %.5f %7.4f %7.4f %10.8f %9.6f %+9.6f %+.7e\n",
+        "%.5f %.5f %7.4f %7.4f %10.8f %9.6f %+9.6f %+.6e %+.6e\n",
         i, Zr[i], rc[i], gc->Z[i], gc->hist[i],
         gc->nup[i-1][1] / gc->nup[i-1][0],
         gc->ndown[i][1] / gc->ndown[i][0],
         gc->ngpr[i][1] / gc->ngpr[i][0],
         gc->nedg[i][1] / gc->nedg[i][0],
         gc->ncsp[i][1] / gc->ncsp[i][0],
-        gc->fbsm[i][2] / gc->fbsm[i][0],
+        gc->ring[i][1] / gc->ring[i][0],
         gc->fbsm[i][1] / gc->fbsm[i][0],
-        gc->B[i]);
+        gc->B[i], gc->B2[i]);
 }
 
 
@@ -340,13 +351,16 @@ INLINE double gc_fprintZr(gc_t *gc, FILE *fp,
     if (nmvtype == 1)
       fprintf(fp, "%14.0f %.14f ", gc->ngpr[i][0],
           gc->ngpr[i][1] / gc->ngpr[i][0]);
-    fprintf(fp, "%14.0f %14.0f %14.0f %18.14f %16.14f %16.14f %+17.14f %+20.14e\n",
+    fprintf(fp, "%14.0f %17.14f ", gc->ring[i][0],
+        gc->ring[i][1] / gc->ring[i][0]);
+    fprintf(fp, "%14.0f %14.0f %14.0f %18.14f %16.14f %16.14f %+17.14f "
+        "%+20.14e %+20.14e\n",
         gc->nedg[i][0], gc->ncsp[i][0], gc->fbsm[i][0],
         gc->nedg[i][1] / gc->nedg[i][0],
         gc->ncsp[i][1] / gc->ncsp[i][0],
         gc->fbsm[i][2] / gc->fbsm[i][0],
         gc->fbsm[i][1] / gc->fbsm[i][0],
-        gc->B[i]);
+        gc->B[i], gc->B2[i]);
     tot += gc->hist[i];
   }
   return tot;
@@ -373,7 +387,7 @@ static int gc_saveZr(gc_t *gc, const char *fn,
 
   mkfnZrdef(fn, fndef, D, nmax, inode);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "#%s %d %d V3 %d 1 %d\n", (nmvtype == 1) ? "H" : "",
+  fprintf(fp, "#%s %d %d V4 %d 1 %d\n", (nmvtype == 1) ? "H" : "",
       D, gc->nmax, gc->nmin, nedxmax);
   tot = gc_fprintZr(gc, fp, Zr, rc);
   fclose(fp);
@@ -417,7 +431,12 @@ static int gc_fscanZr(gc_t *gc, FILE *fp, int loaddata,
       break;
     }
     *tot += gc->hist[i];
+    if (gc->nup[i-1][0] <= 0) gc->nup[i-1][0] = 1e-20;
+    if (gc->ndown[i][0] <= 0) gc->ndown[i][0] = 1e-20;
+    gc->nup[i-1][1] *= gc->nup[i-1][0];
+    gc->ndown[i][1] *= gc->ndown[i][0];
     p += next;
+
     if (nmvtype == 1) {
       if ( 2 != sscanf(p, "%lf%lf%n",
                 &gc->ngpr[i][0], &gc->ngpr[i][1], &next) ) {
@@ -425,7 +444,21 @@ static int gc_fscanZr(gc_t *gc, FILE *fp, int loaddata,
         break;
       }
       p += next;
+      if (gc->ngpr[i][0] <= 0) gc->ngpr[i][0] = 1e-20;
+      gc->ngpr[i][1] *= gc->ngpr[i][0];
     }
+
+    if (ver >= 4) { /* ring data */
+      if ( 2 != sscanf(p, "%lf%lf%n",
+                &gc->ring[i][0], &gc->ring[i][1], &next) ) {
+        fprintf(stderr, "%s(%d): no ring data on line %d\n%s", fn, tag, i, s);
+        break;
+      }
+      p += next;
+      if (gc->ring[i][0] <= 0) gc->ring[i][0] = 1e-20;
+      gc->ring[i][1] *= gc->ring[i][0];
+    }
+
     if ( 7 != sscanf(p, "%lf%lf%lf%lf%lf%lf%lf",
            &gc->nedg[i][0], &gc->ncsp[i][0], &gc->fbsm[i][0],
            &gc->nedg[i][1], &gc->ncsp[i][1],
@@ -433,15 +466,9 @@ static int gc_fscanZr(gc_t *gc, FILE *fp, int loaddata,
       fprintf(stderr, "%s(%d): corrupted(III) on line %d\n%s", fn, tag, i, s);
       break;
     }
-    if (gc->nup[i-1][0] <= 0) gc->nup[i-1][0] = 1e-20;
-    if (gc->ndown[i][0] <= 0) gc->ndown[i][0] = 1e-20;
-    gc->nup[i-1][1] *= gc->nup[i-1][0];
-    gc->ndown[i][1] *= gc->ndown[i][0];
-    if (gc->ngpr[i][0] <= 0) gc->ngpr[i][0] = 1e-20;
     if (gc->nedg[i][0] <= 0) gc->nedg[i][0] = 1e-20;
     if (gc->ncsp[i][0] <= 0) gc->ncsp[i][0] = 1e-20;
     if (gc->fbsm[i][0] <= 0) gc->fbsm[i][0] = 1e-20;
-    gc->ngpr[i][1] *= gc->ngpr[i][0];
     gc->nedg[i][1] *= gc->nedg[i][0];
     gc->ncsp[i][1] *= gc->ncsp[i][0];
     gc->fbsm[i][1] *= gc->fbsm[i][0];
@@ -496,26 +523,30 @@ static int gc_loadZr(gc_t *gc, const char *fn, int loaddata)
 static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
     int nstcs, int nstfb)
 {
-  int ned = -1, n = g->n, ncs, sc, err, fb = 0;
-  int nlookup = DGMAP_NMAX;
-  static int degs[DG_NMAX];
+  int ned = -1, n = g->n, ncs, sc, err, errnr, fb = 0;
+  double nr = 0;
+  static int degs[DG_NMAX], nlookup = 0;
 
-  /* we will always compute fb if a lookup table is available
-   * i.e., for a small n, but the n = 8 case costs 30s-70s,
-   * which is a bit long for a short simulation */
-  if (nsteps < 5e8) nlookup = 7;
+  if (nlookup <= 0)
+    /* we will always compute fb if a lookup table is available
+     * i.e., for a small n. But in the n = 8 case, initializing
+     * the lookup table would cost 30s-70s,
+     * which is a bit long for a short simulation */
+    nlookup = (nsteps < 5e8) ? 7 : DGMAP_NMAX;
 
   ned = dg_degs(g, degs);
   gc->nedg[n][0] += 1;
   gc->nedg[n][1] += ned;
 
   if (n <= nlookup || ((int) fmod(t, nstcs) == 0) ) {
-    /* check if the graph has a clique separator */
-    if (n <= 3) {
-      int fbarr[4] = {1, 1, -1, -1};
-      err = 0;
+    /* check if the graph has a clique separator
+     * but in special cases, fb and nr are computed as well */
+    if (n <= 3) { /* assuming biconnectivity */
+      static int fbarr[4] = {1, 1, -1, -1};
+      err = errnr = 0;
       ncs = 1;
       fb = fbarr[n];
+      nr = 1;
     } else if (n <= nlookup) { /* lookup table */
       code_t code;
       unqid_t uid;
@@ -526,7 +557,8 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       dgmap_init(m, n);
       uid = m->map[code];
       fb = dg_hsfb_lookuplow(n, uid);
-      err = 0;
+      nr = dg_nring_lookuplow(n, uid);
+      err = errnr = 0;
     } else {
       /* this function implicitly computes the clique separator
        * with very small overhead */
@@ -537,6 +569,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       } else { /* no clique separator */
         ncs = 1;
       }
+      errnr = 1; /* indicate we don't have nr */
     }
     gc->ncsp[n][0] += 1;
     gc->ncsp[n][1] += ncs;
@@ -555,6 +588,14 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       gc->fbsm[n][0] += 1;
       gc->fbsm[n][1] += fb;
       gc->fbsm[n][2] += abs(fb);
+
+      /* compute the ring content */
+      if (errnr) {
+        nr = dg_nring_spec0(g, &ned, degs, &errnr);
+        if (errnr) nr = dg_nring_direct(g);
+      }
+      gc->ring[n][0] += 1;
+      gc->ring[n][1] += nr;
     }
   }
 }
@@ -739,7 +780,7 @@ STEP_END:
           if (++ieql > neql) /* stop equilibration */
             ieql = 0;
         } else {
-          printf("t %g: equilibrated, n %d\n", t, g->n);
+          printf("%d, t %g: equilibrated, n %d\n", inode, t, g->n);
           ieql = 0;
         }
         t = 0; it = 0; /* reset time */

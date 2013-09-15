@@ -319,6 +319,55 @@ INLINE double getZrat(int d, int n, const char *fn)
 
 
 
+/* load the contributions of the virial coefficients
+ * of the d-dimensional hard-sphere system from file
+ * return the last n loaded
+ * to load a single value to *B, set nmin == nmax
+ * to load an array, set *B */
+INLINE int loadBring(int d, int nmin, int nmax, double *B, const char *fn)
+{
+  char *s = NULL, *p;
+  FILE *fp;
+  int i, n, dim = -1, next;
+  size_t sz;
+  double x;
+
+  if (fn == NULL) {
+    fn = "Bring.dat";
+    if ( !fexists(fn) ) { /* try the parent directory */
+      fn = "../Bring.dat";
+      if ( !fexists(fn) )
+        fn = "../../Bring.dat";
+    }
+  }
+  xfopen(fp, fn, "r", return -1);
+  /* lines are very long, so we use ssfgets() */
+  for (i = 1; ssfgets(s, &sz, fp); i++)
+    if (1 == sscanf(s, "%d%n", &dim, &next) && dim == d)
+      break;
+  if (dim == d) { /* load virial coefficients */
+    p = s + next;
+    for (n = 1; n <= nmax; n++) {
+      if (1 != sscanf(p, "%lf%n", &x, &next))
+        break;
+      if (n >= nmin) {
+        x = fabs(x);
+        if (nmin == nmax) *B = x; /* single value */
+        else B[n] = x; /* array */
+      }
+      p += next;
+    }
+  } else {
+    fprintf(stderr, "error in reading line %d\n", i);
+    n = 0;
+  }
+  fclose(fp);
+  fprintf(stderr, "loaded %d Bring entries from %s\n", n - 1, fn);
+  return n - 1;
+}
+
+
+
 /* initialize a random, but fully-connected configuration */
 INLINE void initx(rvn_t *x, int n)
 {

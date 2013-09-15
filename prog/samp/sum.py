@@ -4,6 +4,7 @@ import os, sys, re, glob
 from math import *
 
 
+
 def toarr(b):
   a = [float(x) for x in b]
   if a[0] <= 0: a[0] = 1e-20
@@ -14,8 +15,19 @@ def toarr(b):
 
 
 def xinc(a, b):
+  if len(a) != len(b):
+    print "arrays mismatch\n%s\n%s" % (a, b)
+    raise Exception
   for i in range(len(b)):
     a[i] += b[i]
+
+
+
+def getver(sver):
+  if sver.startswith("V"):
+    return int(sver[1:])
+  else:
+    return int(sver)
 
 
 
@@ -23,7 +35,7 @@ def errarr(arr):
   ''' calculate the error of the array `arr' '''
   m = len(arr) # number of copies
   if m <= 1:
-    print arr
+    print "only %d copy: %s" % (m, arr)
     raise Exception
   n = len(arr[0])
   err = [0] * n
@@ -41,8 +53,11 @@ def errarr(arr):
 
 
 
+
 class GC:
-  def __init__(me, fn):
+  once = 0
+
+  def __init__(me, fn, fnBring = None):
     me.type = "Zr"
     s = open(fn).readlines()
     if s[0][1] in ('R', 'S'):
@@ -52,6 +67,39 @@ class GC:
       me.initZrh(s[0])
       me.adddataZrh(s[1:])
     me.haserr = False
+    me.loadBring(fnBring)
+
+
+  def loadBring(me, fn = None):
+    ''' load virial coefficients from Bring.dat '''
+    if not fn:
+      # current directory
+      fn = fn0 = "Bring.dat"
+      if not os.path.exists(fn):
+        # parent directory
+        fn = os.path.join(os.pardir, fn0)
+        if not os.path.exists(fn):
+          # directory of the script
+          d = os.path.split(os.path.realpath(__file__))[0]
+          fn = os.path.join(d, fn0)
+          if not os.path.exists(fn):
+            print "Error: cannot load Bring data"
+            return
+
+    ls = open(fn).readlines()
+    for s in ls:
+      bs = s.split()
+      if int(bs[0]) == me.D:
+        break
+    else:
+      print "%s: no data for D %d" % (fn, me.D)
+      return
+    nmax = min(len(bs) - 1, me.nmax)
+    for n in range(1, nmax + 1):
+      me.Bring[n] = fabs(float(bs[n]))
+    if not GC.once:
+      print "loaded %d values from %s" % (nmax, fn)
+      GC.once = 1
 
 
 
@@ -68,6 +116,7 @@ class GC:
       else:
         n = a.n[i]
       if a.tag == 'H' or a.tp[i] == 0:
+        xinc(a.ring[n], b.ring[n])
         xinc(a.nedg[n], b.nedg[n])
         xinc(a.ncsp[n], b.ncsp[n])
         xinc(a.fbsm[n], b.fbsm[n])
@@ -95,6 +144,7 @@ class GC:
     me.nmax = int(me.info[2])
     me.nens = me.nmax + 1
     me.sver = me.info[3]
+    me.ver = getver(me.sver)
     me.nmin = int(me.info[4])
     me.nedxmax = me.info[-1]
     cnt = me.nmax + 1
@@ -102,13 +152,16 @@ class GC:
     me.rc = [0] * cnt
     me.Z = [1] * cnt
     me.hist = [0] * cnt
-    me.nup = [[0,0],] * cnt
-    me.ndown = [[0,0],] * cnt
-    me.ngpr = [[0,0],] * cnt
-    me.nedg = [[0,0],] * cnt
-    me.ncsp = [[0,0],] * cnt
-    me.fbsm = [[0,0,0],] * cnt
+    me.nup = [[1e-20, 0],] * cnt
+    me.ndown = [[1e-20, 0],] * cnt
+    me.ngpr = [[1e-20, 0],] * cnt
+    me.ring = [[1e-20, 0],] * cnt
+    me.nedg = [[1e-20, 0],] * cnt
+    me.ncsp = [[1e-20, 0],] * cnt
+    me.fbsm = [[1e-20, 0, 0],] * cnt
     me.B = [0] * cnt
+    me.B2 = [0] * cnt
+    me.Bring = [1] * cnt
     me.Zn = [1] * cnt
     me.ZZ = [1] * cnt
 
@@ -130,9 +183,13 @@ class GC:
       me.nup[i] = toarr((x[6], x[8]))
       me.ndown[i] = toarr((x[7], x[9]))
       me.ngpr[i] = toarr((x[10], x[11]))
-      me.nedg[i] = toarr((x[12], x[15]))
-      me.ncsp[i] = toarr((x[13], x[16]))
-      me.fbsm[i] = toarr((x[14], x[18], x[17]))
+      k = 12
+      if me.ver >= 4: # load ring data
+        me.ring[i] = toarr((x[k], x[k+1]))
+        k += 2
+      me.nedg[i] = toarr((x[k], x[k+3]))
+      me.ncsp[i] = toarr((x[k+1], x[k+4]))
+      me.fbsm[i] = toarr((x[k+2], x[k+6], x[k+5]))
 
 
 
@@ -175,7 +232,10 @@ class GC:
         fbav = 1
       else:
         fbav = me.fbsm[n][1] / me.fbsm[n][0]
+      nr = me.ring[n][1] / me.ring[n][0]
       me.B[n] = (1. - n) * fac * z * fbav
+      if nr > 0:
+        me.B2[n] = -fbav / nr * me.Bring[n]
       me.ZZ[n] = me.Zn[n] / prevZ
       prevZ = me.Zn[n]
 
@@ -198,19 +258,26 @@ class GC:
       if me.tag == 'H':
         s[n] += "%14.0f %.14f " % (
           me.ngpr[n][0], me.ngpr[n][1] / me.ngpr[n][0])
+      if me.ver >= 4:
+        s[n] += "%14.0f %20.14e " % (
+            me.ring[n][0], me.ring[n][1] / me.ring[n][0])
       s[n] += "%14.0f %14.0f %14.0f " % (
           me.nedg[n][0], me.ncsp[n][0], me.fbsm[n][0])
       s[n] += "%18.14f %16.14f %16.14f %+17.14f %+20.14e " % (
           me.nedg[n][1] / me.nedg[n][0], me.ncsp[n][1] / me.ncsp[n][0],
           me.fbsm[n][2] / me.fbsm[n][0], me.fbsm[n][1] / me.fbsm[n][0],
           me.B[n])
+      if me.ver >= 4:
+        s[n] += "%+20.14e " % me.B2[n]
       if me.haserr:
+        if me.ver >= 4:
+          s[n] += "%9.2e " % me.eB2[n]
         s[n] += "%9.2e %9.2e %9.2e " % (
             me.eB[n], me.eZZ[n], me.eZn[n])
       s[n] = s[n].rstrip() + "\n"
       me.tot += me.hist[n]
-    s[0] = "#%s %d %d V3 %d 1 %s\n" % (
-        me.tag, me.D, me.nmax, me.nmin, me.nedxmax)
+    s[0] = "#%s %d %d V%d %d 1 %s\n" % (me.tag, me.D,
+        me.nmax, me.ver, me.nmin, me.nedxmax)
     open(fn, "w").writelines(s)
     print "saved Zrh file %s, tot %g" % (fn, me.tot)
 
@@ -227,6 +294,7 @@ class GC:
     me.nmax = int(me.info[5])
     me.m = int(me.info[6])
     me.sver = me.info[7]
+    me.ver = getver(me.sver)
     me.nedxmax = me.info[-1]
     me.tp = (range(me.m) * (me.nmax + 1))[:me.nens]
     me.n = [ int((q + me.m - 0.999)/me.m) for q in range(me.nens) ]
@@ -235,13 +303,16 @@ class GC:
     me.sr = [0] * me.nens
     me.Z = [1] * me.nens
     me.hist = [0] * me.nens
-    me.nup = [[0,0],] * me.nens
-    me.ndown = [[0,0],] * me.nens
+    me.nup = [[1e-20, 0],] * me.nens
+    me.ndown = [[1e-20, 0],] * me.nens
     cnt = me.nmax + 1
-    me.nedg = [[0,0],] * cnt
-    me.ncsp = [[0,0],] * cnt
-    me.fbsm = [[0,0,0],] * cnt
+    me.ring = [[1e-20, 0],] * cnt
+    me.nedg = [[1e-20, 0],] * cnt
+    me.ncsp = [[1e-20, 0],] * cnt
+    me.fbsm = [[1e-20, 0, 0],] * cnt
     me.B = [0] * cnt
+    me.B2 = [0] * cnt
+    me.Bring = [0] * cnt
     me.Zn = [1] * cnt
     me.ZZ = [1] * cnt
 
@@ -266,9 +337,13 @@ class GC:
       me.ndown[i] = toarr((x[9], x[11]))
       if me.tp[i] == 0:
         n = me.n[i]
-        me.nedg[n] = toarr((x[12], x[15]))
-        me.ncsp[n] = toarr((x[13], x[16]))
-        me.fbsm[n] = toarr((x[14], x[18], x[17]))
+        k = 12
+        if me.ver >= 4:
+          me.ring[n] = toarr((x[k], x[k+1]))
+          k += 2
+        me.nedg[n] = toarr((x[k], x[k+3]))
+        me.ncsp[n] = toarr((x[k+1], x[k+4]))
+        me.fbsm[n] = toarr((x[k+2], x[k+6], x[k+5]))
 
 
 
@@ -315,7 +390,10 @@ class GC:
           fbav = 1
         else:
           fbav = me.fbsm[n][1] / me.fbsm[n][0]
+        nr = me.ring[n][1] / me.ring[n][0]
         me.B[n] = (1. - n) * fac * z * fbav
+        if nr > 0:
+          me.B2[n] = fbav / nr * me.Bring[n]
         me.Zn[n] = me.Z[i]
         me.ZZ[n] = me.Zn[n] / prevZ
         prevZ = me.Zn[n]
@@ -339,13 +417,20 @@ class GC:
           me.nup[i][1] / me.nup[i][0],
           me.ndown[i][1] / me.ndown[i][0])
       if tp == 0:
+        if me.ver >= 4:
+          s[i] += "%14.0f %.14f " % (
+              me.ring[n][0], me.ring[n][1] / me.ring[n][0])
         s[i] += "%14.0f %14.0f %14.0f " % (
             me.nedg[n][0], me.ncsp[n][0], me.fbsm[n][0])
         s[i] += "%18.14f %16.14f %16.14f %+17.14f %+20.14e " % (
             me.nedg[n][1] / me.nedg[n][0], me.ncsp[n][1] / me.ncsp[n][0],
             me.fbsm[n][2] / me.fbsm[n][0], me.fbsm[n][1] / me.fbsm[n][0],
             me.B[n])
+        if me.ver >= 4:
+          s[i] += "%+20.14e " % me.B2[n]
         if me.haserr:
+          if me.ver >= 4:
+            s[i] += "%9.2e " % me.eB2[n]
           s[i] += "%9.2e %9.2e %9.2e " % (
               me.eB[n], me.eZZ[n], me.eZn[n])
       s[i] = s[i].rstrip() + "\n"
@@ -370,13 +455,20 @@ class GC:
           me.hist[i], me.nup[i][0], me.ndown[i][0],
           me.nup[i][1] / me.nup[i][0],
           me.ndown[i][1] / me.ndown[i][0])
+      if me.ver >= 4:
+        s[n] += "%14.0f %.14f " % (
+            me.ring[n][0], me.ring[n][1] / me.ring[n][0])
       s[n] += "%14.0f %14.0f %14.0f " % (
           me.nedg[n][0], me.ncsp[n][0], me.fbsm[n][0])
       s[n] += "%18.14f %16.14f %16.14f %+17.14f %+20.14e " % (
           me.nedg[n][1] / me.nedg[n][0], me.ncsp[n][1] / me.ncsp[n][0],
           me.fbsm[n][2] / me.fbsm[n][0], me.fbsm[n][1] / me.fbsm[n][0],
           me.B[n])
+      if me.ver >= 4:
+        s[n] += "%+20.14e " % me.B2[n]
       if me.haserr:
+        if me.ver >= 4:
+          s[n] += "%9.2e " % me.eB2[n]
         s[n] += "%9.2e %9.2e %9.2e " % (
             me.eB[n], me.eZZ[n], me.eZn[n])
       s[n] = s[n].rstrip() + "\n"
@@ -404,13 +496,16 @@ def sumdat(fninp, fnls, fnout = None, fnZr = None):
 
   # compute errors
   Bls  = [None] * m
+  B2ls = [None] * m
   Znls = [None] * m
   ZZls = [None] * m
   for i in range(m):
     Bls[i]  = gcls[i].B
+    B2ls[i] = gcls[i].B2
     Znls[i] = gcls[i].Zn
     ZZls[i] = gcls[i].ZZ
   gc.eB  = errarr( Bls )
+  gc.eB2 = errarr( B2ls )
   gc.eZn = errarr( Znls )
   gc.eZZ = errarr( ZZls )
   gc.haserr = 1

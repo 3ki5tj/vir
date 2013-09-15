@@ -83,7 +83,7 @@ static double mcrun(int n, double nequil, double nsteps, real amp,
   /* probability of fb being nonzero, and that of non-clique center */
   double nzsum = 0, ncsum = 0, fbsumx = 0, cutcnt = 0;
   double Hcl[DG_NMAX + 1] = {0}, hsm;
-  double Hed[DG_NMAX * DG_NMAX + 1][3] = {0};
+  double Hed[DG_NMAX * DG_NMAX + 1][3] = {{0}};
   double d2sm = 0;
   dg_t *g, *ng;
 

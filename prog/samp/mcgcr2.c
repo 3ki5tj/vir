@@ -5,6 +5,7 @@
 #define ZCOM_RVN
 #include "zcom.h"
 #include "dgrjw.h"
+#include "dgring.h"
 #include "mcutil.h"
 
 #ifdef MPI
@@ -34,6 +35,7 @@ char *fninp = NULL;
 char *fnZrr = NULL;
 char *fnZr = NULL;
 char *fnZrrtmp = "Zrr.tmp";
+char *fnBring = NULL; /* ring contribution file */
 
 int nstcom = 10000;
 int nsted = 10;
@@ -83,6 +85,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-o",    NULL,   &fnZrr,   "output file");
   argopt_add(ao, "-O",    NULL,   &fnZr,    "output file (compact)");
   argopt_add(ao, "-T",    NULL,   &fnZrrtmp,"temporary output file");
+  argopt_add(ao, "-I",    NULL,   &fnBring, "ring contribution file");
   argopt_add(ao, "-G",    "%d",   &nsted,   "interval of computing the # of edges");
   argopt_add(ao, "-A",    "%d",   &nstcs,   "interval of computing clique separator");
   argopt_add(ao, "-F",    "%d",   &nstfb,   "interval of computing fb");
@@ -110,12 +113,16 @@ static void doargs(int argc, char **argv)
   nstsave = (int) (nstsav + .5);
 
   if (rc0 <= 0) {
-    rc0 = (real) (4. / sqrt(D));
-    if (rc0 > 1) rc0 = 1;
+    if (nmvtype) {
+      rc0 = (real) 0.9;
+    } else {
+      rc0 = (real) (4. / sqrt(D));
+      if (rc0 > 1) rc0 = 1;
+    }
   }
 
   /* in higher dimensions compute fb more often */
-  if (D > 20) nstcs = nsted;
+  if (D >= 20) nstcs = nsted;
   if (nstfb < 0) nstfb = nstcs;
 
   if (nedxmax < 0) {
@@ -171,7 +178,10 @@ typedef struct {
   double (*nedg)[2]; /* number of edges */
   double (*ncsp)[2]; /* no clique separator */
   double (*fbsm)[3]; /* hard-sphere weight */
+  double (*ring)[2]; /* # of ring subgraphs */
   double *B; /* virial coefficients */
+  double *B2; /* virial coefficients, ring route */
+  double *Bring; /* ring contributions to the virial coefficients */
   double *Zn; /* partition function at pure states */
   double *ZZ; /* ratio of Z between two successive pure states */
 } gc_t;
@@ -181,20 +191,22 @@ typedef struct {
 /* clear data */
 static void gc_cleardata(gc_t *gc)
 {
-  int i;
+  int i, n;
 
   for (i = 0; i < gc->nens; i++) {
     gc->hist[i] = 0;
     gc->nup[i][0] = gc->ndown[i][0] = 1e-20;
     gc->nup[i][1] = gc->ndown[i][1] = 0;
   }
-  for (i = 0; i <= gc->nmax; i++) {
-    gc->nedg[i][0] = 1e-20;
-    gc->nedg[i][1] = 0;
-    gc->ncsp[i][0] = 1e-20;
-    gc->ncsp[i][1] = 0;
-    gc->fbsm[i][0] = 1e-20;
-    gc->fbsm[i][1] = gc->fbsm[i][2] = 0;
+  for (n = 0; n <= gc->nmax; n++) {
+    gc->nedg[n][0] = 1e-20;
+    gc->nedg[n][1] = 0;
+    gc->ncsp[n][0] = 1e-20;
+    gc->ncsp[n][1] = 0;
+    gc->fbsm[n][0] = 1e-20;
+    gc->fbsm[n][1] = gc->fbsm[n][2] = 0;
+    gc->ring[n][0] = 1e-20;
+    gc->ring[n][1] = 0;
   }
 }
 
@@ -230,7 +242,10 @@ INLINE gc_t *gc_open(int nmin, int nmax, int m,
   xnew(gc->nedg, nmax + 1);
   xnew(gc->ncsp, nmax + 1);
   xnew(gc->fbsm, nmax + 1);
+  xnew(gc->ring, nmax + 1);
   xnew(gc->B, nmax + 1);
+  xnew(gc->B2, nmax + 1);
+  xnew(gc->Bring, nmax + 1);
   xnew(gc->Zn, nmax + 1);
   xnew(gc->ZZ, nmax + 1);
 
@@ -274,9 +289,14 @@ INLINE gc_t *gc_open(int nmin, int nmax, int m,
     gc->sr[i] = (real) sr;
   }
 
-  for (i = 0; i <= nmax; i++)
-    gc->ZZ[i] = gc->Zn[i] = gc->B[i] = 1;
+  for (n = 0; n <= nmax; n++)
+    gc->ZZ[n] = gc->Zn[n] = gc->B[n] = gc->B2[n] = 1;
   gc_cleardata(gc);
+  if (inode == MASTER)
+    loadBring(D, 1, gc->nmax, gc->Bring, fnBring);
+#ifdef MPI
+  MPI_Bcast(gc->Bring, gc->nmax + 1, MPI_DOUBLE, MASTER, comm);
+#endif
   return gc;
 }
 
@@ -299,7 +319,10 @@ INLINE void gc_close(gc_t *gc)
   free(gc->nedg);
   free(gc->ncsp);
   free(gc->fbsm);
+  free(gc->ring);
   free(gc->B);
+  free(gc->B2);
+  free(gc->Bring);
   free(gc->Zn);
   free(gc->ZZ);
   free(gc);
@@ -311,26 +334,30 @@ INLINE void gc_close(gc_t *gc)
 static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
     int nstcs, int nstfb)
 {
-  int ned = -1, n = g->n, ncs, sc, err, fb = 0;
-  int nlookup = DGMAP_NMAX;
-  static int degs[DG_NMAX];
+  int ned = -1, n = g->n, ncs, sc, err, errnr, fb = 0;
+  double nr = 0;
+  static int degs[DG_NMAX], nlookup = 0;
 
-  /* we will always compute fb if a lookup table is available
-   * i.e., for a small n, but the n = 8 case costs 30s-70s,
-   * which is a bit long for a short simulation */
-  if (nsteps < 5e8) nlookup = 7;
+  if (nlookup <= 0)
+    /* we will always compute fb if a lookup table is available
+     * i.e., for a small n. But in the n = 8 case, initializing
+     * the lookup table would cost 30s-70s,
+     * which is a bit long for a short simulation */
+    nlookup = (nsteps < 5e8) ? 7 : DGMAP_NMAX;
 
   ned = dg_degs(g, degs);
   gc->nedg[n][0] += 1;
   gc->nedg[n][1] += ned;
 
   if (n <= nlookup || rnd0() * nstcs / nsted < 1) {
-    /* check if the graph has a clique separator */
-    if (n <= 3) {
-      int fbarr[4] = {1, 1, -1, -1};
-      err = 0;
+    /* check if the graph has a clique separator
+     * but in special cases, fb and nr are computed as well */
+    if (n <= 3) { /* assuming biconnectivity */
+      static int fbarr[4] = {1, 1, -1, -1};
+      err = errnr = 0;
       ncs = 1;
       fb = fbarr[n];
+      nr = 1;
     } else if (n <= nlookup) { /* lookup table */
       code_t code;
       unqid_t uid;
@@ -341,7 +368,8 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       dgmap_init(m, n);
       uid = m->map[code];
       fb = dg_hsfb_lookuplow(n, uid);
-      err = 0;
+      nr = dg_nring_lookuplow(n, uid);
+      err = errnr = 0;
     } else {
       /* this function implicitly computes the clique separator
        * with very small overhead */
@@ -352,6 +380,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       } else { /* no clique separator */
         ncs = 1;
       }
+      errnr = 1; /* indicate we don't have nr */
     }
     gc->ncsp[n][0] += 1;
     gc->ncsp[n][1] += ncs;
@@ -370,6 +399,14 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       gc->fbsm[n][0] += 1;
       gc->fbsm[n][1] += fb;
       gc->fbsm[n][2] += abs(fb);
+
+      /* compute the ring content */
+      if (errnr) {
+        nr = dg_nring_spec0(g, &ned, degs, &errnr);
+        if (errnr) nr = dg_nring_direct(g);
+      }
+      gc->ring[n][0] += 1;
+      gc->ring[n][1] += nr;
     }
   }
 }
@@ -406,7 +443,7 @@ static void gc_update(gc_t *gc, double mindata,
 static void gc_computeZ(gc_t *gc,
     const double *Zr, const real *rc, const real *sr)
 {
-  double fac = 1, z = 1, fbav, prevZ = 1;
+  double fac = 1, z = 1, fbav, nr, prevZ = 1;
   int n, i;
 
   if (Zr == NULL) Zr = gc->Zr;
@@ -442,6 +479,9 @@ static void gc_computeZ(gc_t *gc,
       gc->Zn[n] = gc->Z[i];
       gc->ZZ[n] = gc->Zn[n] / prevZ;
       prevZ = gc->Zn[n];
+      nr = gc->ring[n][1] / gc->ring[n][0];
+      if (nr > 0)
+        gc->B2[n] = -fbav / nr * gc->Bring[n];
     }
   }
 }
@@ -466,11 +506,12 @@ static void gc_print(const gc_t *gc, int compact,
         gc->ndown[i][1] / gc->ndown[i][0]);
       if (gc->type[i] == GCX_PURE) {
         int n = gc->n[i];
-        printf("%6.3f %8.6f %+9.7f %+.5e",
+        printf("%6.3f %8.6f %+9.7f %+9.7f %+.6e %+.6e",
           gc->nedg[n][1] / gc->nedg[n][0],
           gc->ncsp[n][1] / gc->ncsp[n][0],
+          gc->ring[n][1] / gc->ring[n][0],
           gc->fbsm[n][1] / gc->fbsm[n][0],
-          gc->B[n]);
+          gc->B[n], gc->B2[n]);
       }
     }
     printf("\n");
@@ -497,21 +538,23 @@ static int gc_saveZr(gc_t *gc, const char *fn)
 
   mkfnZrdef(fn, fndef, D, gc->m - 1, gc->nmax, inode);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "# %d %d V3 %d 1 %d\n", D, gc->nmax,
+  fprintf(fp, "# %d %d V4 %d 1 %d\n", D, gc->nmax,
       gc->nmin, nedxmax);
   for (i = gc->ens0; i < gc->nens; i++) {
     if (gc->type[i] != GCX_PURE) continue;
     n = gc->n[i];
-    fprintf(fp, "%3d %18.14f %20.14e %14.0f %14.0f %14.0f %.14f %.14f "
-        "%14.0f %14.0f %14.0f %18.14f %16.14f %16.14f %+17.14f %+20.14e\n",
+    fprintf(fp, "%3d %18.14f %20.14e %14.0f %14.0f %14.0f "
+        "%.14f %.14f %14.0f %17.14f %14.0f %14.0f %14.0f "
+        "%18.14f %16.14f %16.14f %+17.14f %+20.14e %+20.14e\n",
         n, gc->ZZ[n], gc->Z[i], gc->hist[i],
         gc->nup[i-1][0], gc->ndown[i][0],
         gc->nup[i-1][1] / gc->nup[i-1][0],
         gc->ndown[i][1] / gc->ndown[i][0],
+        gc->ring[n][0], gc->ring[n][1] / gc->ring[n][0],
         gc->nedg[n][0], gc->ncsp[n][0], gc->fbsm[n][0],
         gc->nedg[n][1] / gc->nedg[n][0], gc->ncsp[n][1] / gc->ncsp[n][0],
         gc->fbsm[n][2] / gc->fbsm[n][0], gc->fbsm[n][1] / gc->fbsm[n][0],
-        gc->B[n]);
+        gc->B[n], gc->B2[n]);
     tot += gc->hist[i];
   }
   fclose(fp);
@@ -537,14 +580,16 @@ INLINE double gc_fprintZrr(gc_t *gc, FILE *fp,
         gc->ndown[i][1] / gc->ndown[i][0]);
     if (gc->type[i] == GCX_PURE) {
       int n = gc->n[i];
+      fprintf(fp, "%14.0f %17.14f ", gc->ring[n][0],
+        gc->ring[n][1] / gc->ring[n][0]);
       fprintf(fp, "%14.0f %14.0f %14.0f ",
         gc->nedg[n][0], gc->ncsp[n][0], gc->fbsm[n][0]);
-      fprintf(fp, "%18.14f %16.14f %16.14f %+17.14f %+20.14e",
+      fprintf(fp, "%18.14f %16.14f %16.14f %+17.14f %+20.14e %+20.14e ",
         gc->nedg[n][1] / gc->nedg[n][0],
         gc->ncsp[n][1] / gc->ncsp[n][0],
         gc->fbsm[n][2] / gc->fbsm[n][0],
         gc->fbsm[n][1] / gc->fbsm[n][0],
-        gc->B[n]);
+        gc->B[n], gc->B2[n]);
     }
     fprintf(fp, "\n");
     tot += gc->hist[i];
@@ -571,7 +616,7 @@ static int gc_saveZrr(gc_t *gc, const char *fn,
 
   mkfnZrrdef(fn, fndef, D, gc->m - 1, gc->nmax, inode);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "#%c %d %d %d %d %d %d V3 1 %d\n", nmvtype ? 'R' : 'S',
+  fprintf(fp, "#%c %d %d %d %d %d %d V4 1 %d\n", nmvtype ? 'R' : 'S',
       D, gc->nens, gc->ens0, gc->nmin, gc->nmax, gc->m, nedxmax);
   tot = gc_fprintZrr(gc, fp, Zr, rc, sr);
   fclose(fp);
@@ -622,8 +667,20 @@ static int gc_fscanZrr(gc_t *gc, FILE *fp, int loaddata,
     gc->ndown[i][1] *= gc->ndown[i][0];
 
     if (gc->type[i] != GCX_PURE) continue;
+
     /* get pure state data */
     p += next;
+    if (ver >= 4) { /* ring data */
+      if ( 2 != sscanf(p, "%lf%lf%n",
+                &gc->ring[n][0], &gc->ring[n][1], &next) ) {
+        fprintf(stderr, "%s(%d): no ring data (%d) on line %d\n%s", fn, tag, n, i, s);
+        break;
+      }
+      p += next;
+      if (gc->ring[n][0] <= 0) gc->ring[n][0] = 1e-20;
+      gc->ring[n][1] *= gc->ring[n][0];
+    }
+
     if (7 != sscanf(p, "%lf%lf%lf%lf%lf%lf%lf",
           &gc->nedg[n][0], &gc->ncsp[n][0], &gc->fbsm[n][0],
           &gc->nedg[n][1], &gc->ncsp[n][1],

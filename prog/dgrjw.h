@@ -221,6 +221,9 @@ INLINE int dg_hsfb_mixed0(const dg_t *g, int nocsep, int *ned, int *degs)
 
 
 
+#define dg_hsfb_lookup(g) dg_hsfb_lookuplow(g->n, dg_getmapid(g))
+
+
 /* compute the hard shpere weight `fb' by a lookup table */
 INLINE int dg_hsfb_lookuplow(int n, unqid_t id)
 {
@@ -251,14 +254,6 @@ INLINE int dg_hsfb_lookuplow(int n, unqid_t id)
         n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
   }
   return fb[ n ][ id ];
-}
-
-
-
-/* compute the total hard shpere weight by a lookup table */
-INLINE int dg_hsfb_lookup(const dg_t *g)
-{
-  return dg_hsfb_lookuplow(g->n, dg_getmapid(g));
 }
 
 

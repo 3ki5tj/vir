@@ -14,12 +14,16 @@
 
 
 #ifndef CODEBITS
+#ifdef NMAX
+#define CODEBITS NMAX
+#else
 /* Note:
  * #define CODEBITS (sizeof(code_t) * 8)
  * doesn't work, because the compiler cannot compute sizeof() in time
  * */
 #define CODEBITS 32
-#endif
+#endif /* defined NMAX */
+#endif /* defined CODEBITS */
 
 
 

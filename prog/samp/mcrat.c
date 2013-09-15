@@ -16,6 +16,7 @@ typedef float real;
 #include "zcom.h"
 #include "dg.h"
 #include "dgrjw.h"
+#include "dgring.h"
 #include "mcutil.h"
 
 #define NSYS 3
@@ -37,6 +38,9 @@ double ratcr = 0; /* rate of coordinates replacement */
 double Zb = 0, Zbvir = 1;
 real nrc = (real) 1; /* radius for particle moves */
 
+double Bring = 1; /* to be loaded from file */
+char *fnBring = NULL;
+char *fnZrat = NULL;
 
 
 /* handle arguments */
@@ -65,6 +69,8 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-R", "%lf", &ratcr, "rate of coordinates replacement");
   argopt_add(ao, "-c", "%r", &nrc, "radius of n-move");
   argopt_add(ao, "-B", "%lf", &Zb, "partition function of biconnected configurations");
+  argopt_add(ao, "--ZZ", NULL, &fnZrat, "name of the partition function file");
+  argopt_add(ao, "-I", NULL, &fnBring, "name of the virial series file");
   argopt_parse(ao, argc, argv);
 
   /* decide whether to use lookup table or not */
@@ -102,7 +108,7 @@ static void doargs(int argc, char **argv)
 
   /* if Zb is not given, guess it */
   if (Zb <= 0)
-    Zb = getZrat(D, n, NULL);
+    Zb = getZrat(D, n, fnZrat);
   if (Zb > 0) {
     /* Zbvir = Zb * (1 - n) / n! */
     Zbvir = Zb * (1 - n);
@@ -239,6 +245,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   dg_t *g, *ng;
   code_t *code, ncode;
   double *nzsm, (*fbsm)[NSYS], (*hist)[NSYS];
+  double *nr, (*ring)[2];
   double t, cacc[NSYS], ctot[NSYS], racc, rtot;
   int *sys, *sys0, acc1;
   unqid_t gmapid;
@@ -254,12 +261,14 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   xnew(nx, n);
   xnew(code, ncopy);
   xnew(fb, ncopy);
+  xnew(nr, ncopy);
   xnew(nz, ncopy);
   xnew(sys, ncopy);
   xnew(sys0, ncopy);
   xnew(nzsm, ncopy);
   xnew(fbsm, ncopy);
   xnew(hist, ncopy);
+  xnew(ring, ncopy);
   g = dg_open(n);
   ng = dg_open(n);
   for (m = 0; m < ncopy; m++) {
@@ -271,14 +280,17 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
     /* initialize the code */
     dg_encode(g, &code[m]);
     fb[m] = dg_hsfb_lookup(g);
+    nr[m] = dg_nring_lookup(g);
     nz[m] = 1; /* if (lookup), nz means fb != 0,
                otherwise nz means no clique separator */
     sys[m] = 0;
     nzsm[m] = 0;
     for (i = 0; i < NSYS; i++) {
       fbsm[m][i] = 0;
-      hist[m][i] = 1e-6;
+      hist[m][i] = 1e-20;
     }
+    ring[m][0] = 1e-20;
+    ring[m][1] = 1e-20;
   }
   nrat[0] = nrat[2] = 1e-6; nrat[1] = nrat[3] = 0;
   tacc[0] = tacc[2] = 1e-6; tacc[1] = tacc[3] = 0;
@@ -301,6 +313,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
     gmapid = dgmap_[n].map[code[m]];
     nbc = dg_biconnected_lookuplow(n, gmapid);
     fb[m] = nbc ? dg_hsfb_lookuplow(n, gmapid) : 0;
+    nr[m] = nbc ? dg_nring_lookuplow(n, gmapid) : 0;
     nz[m] = (fb[m] != 0);
   }
 
@@ -318,6 +331,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
         if ( grepl(xm, nx, g, ng) ) {
           fb[m] = dg_hsfb_lookup(g);
           nz[m] = (fb[m] != 0);
+          nr[m] = dg_nring_lookup(g);
           racc += 1;
         }
       } else {
@@ -372,6 +386,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
             code[m] = ncode;
             nz[m] = nnz;
             fb[m] = nfb;
+            nr[m] = dg_nring_lookuplow(n, gmapid);
           }
         }
 
@@ -387,14 +402,16 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
         /* verify if fb has been correctly computed */
         {
           int fb1, nfb1;
+          double nr1, nnr1;
           dg_decode(g, &code[m]);
           dg_decode(ng, &ncode);
           fb1 = dg_hsfb(g), nfb1 = dg_hsfb(ng);
-          if (fb[m] != fb1) {
-            printf("t %g, sys %d, nz %d (%d), fb %d (%d), "
+          nr1 = dg_nring(g), nnr1 = dg_nring(ng);
+          if (fb[m] != fb1 || nr[m] != nr1) {
+            printf("t %g, sys %d, nz %d (%d), fb %d (%d), nr %g (%g)"
                 "acc %d, nfb %d (%d)\n",
                 t, sys[m], nz[m], fb[m] != 0,
-                fb[m], fb1, acc1, nfb, nfb1);
+                fb[m], fb1, nr[m], nr1, acc1, nfb, nfb1);
             dg_print(g);
             exit(1);
           }
@@ -406,7 +423,11 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
     /* accumulate data, doing this every step
      * costs about 5% of the simulation time */
     for (m = 0; m < ncopy; m++) {
-      if (sys[m] == 0) nzsm[m] += nz[m];
+      if (sys[m] == 0) {
+        nzsm[m] += nz[m];
+        ring[m][0] += 1;
+        ring[m][1] += nr[m];
+      }
       hist[m][sys[m]] += 1;
       if (sys[m] <= 1) {
         fbsm[m][sys[m]] += fb[m];
@@ -431,6 +452,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
       double ta1 = tacc[1]/tacc[0], ta2 = tacc[3]/tacc[2]; \
       double hist0 = 0, hist1 = 0, hist2 = 0, nzsm0 = 0; \
       double fbsm0 = 0, fbsm1 = 0, fbsm2 = 0; \
+      double ring0 = 0, ring1 = 0; \
       double fb0, dfb0 = 0, fb0sm = 0, fb0sm2 = 0; \
       double fb1, dfb1 = 0, fb1sm = 0, fb1sm2 = 0; \
       for (m = 0; m < ncopy; m++) { \
@@ -441,6 +463,8 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
         fbsm0 += fbsm[m][0]; \
         fbsm1 += fbsm[m][1]; \
         fbsm2 += fbsm[m][2]; \
+        ring0 += ring[m][0]; \
+        ring1 += ring[m][1]; \
         fb0 = fbsm[m][2]/hist[m][2]*ta1/ta2*Z[2]/Z[1]*nzsm[m]/hist[m][0]; \
         fb1 = (fbsm[m][0]+fbsm[m][1])/hist[m][0]/(1 + hist[m][1]/nzsm[m]); \
         fb0sm += fb0; fb0sm2 += fb0 * fb0; \
@@ -459,13 +483,15 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
       fbav[0] = fbsm2/hist2 * (ta1/ta2)*(Z[2]/Z[1]) * (nzsm0/hist0); \
       /* multiple histogram: fb = sum_k fbsm[k] / sum_k Z0/Zk hist[k] */ \
       fbav[1] = (fbsm0 + fbsm1) / (hist0 + hist1*hist0/nzsm0); \
+      fbav[2] = ring1 / ring0; \
       printf("D %d, n %d, t%11g, cacc %.4f/%.4f/%.4f, " \
-          "fb %+.6f/%+.6f|%+.6f(%.6f) %+.6f(%.6f)\n" \
+          "fb %+.6f/%+.6f|%+.6f(%.6f) %+.6f(%.6f), ring %+.6f(%.6f)\n" \
           "    nz %.7f, his1/0 %.7f, 2/1 %.7f; " \
           "tacc %.7f %.7f; n+: %.7f, n-: %.7f, racc %.6f id %d\n", \
           D, n, t, cacc[0]/ctot[0], cacc[1]/ctot[1], cacc[2]/ctot[2], \
           fbsm0/hist0, fbsm1/hist0*Z[1]/Z[0], fbav[1], dfb1, fbav[0], \
-          dfb0, nzsm0/hist0, hist1/hist0, hist2/hist1, ta1, ta2, \
+          dfb0, ring1/ring0, fbsm0/hist0*ring0/ring1, \
+          nzsm0/hist0, hist1/hist0, hist2/hist1, ta1, ta2, \
           nrat[1]/nrat[0], nrat[3]/nrat[2], \
           racc/rtot, (int) gmapid); \
     }
@@ -523,6 +549,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 {
   rvn_t **x, *nx, xi;
   int i, m, it, *fb, nfb = 0, wt, nwt, *nz, nnz, nbc;
+  double (*ring)[2], *nr, nnr;
+  int hasnnr, *hasnr;
   dg_t **g, *ng;
   double *nzsm, (*fbsm)[NSYS], (*hist)[NSYS];
   double t, cacc[NSYS], ctot[NSYS], racc, rtot;
@@ -551,6 +579,9 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   xnew(nzsm, ncopy);
   xnew(fbsm, ncopy);
   xnew(hist, ncopy);
+  xnew(nr, ncopy);
+  xnew(ring, ncopy);
+  xnew(hasnr, ncopy);
   xnew(que, ncopy);
   ng = dg_open(n);
   for (m = 0; m < ncopy; m++) {
@@ -569,10 +600,14 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     nzsm[m] = 0;
     for (i = 0; i < NSYS; i++) {
       fbsm[m][i] = 0;
-      hist[m][i] = 1e-6;
+      hist[m][i] = 1e-20;
     }
     ifb[m] = 0;
     hasfb[m] = 0;
+    ring[m][0] = 1e-20;
+    ring[m][1] = 1e-20;
+    nr[m] = 0;
+    hasnr[m] = 0;
   }
   nrat[0] = nrat[2] = 1e-6; nrat[1] = nrat[3] = 0;
   tacc[0] = tacc[2] = 1e-6; tacc[1] = tacc[3] = 0;
@@ -594,6 +629,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     nz[m] = nbc ? (dg_cliquesep(g[m]) == 0) : 0;
     fb[m] = nz[m] ? dg_hsfb_que(que[m], g[m], 1, NULL, NULL, NULL) : 0;
     hasfb[m] = 1;
+    nr[m] = dg_nring(g[m]);
+    hasnr[m] = 1;
   }
 
   /* main loop */
@@ -603,20 +640,15 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
       sys0[m] = sys[m];
 
 #ifdef CHECK
-      if ( hasfb[m] ) {
+      {
         int nz1 = (dg_cliquesep(g[m]) == 0), ncl = dg_ncsep(g[m]);
         int fb1 = dg_hsfb(g[m]);
-        if (nz[m] != nz1 || fb[m] != fb1) {
+        double nr1 = dg_nring(g[m]);
+        int err = (nz[m] != nz1);
+        if ( hasfb[m] && fb[m] != fb1 ) err = 1;
+        if ( hasnr[m] && nr[m] != nr1 ) err = 1;
+        if (err) {
           printf("PRE1 t %g, sys %d, hasfb %d, nz %d (%d), ncl %d, fb %d (%d)\n",
-              t, sys[m], hasfb[m], nz[m], nz1, ncl, fb[m], fb1);
-          dg_print(g[m]);
-          exit(1);
-        }
-      } else {
-        int nz1 = (dg_cliquesep(g[m]) == 0), ncl = dg_ncsep(g[m]);
-        int fb1 = dg_hsfb(g[m]);
-        if (nz[m] != nz1) {
-          printf("PRE2 t %g, sys %d, hasfb %d, nz %d (%d), ncl %d, fb %d (%d)\n",
               t, sys[m], hasfb[m], nz[m], nz1, ncl, fb[m], fb1);
           dg_print(g[m]);
           exit(1);
@@ -631,6 +663,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
           nz[m] = (dg_cliquesep(g[m]) == 0);
           hasfb[m] = 0;
           fb[m] = 0;
+          hasnr[m] = 0;
+          nr[m] = 0;
           racc += 1;
         }
       } else {  /* randomly displace a particle */
@@ -642,7 +676,9 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         if ( !nbc ) {
           nnz = 0;
           nfb = 0;
+          nnr = 0;
           hasnfb = 1;
+          hasnnr = 1;
         } else { /* biconnected */
           int ned = -1;
           static int degs[DG_NMAX];
@@ -675,6 +711,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
               hasnfb = nfb = 0;
             }
           } /* end of the general case */
+          hasnnr = 0;
+          nnr = 0;
         } /* end if biconnected */
 
         if (sys0[m] == 0) {
@@ -696,6 +734,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
           nz[m] = nnz;
           hasfb[m] = hasnfb;
           if (hasfb[m]) fb[m] = nfb;
+          hasnr[m] = hasnnr;
+          if (hasnr[m]) nr[m] = nnr;
         } /* if rejected, maintain the old `hasfb' value */
 
         cacc[sys0[m]] += acc1;
@@ -713,6 +753,12 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
       /* change `sys' */
       sys[m] = movesys(sys0[m], fb[m], nz[m], ifb[m], Z, tacc);
 
+      /* compute nr only when necessary */
+      if ( !hasnr[m] && ifb[m] && sys[m] == 0) {
+        nr[m] = dg_nring(g[m]);
+        hasnr[m] = 1;
+      }
+
 #ifdef CHECK
       /* check if fb has been correctly computed */
       if (hasfb[m]) {
@@ -724,6 +770,17 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
               "ncl %d, fb %d (%d), hasnfb %d, nfb %d (%d)\n",
               t, m, acc1, ifb[m], sys0[m], sys[m], hasfb[m], nz[m], nz1,
               ncl, fb[m], fb1, hasnfb, nfb, nfb1);
+          dg_print(g[m]);
+          exit(1);
+        }
+      }
+      if (hasnr[m]) {
+        double nr1 = dg_nring(g[m]), nnr1 = dg_nring(ng);
+        if (nr[m] != nr1) {
+          printf("t %g, m %d, acc %d, sys %d/%d, hasnr %d, "
+              "nr %g (%g), hasnnr %d, nnr %g (%g)\n",
+              t, m, acc1, sys0[m], sys[m], hasnr[m],
+              nr[m], nr1, hasnnr, nnr, nnr1);
           dg_print(g[m]);
           exit(1);
         }
@@ -740,6 +797,11 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
           WTSYS2(wt, fb[m]);
           fbsm[m][sys[m]] += fb[m]/wt;
         }
+      }
+
+      if (ifb[m] && sys[m] == 0) {
+        ring[m][0] += 1;
+        ring[m][1] += nr[m];
       }
 
       if (it % nstnmv == 0) { /* compute the acceptance rates */
@@ -800,29 +862,35 @@ static void mcrat(int n, double nequil, double nsteps,
 
 int main(int argc, char **argv)
 {
-  double fbav1[2], fbav2[2], rvir[2];
-  double nrat1[4], nrat2[4], tr1[4], tr2[4], nr1, nr2;
+  double fbav[3], fbav2[3], rvir[3];
+  double nrat[4], nrat2[4], tr1[4], tr2[4], nr1, nr2;
   double vol;
   int i;
 
   doargs(argc, argv);
-  printf("D %d, n %d, nsteps %g/%g, amp %g/%g/%g, nstfb %d, code %d-bit, Z %g/%g\n",
+  loadBring(D, n, n, &Bring, fnBring);
+  printf("D %d, n %d, nsteps %g/%g, amp %g/%g/%g, nstfb %d, code %d-bit, Z %g/%g, Bring %g\n",
       D, n, (double) nsteps, nsteps2, mcamp[0], mcamp[1], mcamp[2],
-      nstfb, (int) sizeof(code_t) * 8, Zb, Zbvir);
+      nstfb, (int) sizeof(code_t) * 8, Zb, Zbvir, Bring);
+#ifdef CHECK
+  fprintf(stderr, "checking code is enabled\n");
+#endif
 
   mcrat(n, nequil, nsteps, mcamp, gaussdisp,
-      nstfb, lookup, nstnmv, nrat1, tr1, fbav1);
+      nstfb, lookup, nstnmv, nrat, tr1, fbav);
 
   if (nsteps2 <= 0) /* a single simulation */
   {
-    for (i = 0; i < 2; i++)
-      rvir[i] = fbav1[i] * Zbvir;
-    printf("D %d, n %d, fbav %.8f, %.8f; nrat %g(+), %g(-), Z %g/%g\nvir:\n"
-        "    %.12f, %.12f, %.12f (importance sampling)\n"
-        "    %.12f, %.12f, %.12f (multiple histogram)\n",
-        D, n, fbav1[0], fbav1[1], nrat1[3]/nrat1[2], nrat1[1]/nrat1[0], Zb, Zbvir,
-        rvir[0], rvir[0] * pow(2, n - 1), rvir[0] * pow(ndvol(D), n - 1),
-        rvir[1], rvir[1] * pow(2, n - 1), rvir[1] * pow(ndvol(D), n - 1));
+    for (i = 0; i < 3; i++)
+      rvir[i] = fbav[i] * Zbvir;
+    printf("D %d, n %d, fbav %.8f, %.8f (ring %.8f); nrat %g(+), %g(-), Z %g/%g\n"
+        "vir:\n"
+        "    %.12f, %.12f(%.12f), %.12f (importance sampling)\n"
+        "    %.12f, %.12f(%.12f), %.12f (multiple histogram)\n",
+        D, n, fbav[0], fbav[1], fbav[2],
+        nrat[3]/nrat[2], nrat[1]/nrat[0], Zb, Zbvir,
+        rvir[0], rvir[0] * pow(2, n - 1), fbav[0] / fbav[2] * Bring, rvir[0] * pow(ndvol(D), n - 1),
+        rvir[1], rvir[1] * pow(2, n - 1), fbav[1] / fbav[2] * Bring, rvir[1] * pow(ndvol(D), n - 1));
   }
   else /* a second simulation */
   {
@@ -833,14 +901,14 @@ int main(int argc, char **argv)
 #endif
     mcrat(n - 1, nequil, nsteps2, mcamp, gaussdisp,
         nstfb, lookup, nstnmv, nrat2, tr2, fbav2);
-    nr1 = nrat1[3]/nrat1[2]; /* remove a vertex n --> n - 1 */
+    nr1 = nrat[3]/nrat[2]; /* remove a vertex n --> n - 1 */
     nr2 = nrat2[1]/nrat2[0]; /* add a vertex, n - 1 --> n */
     for (i = 0; i < 2; i++)
-      rvir[i] = fbav1[i]/fbav2[i] * vol * nr2/nr1 * (1. - n)/(2. - n)/n;
+      rvir[i] = fbav[i]/fbav2[i] * vol * nr2/nr1 * (1. - n)/(2. - n)/n;
     printf("D %d, n %d, fbav %.8f/%.8f, %.8f/%.8f; nrat %g/%g = %g\nvir%d/vir%d:\n"
         "    %.12f, %.12f, %.12f (importance sampling)\n"
         "    %.12f, %.12f, %.12f (multiple histogram)\n",
-        D, n, fbav1[0], fbav2[0], fbav1[1], fbav2[1],
+        D, n, fbav[0], fbav2[0], fbav[1], fbav2[1],
         nr2, nr1, nr2/nr1, n, n - 1,
         rvir[0], rvir[0] * 2, rvir[0] * ndvol(D),
         rvir[1], rvir[1] * 2, rvir[1] * ndvol(D));
