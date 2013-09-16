@@ -342,7 +342,8 @@ static int initZr(double *Zr, int nmax, int i0)
 static void accumdata(const dg_t *g, double t, int nstcs, int nstfb,
     double (*nedg)[2], double (*ncsp)[2], double (*fbsm)[3])
 {
-  int ned = -1, n = g->n, ncs, sc, err, fb = 0;
+  int ned = -1, n = g->n, ncs, err;
+  double fb = 0, sc;
   int nlookup = DGMAP_NMAX;
   static int degs[DG_NMAX];
 
@@ -378,7 +379,7 @@ static void accumdata(const dg_t *g, double t, int nstcs, int nstfb,
        * with very small overhead */
       sc = dg_rhsc_spec0(g, 0, &ned, degs, &err);
       if (err == 0) {
-        ncs = (sc != 0);
+        ncs = (fabs(sc) > 1e-3);
         fb = DG_SC2FB(sc, ned);
       } else { /* no clique separator */
         ncs = 1;
@@ -400,7 +401,7 @@ static void accumdata(const dg_t *g, double t, int nstcs, int nstfb,
       }
       fbsm[n][0] += 1;
       fbsm[n][1] += fb;
-      fbsm[n][2] += abs(fb);
+      fbsm[n][2] += fabs(fb);
     }
   }
 }

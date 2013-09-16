@@ -15,7 +15,8 @@ typedef struct {
 /* test the star contents of diagrams against the reference values */
 static void cmpref(int n, edges_t *ref)
 {
-  int i, j, sc;
+  int i, j;
+  double sc;
   dg_t *g;
 
   g = dg_open(n);
@@ -26,8 +27,8 @@ static void cmpref(int n, edges_t *ref)
     if (!dg_biconnected(g))
       continue;
     sc = dg_rhsc_direct(g);
-    if (sc != ref[i].sc) {
-      printf("n %d: model %d sc mismatch %d vs %d (ref)\n",
+    if (fabs(sc - ref[i].sc) > 0.001) {
+      printf("n %d: model %d sc mismatch %g vs %d (ref)\n",
           n, i, sc, ref[i].sc);
       dg_print(g);
       exit(1);
@@ -43,7 +44,8 @@ static void cmpref(int n, edges_t *ref)
  * see the function with the same name for a more advanced version */
 static void testspeed(int n, int nsamp, char method)
 {
-  int t, ipr, npr = n * (n - 1)/2, i, j, sum = 0, nequil = 1000;
+  int t, ipr, npr = n * (n - 1)/2, i, j, nequil = 1000;
+  double sum = 0;
   int eql = 1, isamp = 0;
   dg_t *g;
   clock_t t0;
@@ -52,7 +54,8 @@ static void testspeed(int n, int nsamp, char method)
   g = dg_open(n);
   dg_full(g);
   if (method == 'l') {
-    int ig, sc1, sc2;
+    int ig;
+    double sc1, sc2;
     dg_t *g2;
 
     t0 = clock();
@@ -67,8 +70,8 @@ static void testspeed(int n, int nsamp, char method)
       sc1 = dg_rhsc(g2);
       sc2 = dg_hsfb(g2);
       if (dg_nedges(g2) % 2 == 1) sc2 *= -1;
-      if (sc1 != sc2) {
-        printf("sc1 %d, sc2 %d\n", sc1, sc2);
+      if (fabs(sc1 - sc2) > 1e-3) {
+        printf("sc1 %g, sc2 %g\n", sc1, sc2);
         dg_print(g2);
         exit(1);
       }
@@ -108,7 +111,7 @@ static void testspeed(int n, int nsamp, char method)
     if (++isamp >= nsamp) break;
   }
   tsum /= CLOCKS_PER_SEC;
-  printf("star content, n %d, method %c, sum %d, time used: %gs/%d = %gms\n",
+  printf("star content, n %d, method %c, sum %g, time used: %gs/%d = %gms\n",
       n, method, sum, tsum, nsamp, tsum/nsamp*1000);
   dg_close(g);
 }

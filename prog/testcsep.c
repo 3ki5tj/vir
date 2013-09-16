@@ -48,7 +48,7 @@ static void testcsep(void)
   printf("clique separator: ");
   for (c = dg_cliquesep(g); c; c ^= bw)
     printf("%d ", bitfirstlow(c, &bw));
-  printf("\n");
+  printf("\n\n");
   dg_close(g);
 
   g = dg_open(5);
@@ -60,7 +60,7 @@ static void testcsep(void)
   printf("clique separator: ");
   for (c = dg_cliquesep(g); c; c ^= bw)
     printf("%d ", bitfirstlow(c, &bw));
-  printf("\n");
+  printf("\n\n");
   dg_close(g);
 }
 

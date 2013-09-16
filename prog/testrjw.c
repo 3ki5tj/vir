@@ -14,7 +14,8 @@ typedef struct {
 /* test the star contents of diagrams against the reference values */
 static void cmpref(int n, edges_t *ref)
 {
-  int i, j, fb;
+  int i, j;
+  double fb;
   dg_t *g;
 
   g = dg_open(n);
@@ -25,8 +26,8 @@ static void cmpref(int n, edges_t *ref)
     fb = dg_hsfb(g);
     if (!dg_biconnected(g))
       continue;
-    if (fb != ref[i].fb) {
-      printf("n %d: model %d fb mismatch %d vs %d (ref)\n",
+    if (fabs(fb - ref[i].fb) > 1e-3) {
+      printf("n %d: model %d fb mismatch %g vs %d (ref)\n",
           n, i, fb, ref[i].fb);
       dg_print(g);
       exit(1);
@@ -41,7 +42,8 @@ static void cmpref(int n, edges_t *ref)
 /* test the speed of computing fb */
 static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
 {
-  int t, fb, ipr, npr = n * (n - 1)/2, i, j, ned, sum = 0;
+  int t, ipr, npr = n * (n - 1)/2, i, j, ned;
+  double fb, sum = 0;
   int eql = 1, nequil = 1000, isamp = 0, acc;
   dg_t *g;
   clock_t t0;
@@ -108,13 +110,13 @@ static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
     } else if (method == 's' || method == 'r') { /* Ree-Hoover star content*/
       fb = dg_rhsc_direct(g) * (1 - (ned % 2) * 2);
     } else if (method == 'w') { /* Wheatley */
-      fb = dg_hsfb_rjw(g);
+      fb = (double) dg_hsfb_rjw(g);
     } else { /* default */
       fb = dg_hsfb_mixed(g);
     }
     tsum += clock() - t0;
     sum += fb;
-    printf("i %d, t %d, ned %d, fb %d\n", isamp, t, ned, fb);
+    printf("i %d, t %d, ned %d, fb %g\n", isamp, t, ned, fb);
 #if 0
     if (dg_hsfb_mixed(g) != dg_hsfb_rjw(g)) {
       printf("corruption %d vs %d csep %d\n", dg_hsfb_mixed(g), dg_hsfb_rjw(g), dg_cliquesep(g));

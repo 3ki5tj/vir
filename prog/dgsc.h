@@ -19,7 +19,7 @@
 
 /* Ree-Hoover formula for the star content of a larger diagram of
  * n vertices from that of a smaller diagram of n-1 vertices */
-static int dg_rhiter(int n, int n0, int sc)
+static double dg_rhiter(int n, int n0, double sc)
 {
   int i;
 
@@ -54,9 +54,10 @@ static dg_t *dg_mintop(dg_t *g)
 
 /* recursively find the star content
  * starting from the edge (i, j + 1) */
-static int dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
+static double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
 {
-  int sc = 0, n = g->n;
+  int n = g->n;
+  double sc = 0;
 
   if (++j >= n) j = (++i) + 1;
   /* loop over pairs */
@@ -94,7 +95,7 @@ static int dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
  *   if *err = 1, the diagram has no clique separator on return
  * *ned: number of edges; degs: unsorted degree sequence
  * if ned != NULL, *ned is computed on return */
-INLINE int dg_rhsc_spec0(const dg_t *g, int nocsep,
+INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep,
     int *ned, int *degs, int *err)
 {
   int i, j, n = g->n, ned0, ned1;
@@ -163,9 +164,9 @@ INLINE int dg_rhsc_spec0(const dg_t *g, int nocsep,
  * unconnected edge is treated as a wiggly line
  * SC = # of biconnected subgraphs with even edges removed
  *    - # of biconnected subgraphs with odd edges removed */
-static int dg_rhsc_directlow(const dg_t *g)
+static double dg_rhsc_directlow(const dg_t *g)
 {
-  int sc;
+  double sc;
   dg_t *g0 = NULL;
 
   /* first find the minimal set of vertices that
@@ -190,9 +191,10 @@ static int dg_rhsc_directlow(const dg_t *g)
  * nocsep = 1 means if the graph has been tested with no clique separator
  *        = 0 means it MAY have clique separators
  * *ned: number of edges; degs: degree sequence */
-INLINE int dg_rhsc_direct0(const dg_t *g, int nocsep, int *ned, int *degs)
+INLINE double dg_rhsc_direct0(const dg_t *g, int nocsep, int *ned, int *degs)
 {
-  int sc, err;
+  double sc;
+  int err;
 
   /* detect special cases when possible */
   sc = dg_rhsc_spec0(g, nocsep, ned, degs, &err);
@@ -203,9 +205,9 @@ INLINE int dg_rhsc_direct0(const dg_t *g, int nocsep, int *ned, int *degs)
 
 
 /* compute the star content by a look up table */
-INLINE int dg_rhsc_lookup(const dg_t *g)
+INLINE double dg_rhsc_lookup(const dg_t *g)
 {
-  static int *sc[DGMAP_NMAX + 1]; /* biconnectivity of unique diagrams */
+  static double *sc[DGMAP_NMAX + 1]; /* biconnectivity of unique diagrams */
   int n = g->n;
   dgmap_t *m = dgmap_ + n;
   code_t c;
@@ -230,7 +232,7 @@ INLINE int dg_rhsc_lookup(const dg_t *g)
       if ( dg_biconnected(g1) ) {
         sc[n][k] = dg_rhsc_direct(g1);
         cnt++;
-        nz += (sc[n][k] != 0);
+        nz += ((int) sc[n][k] != 0);
       } else sc[n][k] = 0;
     }
     dg_close(g1);
@@ -247,9 +249,10 @@ INLINE int dg_rhsc_lookup(const dg_t *g)
 
 /* compute the star content (SC) of a Ree-Hoover diagram
  * see the comments of dg_rhsc_direct0() for details */
-INLINE int dg_rhsc0(const dg_t *g, int nocsep, int *ned, int *degs)
+INLINE double dg_rhsc0(const dg_t *g, int nocsep, int *ned, int *degs)
 {
-  int sc, err;
+  double sc;
+  int err;
 
   if (g->n <= DGMAP_NMAX) {
     return dg_rhsc_lookup(g);

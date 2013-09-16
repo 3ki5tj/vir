@@ -6,7 +6,7 @@
 
 
 #ifndef DGQUETYPE
-#define DGQUETYPE int
+#define DGQUETYPE double 
 #endif
 
 typedef struct {

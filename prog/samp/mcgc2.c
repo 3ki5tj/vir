@@ -523,7 +523,8 @@ static int gc_loadZr(gc_t *gc, const char *fn, int loaddata)
 static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
     int nstcs, int nstfb)
 {
-  int ned = -1, n = g->n, ncs, sc, err, errnr, fb = 0;
+  int ned = -1, n = g->n, ncs, err, errnr;
+  double fb = 0, sc;
   double nr = 0;
   static int degs[DG_NMAX], nlookup = 0;
 
@@ -564,7 +565,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
        * with very small overhead */
       sc = dg_rhsc_spec0(g, 0, &ned, degs, &err);
       if (err == 0) {
-        ncs = (sc != 0);
+        ncs = (fabs(sc) > 1e-3);
         fb = DG_SC2FB(sc, ned);
       } else { /* no clique separator */
         ncs = 1;
@@ -587,7 +588,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       }
       gc->fbsm[n][0] += 1;
       gc->fbsm[n][1] += fb;
-      gc->fbsm[n][2] += abs(fb);
+      gc->fbsm[n][2] += fabs(fb);
 
       /* compute the ring content */
       if (errnr) {

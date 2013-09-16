@@ -10,8 +10,12 @@
 #include <limits.h>
 
 
-/* for n <= 14, max |fb(n)| = 12! = 479001600 < |INT_MIN| */
-#define FBDIRTY INT_MIN
+typedef int64_t fb_t;
+
+/* we will limit an n = 
+ * for n <= 20, max |fb(n)| = 20! = 2.4e18
+ * for n <= 14, max |fb(n)| = 12! = 479001600 < |INT_MIN| */
+#define FBDIRTY ((fb_t) (-9.2e18))
 #define FBINVALID(c) ((c) == FBDIRTY)
 
 
@@ -38,10 +42,10 @@ INLINE int dg_hsfqrjwlow(const code_t *c, code_t vs)
 /* for a configuration, compute the sum of connected diagrams by
  * Wheatley's recursion formula
  * `c' is the connectivity matrix,  `vs' is the vertex set */
-static int dg_hsfcrjwlow(const code_t *c, code_t vs,
-    int * RESTRICT fcarr, int * RESTRICT fqarr)
+static fb_t dg_hsfcrjwlow(const code_t *c, code_t vs,
+    fb_t * RESTRICT fcarr, fb_t * RESTRICT fqarr)
 {
-  int fc, fc1, fq2;
+  fb_t fc, fc1, fq2;
   code_t ms, ms1, vs1, vs2, s, b, b1;
 
   b1 = vs & (-vs);
@@ -72,9 +76,10 @@ static int dg_hsfcrjwlow(const code_t *c, code_t vs,
 
 /* compute the sum of connected diagrams by Wheatley's method
  * stand-alone driver */
-INLINE int dg_hsfcrjw(const dg_t *g)
+INLINE fb_t dg_hsfcrjw(const dg_t *g)
 {
-  static int nmax, *fcarr, *fqarr;
+  static int nmax;
+  static fb_t *fcarr, *fqarr;
   int i, n = g->n;
 
   die_if (n >= 31, "n = %d requires too much memory\n");
@@ -96,18 +101,19 @@ INLINE int dg_hsfcrjw(const dg_t *g)
 
 
 
-INLINE int dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
-    int * RESTRICT faarr, int * RESTRICT fbarr);
+INLINE fb_t dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
+    fb_t * RESTRICT faarr, fb_t * RESTRICT fbarr);
 
 
 
 /* compute the sum of all connected diagrams without the articulation point
    at vertices lower than `v', `vs' is the vertex set
    if v = 0, it returns fc; if v = n, it returns fb */
-INLINE int dg_hsfb_rjwlow(const code_t *c, int n, int v, code_t vs,
-    int * RESTRICT faarr, int * RESTRICT fbarr)
+INLINE fb_t dg_hsfb_rjwlow(const code_t *c, int n, int v, code_t vs,
+    fb_t * RESTRICT faarr, fb_t * RESTRICT fbarr)
 {
-  int fb, id, i;
+  int id, i;
+  fb_t fb;
   code_t r, b, bv = MKBIT(v);
 
   if ((i = bitcount(vs)) <= 1) return 1;
@@ -133,10 +139,10 @@ INLINE int dg_hsfb_rjwlow(const code_t *c, int n, int v, code_t vs,
 
 /* compute the sum of all connected diagrams with the articulation point at v
    and no articulation point at any vertex lower than v */
-INLINE int dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
-    int * RESTRICT faarr, int * RESTRICT fbarr)
+INLINE fb_t dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
+    fb_t * RESTRICT faarr, fb_t * RESTRICT fbarr)
 {
-  int fa = 0;
+  fb_t fa = 0;
   code_t ms, ms1, vs1, vs2, s, b, bv = 1u << v, b1, id1, id2;
 
   b1 = vs & (-vs); /* lowest vertex */
@@ -174,9 +180,10 @@ INLINE int dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
 /* compute the sum of biconnected diagrams by Wheatley's method
  * This is a low level function and the test of clique separator
  * is not done here. */
-INLINE int dg_hsfb_rjw(const dg_t *g)
+INLINE fb_t dg_hsfb_rjw(const dg_t *g)
 {
-  static int nmax, *faarr, *fbarr;
+  static int nmax;
+  static fb_t *faarr, *fbarr;
   int i, n = g->n;
 
   /* the memory requirement is 2^n * n */
@@ -203,19 +210,25 @@ INLINE int dg_hsfb_rjw(const dg_t *g)
  * nocsep = 1 means that the graph has been tested with no clique separator
  *        = 0 means it MAY have clique separators
  * *ned: number of edges; degs: degree sequence */
-INLINE int dg_hsfb_mixed0(const dg_t *g, int nocsep, int *ned, int *degs)
+INLINE double dg_hsfb_mixed0(const dg_t *g,
+    int nocsep, int *ned, int *degs)
 {
-  int n = g->n, sgn, sc, err, nedges = -1;
+  int n = g->n, sgn, err, nedges = -1;
+  double sc;
 
   if (ned == NULL) ned = &nedges;
   sc = dg_rhsc_spec0(g, nocsep, ned, degs, &err);
   sgn = 1 - (*ned % 2) * 2;
   if ( err == 0 ) {
     return sc * sgn;
-  } else if ( *ned <= 2*n - 3 || n > 25) {
+  } else if ( *ned <= 2*n - 3 || n > 20) {
+    /* Note: the threshold is based on the limit 20! = 2.4e18
+     * and 21! cannot be contained in a 64-bint integer
+     * The code may however fail before that due to cancelation
+     * Another limit is that memory > 2^n * n */
     return dg_rhsc_directlow(g) * sgn;
   } else { /* hsfb_rjw() requires 2^(n + 1) * (n + 1) memory */
-    return dg_hsfb_rjw(g);
+    return (double) dg_hsfb_rjw(g);
   }
 }
 
@@ -224,10 +237,11 @@ INLINE int dg_hsfb_mixed0(const dg_t *g, int nocsep, int *ned, int *degs)
 #define dg_hsfb_lookup(g) dg_hsfb_lookuplow(g->n, dg_getmapid(g))
 
 
-/* compute the hard shpere weight `fb' by a lookup table */
-INLINE int dg_hsfb_lookuplow(int n, unqid_t id)
+/* compute the hard shpere weight `fb' by a lookup table
+ * the return can always fit into an intger */
+INLINE double dg_hsfb_lookuplow(int n, unqid_t id)
 {
-  static int *fb[DGMAP_NMAX + 1]; /* fb of unique diagrams */
+  static double *fb[DGMAP_NMAX + 1]; /* fb of unique diagrams */
 
   if (n <= 1) return 1;
   if (fb[n] == NULL) { /* initialize the look-up table */
@@ -244,9 +258,9 @@ INLINE int dg_hsfb_lookuplow(int n, unqid_t id)
     for (cnt = 0, k = 0; k < m->ng; k++) {
       dg_decode(g, &m->first[k]);
       if ( dg_biconnected(g) ) {
-        fb[n][k] = dg_cliquesep(g) ? 0 : dg_hsfb_rjw(g);
+        fb[n][k] = (double) (dg_cliquesep(g) ? 0 : dg_hsfb_rjw(g));
         cnt++;
-        nz += (fb[n][k] != 0);
+        nz += ((int) fb[n][k] != 0);
       } else fb[n][k] = 0;
     }
     dg_close(g);
@@ -262,7 +276,7 @@ INLINE int dg_hsfb_lookuplow(int n, unqid_t id)
 
 /* compute the hard-sphere total weight of a configuration
  * nocsep: if the graph has been tested with no clique separator */
-INLINE int dg_hsfb0(dg_t *g, int nocsep, int *ned, int *degs)
+INLINE double dg_hsfb0(dg_t *g, int nocsep, int *ned, int *degs)
 {
   if (g->n <= DGMAP_NMAX) {
     return dg_hsfb_lookup(g);

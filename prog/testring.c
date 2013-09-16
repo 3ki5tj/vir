@@ -15,7 +15,8 @@ typedef struct {
 /* test the ring contents of diagrams against the reference values */
 static void cmpref(int n, edges_t *ref)
 {
-  int i, j, nr;
+  int i, j;
+  double nr;
   dg_t *g;
 
   g = dg_open(n);
@@ -26,8 +27,8 @@ static void cmpref(int n, edges_t *ref)
     if (!dg_biconnected(g))
       continue;
     nr = dg_nring_direct(g);
-    if (nr != ref[i].nr) {
-      printf("n %d: model %d nr mismatch %d vs %d (ref)\n",
+    if (fabs(nr - ref[i].nr) > 1e-3) {
+      printf("n %d: model %d nr mismatch %g vs %d (ref)\n",
           n, i, nr, ref[i].nr);
       dg_print(g);
       exit(1);

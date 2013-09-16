@@ -257,7 +257,8 @@ INLINE void gc_close(gc_t *gc)
 static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
     int nstcs, int nstfb)
 {
-  int ned = -1, n = g->n, ncs, sc, err, fb = 0;
+  int ned = -1, n = g->n, ncs, err;
+  double fb = 0, sc;
   int nlookup = DGMAP_NMAX;
   static int degs[DG_NMAX];
 
@@ -293,7 +294,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
        * with very small overhead */
       sc = dg_rhsc_spec0(g, 0, &ned, degs, &err);
       if (err == 0) {
-        ncs = (sc != 0);
+        ncs = (fabs(sc) > 1e-3);
         fb = DG_SC2FB(sc, ned);
       } else { /* no clique separator */
         ncs = 1;
@@ -315,7 +316,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       }
       gc->fbsm[n][0] += 1;
       gc->fbsm[n][1] += fb;
-      gc->fbsm[n][2] += abs(fb);
+      gc->fbsm[n][2] += fabs(fb);
     }
   }
 }
@@ -782,7 +783,7 @@ static int check(const dg_t *g, rvn_t *x, real (*r2ij)[DG_NMAX],
   for (i = 1; i < n; i++) {
     for (j = 0; j < i; j++) {
       r2 = rvn_dist2(x[i], x[j]);
-      if (r2ij[i][j] != r2ij[j][i]) {
+      if (fabs(r2ij[i][j] - r2ij[j][i]) > 1e-6) {
         fprintf(stderr, "mat %d and %d, r2 %g vs %g\n",
             i, j, r2ij[i][j], r2ij[j][i]);
         err++;

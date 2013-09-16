@@ -140,17 +140,16 @@ static void nmove(rvn_t *x, int n, rvn_t xi, const dg_t *g,
 
 
 
-#define WTSYS2(wt, fb) if ((wt = abs(fb)) == 0) wt = 1;
+#define WTSYS2(wt, fb) if ((wt = fabs(fb)) < 1e-3) wt = 1;
 
 /* change `sys' between three systems of biconnected diagrams
  * 1. all
  * 2. those without clique separators
  * 3. those with |fb| as the weight  */
-INLINE int movesys(int sys, int fb, int nz, int ifb,
+INLINE int movesys(int sys, double fb, int nz, int ifb,
     const double *Z, double * RESTRICT tacc)
 {
-  double r;
-  int wt;
+  double r, wt;
 
   if (sys == 0) {
     if ( nz ) { /* only a `nz' configuration can switch */
@@ -202,11 +201,11 @@ INLINE int movesys(int sys, int fb, int nz, int ifb,
  * 1. all
  * 2. those without clique separators
  * 3. those with |fb| as the weight */
-INLINE int movesys_heatbath(int sys, int fb,
+INLINE int movesys_heatbath(int sys, double fb,
     const double *Z, double * RESTRICT tacc)
 {
-  double proba[4], r;
-  int i, wt;
+  double proba[4], r, wt;
+  int i;
 
   /* compute the relative weights */
   proba[0] = 0;
@@ -241,9 +240,10 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
     int nstnmv, double *nrat, double *tacc, double *fbav)
 {
   rvn_t *x, *xm, *nx, xi;
-  int i, j, pid, m, it, *fb, nfb = 0, wt, nwt, *nz, nnz, nbc;
+  int i, j, pid, m, it, *nz, nnz, nbc;
   dg_t *g, *ng;
   code_t *code, ncode;
+  double nfb = 0, *fb, wt, nwt;
   double *nzsm, (*fbsm)[NSYS], (*hist)[NSYS];
   double *nr, (*ring)[2];
   double t, cacc[NSYS], ctot[NSYS], racc, rtot;
@@ -314,7 +314,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
     nbc = dg_biconnected_lookuplow(n, gmapid);
     fb[m] = nbc ? dg_hsfb_lookuplow(n, gmapid) : 0;
     nr[m] = nbc ? dg_nring_lookuplow(n, gmapid) : 0;
-    nz[m] = (fb[m] != 0);
+    nz[m] = (fabs(fb[m]) > 1e-3);
   }
 
 
@@ -330,7 +330,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
         /* regenerate a configuration */
         if ( grepl(xm, nx, g, ng) ) {
           fb[m] = dg_hsfb_lookup(g);
-          nz[m] = (fb[m] != 0);
+          nz[m] = (fabs(fb[m]) > 1e-3);
           nr[m] = dg_nring_lookup(g);
           racc += 1;
         }
@@ -366,7 +366,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
           /* the weight `fb' is computed from the lookup table
            * for a small n, so it can be updated in every step */
           nfb = nbc ? dg_hsfb_lookuplow(n, gmapid) : 0;
-          nnz = (nfb != 0);
+          nnz = (fabs(nfb) > 1e-3);
 
           if (sys0[m] == 0) {
             acc1 = nbc;
@@ -470,7 +470,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
         fb0sm += fb0; fb0sm2 += fb0 * fb0; \
         fb1sm += fb1; fb1sm2 += fb1 * fb1; \
         if (ncopy > 1) \
-          printf("m %d, %+.6f/%+.6f|%+.6f %+.6f %d\n", m, \
+          printf("m %d, %+.6f/%+.6f|%+.6f %+.6f %g\n", m, \
             fbsm[m][0]/hist[m][0], fbsm[m][1]/hist[m][0]*Z[1]/Z[0], \
             fb1, fb0, fb[m]); \
       } \
@@ -522,10 +522,10 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
 /* compute fb with a short history list
  * nocsep: no clique separator in the graph */
-INLINE int dg_hsfb_que(dgque_t *q, const dg_t *g, int nocsep,
+INLINE double dg_hsfb_que(dgque_t *q, const dg_t *g, int nocsep,
     int *ned, int *degs, int *neval)
 {
-  int fb = 0;
+  double fb = 0;
   static code_t c[DG_NMAX/2];
 
   dg_encode(g, c);
@@ -548,7 +548,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     int nstnmv, double *nrat, double *tacc, double *fbav)
 {
   rvn_t **x, *nx, xi;
-  int i, m, it, *fb, nfb = 0, wt, nwt, *nz, nnz, nbc;
+  int i, m, it, *nz, nnz, nbc;
+  double wt, nwt, *fb, nfb = 0;
   double (*ring)[2], *nr, nnr;
   int hasnnr, *hasnr;
   dg_t **g, *ng;
@@ -682,14 +683,15 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         } else { /* biconnected */
           int ned = -1;
           static int degs[DG_NMAX];
-          int sc, err;
+          int err;
+          double sc;
 
           /* detect special cases, including ring diagrams
            * and clique separators */
           sc = dg_rhsc_spec0(ng, 0, &ned, degs, &err);
           if (err == 0) { /* special case worked */
             hasnfb = 1;
-            if (sc != 0) {
+            if (fabs(sc) > 1e-3) {
               nnz = 1;
               nfb = DG_SC2FB(sc, ned);
             } else {
@@ -708,7 +710,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
                 nfb = dg_hsfb_que(que[m], ng, 1, &ned, degs, &neval[sys0[m]]);
               }
             } else { /* indicate fb has not been computed */
-              hasnfb = nfb = 0;
+              hasnfb = 0;
+              nfb = 0;
             }
           } /* end of the general case */
           hasnnr = 0;
