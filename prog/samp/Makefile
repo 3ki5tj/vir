@@ -2,11 +2,11 @@
 CC = gcc -O0 -Wall -Wunused -Wextra -g
 LM = -lm
 # optimized compiling
-CX = icc -g -O3 -Wall -Wunused -Wremarks -Wcheck -march=native
+CX = icc -xHost -O3 -DRVN_ALIGN=4 -Wall -Wunused -Wremarks -Wcheck -march=native
 LMX =
 
 deps = dg.h dgcsep.h dgrjw.h dgsc.h dgring.h zcom.h Makefile mcutil.h
-bins = mcrat mcgc mcgcr mcgc2 mcgcr2
+bins = mcrat mcgc2 mcgcr2
 bins_d = $(patsubst %,%_d, $(bins))
 
 all: $(bins)

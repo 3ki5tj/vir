@@ -114,7 +114,7 @@ INLINE double ndvol(int d)
 
 /* return B3/B2^2 for d-dimensional system
  * M. Luban and A. Baram, J. Chem. Phys. 76. 3233 (1981) */
-INLINE double b3rat(int d)
+INLINE double B3rat(int d)
 {
   int i, n;
   double fac, sum;
@@ -146,7 +146,7 @@ INLINE double b3rat(int d)
  * divided by the square of the unit spherial volume */
 INLINE double Z3rat(int d)
 {
-  return 3./4 * b3rat(d); /* (-1) * 3! / (-2) / (2^2) */
+  return 3./4 * B3rat(d); /* (-1) * 3! / (-2) / (2^2) */
 }
 
 

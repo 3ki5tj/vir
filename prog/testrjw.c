@@ -24,7 +24,7 @@ static void cmpref(int n, edges_t *ref)
     for (j = 0; j < ref[i].npr; j++)
       dg_unlink(g, ref[i].id[j][0], ref[i].id[j][1]);
     fb = dg_hsfb(g);
-    if (!dg_biconnected(g))
+    if ( !dg_biconnected(g) )
       continue;
     if (fabs(fb - ref[i].fb) > 1e-3) {
       printf("n %d: model %d fb mismatch %g vs %d (ref)\n",
@@ -94,9 +94,10 @@ static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
 
     if (t % 10 != 0) continue; /* avoid successive correlation */
 
+    //if (t % 1000 == 0) printf("ned %d, t %d\n", ned, t);
     if (t % 1000000 == 0) { /* adjust rnp */
       rnp *= 0.5;
-      printf("adjusting rnp to %g\n", rnp);
+      printf("adjusting rnp to %g, ned %d, n %d\n", rnp, ned, n);
     }
     die_if (dg_nedges(g) != ned, "ned %d vs. %d\n", ned, dg_nedges(g));
     if ( ned < nedmin || ned > nedmax) continue;
@@ -108,9 +109,18 @@ static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
        * the lookup table when possible */
       fb = dg_hsfb(g);
     } else if (method == 's' || method == 'r') { /* Ree-Hoover star content*/
-      fb = dg_rhsc_direct(g) * (1 - (ned % 2) * 2);
+      fb = DG_SC2FB( dg_rhsc_direct(g), ned );
     } else if (method == 'w') { /* Wheatley */
       fb = (double) dg_hsfb_rjw(g);
+    } else if (method == 'p') { /* comparison */
+      double fb1 = (double) dg_hsfb_rjw(g);
+      double fb2 = DG_SC2FB( dg_rhsc_direct(g), ned );
+      if (fabs(fb1 - fb2) > 1e-6) {
+        fprintf(stderr, "fb %g (rjw) vs %g (sc)\n", fb1, fb2);
+        dg_print(g);
+        exit(1);
+      }
+      fb = fb1;
     } else { /* default */
       fb = dg_hsfb_mixed(g);
     }
@@ -185,6 +195,7 @@ int main(int argc, char **argv)
   if (argc >= 2) n = atoi(argv[1]);
   if (argc >= 3) nsamp = atoi(argv[2]);
   if (argc >= 4) nedmax = atoi(argv[3]);
+  die_if (nedmax <= n, "nedmax %d <= n %d\n", nedmax, n);
   if (argc >= 5) method = argv[4][0];
   testspeed(n, nsamp, nedmin, nedmax, method);
   mtsave(NULL);

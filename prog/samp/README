@@ -10,10 +10,14 @@ mcrat.c     calculate the ratio of two successive virial coefficients
 
 mcstat.c    compute some statisitics of the diagrams
 
-mcgc.c      grand canonical simulation (basic algorithm)
+mcgc2.c     grand canonical simulation
+            no intermediate states, but uses heat-bath algorithm
+            (see Tips)
 
-mcgcr.c     grand canonical simulation, multiple intermediate states
+mcgcr2.c    grand canonical simulation, multiple intermediate states
             with a distance restraint between a pair of special vertices
+            heat-bath algorithm
+            (see Tips)
 
 
 
@@ -41,6 +45,7 @@ mcgcx.c     supposed to be a better version than mcgcr.c
 
 mcgcr.v1.c  Metropolis and heat-bath algorithms for mcgcr
 mcgcr2.v1.c very few differences
+
 
 
 Monte Carlo sampling
@@ -78,4 +83,47 @@ So (2)/(3) gives
 Plugging (4) into (1) yields
 
   vir = (1 - n) / (2n) v0^(n - 1) acc_r * r_r / r_vir.        (5)
+
+
+
+
+
+
+Usage of mcgc and mcgcr2
+---------------------------
+
+* The files need to compiled for each dimension.  It is recommended to compile
+  each source before each run.  For example
+
+  mpicc -DMPI=1 -DD=20 -DNMAX=64 mcgc2.c && mpirun -np 4 ./a.out -o a.dat
+
+  which computes the first 64 virial coefficients for D = 20, or
+
+  mpicc -DMPI=1 -DD=50 mcgcr2.c && mpirun -np 4 ./a.out -n 8 -o a.dat -m 3 -c 0.4
+
+  which computes the first 8 virial coefficients for D = 50
+
+
+* -DD=20 works for the 20 dimensional problem.
+
+* -DNMAX=64 if the maximal order is greater than 64.
+
+* -DMPI=1 if an MPI version is needed
+
+* In the parameters-adjusting runs, run with -E 10 (or any number) and -0 1e6 (or something larger).
+  Do not run the MPI version.
+
+* In the first production run, use the switch -R -B or -RB.
+  This will clear the data in the previous file.
+  But on output, no parameters are updated.
+  The same effect can be achieved by runing with -R, but
+  add ``dirty'' (remove the quotes) in the information line
+  of the input file `Zr[hr]D***.dat'
+
+* In successive production runs, use the switch -R (restartable)
+  The data in the previous will be loaded.
+  Parameters are not altered on output.
+
+
+
 

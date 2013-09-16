@@ -232,7 +232,7 @@ INLINE double dg_rhsc_lookup(const dg_t *g)
       if ( dg_biconnected(g1) ) {
         sc[n][k] = dg_rhsc_direct(g1);
         cnt++;
-        nz += ((int) sc[n][k] != 0);
+        nz += (fabs(sc[n][k]) > 0.5);
       } else sc[n][k] = 0;
     }
     dg_close(g1);

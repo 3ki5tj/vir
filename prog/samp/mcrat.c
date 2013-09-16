@@ -292,14 +292,14 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
     ring[m][0] = 1e-20;
     ring[m][1] = 1e-20;
   }
-  nrat[0] = nrat[2] = 1e-6; nrat[1] = nrat[3] = 0;
-  tacc[0] = tacc[2] = 1e-6; tacc[1] = tacc[3] = 0;
+  nrat[0] = nrat[2] = 1e-20; nrat[1] = nrat[3] = 0;
+  tacc[0] = tacc[2] = 1e-20; tacc[1] = tacc[3] = 0;
   for (i = 0; i < NSYS; i++) {
     cacc[i] = 0;
-    ctot[i] = 1e-6;
+    ctot[i] = 1e-20;
   }
   racc = 0;
-  rtot = 1e-6;
+  rtot = 1e-20;
 
   /* equilibration */
   for (t = 1; t <= nequil; t += 1)
@@ -518,7 +518,78 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
 
 
-#include "dgque.h"
+typedef struct {
+  struct {
+    double val; /* e.g., the value of fb */
+    code_t c[DG_NMAX/2]; /* code */
+  } *arr;
+  int nmax;
+  int cnt; /* number of entries */
+  int i; /* current point from 0 to cnt - 1 */
+  int k; /* number of code_t */
+} dgque_t;
+
+
+
+INLINE dgque_t *dgque_open(int cnt, int k)
+{
+  dgque_t *q;
+
+  xnew(q, 1);
+  q->nmax = cnt;
+  q->cnt = 0;
+  q->k = k;
+  xnew(q->arr, q->nmax);
+  return q;
+}
+
+
+
+INLINE void dgque_close(dgque_t *q)
+{
+  free(q->arr);
+  free(q);
+}
+
+
+
+INLINE int dgque_find(const dgque_t *q, const code_t *c, double *x)
+{
+  int i, j, cnt = q->cnt, k = q->k;
+
+  for (i = 0; i < cnt; i++) {
+    for (j = 0; j < k; j++)
+      if (q->arr[i].c[j] != c[j])
+        break;
+    if (j == k) {
+      *x = q->arr[i].val;
+      return i;
+    }
+  }
+  return -1;
+}
+
+
+
+INLINE void dgque_add(dgque_t *q, code_t *c, double x)
+{
+  int i, j, k = q->k;
+
+  if (q->cnt < q->nmax) {
+    i = q->cnt;
+    q->arr[i].val = x;
+    for (j = 0; j < k; j++) q->arr[i].c[j] = c[j];
+    if ((q->cnt = i + 1) == q->nmax)
+      q->i = 0; /* set point */
+  } else { /* replace the q->i th point */
+    i = q->i;
+    q->arr[i].val = x;
+    for (j = 0; j < k; j++) q->arr[i].c[j] = c[j];
+    q->i = (i + 1) % q->nmax;
+  }
+}
+
+
 
 /* compute fb with a short history list
  * nocsep: no clique separator in the graph */
@@ -610,14 +681,14 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     nr[m] = 0;
     hasnr[m] = 0;
   }
-  nrat[0] = nrat[2] = 1e-6; nrat[1] = nrat[3] = 0;
-  tacc[0] = tacc[2] = 1e-6; tacc[1] = tacc[3] = 0;
+  nrat[0] = nrat[2] = 1e-20; nrat[1] = nrat[3] = 0;
+  tacc[0] = tacc[2] = 1e-20; tacc[1] = tacc[3] = 0;
   for (i = 0; i < NSYS; i++) {
     cacc[i] = 0;
-    ctot[i] = 1e-6;
+    ctot[i] = 1e-20;
   }
   racc = 0;
-  rtot = 1e-6;
+  rtot = 1e-20;
 
   /* equilibration */
   for (t = 1; t <= nequil; t += 1)

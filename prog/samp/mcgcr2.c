@@ -113,12 +113,12 @@ static void doargs(int argc, char **argv)
   nstsave = (int) (nstsav + .5);
 
   if (rc0 <= 0) {
-    if (nmvtype) {
-      rc0 = (real) 0.9;
+    if (nmvtype == 1) {
+      rc0 = (real) (2.5 / sqrt(D));
     } else {
       rc0 = (real) (4. / sqrt(D));
-      if (rc0 > 1) rc0 = 1;
     }
+    if (rc0 > 1) rc0 = 1;
   }
 
   /* in higher dimensions compute fb more often */
@@ -354,7 +354,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
     /* check if the graph has a clique separator
      * but in special cases, fb and nr are computed as well */
     if (n <= 3) { /* assuming biconnectivity */
-      static int fbarr[4] = {1, 1, -1, -1};
+      static double fbarr[4] = {1, 1, -1, -1};
       err = errnr = 0;
       ncs = 1;
       fb = fbarr[n];
@@ -609,7 +609,7 @@ INLINE double gc_fprintZrr(gc_t *gc, FILE *fp,
 
 /* save all data to file */
 static int gc_saveZrr(gc_t *gc, const char *fn,
-    const double *Zr, const real *rc, const real *sr)
+    const double *Zr, const real *rc, const real *sr, int dirty)
 {
   FILE *fp;
   char fndef[64];
@@ -617,8 +617,9 @@ static int gc_saveZrr(gc_t *gc, const char *fn,
 
   mkfnZrrdef(fn, fndef, D, gc->m - 1, gc->nmax, inode);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "#%c %d %d %d %d %d %d V4 1 %d\n", nmvtype ? 'R' : 'S',
-      D, gc->nens, gc->ens0, gc->nmin, gc->nmax, gc->m, nedxmax);
+  fprintf(fp, "#%c %d %d %d %d %d %d V4 1 %d %s\n", nmvtype ? 'R' : 'S',
+      D, gc->nens, gc->ens0, gc->nmin, gc->nmax, gc->m, nedxmax,
+      dirty ? "dirty" : "");
   tot = gc_fprintZrr(gc, fp, Zr, rc, sr);
   fclose(fp);
   printf("%4d: saved Zrr to %s, tot %g\n", inode, fn, tot);
@@ -885,12 +886,11 @@ INLINE int nmove_restraineddown2pure(int i0, int j0,
 
 /* scale the distance between x[i0] and x[j0] and test the biconnectivity */
 INLINE int nmove_scale(int i0, int j0, dg_t *g, dg_t *ng,
-    rvn_t *x, real *xj0, real r2ij[][DG_NMAX], real *r2i,
-    real sr, real Zr, int extra)
+    rvn_t *x, real *xj0, real r2ij[][DG_NMAX], real *r2i, real sr,
+    int extra, double aved) /* correction for pair generation */
 {
   int k, n = g->n;
 
-  if (Zr < 1 && rnd0() >= Zr) return 0;
   /* randomly choose i0 or j0 as the root */
   if (rnd0() < 0.5) { k = i0, i0 = j0, j0 = k; }
   /* xj0 = x[i0] + (x[j0] - x[i0]) * s */
@@ -908,7 +908,10 @@ INLINE int nmove_scale(int i0, int j0, dg_t *g, dg_t *ng,
       dg_unlink(ng, k, j0);
   }
   if ( !dg_biconnected(ng) ) return 0;
-  if ( extra && rnd0() >= 1.*Zr/dg_nedges(ng) ) return 0;
+  /* if moving up to a pure state, we correct the pair generation
+   * probability caused by the heat-bath method
+   * the `extra' is set only in this case */
+  if ( extra && rnd0() >= 1.*aved/dg_nedges(ng) ) return 0;
   dg_copy(g, ng);
   rvn_copy(x[j0], xj0);
   UPDR2(r2ij, r2i, n, j0, k);
@@ -1008,9 +1011,10 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
 
   /* we limit the initial # of vertices to 8 for larger fully-connected
    * diagrams are harder to equilibrate */
-  if (nmin < 8)
-    ninit = nmin + (int) (rnd0() * (8 - nmin));
-  else
+  if (nmin < 8) {
+    int nn = (8 > nmax) ? nmax : 8;
+    ninit = nmin + (int) (rnd0() * (nn - nmin));
+  } else
     ninit = nmin;
   ensmin = nmin * mtiers;
   ensmax = nmax * mtiers;
@@ -1048,23 +1052,33 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
               gc->rc[iens + 1], 1. / gc->Zr[iens + 1]);
           die_if (g->n < nmin || g->n > nmax, "p2r bad n %d, t %g, iens %d\n", g->n, t, iens);
         } else if (gc->type[iens + 1] == GCX_PURE) { /* restrained up to pure */
-          /*  bc(r^n) step(rc - r_{i0, j0}) c(r^n\{i0, j0}) dr^n
+          /*  bc(r^n) step(rc - r_{i0, j0}) c(r^n\{i0, j0}) dr^n  (I)
            *    -->
-           *  bc(R^n) dR^n */
-          /* in case of heat-bath move, there is an implicit intermediate state
-           *  bc(R^n) step(1 - R_{i0, j0}) c(R^n\{i0, j0}) dR^n */
+           *  bc(R^n) dR^n (III) */
+          /* In case of heat-bath move, there is an implicit intermediate state
+           *  bc(R^n) step(1 - R_{i0, j0}) c(R^n\{i0, j0}) dR^n (II)
+           * The (I) --> (II) step follows from the regular scaling code.
+           * If the above scaling step is accepted, then the (II) --> (III) step
+           *  amounts to the following test (to remove the heat-bath bias)
+           *    acc = ( rnd0() < 1. / (gc->Zr[iens + 1] * dg_nedges(ng)) );
+           * where `ng' is the diagram correspond to the scaled coordinates R
+           * and `1/Zr[iens + 1]' should be roughly equal to the inverse of the
+           * number of edges in `ng', which is roughly n.
+           * Note: if the normal Metropolis move is used for vertex removal,
+           * 1/Zr[iens + 1] should be 1, which iens + 1 being a pure state */
           if ( nmvtype == 0
             || r2ij[pi][pj] * dblsqr(gc->sr[iens]) < 1 ) //dblsqr(gc->rc[iens + 1])
-            acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i,
-              gc->sr[iens], 1. / gc->Zr[iens + 1], nmvtype == 1);
+            acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i, gc->sr[iens],
+               nmvtype == 1, 1. / gc->Zr[iens + 1]);
+          /* the last two parameters invoke the correction of pair generation */
         } else { /* restrained up to a less restrained state */
           /*  bc(r^n) step(rc - r_{i0, j0}) c(r^n\{i0, j0}) dr^n
            *    -->
            *  bc(R^n) step(Rc - R_{i0, j0}) c(R^n\{i0, j0}) dR^n
            * where rc < Rc */
           if ( r2ij[pi][pj] * dblsqr(gc->sr[iens]) < dblsqr(gc->rc[iens + 1]) )
-            acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i,
-              gc->sr[iens], 1., 0);
+            acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i, gc->sr[iens],
+               0, 1.);
         }
         if (ieql >= 0) {
           gc->nup[iens][0] += 1;
@@ -1097,8 +1111,8 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
           if ( (g->n <= 3 || dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(pi) ^ MKBIT(pj)))
             && r2ij[pj][pi] < dblsqr(gc->rc[iens - 1] * gc->sr[iens - 1])
             && (nmvtype == 0 || rnd0() < gc->Zr[iens] * ned) ) {
-            acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i,
-                  1. / gc->sr[iens - 1], 1., 0);
+            acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i, 1. / gc->sr[iens - 1],
+               0, 1.);
           }
         } else { /* restrained down to a more restrained state */
           /*  bc(R^n) step(Rc - R_{i0, j0}) c(R^n\{i0, j0}) dR^n
@@ -1106,8 +1120,8 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
            *  bc(r^n) step(rc - r_{i0, j0}) c(r^n\{i0, j0}) dr^n
            * where Rc > rc */
           if ( r2ij[pj][pi] < dblsqr(gc->rc[iens - 1] * gc->sr[iens - 1]) )
-            acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i,
-                  1. / gc->sr[iens - 1], 1., 0);
+            acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i, 1. / gc->sr[iens - 1],
+               0, 1.);
         }
         if (ieql >= 0) {
           gc->ndown[iens][0] += 1;
@@ -1150,7 +1164,7 @@ STEP_END:
         if ( ieql > 0 ) { /* update parameters */
           gc_update(gc, mindata, gc->Zr, gc->rc, gc->sr);
           gc_computeZ(gc, gc->Zr, gc->rc, gc->sr);
-          gc_saveZrr(gc, fnZrrtmp,  gc->Zr, gc->rc, gc->sr);
+          gc_saveZrr(gc, fnZrrtmp,  gc->Zr, gc->rc, gc->sr, 1);
           gc_print(gc, 0, NULL, NULL, NULL);
           printf("equilibration stage %d/%d\n", ieql, neql);
           gc_cleardata(gc);
@@ -1168,10 +1182,10 @@ STEP_END:
         gc_update(gc, mindata, gc->Zr1, gc->rc1, gc->sr1);
         gc_computeZ(gc, gc->Zr1, gc->rc1, gc->sr1);
         if (restart) {
-          gc_saveZrr(gc, fnZrr, gc->Zr, gc->rc, gc->sr);
-          gc_saveZrr(gc, fnZrrtmp, gc->Zr1, gc->rc1, gc->sr1);
+          gc_saveZrr(gc, fnZrr, gc->Zr, gc->rc, gc->sr, 0);
+          gc_saveZrr(gc, fnZrrtmp, gc->Zr1, gc->rc1, gc->sr1, 1);
         } else {
-          gc_saveZrr(gc, fnZrr, gc->Zr1, gc->rc1, gc->sr1);
+          gc_saveZrr(gc, fnZrr, gc->Zr1, gc->rc1, gc->sr1, 1);
         }
         gc_saveZr(gc, fnZr);
         it = 0;

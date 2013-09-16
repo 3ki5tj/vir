@@ -393,7 +393,7 @@ class GC:
         nr = me.ring[n][1] / me.ring[n][0]
         me.B[n] = (1. - n) * fac * z * fbav
         if nr > 0:
-          me.B2[n] = fbav / nr * me.Bring[n]
+          me.B2[n] = -fbav / nr * me.Bring[n]
         me.Zn[n] = me.Z[i]
         me.ZZ[n] = me.Zn[n] / prevZ
         prevZ = me.Zn[n]

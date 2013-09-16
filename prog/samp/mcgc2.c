@@ -28,7 +28,7 @@ double nsteps = 10000000;
 double ratn = 0.5; /* frequency of n-moves */
   /* this version used a simple n-move, which is on average faster than
    * configurational sampling, so we should use a larger ratn */
-real rc0 = 1; /* initial rc */
+real rc0 = 0; /* initial rc */
 double mindata = 100; /* minimal # of data points to make update */
 
 char *fninp = NULL; /* input file */
@@ -105,6 +105,8 @@ static void doargs(int argc, char **argv)
   if (norc) updrc = 0;
 
   nstsave = (int) (nstsav + .5);
+
+  if (rc0 <= 0) rc0 = (real) 0.9;
 
   /* Metropolis move */
   if (nmvtype == 0) updrc = 0;
@@ -379,7 +381,7 @@ INLINE double gc_fprintZr(gc_t *gc, FILE *fp,
  * we save the ratio of the successive values, such that one can modify
  * a particular value without affecting later ones */
 static int gc_saveZr(gc_t *gc, const char *fn,
-    const double *Zr, const real *rc)
+    const double *Zr, const real *rc, int dirty)
 {
   FILE *fp;
   char fndef[64];
@@ -387,8 +389,8 @@ static int gc_saveZr(gc_t *gc, const char *fn,
 
   mkfnZrdef(fn, fndef, D, nmax, inode);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "#%s %d %d V4 %d 1 %d\n", (nmvtype == 1) ? "H" : "",
-      D, gc->nmax, gc->nmin, nedxmax);
+  fprintf(fp, "#%s %d %d V4 %d 1 %d %s\n", (nmvtype == 1) ? "H" : "",
+      D, gc->nmax, gc->nmin, nedxmax, dirty ? "dirty" : "");
   tot = gc_fprintZr(gc, fp, Zr, rc);
   fclose(fp);
   printf("%4d: saved Zr to %s, tot %g\n", inode, fn, tot);
@@ -539,11 +541,11 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
   gc->nedg[n][0] += 1;
   gc->nedg[n][1] += ned;
 
-  if (n <= nlookup || ((int) fmod(t, nstcs) == 0) ) {
+  if (n <= nlookup || ((int) fmod(t + .5, nstcs) == 0) ) {
     /* check if the graph has a clique separator
      * but in special cases, fb and nr are computed as well */
     if (n <= 3) { /* assuming biconnectivity */
-      static int fbarr[4] = {1, 1, -1, -1};
+      static double fbarr[4] = {1, 1, -1, -1};
       err = errnr = 0;
       ncs = 1;
       fb = fbarr[n];
@@ -575,7 +577,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
     gc->ncsp[n][0] += 1;
     gc->ncsp[n][1] += ncs;
 
-    if (n <= nlookup || (nstfb > 0 && (int) fmod(t, nstfb) == 0)) {
+    if (n <= nlookup || (nstfb > 0 && (int) fmod(t + .5, nstfb) == 0)) {
       /* compute fb, if it is cheap */
       if ( err ) { /* if dg_rhsc_spec0() fails, no clique separator */
         if (ned > n + nedxmax && n > nedxmax + 2) {
@@ -663,9 +665,10 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
 
   /* we limit the initial # of vertices to 8 for larger
    * fully-connected diagrams are harder to equilibrate */
-  if (nmin < 8)
-    ninit = nmin + (int) (rnd0() * (8 - nmin));
-  else
+  if (nmin < 8) {
+    int nn = (8 > nmax) ? nmax : 8;
+    ninit = nmin + (int) (rnd0() * (nn - nmin));
+  } else
     ninit = nmin;
   g = dg_open(nmax);
   ng = dg_open(nmax);
@@ -774,7 +777,7 @@ STEP_END:
         if (ieql > 0) { /* update parameters */
           gc_update(gc, updrc, mindata, gc->Zr, gc->rc);
           gc_computeZ(gc, gc->Zr, gc->rc);
-          gc_saveZr(gc, fnZrtmp, gc->Zr, gc->rc);
+          gc_saveZr(gc, fnZrtmp, gc->Zr, gc->rc, 1);
           gc_printZr(gc, gc->Zr, gc->rc);
           printf("equilibration stage %d/%d\n", ieql, neql);
           gc_cleardata(gc);
@@ -792,10 +795,10 @@ STEP_END:
         gc_update(gc, updrc, mindata, gc->Zr1, gc->rc1);
         gc_computeZ(gc, gc->Zr1, gc->rc1);
         if (restart) {
-          gc_saveZr(gc, fnout, gc->Zr, gc->rc);
-          gc_saveZr(gc, fnZrtmp, gc->Zr1, gc->rc1);
+          gc_saveZr(gc, fnout, gc->Zr, gc->rc, 0);
+          gc_saveZr(gc, fnZrtmp, gc->Zr1, gc->rc1, 1);
         } else {
-          gc_saveZr(gc, fnout, gc->Zr1, gc->rc1);
+          gc_saveZr(gc, fnout, gc->Zr1, gc->rc1, 1);
         }
         it = 0;
       }

@@ -260,7 +260,7 @@ INLINE double dg_hsfb_lookuplow(int n, unqid_t id)
       if ( dg_biconnected(g) ) {
         fb[n][k] = (double) (dg_cliquesep(g) ? 0 : dg_hsfb_rjw(g));
         cnt++;
-        nz += ((int) fb[n][k] != 0);
+        nz += (fabs(fb[n][k]) > .5);
       } else fb[n][k] = 0;
     }
     dg_close(g);

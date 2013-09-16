@@ -59,41 +59,6 @@ static void speed_connected(int n, int nsteps)
 
 
 
-static void speed_biconnected(int n, int nsteps)
-{
-  dg_t *g = dg_open(n);
-  clock_t t0;
-  int t, npr = n*(n-1)/2, i = 0, j = 1, sum = 0;
-
-  dg_full(g);
-
-  t0 = clock();
-  for (t = 0; t < nsteps; t++) {
-    parsepairindex((int) (npr *rnd0()), n, &i, &j);
-    if (dg_linked(g, i, j)) dg_unlink(g, i, j);
-    else dg_link(g, i, j);
-    sum += dg_biconnected(g);
-  }
-  printf("biconnected, n %d: time used: %gs/%d\n",
-      n, 1.*(clock() - t0) / CLOCKS_PER_SEC, nsteps);
-
-  if (n <= DGMAP_NMAX) {
-    dg_biconnected_lookup(g);
-    t0 = clock();
-    for (t = 0; t < nsteps; t++) {
-      parsepairindex((int) (npr * rnd0()), n, &i, &j);
-      if (dg_linked(g, i, j)) dg_unlink(g, i, j);
-      else dg_link(g, i, j);
-      sum += dg_biconnected_lookup(g);
-    }
-    printf("biconnected_lookup, n %d: time used: %gs/%d\n",
-        n, 1.*(clock() - t0) / CLOCKS_PER_SEC, nsteps);
-  }
-  dg_close(g);
-}
-
-
-
 /* check biconnectivity by two algorithms */
 static void verify_biconnected(int n, int nsteps)
 {
@@ -113,9 +78,61 @@ static void verify_biconnected(int n, int nsteps)
       exit(1);
     }
   }
-  printf("verify biconnectivity of %d diagrams\n", nsteps);
+  printf("verified biconnectivity of %d diagrams\n", nsteps);
   dg_close(g);
 }
+
+
+static void speed_biconnected(int n, int nsteps,
+    int method, int nedmax)
+{
+  dg_t *g = dg_open(n);
+  clock_t t0;
+  int t, npr = n*(n-1)/2, i = 0, j = 1, sum = 0, ned = 0;
+  double tsum = 0;
+
+  die_if (method == 'l' && n > DGMAP_NMAX,
+    "n %d cannot use the lookup method\n", n);
+
+  dg_empty(g);
+  for (i = 0; i < n; i++) dg_link(g, i, (i+1)%n);
+  ned = dg_nedges(g);
+  for (t = 0; t < nsteps; t++) {
+    parsepairindex((int) (npr *rnd0()), n, &i, &j);
+#ifdef TESTRING /* test ring-like conformations */
+    if ( !dg_linked(g, i, j) ) {
+      dg_link(g, i, j);
+      ned++;
+    }
+#else
+    if (dg_linked(g, i, j)) {
+      dg_unlink(g, i, j);
+      ned--;
+    } else if (ned < nedmax) {
+      dg_link(g, i, j);
+      ned++;
+    }
+#endif
+    t0 = clock();
+    if (method == 's')
+      sum += dg_biconnected_std(g);
+    else if (method == 'l')
+      sum += dg_biconnected_lookup(g);
+    else
+      sum += dg_biconnected(g);
+    tsum += clock() - t0;
+#ifdef TESTRING
+    if (ned > n) {
+      dg_unlink(g, i, j);
+      ned--;
+    }
+#endif
+  }
+  printf("biconnected, n %d: time used: %gs/%d, av %g\n",
+      n, tsum / CLOCKS_PER_SEC, nsteps, 1. * sum / nsteps);
+  dg_close(g);
+}
+
 
 
 
@@ -175,7 +192,7 @@ int main(int argc, char **argv)
     {-1, {{0, 0}}, 1, 1},
   };
   int n = DG_NMAX, nsteps = 1000000;
-  int n1 = 9, nsteps1 = 100000000;
+  int n1 = 9, nsteps1 = 100000000, method = 0, nedmax = 100000;
 
   cmpref(3, ref3);
   cmpref(4, ref4);
@@ -183,12 +200,16 @@ int main(int argc, char **argv)
   
   if (argc > 1) n = atoi(argv[1]);
   if (argc > 2) nsteps = atoi(argv[2]);
-  printf("n %d, nsteps %d\n", n, nsteps);
+  printf("verification: n %d, nsteps %d\n", n, nsteps);
   verify_biconnected(n, nsteps);
   
   if (argc > 3) n1 = atoi(argv[3]);
   if (argc > 4) nsteps1 = atoi(argv[4]);
+  if (argc > 5) method = argv[5][0];
+  if (argc > 6) nedmax = atoi(argv[6]);
+  printf("speed tsest: n %d, nsteps %d, method %c, nedmax %d\n",
+      n1, nsteps1, method, nedmax);
   speed_connected(n1, nsteps1);
-  speed_biconnected(n1, nsteps1);
+  speed_biconnected(n1, nsteps1, method, nedmax);
   return 0;
 }
