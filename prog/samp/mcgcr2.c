@@ -30,6 +30,7 @@ int gaussdisp = 0;
 real rc0 = -1;
 real sr0 = 1;
 double mindata = 100; /* minimal # of data points to make update */
+int updrc = 0;
 
 char *fninp = NULL;
 char *fnZrr = NULL;
@@ -91,6 +92,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-F",    "%d",   &nstfb,   "interval of computing fb");
   argopt_add(ao, "-X",    "%d",   &nedxmax, "maximal number of extra edges for computing fb");
   argopt_add(ao, "-Q",    "%lf",  &mindata, "minimal number of data points to warrant parameter update");
+  argopt_add(ao, "-C",    "%b",   &updrc,   "update rc");
   argopt_add(ao, "-q",    "%lf",  &nstsav,  "interval of saving data");
   argopt_add(ao, "-E",    "%d",   &neql,    "number of equilibration stages, 0: disable, > 0: update Zr & sr, < 0: 1 round no update");
   argopt_add(ao, "-0",    "%lf",  &nequil,  "number of equilibration steps per round");
@@ -114,15 +116,16 @@ static void doargs(int argc, char **argv)
 
   if (rc0 <= 0) {
     if (nmvtype == 1) {
-      rc0 = (real) (2.5 / sqrt(D));
+      /* this value works for large n */
+      rc0 = (real) (1. / mtiers);
     } else {
       rc0 = (real) (4. / sqrt(D));
+      if (rc0 > 1) rc0 = 1;
     }
-    if (rc0 > 1) rc0 = 1;
   }
 
   /* in higher dimensions compute fb more often */
-  if (D >= 20) nstcs = nsted;
+  if (D >= 15) nstcs = nsted;
   if (nstfb < 0) nstfb = nstcs;
 
   if (nedxmax < 0) {
@@ -264,7 +267,9 @@ INLINE gc_t *gc_open(int nmin, int nmax, int m,
       rc = 1;
     } else {
       /* rc = pow(rc0, 1.*(m - i % m)/(m - 1)); */
-      /* linear interpolation, including the boundary value 1 */
+      /* linear interpolation, including the boundary value 1
+       * By default, rc0 = 1/m. When i == 1, rc = rc0 = 1/m
+       * when i == m - 1, rc = (m - 1)/m */
       rc = rc0 + (1. - rc0) * (i % m - 1) / (m - 1);
     }
     gc->rc[i] = (real) rc;
@@ -344,7 +349,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
      * i.e., for a small n. But in the n = 8 case, initializing
      * the lookup table would cost 30s-70s,
      * which is a bit long for a short simulation */
-    nlookup = (nsteps < 5e8) ? 7 : DGMAP_NMAX;
+    nlookup = (nsteps < 1e9) ? 7 : DGMAP_NMAX;
 
   ned = dg_degs(g, degs);
   gc->nedg[n][0] += 1;
@@ -390,8 +395,8 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       /* compute fb, if it is cheap */
       if ( err ) { /* if dg_rhsc_spec0() fails, no clique separator */
         if (ned > n + nedxmax && n > nedxmax + 2) {
-          fprintf(stderr, "t %.6e/%g D %d assume fb = 0 n %d ned %d\n",
-              t, nsteps, D, n, ned);
+          fprintf(stderr, "%d: t %.6e/%g D %d assume fb = 0 n %d ned %d, del %d\n",
+              inode, t, nsteps, D, n, ned, ned - n);
           fb = 0;
         } else {
           fb = dg_hsfb_mixed0(g, 1, &ned, degs);
@@ -415,7 +420,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
 
 
 /* update parameters */
-static void gc_update(gc_t *gc, double mindata,
+static void gc_update(gc_t *gc, double mindata, int updrc,
     double *Zr, real *rc, real *sr)
 {
   int i;
@@ -436,6 +441,61 @@ static void gc_update(gc_t *gc, double mindata,
       sr[i - 1] *= pow(r, 1./D);
     }
   }
+
+  if ( !updrc ) return;
+
+  /* update rc, use a separate loop to be clean */
+  for (i = gc->ens0; i < gc->nens - 1; i++) {
+    double r1, r2, r3, r4, newrc;
+
+    /* pure states don't have rc */
+    if ( gc->type[i] == GCX_PURE || gc->n[i] <= 2 ) continue;
+
+    /* since updating rc is dangerous, we do it cautiously */
+    if ( gc->nup[i-1][1] < mindata || gc->ndown[i][1] < mindata
+      || gc->nup[i][1] < mindata || gc->ndown[i+1][1] < mindata )
+      continue;
+    r1 = gc->nup[i-1][1] / gc->nup[i-1][0];
+    r2 = gc->ndown[i][1] / gc->ndown[i][0];
+    r3 = gc->nup[i][1] / gc->nup[i][0];
+    r4 = gc->ndown[i+1][1] / gc->ndown[i+1][0];
+
+/* the following parameters are defined as macros
+ * so that they can be modified on compiling time */
+#ifndef GCFLATNESS
+#define GCFLATNESS 0.05
+#endif
+#ifndef GCEXPONENT
+/* maybe needs to be larger for larger D */
+#define GCEXPONENT (4.0/D)
+#endif
+#ifndef GCROUND
+/* this number needs to be smaller for larger D */
+#define GCROUND 0.001
+#endif
+
+    /* make sure the transition rates between i-1 and i are equal
+     * those between i and i+1 are also equal */
+    if ( fabs(r1 - r2) > GCFLATNESS * (r1 + r2)
+      || fabs(r3 - r4) > GCFLATNESS * (r3 + r4) )
+      continue;
+    r1 = (r1 + r2)/2;
+    r3 = (r3 + r4)/2;
+    /* multiply rc by a moderate power of r1/r3
+     * limit the amount of updating within 10% */
+    r = dblconfine(pow(r1 / r3, GCEXPONENT), 0.9, 1.1);
+    /* we round rc to a multiple of 0.01 */
+    newrc = dblconfine(dblround(r * rc[i], GCROUND), 0.05, 1.0);
+    r = newrc / rc[i];
+    if (fabs(r - 1) > 1e-6) {
+      printf("%3d: iens %3d, n %2d, updating rc %.3f -> %.3f\n",
+        inode, i, gc->n[i], rc[i], newrc);
+      rc[i] = newrc;
+      sr[i] /= r;
+      if (gc->type[i - 1] != GCX_PURE)
+        sr[i - 1] *= r;
+    }
+  }
 }
 
 
@@ -453,20 +513,21 @@ static void gc_computeZ(gc_t *gc,
   for (i = 1; i < gc->nens; i++) {
     n = gc->n[i];
     /* compute the partition function */
-    z *= Zr[i];
-    if (gc->type[i - 1] != GCX_PURE) {
-      z *= pow(sr[i - 1], D);
+    /* Note: Zr[i] == 1 unless i-1 or i is a pure state */
+    if (gc->type[i - 1] == GCX_PURE) {
+      z *= Zr[i] * pow(rc[i], D);
     } else {
-      z *= pow(rc[i], D);
+      /* Zr[i] != 1 only if i is a pure state */
+      z *= Zr[i] * pow(sr[i - 1], D);
     }
     /* use the the exact result if available */
     if (gc->type[i] == GCX_PURE) {
       if (nmvtype == 1)
         z *= n * (n - 1) * .5; /* pair generation bias */
       if (n == 3 && nmin < 3)
-        printf("%4d: Z3: %.7f vs %.7f (exact)\n", inode, z, Z3rat(D));
+        printf("%4d: Z3: %.4e vs %.4e (exact)\n", inode, z, Z3rat(D));
       if (n == 4)
-        printf("%4d: Z4: %.7f vs %.7f (%s)\n", inode, z, Z4rat(D), (D > 12) ? "approx." : "exact");
+        printf("%4d: Z4: %.4e vs %.4e (%s)\n", inode, z, Z4rat(D), (D > 12) ? "approx." : "exact");
       if (n <= 2) z = 1;
       else if (n == 3) z = Z3rat(D);
       else if (n == 4 && D <= 12) z = Z4rat(D);
@@ -1162,16 +1223,16 @@ STEP_END:
     if ( ieql != 0 ) { /* equilibration */
       if ((int) fmod(t + .5, nequil) == 0) {
         if ( ieql > 0 ) { /* update parameters */
-          gc_update(gc, mindata, gc->Zr, gc->rc, gc->sr);
+          gc_update(gc, mindata, updrc, gc->Zr, gc->rc, gc->sr);
           gc_computeZ(gc, gc->Zr, gc->rc, gc->sr);
           gc_saveZrr(gc, fnZrrtmp,  gc->Zr, gc->rc, gc->sr, 1);
           gc_print(gc, 0, NULL, NULL, NULL);
-          printf("equilibration stage %d/%d\n", ieql, neql);
+          printf("D %d, equilibration stage %d/%d, t %g\n", D, ieql, neql, t);
           gc_cleardata(gc);
-          if (++ieql >= neql) /* stop equilibration */
+          if (++ieql > neql) /* stop equilibration */
             ieql = 0;
         } else {
-          printf("t %g: node %d equilibrated, n %d, iens %d\n", t, inode, g->n, iens);
+          printf("%d, D %d, t %g: equilibrated, n %d, iens %d\n", inode, D, t, g->n, iens);
           ieql = 0;
         }
         t = 0; it = 0; /* reset time */
@@ -1179,25 +1240,27 @@ STEP_END:
     } else { /* production */
       if (it % nstsave == 0 || t > nsteps - .5) {
         /* compute node-specific Z */
-        gc_update(gc, mindata, gc->Zr1, gc->rc1, gc->sr1);
+        gc_update(gc, mindata, updrc, gc->Zr1, gc->rc1, gc->sr1);
         gc_computeZ(gc, gc->Zr1, gc->rc1, gc->sr1);
         if (restart) {
           gc_saveZrr(gc, fnZrr, gc->Zr, gc->rc, gc->sr, 0);
-          gc_saveZrr(gc, fnZrrtmp, gc->Zr1, gc->rc1, gc->sr1, 1);
+          if (inode == MASTER)
+            gc_saveZrr(gc, fnZrrtmp, gc->Zr1, gc->rc1, gc->sr1, 1);
         } else {
           gc_saveZrr(gc, fnZrr, gc->Zr1, gc->rc1, gc->sr1, 1);
         }
-        gc_saveZr(gc, fnZr);
+        if (inode == MASTER) {
+          gc_saveZr(gc, fnZr);
+          mtsave(NULL);
+        }
         it = 0;
       }
     }
   } /* main loop ends here */
 
   printf("cacc %g, pracc %g\n", 1.*cacc/ctot, 1.*pracc/prtot);
-  if (inode == MASTER) {
+  if (inode == MASTER)
     gc_print(gc, 0, gc->Zr1, gc->rc1, gc->sr1);
-    mtsave(NULL);
-  }
   gc_close(gc);
   dg_close(g);
   dg_close(ng);

@@ -25,5 +25,11 @@ sync::
 	rsync -avL *.py oo1@stampede.tacc.utexas.edu:work/vir
 	rsync -avL Bring.dat oo1@stampede.tacc.utexas.edu:work/vir
 
+# files are kraken are automatically on keeneland
+sync2::
+	rsync -e gsissh -avL *.[ch] kraken-gsi.nics.xsede.org:work/vir
+	rsync -e gsissh -avL *.py kraken-gsi.nics.xsede.org:work/vir
+	rsync -e gsissh -avL Bring.dat kraken-gsi.nics.xsede.org:work/vir
+
 clean:
 	rm -rf $(bins) $(bins_d) *~ a.out *.his MTSEED bin obj

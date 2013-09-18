@@ -328,7 +328,7 @@ INLINE int loadBring(int d, int nmin, int nmax, double *B, const char *fn)
 {
   char *s = NULL, *p;
   FILE *fp;
-  int i, n, dim = -1, next;
+  int i, n, dim = -1, next = 0;
   size_t sz;
   double x;
 

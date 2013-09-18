@@ -114,7 +114,7 @@ static void doargs(int argc, char **argv)
   /* make nstcs a multiple of nsted */
   nstcs = (nstcs + nsted - 1) / nsted * nsted;
 
-  if (D >= 20) nstcs = nsted;
+  if (D >= 15) nstcs = nsted;
   if (nstfb < 0) nstfb = nstcs;
 
   if (nedxmax < 0) {
@@ -295,10 +295,10 @@ static void gc_computeZ(gc_t *gc, const double *Zr, const double *rc)
     if (i <= 4) { /* reset the exact values */
       if (i <= 2) z = 1;
       else if (i == 3) {
-        printf("%4d: Z3: %.7f to %.7f (exact)\n", inode, z, Z3rat(D));
+        printf("%4d: Z3: %.4e to %.4e (exact)\n", inode, z, Z3rat(D));
         z = Z3rat(D);
       } else if (i == 4) {
-        printf("%4d: Z4: %.7f vs %.7f (%s)\n", inode, z, Z4rat(D), D > 12 ? "approx." : "exact");
+        printf("%4d: Z4: %.4e vs %.4e (%s)\n", inode, z, Z4rat(D), D > 12 ? "approx." : "exact");
         if (D < 12) z = Z4rat(D);
       }
     }
@@ -393,7 +393,7 @@ static int gc_saveZr(gc_t *gc, const char *fn,
       D, gc->nmax, gc->nmin, nedxmax, dirty ? "dirty" : "");
   tot = gc_fprintZr(gc, fp, Zr, rc);
   fclose(fp);
-  printf("%4d: saved Zr to %s, tot %g\n", inode, fn, tot);
+  printf("%4d: saved Zrh to %s, tot %g\n", inode, fn, tot);
   return 0;
 }
 
@@ -535,7 +535,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
      * i.e., for a small n. But in the n = 8 case, initializing
      * the lookup table would cost 30s-70s,
      * which is a bit long for a short simulation */
-    nlookup = (nsteps < 5e8) ? 7 : DGMAP_NMAX;
+    nlookup = (nsteps < 1e9) ? 7 : DGMAP_NMAX;
 
   ned = dg_degs(g, degs);
   gc->nedg[n][0] += 1;
@@ -581,8 +581,8 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       /* compute fb, if it is cheap */
       if ( err ) { /* if dg_rhsc_spec0() fails, no clique separator */
         if (ned > n + nedxmax && n > nedxmax + 2) {
-          fprintf(stderr, "t %.6e/%g D %d assume fb = 0 n %d ned %d\n",
-              t, nsteps, D, n, ned);
+          fprintf(stderr, "%d: t %.6e/%g D %d assume fb = 0 n %d ned %d, del %d\n",
+              inode, t, nsteps, D, n, ned, ned - n);
           fb = 0;
         } else {
           fb = dg_hsfb_mixed0(g, 1, &ned, degs);
@@ -779,12 +779,12 @@ STEP_END:
           gc_computeZ(gc, gc->Zr, gc->rc);
           gc_saveZr(gc, fnZrtmp, gc->Zr, gc->rc, 1);
           gc_printZr(gc, gc->Zr, gc->rc);
-          printf("equilibration stage %d/%d\n", ieql, neql);
+          printf("D %d, equilibration stage %d/%d, t %g\n", D, ieql, neql, t);
           gc_cleardata(gc);
           if (++ieql > neql) /* stop equilibration */
             ieql = 0;
         } else {
-          printf("%d, t %g: equilibrated, n %d\n", inode, t, g->n);
+          printf("%d, D %d, t %g: equilibrated, n %d\n", inode, D, t, g->n);
           ieql = 0;
         }
         t = 0; it = 0; /* reset time */
@@ -796,20 +796,20 @@ STEP_END:
         gc_computeZ(gc, gc->Zr1, gc->rc1);
         if (restart) {
           gc_saveZr(gc, fnout, gc->Zr, gc->rc, 0);
-          gc_saveZr(gc, fnZrtmp, gc->Zr1, gc->rc1, 1);
+          if (inode == MASTER)
+            gc_saveZr(gc, fnZrtmp, gc->Zr1, gc->rc1, 1);
         } else {
           gc_saveZr(gc, fnout, gc->Zr1, gc->rc1, 1);
         }
         it = 0;
+        if (inode == MASTER) mtsave(NULL);
       }
     }
   }
 
   printf("%d: cacc %g\n", inode, cacc/ctot);
-  if (inode == MASTER) {
+  if (inode == MASTER)
     gc_printZr(gc, gc->Zr1, gc->rc1);
-    mtsave(NULL);
-  }
   dg_close(g);
   dg_close(ng);
   return 0;

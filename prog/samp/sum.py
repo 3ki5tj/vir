@@ -529,6 +529,7 @@ def getfninp():
   ''' get the input file '''
   if len(sys.argv) > 1:
     return sys.argv[1]
+  # we only need Zrr files, but not Zr files
   ls = glob.glob("ZrrD*n*.dat")
   if len(ls): return ls[0]
   ls = glob.glob("ZrhD*n*.dat")
