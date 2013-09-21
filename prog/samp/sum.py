@@ -20,6 +20,7 @@ def xinc(a, b):
     raise Exception
   for i in range(len(b)):
     a[i] += b[i]
+  return a
 
 
 
@@ -39,7 +40,7 @@ def errarr(arr):
     raise Exception
   n = len(arr[0])
   err = [0] * n
-  for i in range(n): # loop over array
+  for i in range(n): # loop over arrays
     smx = smx2 = 0
     xb = arr[0][i]
     for k in range(m): # loop over copies
@@ -53,12 +54,188 @@ def errarr(arr):
 
 
 
+def findBring():
+  ''' find Bring.dat '''
+  # current directory
+  fn = fn0 = "Bring.dat"
+  if os.path.exists(fn): return fn
+  # parent directory
+  fn = os.path.join(os.pardir, fn0)
+  if os.path.exists(fn): return fn
+  # directory of the script
+  d = os.path.split(os.path.realpath(__file__))[0]
+  fn = os.path.join(d, fn0)
+  if os.path.exists(fn): return fn
+  print "Error: cannot load Bring data"
+  return None
 
-class GC:
+
+
+class MR:
+  ''' a class for combining data from mcrat.c '''
   once = 0
 
   def __init__(me, fn, fnBring = None):
-    me.type = "Zr"
+    s = open(fn).readlines()
+    me.initmr(s[0])
+    me.adddata(s[1])
+    me.loadBring(fnBring)
+
+
+
+  def loadBring(me, fn):
+    ''' load virial coefficients from Bring.dat '''
+    if not fn: fn = findBring()
+
+    ls = open(fn).readlines()
+    for s in ls:
+      bs = s.split()
+      if int(bs[0]) == me.D:
+        break
+    else:
+      print "%s: no data for D %d" % (fn, me.D)
+      return
+    me.Bring = float(bs[ me.n ])
+    if not GC.once:
+      print "loaded n %d, D %d from %s" % (me.n, me.D, fn)
+      GC.once = 1
+
+
+
+  def initmr(me, s):
+    arr = s.split()
+    me.tag = arr[0][1:].strip()
+    me.D = int(arr[1])
+    me.n = int(arr[2])
+    if me.tag == 'M':
+      me.Z = [1, float(arr[4]), float(arr[5])]
+    me.fbsm = [[0,0], [0,0], [0,0]]
+    me.nzsm = [0,0]
+    me.nrsm = [0,0]
+    me.tacc = [[0,0], [0,0]]
+    me.evir = None
+
+
+
+  def adddata(me, s):
+    x = s.strip().split()
+    me.fbsm[0] = toarr((x[0], x[1]))
+    if me.tag == 'M':
+      me.fbsm[1] = toarr((x[2], x[3]))
+      me.fbsm[2] = toarr((x[4], x[5]))
+      me.nzsm = toarr((x[6], x[7]))
+      me.nrsm = toarr((x[8], x[9]))
+      me.tacc[0] = toarr((x[10], x[11]))
+      me.tacc[1] = toarr((x[12], x[13]))
+    else:
+      me.nrsm = toarr((x[2], x[3]))
+
+
+
+  def absorb(a, b):
+    ''' a += b '''
+    for i in range(3):
+      xinc(a.fbsm[i], b.fbsm[i])
+    xinc(a.nzsm, b.nzsm)
+    xinc(a.nrsm, b.nrsm)
+    for i in range(2):
+      xinc(a.tacc, b.tacc)
+
+
+
+  def recompute(me):
+    ''' recompute Zr '''
+    me.nr = me.nrsm[1] / me.nrsm[0]
+    rv = me.Bring / me.nr;
+    me.fb0 = me.fbsm[0][1] / me.fbsm[0][0]
+    if me.tag == 'M':
+      me.nz = me.nzsm[1] / me.nzsm[0]
+      me.ta0 = me.tacc[0][1] / me.tacc[0][0]
+      me.ta1 = me.tacc[1][1] / me.tacc[1][0]
+      me.fb1 = (me.fbsm[0][1] + me.fbsm[1][1]) / (
+                me.fbsm[0][0] + me.fbsm[1][0] / me.nz)
+      me.fb2 = me.fbsm[2][1] / me.fbsm[2][0] * (me.Z[2]
+               / me.Z[1]) * me.ta0 / me.ta1 * me.nz
+      me.vir = [me.fb0 * rv, me.fb1 * rv, me.fb2 * rv]
+    else:
+      me.vir = [me.fb0 * rv]
+
+
+
+  def save(me, fn):
+    s = ""
+    if me.tag == 'M':
+      info = "#M %d %d 1 %.14e %.14e V0\n" % (
+          me.D, me.n, me.Z[1], me.Z[2])
+      for k in range(3):
+        s += "%16.0f %+17.14f " % (
+            me.fbsm[k][0], me.fbsm[k][1] / me.fbsm[k][0])
+      s += "%16.0f %+17.14f %16.0f %+18.14f " % (
+            me.nzsm[0], me.nzsm[1] / me.nzsm[0],
+            me.nrsm[0], me.nrsm[1] / me.nrsm[0])
+      s += "%16.0f %16.14f %16.0f %16.14f " % (
+            me.tacc[0][0], me.tacc[0][1] / me.tacc[0][0],
+            me.tacc[1][0], me.tacc[1][1] / me.tacc[1][0])
+      s += "%+20.14e %+20.14e %+20.14e " % (
+            me.vir[0], me.vir[1], me.vir[2])
+      if me.evir:
+        s += "%9.2e %9.2e %9.2e " % (
+            me.evir[0], me.evir[1], me.evir[2])
+      print "saved mr file %s, tot %g, %g, %g" % (
+          fn, me.fbsm[0][0], me.fbsm[1][0], me.fbsm[2][0])
+      print "D %d, n %d, %+.6e (%.1e) %+.6e (%.1e) %+.6e (%.1e) " % (me.D, me.n,
+          me.vir[0], me.evir[0], me.vir[1], me.evir[1], me.vir[2], me.evir[2])
+    else:
+      info = "#0 %d %d V0\n" % (me.D, me.n)
+      s += "%16.0f %+17.14f " % (
+            me.fbsm[0][0], me.fbsm[0][1] / me.fbsm[0][0])
+      s += "%16.0f %+18.14f " % (
+            me.nrsm[0], me.nrsm[1] / me.nrsm[0])
+      s += "%+20.14e " % (me.vir[0])
+      if me.evir:
+        s += "%9.2e " % (me.evir[0])
+      print "saved mr file %s, tot %g" % (fn, me.fbsm[0][0])
+      print "D %d, n %d, %+.6e (%.1e) " % (me.D, me.n,
+          me.vir[0], me.evir[0])
+    s += "\n"
+    open(fn, "w").write(info + s)
+
+
+
+
+  @staticmethod
+  def sumdat(fnbas, fnls):
+    ''' sum over data in fnbas + fnls '''
+    mr = MR(fnbas)
+    m = len(fnls) + 1
+    mrls = [None] * m
+    fnls = [fnbas,] + fnls
+    # sum over all file lists
+    for i in range(m):
+      fn = fnls[i]
+      mrls[i] = MR(fn)
+      mrls[i].recompute() # compute individual vir
+      if i > 0: mr.absorb(mrls[i])
+    mr.recompute()
+
+    # compute errors
+    virls = [None] * m
+    for i in range(m): # loop over copies
+      virls[i] = mrls[i].vir
+    mr.evir = errarr( virls )
+
+    fnout = fnbas + "a"
+    mr.save(fnout)
+
+
+
+
+
+class GC:
+  ''' a class for combining data from mcgc2.c and mcgcr2.c '''
+  once = 0
+
+  def __init__(me, fn, fnBring = None):
     s = open(fn).readlines()
     if s[0][1] in ('R', 'S'):
       me.initZrr(s[0])
@@ -66,25 +243,13 @@ class GC:
     elif s[0][1] == 'H':
       me.initZrh(s[0])
       me.adddataZrh(s[1:])
-    me.haserr = False
     me.loadBring(fnBring)
+
 
 
   def loadBring(me, fn = None):
     ''' load virial coefficients from Bring.dat '''
-    if not fn:
-      # current directory
-      fn = fn0 = "Bring.dat"
-      if not os.path.exists(fn):
-        # parent directory
-        fn = os.path.join(os.pardir, fn0)
-        if not os.path.exists(fn):
-          # directory of the script
-          d = os.path.split(os.path.realpath(__file__))[0]
-          fn = os.path.join(d, fn0)
-          if not os.path.exists(fn):
-            print "Error: cannot load Bring data"
-            return
+    if not fn: fn = findBring()
 
     ls = open(fn).readlines()
     for s in ls:
@@ -164,6 +329,7 @@ class GC:
     me.Bring = [1] * cnt
     me.Zn = [1] * cnt
     me.ZZ = [1] * cnt
+    me.eB = me.eB2 = me.eZn = me.eZZ = None
 
 
 
@@ -256,7 +422,7 @@ class GC:
           me.nup[n][1] / me.nup[n][0],
           me.ndown[n][1] / me.ndown[n][0])
       if me.tag == 'H':
-        s[n] += "%14.0f %.14f " % (
+        s[n] += "%14.0f %17.14f " % (
           me.ngpr[n][0], me.ngpr[n][1] / me.ngpr[n][0])
       if me.ver >= 4:
         s[n] += "%14.0f %20.14e " % (
@@ -269,7 +435,7 @@ class GC:
           me.B[n])
       if me.ver >= 4:
         s[n] += "%+20.14e " % me.B2[n]
-      if me.haserr:
+      if me.eB:
         if me.ver >= 4:
           s[n] += "%9.2e " % me.eB2[n]
         s[n] += "%9.2e %9.2e %9.2e " % (
@@ -418,7 +584,7 @@ class GC:
           me.ndown[i][1] / me.ndown[i][0])
       if tp == 0:
         if me.ver >= 4:
-          s[i] += "%14.0f %.14f " % (
+          s[i] += "%14.0f %17.14f " % (
               me.ring[n][0], me.ring[n][1] / me.ring[n][0])
         s[i] += "%14.0f %14.0f %14.0f " % (
             me.nedg[n][0], me.ncsp[n][0], me.fbsm[n][0])
@@ -428,7 +594,7 @@ class GC:
             me.B[n])
         if me.ver >= 4:
           s[i] += "%+20.14e " % me.B2[n]
-        if me.haserr:
+        if me.eB:
           if me.ver >= 4:
             s[i] += "%9.2e " % me.eB2[n]
           s[i] += "%9.2e %9.2e %9.2e " % (
@@ -456,7 +622,7 @@ class GC:
           me.nup[i][1] / me.nup[i][0],
           me.ndown[i][1] / me.ndown[i][0])
       if me.ver >= 4:
-        s[n] += "%14.0f %.14f " % (
+        s[n] += "%14.0f %17.14f " % (
             me.ring[n][0], me.ring[n][1] / me.ring[n][0])
       s[n] += "%14.0f %14.0f %14.0f " % (
           me.nedg[n][0], me.ncsp[n][0], me.fbsm[n][0])
@@ -466,7 +632,7 @@ class GC:
           me.B[n])
       if me.ver >= 4:
         s[n] += "%+20.14e " % me.B2[n]
-      if me.haserr:
+      if me.eB:
         if me.ver >= 4:
           s[n] += "%9.2e " % me.eB2[n]
         s[n] += "%9.2e %9.2e %9.2e " % (
@@ -480,69 +646,77 @@ class GC:
 
 
 
-def sumdat(fninp, fnls, fnout = None, fnZr = None):
-  ''' sum over data in fninp + fnls, output to fnZrr '''
-  gc = GC(fninp)
-  m = len(fnls) + 1
-  gcls = [None] * m
-  fnls = [fninp,] + fnls
-  # sum over all file lists
-  for i in range(m):
-    fn = fnls[i]
-    gcls[i] = GC(fn)
-    gcls[i].recompute()
-    if i > 0: gc.absorb(gcls[i])
-  gc.recompute()
+  @staticmethod
+  def sumdat(fnbas, fnls, fnout = None, fnZr = None):
+    ''' sum over data in fnbas + fnls, output to fnZrr '''
+    gc = GC(fnbas)
+    m = len(fnls) + 1
+    gcls = [None] * m
+    fnls = [fnbas,] + fnls
+    # sum over all file lists
+    for i in range(m):
+      fn = fnls[i]
+      gcls[i] = GC(fn)
+      gcls[i].recompute()
+      if i > 0: gc.absorb(gcls[i])
+    gc.recompute()
 
-  # compute errors
-  Bls  = [None] * m
-  B2ls = [None] * m
-  Znls = [None] * m
-  ZZls = [None] * m
-  for i in range(m):
-    Bls[i]  = gcls[i].B
-    B2ls[i] = gcls[i].B2
-    Znls[i] = gcls[i].Zn
-    ZZls[i] = gcls[i].ZZ
-  gc.eB  = errarr( Bls )
-  gc.eB2 = errarr( B2ls )
-  gc.eZn = errarr( Znls )
-  gc.eZZ = errarr( ZZls )
-  gc.haserr = 1
+    # compute errors
+    Bls  = [None] * m
+    B2ls = [None] * m
+    Znls = [None] * m
+    ZZls = [None] * m
+    for i in range(m):
+      Bls[i]  = gcls[i].B
+      B2ls[i] = gcls[i].B2
+      Znls[i] = gcls[i].Zn
+      ZZls[i] = gcls[i].ZZ
+    gc.eB  = errarr( Bls )
+    gc.eB2 = errarr( B2ls )
+    gc.eZn = errarr( Znls )
+    gc.eZZ = errarr( ZZls )
 
-  if not fnout: fnout = fninp + "a"
-  if gc.tag in ('R', 'S'):
-    gc.saveZrr(fnout)
-    # refined parameters
-    gc.saveZrr("refine.data", True)
-    fnZr = "Zr" + fnout
-    if fnout.startswith("Zrr"):
-      fnZr = "Zr" + fnout[3:]
-    gc.saveZr(fnZr)
-  else:
-    gc.saveZrh(fnout)
-    gc.saveZrh("refine.data", True)
-
+    if not fnout: fnout = fnbas + "a"
+    if gc.tag in ('R', 'S'):
+      gc.saveZrr(fnout)
+      # refined parameters
+      gc.saveZrr("refine.data", True)
+      fnZr = "Zr" + fnout
+      if fnout.startswith("Zrr"):
+        fnZr = "Zr" + fnout[3:]
+      gc.saveZr(fnZr)
+    else:
+      gc.saveZrh(fnout)
+      gc.saveZrh("refine.data", True)
 
 
-def getfninp():
+
+def tofnbas(fn):
+  return os.path.splitext(fn)[0] + ".dat"
+
+
+
+def getfnbas():
   ''' get the input file '''
   if len(sys.argv) > 1:
-    return sys.argv[1]
+    return tofnbas(sys.argv[1])
   # we only need Zrr files, but not Zr files
-  ls = glob.glob("ZrrD*n*.dat")
-  if len(ls): return ls[0]
-  ls = glob.glob("ZrhD*n*.dat")
-  if len(ls): return ls[0]
+  ls = glob.glob("ZrrD*n*.dat1")
+  if len(ls): return tofnbas(ls[0])
+  ls = glob.glob("ZrhD*n*.dat1")
+  if len(ls): return tofnbas(ls[0])
+  ls = glob.glob("mrD*n*.dat1")
+  if len(ls): return tofnbas(ls[0])
+  return None
 
 
 
-def getslaves(fninp):
+def getslaves(fnbas):
   ''' get a list file names of non-master nodes '''
   ls = []
   i = 1
   while 1:
-    fn = "%s%d" % (fninp, i)
+    fn = "%s%d" % (fnbas, i)
     if not os.path.exists(fn):
       break
     ls += [fn,]
@@ -553,7 +727,17 @@ def getslaves(fninp):
 
 # main function starts here
 if __name__ == "__main__":
-  fninp = getfninp()
-  fnls = getslaves(fninp)
-  sumdat(fninp, fnls)
+  fnbas = getfnbas()
+  if not fnbas:
+    print "please enter a .dat file"
+    raise Exception
+  elif not os.path.exists(fnbas):
+    print "cannot find %s" % fnbas
+    raise Exception
+  fnls = getslaves(fnbas)
+  isZr = fnbas.startswith("Z")
+  if isZr:
+    GC.sumdat(fnbas, fnls)
+  else:
+    MR.sumdat(fnbas, fnls)
 

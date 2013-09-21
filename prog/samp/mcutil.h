@@ -458,7 +458,57 @@ INLINE double getgsig2(int n)
 #if D == 2
   return 0.03 + 0.03*n;
 #elif D == 3
-  return 0.03 + 0.02*n;
+  /* n    sig2     acc
+   * 5    0.126    0.179068
+   *      0.127    0.179128*
+   *      0.128    0.179076
+   *      0.13     0.17892
+   *      0.132    0.178504
+   * 7    0.166    0.077232
+   *      0.167    0.077240  (4e9)
+   *      0.168    0.077248  (4e9)
+   *      0.169    0.077265* (4e9)
+   *      0.170    0.077208  (4e9)
+   * 10   0.226    0.017094
+   *      0.227    0.017122* (4e9)
+   *      0.228    0.017113  (4e9)
+   *      0.229    0.017088
+   *      0.23     0.01710
+   *      0.232    0.01710
+   *      0.234    0.017050
+   * 12   0.268    0.005588
+   *      0.269    0.005602*
+   *      0.27     0.005573
+   *      0.271    0.005590
+   *      0.28     0.00552
+   * 1e9 MC steps, 0.1 replacement probability */
+  return 0.027 + 0.020*n;
+#elif D == 4
+  /* n    sig2     acc
+   * 5    0.100    0.13405
+   *      0.101    0.13419*
+   *      0.102    0.13416
+   * 7    0.127    0.04975
+   *      0.128    0.04984*
+   *      0.129    0.04974
+   * 10   0.168    0.00839
+   *      0.1685   0.00839
+   *      0.169    0.00840*
+   *      0.170    0.00835
+   * 12   0.168    0.00201
+   *      0.180    0.00221
+   *      0.188    0.00224
+   *      0.189    0.00224
+   *      0.190    0.00224
+   *      0.191    0.00225*
+   *      0.192    0.00222
+   *      0.194    0.00222
+   *      0.195    0.00224
+   *      0.196    0.00222
+   *      0.197    0.00221
+   *      0.200    0.00218
+   * 4e8 MC steps, 0.1 replacement probability */
+  return 0.037 + 0.013*n;
 #elif D == 8
   return 0.024 + 0.006*n;
 #else
@@ -470,17 +520,17 @@ INLINE double getgsig2(int n)
 
 /* compute the logarithmic weight of a configuration `x'
  * without the center of mass */
-INLINE double getloggwt(rvn_t *x, int n)
+INLINE double getloggwt(rvn_t *x, int n, double sig2)
 {
   int i;
-  double d2sm, sig2;
+  double d2sm;
   rvn_t xc;
 
   rvn_zero(xc);
   for (i = 0; i < n; i++)
     rvn_inc(xc, x[i]);
   rvn_smul(xc, 1./n);
-  sig2 = getgsig2(n);
+  if (sig2 <= 0) sig2 = getgsig2(n);
   for (d2sm = 0, i = 0; i < n; i++)
     d2sm += rvn_dist2(x[i], xc);
   return -0.5 * d2sm / sig2;
@@ -489,13 +539,13 @@ INLINE double getloggwt(rvn_t *x, int n)
 
 
 /* generate a configuration */
-INLINE double gengconf(rvn_t *x, int n)
+INLINE double gengconf(rvn_t *x, int n, double sig2)
 {
-  double d2sm = 0, sig, sig2;
+  double d2sm = 0, sig;
   int i;
   rvn_t xc;
 
-  sig2 = getgsig2(n);
+  if (sig2 <= 0) sig2 = getgsig2(n);
   sig = sqrt(sig2);
   rvn_zero(xc);
   for (i = 0; i < n; i++) {
@@ -509,16 +559,19 @@ INLINE double gengconf(rvn_t *x, int n)
 
 
 
+#define grepl(x, nx, g, ng) grepl0(x, nx, g, ng, 0)
+
 /* randomly replace a configuration */
-INLINE int grepl(rvn_t *x, rvn_t *nx, dg_t *g, dg_t *ng)
+INLINE int grepl0(rvn_t *x, rvn_t *nx, dg_t *g, dg_t *ng,
+    double sig2)
 {
   double logwt, lognwt;
   int n = g->n;
 
-  lognwt = gengconf(nx, n);
+  lognwt = gengconf(nx, n, sig2);
   mkgraph(ng, nx, n);
   if ( !dg_biconnected(ng) ) return 0;
-  logwt = getloggwt(x, n);
+  logwt = getloggwt(x, n, sig2);
   if (logwt > lognwt || rnd0() < exp(logwt - lognwt)) {
     dg_copy(g, ng);
     rvn_ncopy(x, nx, n);

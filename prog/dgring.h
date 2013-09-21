@@ -59,7 +59,7 @@ INLINE double dg_nring_direct(const dg_t *g)
 
   if (n <= 2) {
     if (n <= 1) return 1;
-    else return g->c[1] & 0x1;
+    else return (g->c[1] & 0x1) ? 1 : 0;
   }
   st[0] = root;
   st[1] = 0;

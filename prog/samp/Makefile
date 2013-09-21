@@ -2,7 +2,10 @@
 CC = gcc -O0 -Wall -Wunused -Wextra -g
 LM = -lm
 # optimized compiling
-CX = icc -xHost -O3 -DRVN_ALIGN=4 -Wall -Wunused -Wremarks -Wcheck -march=native
+# if -xHost -O3 is used, also define -DRVN_ALIGN=2 or 4
+# otherwise it causes trouble for mcgcr2.c in D = 15 and odd dimensions
+# for some icc versions
+CX = icc -O2 -Wall -Wunused -Wremarks -Wcheck -march=native
 LMX =
 
 deps = dg.h dgcsep.h dgrjw.h dgsc.h dgring.h zcom.h Makefile mcutil.h
