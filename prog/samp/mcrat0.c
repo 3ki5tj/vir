@@ -32,7 +32,7 @@ double nsteps = 10000000;
 real mcamp = 1.5;
 int gdisp = 0; /* normally distributed */
 int nstfb = 0; /* interval of evaluting the weight */
-int nstcom = 100; /* frequency of the n move */
+int nstcom = 10000; /* frequency of the n move */
 int nstrep = 1000000000; /* interval of reporting */
 int lookup = -1; /* if to use the lookup table */
 int cachesize = 5; /* number of recently visited diagrams */
@@ -220,20 +220,21 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   av0_clear(&racc);
   if (!bsim0) /* try to load previous data */
     load(fnout, &fbsm, &nrsm);
-  if (nnodes > 1) /* scramble the random number generator */
-    mtscramble(inode * 2034091783u + time(NULL));
+  /* if (nnodes > 1) */ 
+  /* scramble the random number generator */
+  mtscramble(inode * 2034091783u + time(NULL));
 
   g = dg_open(n);
   ng = dg_open(n);
-  initx(x, n);
+  initxring(x, n);
   mkgraph(g, x, n);
   die_if (!dg_biconnected(g),
-      "%d: initial diagram not biconnected D %d\n", inode, D);
+      "%4d: initial diagram not biconnected D %d\n", inode, D);
 
   /* equilibration */
   for (t = 1; t <= nequil; t += 1)
     BCSTEP(acc, i, n, g, ng, x, xi, amp, gdisp);
-  printf("%d: equilibrated at t %g, nedges %d, nstfb %d\n",
+  printf("%4d: equilibrated at t %g, nedges %d, nstfb %d\n",
       inode, nequil, dg_nedges(g), nstfb);
   dg_encode(g, &code); /* initialize the code */
   /* call _lookup function first, to initialize the table */
@@ -447,18 +448,19 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   av0_clear(&racc);
   if (!bsim0) /* try to load previous data */
     load(fnout, &fbsm, &nrsm);
-  if (nnodes > 1) /* scramble the random number generator */
-    mtscramble(inode * 2034091783u + time(NULL));
+  /* if (nnodes > 1) */
+  /* scramble the random number generator */
+  mtscramble(inode * 2034091783u + time(NULL));
 
   ng = dg_open(n);
   g = dg_open(n);
-  initx(x, n);
+  initxring(x, n);
   mkgraph(g, x, n);
 
   /* equilibration */
   for (t = 1; t <= nequil; t += 1)
     BCSTEP(acc, i, n, g, ng, x, xi, amp, gdisp);
-  printf("%d: equilibrated at t %g, nedges %d, nstfb %d\n",
+  printf("%4d: equilibrated at t %g, nedges %d, nstfb %d\n",
       inode, nequil, dg_nedges(g), nstfb);
   die_if (!dg_biconnected(g),
       "%d, initial diagram not biconnected D %d\n", inode, D);

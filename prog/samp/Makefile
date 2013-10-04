@@ -5,7 +5,8 @@ LM = -lm
 # if -xHost -O3 is used, also define -DRVN_ALIGN=2 or 4
 # otherwise it causes trouble for mcgcr2.c in D = 15 and odd dimensions
 # for some icc versions
-CX = icc -O2 -Wall -Wunused -Wremarks -Wcheck -march=native
+CX = icc -O2 -march=native -ipo \
+     -Wall -Wunused -Wremarks -Wcheck -wd11001 -wd11006
 LMX =
 
 deps = dg.h dgcsep.h dgrjw.h dgsc.h dgring.h zcom.h Makefile mcutil.h
@@ -35,4 +36,7 @@ sync2::
 	rsync -e gsissh -avL Bring.dat kraken-gsi.nics.xsede.org:work/vir
 
 clean:
-	rm -rf $(bins) $(bins_d) *~ a.out *.his MTSEED bin obj
+	rm -rf $(bins) $(bins_d) *~ a.out gmon.out *.his MTSEED bin obj
+
+usb:
+	$(MAKE) -C ../.. usb

@@ -95,9 +95,9 @@ class MR:
     else:
       print "%s: no data for D %d" % (fn, me.D)
       return
-    me.Bring = float(bs[ me.n ])
+    me.Bring = fabs( float(bs[ me.n ]) )
     if not GC.once:
-      print "loaded n %d, D %d from %s" % (me.n, me.D, fn)
+      print "loaded n %d, D %d from %s, %s" % (me.n, me.D, fn, me.Bring)
       GC.once = 1
 
 
@@ -146,7 +146,7 @@ class MR:
   def recompute(me):
     ''' recompute Zr '''
     me.nr = me.nrsm[1] / me.nrsm[0]
-    rv = me.Bring / me.nr;
+    rv = -me.Bring / me.nr;
     me.fb0 = me.fbsm[0][1] / me.fbsm[0][0]
     if me.tag == 'M':
       me.nz = me.nzsm[1] / me.nzsm[0]
@@ -164,7 +164,7 @@ class MR:
 
   def save(me, fn):
     s = ""
-    if me.tag == 'M':
+    if me.tag == 'M': # output of mcrat
       info = "#M %d %d 1 %.14e %.14e V0\n" % (
           me.D, me.n, me.Z[1], me.Z[2])
       for k in range(3):
@@ -185,7 +185,7 @@ class MR:
           fn, me.fbsm[0][0], me.fbsm[1][0], me.fbsm[2][0])
       print "D %d, n %d, %+.6e (%.1e) %+.6e (%.1e) %+.6e (%.1e) " % (me.D, me.n,
           me.vir[0], me.evir[0], me.vir[1], me.evir[1], me.vir[2], me.evir[2])
-    else:
+    else: # output of mcrat0
       info = "#0 %d %d V0\n" % (me.D, me.n)
       s += "%16.0f %+17.14f " % (
             me.fbsm[0][0], me.fbsm[0][1] / me.fbsm[0][0])

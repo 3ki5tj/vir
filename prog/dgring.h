@@ -21,7 +21,7 @@ INLINE double dg_nring_spec0(const dg_t *g,
   } else {
     ned0 = *ned;
   }
-  
+
   if (ned0 <= n + 1) {
     if (ned0 == n) return 1;
 
@@ -70,7 +70,7 @@ INLINE double dg_nring_direct(const dg_t *g)
      * 1. unused
      * 2. connected to st[top-1]
      * 3. indices > st[top] */
-    if ( (c = unused & g->c[ st[top - 1] ] 
+    if ( (c = unused & g->c[ st[top - 1] ]
             & ~mkbitsmask(st[top] + 1)) != 0 ) {
       i = bitfirstlow(c, &b);
       unused ^= b;
@@ -78,7 +78,7 @@ INLINE double dg_nring_direct(const dg_t *g)
       if (unused) { /* there are still unused vertices */
         st[++top] = 0; /* push, clear the next level */
       } else { /* no vertex left, stay in the highest level */
-        if (g->c[root] & b) cnt += 1; 
+        if (g->c[root] & b) cnt += 1;
         unused ^= b;
       }
     } else { /* exhausted this level */

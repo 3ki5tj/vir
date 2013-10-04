@@ -672,10 +672,10 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
     ninit = nmin;
   g = dg_open(nmax);
   ng = dg_open(nmax);
-  initx(x, nmax);
-  /* initial n in nmin */
+  initxring(x, ninit);
   calcr2ij(r2ij, x, ninit);
   mkgraphr2ij(g, r2ij, 1, ninit);
+  die_if ( !dg_biconnected(g), "n %d: not biconnected", g->n);
   printf("%4d/%-4d: n %d [%d, %d]\n", inode, nnodes, g->n, nmin, nmax);
 
   ieql = (neql > 0) ? 1 : neql; /* stage of equilibrations if > 0 */

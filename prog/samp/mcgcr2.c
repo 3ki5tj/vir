@@ -1085,10 +1085,10 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
   ng = dg_open(nmax);
   g1 = dg_open(nmax);
   ng1 = dg_open(nmax);
-  /* initial n is nmin */
-  initx(x, ninit);
+  initxring(x, ninit);
   calcr2ij(r2ij, x, ninit);
   mkgraphr2ij(g, r2ij, 1, ninit);
+  die_if ( !dg_biconnected(g), "n %d: not biconnected", g->n);
   printf("%4d/%-4d: n %d [%d, %d], iens %d [%d, %d]\n", inode, nnodes, g->n, nmin, nmax, iens, ensmin, ensmax);
 
   ieql = (neql > 0) ? 1 : neql; /* stage of equilibrations if > 0 */

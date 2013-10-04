@@ -12,7 +12,7 @@
 
 typedef int64_t fb_t;
 
-/* we will limit an n = 
+/* we will limit an n =
  * for n <= 20, max |fb(n)| = 20! = 2.4e18
  * for n <= 14, max |fb(n)| = 12! = 479001600 < |INT_MIN| */
 #define FBDIRTY ((fb_t) (-9.2e18))

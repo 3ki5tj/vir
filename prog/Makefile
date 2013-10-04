@@ -2,7 +2,7 @@
 CC = gcc -O0 -Wall -Wunused -Wextra -g
 LM = -lm
 # optimized compiling
-CX = icc -g -O3 -Wall -Wunused -Wremarks -Wcheck -march=native
+CX = icc -O3 -march=native -ipo -Wall -Wunused -Wremarks -Wcheck -wd11001 -wd11006
 LMX =
 
 deps = dg.h dgcsep.h dgsc.h dgrjw.h dgdb.h zcom.h Makefile
@@ -20,3 +20,5 @@ $(bins_d) : %_d: %.c $(deps)
 clean:
 	rm -rf $(bins) $(bins_d) *~ a.out *.his MTSEED bin obj
 
+usb:
+	$(MAKE) -C .. usb

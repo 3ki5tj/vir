@@ -197,12 +197,12 @@ int main(int argc, char **argv)
   cmpref(3, ref3);
   cmpref(4, ref4);
   cmpref(5, ref5);
-  
+
   if (argc > 1) n = atoi(argv[1]);
   if (argc > 2) nsteps = atoi(argv[2]);
   printf("verification: n %d, nsteps %d\n", n, nsteps);
   verify_biconnected(n, nsteps);
-  
+
   if (argc > 3) n1 = atoi(argv[3]);
   if (argc > 4) nsteps1 = atoi(argv[4]);
   if (argc > 5) method = argv[5][0];

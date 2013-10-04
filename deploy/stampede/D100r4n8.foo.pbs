@@ -1,0 +1,9 @@
+#!/bin/bash
+#SBATCH -J D100r4n8
+#SBATCH -o D100r4n8.o%j
+#SBATCH -n 16 
+#SBATCH -p normal
+#SBATCH -t 24:00:00
+mpicc -O2 -march=native -ipo -DD=100 -DMPI=1 ../mcgcr2.c
+ibrun ./a.out -1 1e14 -q 1000000000 -m 4 -n 8 -R
+ 

@@ -379,6 +379,21 @@ INLINE void initx(rvn_t *x, int n)
 }
 
 
+/* initialize a ring */
+INLINE void initxring(rvn_t *x, int n)
+{
+  int i;
+  double a = 0.9/(2.*sin(M_PI/n));
+
+  for (i = 0; i < n; i++) {
+    rvn_zero(x[i]);
+    x[i][0] = (real) (a * cos(2*M_PI*i/n));
+    x[i][1] = (real) (a * sin(2*M_PI*i/n));
+  }
+}
+
+
+
 
 /* randomly displace a vertex */
 #define DISPRNDI(i, nv, x, xi, amp, gauss) { \
@@ -449,6 +464,32 @@ INLINE void initx(rvn_t *x, int n)
     UPDR2(r2ij, r2i, nv, i, j_); \
     acc = 1; \
   } else { acc = 0; } }
+
+
+
+/* TODO: suggest the interval of computing fb */
+INLINE int getnstfb(int n)
+{
+#if D == 3
+#define NSTFB_NMAX 12
+  int arr[NSTFB_NMAX + 1] = {0,
+    1, 1, 1, 1, 1, 1, 1, 1, /* use tables */
+    10, 10, 10, 30};
+  /* n    nstfb   time  stddev (10^8)              stddev (10^9)
+   * 12   10      100   3.6e-3, 4.5e-3, 7.9e-3,   4.2e-3, 2.3e-3
+   *      30*     48    4.6e-3, 7.8e-3, 6.4e-3,   4.7e-3, 3.0e-3, 3.7e-3, 2.3e-3
+   *      100     29    2.1e-2, 9.1e-3, 1.8e-2,   9.0e-3, 5.9e-3, 4.7e-3, 1.5e-2
+   *      300     24    2.2e-2, 6.1e-2, 1.4e-2
+   *      1000    22    2.7e-2, 5.8e-2, 6.6e-2
+   *      3000    21.5  2.1e-2, 6.2e-2, 2.3e-1
+   * 8 MPI threads, 10^8 steps
+   * the time is the user time measured in minutes
+   * */
+  return (n <= NSTFB_NMAX) ? arr[n] : arr[NSTFB_NMAX];
+#else
+  return (n <= DG_NMAX) ? 1 : 10;
+#endif
+}
 
 
 
