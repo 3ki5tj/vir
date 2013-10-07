@@ -39,8 +39,8 @@ INLINE double dg_nring_spec0(const dg_t *g,
   }
 
   ned1 = n * (n - 1) / 2 - ned0;
-  if (ned1 == 0) { /* full diagram return n! */
-    for (x = 1, i = 2; i <= n; i++) x *= i;
+  if (ned1 == 0) { /* full diagram return n!/(2*n) */
+    for (x = 1, i = 3; i < n; i++) x *= i;
     return x;
   }
 

@@ -15,8 +15,8 @@ typedef struct {
 /* test the ring contents of diagrams against the reference values */
 static void cmpref(int n, edges_t *ref)
 {
-  int i, j;
-  double nr;
+  int i, j, err;
+  double nr, nr1;
   dg_t *g;
 
   g = dg_open(n);
@@ -27,9 +27,11 @@ static void cmpref(int n, edges_t *ref)
     if (!dg_biconnected(g))
       continue;
     nr = dg_nring_direct(g);
-    if (fabs(nr - ref[i].nr) > 1e-3) {
-      printf("n %d: model %d nr mismatch %g vs %d (ref)\n",
-          n, i, nr, ref[i].nr);
+    nr1 = dg_nring_spec0(g, NULL, NULL, &err);
+    if (fabs(nr - ref[i].nr) > 1e-3
+      || (err == 0 && fabs(nr - nr1) > 1e-3)) {
+      printf("n %d: model %d nr mismatch %g,%g vs %d (ref)\n",
+          n, i, nr, nr1, ref[i].nr);
       dg_print(g);
       exit(1);
     }
@@ -56,6 +58,12 @@ int main(int argc, char **argv)
     {6, {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}, 3},
     {-1, {{0, 0}}, 0},
   };
+  edges_t ref5[] = {
+    {10, {{0, 1}, {0, 2}, {0, 3}, {0, 4}, {1, 2}, {1, 3}, {1, 4}, {2, 3}, {2, 4}, {3, 4}}, 12},
+    {-1, {{0, 0}}, 0},
+  };
   cmpref(4, ref4);
+  cmpref(5, ref5);
+  
   return 0;
 }
