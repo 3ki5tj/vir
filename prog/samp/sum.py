@@ -5,6 +5,121 @@ from math import *
 
 
 
+def errarr(arr):
+  ''' calculate the error of the array `arr' '''
+  m = len(arr) # number of copies
+  if m <= 1:
+    print "only %d copy: %s" % (m, arr)
+    raise Exception
+  n = len(arr[0])
+  err = [0] * n
+  for i in range(n): # loop over arrays
+    smx = smx2 = 0
+    xb = arr[0][i]
+    for k in range(m): # loop over copies
+      x = arr[k][i] - xb
+      smx += x
+      smx2 += x * x
+    avx = smx / m
+    smx2 = max(smx2 / m - avx * avx, 0)
+    err[i] = sqrt(smx2 / (m - 1))
+  return err
+
+
+
+class INT:
+  ''' a class for combining data from hsrh.c '''
+  once = 0
+
+  def __init__(me, fn):
+    s = open(fn).readlines()
+    me.initint(s[0])
+    me.adddata(s[1:])
+
+
+
+  def initint(me, s):
+    arr = s.split()
+    me.tag = arr[0][1:].strip()
+    me.D = int(arr[1])
+    me.n = int(arr[2])
+    me.m = int(arr[3])
+    me.acc = [0] * me.m
+    me.fac = [0] * me.m
+    me.names  = [""] * me.m
+    me.vir = 0
+    me.evir = 0
+
+
+  def adddata(me, s):
+    me.tot = float(s[0])
+    for i in range(me.m):
+      x = s[i + 1].split()
+      me.acc[i] = float(x[0])
+      me.fac[i] = float(x[1])
+      me.names[i] = x[2]
+
+
+
+  def absorb(a, b):
+    ''' a += b '''
+    a.tot += b.tot
+    for i in range(a.m):
+      a.acc[i] += b.acc[i]
+
+
+
+  def recompute(me):
+    ''' recompute vir '''
+    me.vir = 0
+    for i in range(me.m):
+      me.vir += me.acc[i] * me.fac[i]
+    me.vir /= me.tot
+    for i in range(1, me.n + 1):
+      me.vir /= i
+    me.vir *= -(me.n - 1) * pow(2, me.n - 1);
+
+
+
+  def save(me, fn):
+    s = "#0 %d %d %d V0\n" % (me.D, me.n, me.m)
+    s += "%s\n" % me.tot
+    for i in range(me.m):
+      s += "%16.0f %+.14e %-6s\n" % (
+          me.acc[i], me.fac[i], me.names[i])
+    s += "%.14e %.1e\n" % (me.vir, me.evir)
+    open(fn, "w").write(s)
+
+
+
+
+  @staticmethod
+  def sumdat(fnbas, fnls):
+    ''' sum over data in fnbas + fnls '''
+    intg = INT(fnbas)
+    nls = len(fnls) + 1
+    intgls = [None] * nls
+    fnls = [fnbas,] + fnls
+    # sum over all file lists
+    for i in range(nls):
+      fn = fnls[i]
+      intgls[i] = INT(fn)
+      intgls[i].recompute() # compute individual vir
+      if i > 0: intg.absorb(intgls[i])
+    intg.recompute()
+
+    # compute errors
+    virls = [None] * nls
+    for i in range(nls): # loop over copies
+      virls[i] = [intgls[i].vir,]
+    intg.evir = errarr( virls )[0]
+
+    fnout = fnbas + "a"
+    intg.save(fnout)
+    print "saving %s, vir %.8e, %+9.2e" % (fnout, intg.vir, intg.evir)
+
+
+
 def toarr(b):
   a = [float(x) for x in b]
   if a[0] <= 0: a[0] = 1e-20
@@ -29,28 +144,6 @@ def getver(sver):
     return int(sver[1:])
   else:
     return int(sver)
-
-
-
-def errarr(arr):
-  ''' calculate the error of the array `arr' '''
-  m = len(arr) # number of copies
-  if m <= 1:
-    print "only %d copy: %s" % (m, arr)
-    raise Exception
-  n = len(arr[0])
-  err = [0] * n
-  for i in range(n): # loop over arrays
-    smx = smx2 = 0
-    xb = arr[0][i]
-    for k in range(m): # loop over copies
-      x = arr[k][i] - xb
-      smx += x
-      smx2 += x * x
-    avx = smx / m
-    smx2 = max(smx2 / m - avx * avx, 0)
-    err[i] = sqrt(smx2 / (m - 1))
-  return err
 
 
 
@@ -199,7 +292,6 @@ class MR:
           me.vir[0], me.evir[0])
     s += "\n"
     open(fn, "w").write(info + s)
-
 
 
 
@@ -707,6 +799,8 @@ def getfnbas():
   if len(ls): return tofnbas(ls[0])
   ls = glob.glob("mrD*n*.dat1")
   if len(ls): return tofnbas(ls[0])
+  ls = glob.glob("intD*n*.dat1")
+  if len(ls): return tofnbas(ls[0])
   return None
 
 
@@ -735,9 +829,10 @@ if __name__ == "__main__":
     print "cannot find %s" % fnbas
     raise Exception
   fnls = getslaves(fnbas)
-  isZr = fnbas.startswith("Z")
-  if isZr:
+  if fnbas.startswith("Z"):
     GC.sumdat(fnbas, fnls)
-  else:
+  elif fnbas.startswith("mr"):
     MR.sumdat(fnbas, fnls)
+  else:
+    INT.sumdat(fnbas, fnls)
 

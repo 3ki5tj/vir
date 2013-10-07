@@ -1,6 +1,7 @@
 /* first few virial coefficients of the 3D hard spheres system
  * by direct Monte Carlo integration of Ree-Hoover diagrams
  * Copyright (C) 2013 Cheng Zhang */
+#include <time.h>
 
 
 
@@ -11,6 +12,50 @@
 #include "zcom.h"
 
 
+#ifdef MPI
+#include <mpi.h>
+MPI_Comm comm = MPI_COMM_WORLD;
+#endif
+#define MASTER 0
+int inode = MASTER, nnodes = 1;
+
+
+long nstrep = 100000000;
+
+
+/* make an output file name */
+#define mkfnout(fn, n) { sprintf(fn, "intD%dn%d.dat%d", D, n, inode); \
+  if (inode == MASTER) fn[strlen(fn) - 1] = '\0'; }
+
+
+
+/* compute the virial coefficient and save it to file */
+static double save(int n, long nsteps, int m, const long *acc,
+    const double *fac, const char **names)
+{
+  FILE *fp;
+  int i;
+  double vir = 0;
+  char fnout[64] = "";
+
+  for (i = 0; i < m; i++)
+    vir += acc[i] * fac[i];
+  vir /= nsteps;
+  for (i = 1; i <= n; i++) vir /= i;
+  vir *= -(n - 1) * pow(2, n - 1);
+  mkfnout(fnout, n);
+  xfopen(fp, fnout, "w", return vir);
+  fprintf(fp, "#0 %d %d %d\n%ld\n", D, n, m, nsteps);
+  for (i = 0; i < m; i++)
+    fprintf(fp, "%16ld %+.14e %s\n", acc[i], fac[i], names[i]);
+  fprintf(fp, "%.14e\n", vir);
+  fclose(fp);
+  fprintf(stderr, "%4d: saving file to %s\n", inode, fnout);
+  if (inode == MASTER) mtsave(NULL);
+  return vir;
+}
+
+
 
 /* third-order virial coefficients */
 static double vir3(long nsteps)
@@ -19,13 +64,14 @@ static double vir3(long nsteps)
   rvn_t v, u;
   double x;
 
+  rvn_zero(u);
   for (t = 1; t <= nsteps; t++) {
-    rvn_rndball0(u);
-    rvn_inc(u, rvn_rndball0(v));
-    if (rvn_sqr(u) < 1) acc++;
+    u[0] = pow(rnd0(), 1./D);
+    rvn_rndball0(v); v[0] += u[0];
+    if (rvn_sqr(v) < 1) acc++;
   }
   x = -2 * (-acc/6.) / nsteps;
-  printf("vir3: %.8f, %.7f, %.9f, acc %g\n",
+  printf("vir3: %.9e, %.9e, %.9e, acc %g\n",
       x, x * pow(2, 2), x * pow(8, 2), 1. * acc / nsteps);
   return x;
 }
@@ -35,46 +81,53 @@ static double vir3(long nsteps)
 /* fourth-order virial coefficients */
 static double vir4(long nsteps)
 {
-  long t, acc44 = 0, acc46 = 0;
-  int i, lnk02, lnk13;
+  long t, acc[2] = {0, 0};
+  int lnk02, lnk13;
+  double fac[2] = {3, -2}, vir = 0;
+  const char *names[] = {"A4_4", "A4_6"};
   rvn_t u, v[4];
-  double x;
 
+  rvn_zero(v[0]);
+  rvn_zero(v[1]);
   for (t = 1; t <= nsteps; t++) {
-    rvn_zero(v[0]);
-    for (i = 0; i < 3; i++)
-      rvn_add(v[i+1], v[i], rvn_rndball0(u));
+    v[1][0] = pow(rnd0(), 1./D);
+    rvn_rndball0(v[2]); v[2][0] += v[1][0];
+    rvn_add(v[3], v[2], rvn_rndball0(u));
     if (rvn_sqr(v[3]) < 1) {
       lnk02 = ( rvn_sqr(v[2]) < 1 );
       lnk13 = ( rvn_dist2(v[1], v[3]) < 1 );
-      if (lnk02 && lnk13) acc46++;
-      else if (!lnk02 && !lnk13) acc44++;
+      if (lnk02 && lnk13) acc[1]++;
+      else if (!lnk02 && !lnk13) acc[0]++;
     }
+    if (t % nstrep == 0 || t == nsteps)
+      vir = save(4, t, 2, acc, fac, names);
   }
-  printf("acc44 %g, acc46 %g\n", 1.*acc44/nsteps, 1.*acc46/nsteps);
-  x = -3./24 * (3 * acc44 - 2 * acc46) / nsteps;
-  printf("vir4: %.8f, %.7f, %.9f\n", x, x * pow(2, 3), x * pow(8, 3));
-  return x;
+  printf("B4/B2^3: %.9e\n", vir);
+  return vir;
 }
 
 
+
+#define NDG5 5
 
 /* fifth-order virial coefficients */
 static double vir5(long nsteps)
 {
   rvn_t u, v[5];
-  double x, y, tot, norm1, norm2;
-  long t, acc[6] = {0}; /* acc[5] is reserved for invalid diagrams */
-  int sc[5] = {-6, 3, -2, 1, 1}, degen[5] = {1, 15, -30, 10, -12};
-  int i, mul[5], dup[5] = {1, 6, 7, 1, 1}, map[64];
-  const char *names[5] = {"A5_10", "A5_8", "A5_7", "A5_6", "A5_5"};
+  double fac[NDG5], vir = 0;
+  long t, acc[NDG5 + 1] = {0}; /* acc[NDG5] is reserved for invalid diagrams */
+  int sc[NDG5] = {-6, 3, -2, 1, 1}, degen[NDG5] = {1, 15, -30, 10, -12};
+  int i, mul[NDG5], dup[NDG5] = {1, 6, 7, 1, 1}, map[64];
+  const char *names[NDG5] = {"A5_10", "A5_8", "A5_7", "A5_6", "A5_5"};
   unsigned code;
 
-  for (i = 0; i < 5; i++)
+  for (i = 0; i < NDG5; i++) {
     mul[i] = sc[i] * degen[i];
+    fac[i] = 1. * mul[i] / dup[i];
+  }
 
   for (i = 0; i < 64; i++)
-    map[i] = 5; /* `5' means invalid or un-biconnected diagrams */
+    map[i] = NDG5; /* `NDG5' means invalid or un-biconnected diagrams */
   map[0x3f] = 0; /* fully connected */
   map[0x01] = 4; /* ring 0-4 */
   map[0x14] = 3; /* house 0-3, 1-4 */
@@ -99,9 +152,10 @@ static double vir5(long nsteps)
   map[0x17] = 1; /*     #     #     #           #          */
 
   rvn_zero(v[0]);
+  rvn_zero(v[1]);
   for (t = 1; t <= nsteps; t++) {
-    rvn_add(v[1], v[0], rvn_rndball0(u));
-    rvn_add(v[2], v[1], rvn_rndball0(u));
+    v[1][0] = pow(rnd0(), 1./D);
+    rvn_rndball0(v[2]); v[2][0] += v[1][0];
     rvn_add(v[3], v[2], rvn_rndball0(u));
     rvn_add(v[4], v[3], rvn_rndball0(u));
 
@@ -110,22 +164,11 @@ static double vir5(long nsteps)
         | (CNT(1, 3) << 3) | (CNT(1, 4) << 4) | (CNT(2, 4) << 5);
 
     acc[ map[code] ]++;
+    if (t % nstrep == 0 || t == nsteps)
+      vir = save(5, t, NDG5, acc, fac, names);
   }
-
-  norm1 = -4./120 * pow(2, 4);
-  norm2 = -4./120 * pow(8, 4);
-  for (tot = 0, i = 0; i < 5; i++) {
-    x = 1. * acc[i] / nsteps / dup[i];
-    tot += y = x * mul[i];
-
-    printf("%2d %-5s acc %9.7f dup %d sc %+2d mul %+3d "
-        "x*mul %10.7f (%9.6f,%10.5f) tot %10.7f (%9.6f,%10.5f)\n",
-        i, names[i], x, dup[i], sc[i], mul[i], y, norm1 * y, norm2 * y,
-        tot, norm1 * tot, norm2 * tot);
-  }
-  tot *= -4./120;
-  printf("vir5: %.8f, %.7f, %.6f\n", tot, tot * pow(2, 4), tot * pow(8, 4));
-  return tot;
+  printf("B5/B2^4: %.9e\n", vir);
+  return vir;
 }
 
 
@@ -208,7 +251,7 @@ static double vir6(long nsteps)
 #define NDG6 23 /* number of diagrams */
   long t, acc[NDG6 + 1] = {0};
   rvn_t u, v[6], vb[6];
-  double x, y, tot, norm1, norm2;
+  double fac[NDG6], vir = 0;
   int i, j, k, ipr, map[1<<15], mapb[1<<15], dup[NDG6] = {0}, mul[NDG6] = {0};
   unsigned lnk, lnkb;
   struct {
@@ -258,25 +301,33 @@ static double vir6(long nsteps)
   };
   int idchain[][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}};
   int idclaw[][2]  = {{0, 1}, {1, 2}, {2, 3}, {2, 4}, {2, 5}};
+  const char *names[NDG6];
 
   for (i = 0; i < (1 << 15); i++)
     map[i] = mapb[i] = -1; /* invalid entry */
 
   /* compute multiplicity and build topology */
   for (k = 0; k < NDG6; k++) {
+    names[k] = db[k].name;
     mul[k] = db[k].sc * db[k].degen * ((15 - db[k].npr) % 2 ? -1 : 1);
     dup[k]  = mktop(6, db[k].npr, db[k].id, k, map,  5, idchain, 0);
     dup[k] += mktop(6, db[k].npr, db[k].id, k, mapb, 5, idclaw, 0);
+    fac[k] = 1.*mul[k]/dup[k];
   }
 
   rvn_zero(v[0]);
+  rvn_zero(v[1]);
   rvn_zero(vb[0]);
+  rvn_zero(vb[1]);
   for (t = 1; t <= nsteps; t++) {
     /* spanning tree is a chain */
-    for (i = 0; i < 5; i++)
-      rvn_add(v[i + 1], v[i], rvn_rndball0(u));
+    v[1][0] = pow(rnd0(), 1./D);
+    rvn_rndball0(v[2]); v[2][0] += v[1][0];
+    rvn_add(v[3], v[2], rvn_rndball0(u));
+    rvn_add(v[4], v[3], rvn_rndball0(u));
+    rvn_add(v[5], v[4], rvn_rndball0(u));
     /* spanning tree is a claw */
-    rvn_copy(vb[1], v[1]);
+    vb[1][0] = v[1][0];
     rvn_copy(vb[2], v[2]);
     rvn_copy(vb[3], v[3]);
     rvn_add(vb[4], vb[2], rvn_rndball0(u));
@@ -292,21 +343,11 @@ static double vir6(long nsteps)
 
     if ((k = map[lnk]) >= 0) acc[k]++;  /* chain backbone */
     if ((k = mapb[lnkb]) >= 0) acc[k]++;  /* claw backbone */
+    if (t % nstrep == 0 || t == nsteps)
+      vir = save(6, t, NDG6, acc, fac, names);
   }
-
-  norm1 = -5./720 * pow(2, 5);
-  norm2 = -5./720 * pow(8, 5);
-  for (tot = 0, k = 0; k < NDG6; k++) {
-    x = 1. * acc[k] / nsteps / dup[k];
-    tot += y = x * mul[k];
-    printf("%2d A6_%-3s: acc %9.7f, dup %2d sc %+3d, sc*dg %+5d mul %+5d "
-        "x*mul %+10.7f (%+9.6f,%+10.5f), tot %+10.7f (%+9.6f,%+10.5f)\n",
-        k, db[k].name, x, dup[k], db[k].sc, db[k].sc * db[k].degen,
-        mul[k], y, norm1 * y, norm2 * y, tot, norm1 * tot, norm2 * tot);
-  }
-  tot *= -5./720;
-  printf("vir6: %.8f, %.7f, %.6f\n", tot, tot * pow(2, 5), tot * pow(8, 5));
-  return tot;
+  printf("B6/B2^5: %.14e\n", vir);
+  return vir;
 }
 
 
@@ -316,27 +357,35 @@ int main(int argc, char *argv[])
   long nsteps = 10000000;
   int n = 6;
 
+#ifdef MPI
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(comm, &inode);
+  MPI_Comm_size(comm, &nnodes);
+#endif
   /* Metropolis, Rosenbluth, Roksenbluth, Teller & Teller, J. Chem. Phys. 21, 6, 1087-1092, 1953
    * Ree, Hoover, J. Chem. Phys. 46, 4, 939-950, 1964
    * http://www.sklogwiki.org/SklogWiki/index.php/Hard_sphere:_virial_coefficients
    * B2  = b0 = 2 pi/3
    * B3  = 5/8 b0^2
-   * B4  = 0.2869495 b0^3
-   * B5  = 0.110252(1) b0^4
-   * B6  = 0.03888198(91) b0^5
-   * B7  = 0.01302354(91) b0^6
+   * B4  = 0.2869495... b0^3
+   * B5  = 0.11025175(4) b0^4
+   * B6  = 0.0388823(3)  b0^5
+   * B7  = 0.0130228(4)  b0^6
    * B8  = 0.0041832(11) b0^7
-   * B9  = 0.0013094(13) b0^8
+   * B9  = 0.0013092(12) b0^8
    * B10 = 0.0004035(15) b0^9 */
   if (argc > 1) n = atoi(argv[1]);
-  if (argc > 2) nsteps = strtol(argv[2], NULL, 10);
+  if (argc > 2) nsteps = (long) (atof(argv[2]) + .5);
+  mtscramble(inode * 2034091783u + time(NULL));
   printf("D %d, n %d, %ld Monte Carlo moves\n", D, n, nsteps);
 
   if (n == 3) vir3(nsteps);
   else if (n == 4) vir4(nsteps);
   else if (n == 5) vir5(nsteps);
   else if (n == 6) vir6(nsteps);
-  mtsave(NULL);
+#ifdef MPI
+  MPI_Finalize();
+#endif
   return 0;
 }
 

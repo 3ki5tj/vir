@@ -16,7 +16,7 @@
 
 
 #ifdef MPI
-#include "mpi.h"
+#include <mpi.h>
 #define MPI_MYREAL ( (sizeof(real) == sizeof(double)) ? MPI_DOUBLE : MPI_FLOAT )
 MPI_Comm comm = MPI_COMM_WORLD;
 #endif
@@ -220,7 +220,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   av0_clear(&racc);
   if (!bsim0) /* try to load previous data */
     load(fnout, &fbsm, &nrsm);
-  /* if (nnodes > 1) */ 
+  /* if (nnodes > 1) */
   /* scramble the random number generator */
   mtscramble(inode * 2034091783u + time(NULL));
 
