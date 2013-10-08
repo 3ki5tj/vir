@@ -217,7 +217,7 @@ INLINE double dg_hsfb_mixed0(const dg_t *g,
   double sc;
 
   if (ned == NULL) ned = &nedges;
-  sc = dg_rhsc_spec0(g, nocsep, ned, degs, &err);
+  sc = dg_rhsc_spec0(g, nocsep, 1, ned, degs, &err);
   sgn = 1 - (*ned % 2) * 2;
   if ( err == 0 ) {
     return sc * sgn;

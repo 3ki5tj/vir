@@ -43,9 +43,10 @@ static double save(int n, long nsteps, int m, const long *acc,
   vir /= nsteps;
   for (i = 1; i <= n; i++) vir /= i;
   vir *= -(n - 1) * pow(2, n - 1);
+
   mkfnout(fnout, n);
   xfopen(fp, fnout, "w", return vir);
-  fprintf(fp, "#0 %d %d %d\n%ld\n", D, n, m, nsteps);
+  fprintf(fp, "#0 %d %d %d V0\n%ld\n", D, n, m, nsteps);
   for (i = 0; i < m; i++)
     fprintf(fp, "%16ld %+.14e %s\n", acc[i], fac[i], names[i]);
   fprintf(fp, "%.14e\n", vir);
@@ -376,8 +377,10 @@ int main(int argc, char *argv[])
    * B10 = 0.0004035(15) b0^9 */
   if (argc > 1) n = atoi(argv[1]);
   if (argc > 2) nsteps = (long) (atof(argv[2]) + .5);
+  if (argc > 3) nstrep = (long) (atof(argv[3]) + .5);
   mtscramble(inode * 2034091783u + time(NULL));
-  printf("D %d, n %d, %ld Monte Carlo moves\n", D, n, nsteps);
+  if (inode == MASTER)
+    printf("D %d, n %d, %ld Monte Carlo moves\n", D, n, nsteps);
 
   if (n == 3) vir3(nsteps);
   else if (n == 4) vir4(nsteps);

@@ -615,7 +615,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     real amp[], int gdisp, int nstfb, int nstcom)
 {
   rvn_t x[DG_NMAX], nx[DG_NMAX], xi;
-  int i, it, nz, nnz, nbc;
+  int i, it, nz, nnz, nbc, gdirty;
   double wt, nwt, fb, nfb = 0;
   double t, nr, nnr;
   int hasnnr, hasnr;
@@ -699,7 +699,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
       av0_add(&racc, acc);
     } else {  /* randomly displace a particle */
       DISPRNDI(i, n, x, xi, amp[sys0], gdisp);
-      UPDGRAPH(i, n, g, ng, x, xi);
+      UPDGRAPH(i, n, g, ng, x, xi, gdirty);
 
       /* try to avoid the expensive computation of fb */
       nbc = dg_biconnected(ng);
@@ -717,7 +717,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 
         /* detect special cases, including ring diagrams
          * and clique separators */
-        sc = dg_rhsc_spec0(ng, 0, &ned, degs, &err);
+        sc = dg_rhsc_spec0(ng, 0, 1, &ned, degs, &err);
         if (err == 0) { /* special case worked */
           hasnfb = 1;
           if (fabs(sc) > 1e-3) {

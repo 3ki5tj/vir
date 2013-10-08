@@ -379,7 +379,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
     } else {
       /* this function implicitly computes the clique separator
        * with very small overhead */
-      sc = dg_rhsc_spec0(g, 0, &ned, degs, &err);
+      sc = dg_rhsc_spec0(g, 0, 1, &ned, degs, &err);
       if (err == 0) {
         ncs = (fabs(sc) > 1e-3);
         fb = DG_SC2FB(sc, ned);
@@ -811,7 +811,7 @@ INLINE int bcrstep(int i0, int j0, dg_t *g, dg_t *ng,
     rvn_t *x, real *xi, real r2ij[][DG_NMAX], real r2i[],
     real rc, real amp, int gauss)
 {
-  int i, j, n = g->n;
+  int i, j, n = g->n, gdirty;
 
   DISPRNDI(i, n, x, xi, amp, gauss);
   /* check if the distance constraint is satisfied */
@@ -822,10 +822,14 @@ INLINE int bcrstep(int i0, int j0, dg_t *g, dg_t *ng,
     if ( rvn_dist2(xi, x[i0]) >= rc * rc )
       return 0;
   }
-  UPDGRAPHR2(i, n, g, ng, x, xi, 1, r2i);
+  UPDGRAPHR2(i, n, g, ng, x, xi, 1, r2i, gdirty);
+  if ( !gdirty ) { /* the graph is unchanged */
+    rvn_copy(x[i], xi);
+    UPDR2(r2ij, r2i, n, i, j);
+    return 1;
   /* the new graph needs to be biconnected and without
    * the articulation pair (i0, j0) */
-  if ( dg_biconnected(ng)
+  } else if ( dg_biconnected(ng)
     && dg_connectedvs(ng, mkbitsmask(n) ^ MKBIT(i0) ^ MKBIT(j0)) ) {
     dg_copy(g, ng);
     rvn_copy(x[i], xi);

@@ -7,10 +7,11 @@ LM = -lm
 # for some icc versions
 CX = icc -O2 -march=native -ipo \
      -Wall -Wunused -Wremarks -Wcheck -wd11001 -wd11006
+#CX = gcc -O3 -march=native -fwhole-program -Wall -Wextra -Wunused
 LMX =
 
 deps = dg.h dgcsep.h dgrjw.h dgsc.h dgring.h zcom.h Makefile mcutil.h
-bins = mcrat mcgc2 mcgcr2
+bins = mcrat0 mcrat mcgc2 mcgcr2
 bins_d = $(patsubst %,%_d, $(bins))
 
 all: $(bins)

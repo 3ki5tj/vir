@@ -554,7 +554,6 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       code_t code;
       unqid_t uid;
       dgmap_t *m = dgmap_ + n;
-
       dg_encode(g, &code);
       ncs = (dg_ncsep_lookuplow(g, code) == 0);
       dgmap_init(m, n);
@@ -565,7 +564,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
     } else {
       /* this function implicitly computes the clique separator
        * with very small overhead */
-      sc = dg_rhsc_spec0(g, 0, &ned, degs, &err);
+      sc = dg_rhsc_spec0(g, 0, 1, &ned, degs, &err);
       if (err == 0) {
         ncs = (fabs(sc) > 1e-3);
         fb = DG_SC2FB(sc, ned);

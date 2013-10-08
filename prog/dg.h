@@ -237,6 +237,7 @@ INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
   code_t c, b;
   static int cnt[DG_NMAX];
 
+  *i0 = *i1 = 0; /* in case no edge exists */
   for (ne = 0, i = 1; i < n; i++)
     ne += cnt[i] = bitcount(g->c[i] & mkbitsmask(i));
   rr = (int) (rnd0() * 2 * ne);

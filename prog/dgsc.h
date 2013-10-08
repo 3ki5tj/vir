@@ -82,7 +82,7 @@ static double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
 
 
 
-#define dg_rhsc_spec(g, err) dg_rhsc_spec0(g, 0, NULL, NULL, err)
+#define dg_rhsc_spec(g, err) dg_rhsc_spec0(g, 0, 1, NULL, NULL, err)
 
 /* compute the star content (SC) of a Ree-Hoover diagram in special cases
  * only use cheap strategies to deduce the SC
@@ -95,7 +95,7 @@ static double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
  *   if *err = 1, the diagram has no clique separator on return
  * *ned: number of edges; degs: unsorted degree sequence
  * if ned != NULL, *ned is computed on return */
-INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep,
+INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
     int *ned, int *degs, int *err)
 {
   int i, j, n = g->n, ned0, ned1;
@@ -154,7 +154,13 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep,
   }
 
   /* general case: try to find a clique separator */
-  *err = (nocsep || !dg_cliquesep(g));
+  if (testcsep) {
+    /* if nocsep, we know for sure there is no clique separator
+     * then the hard calculation must be done */
+    *err = (nocsep || !dg_cliquesep(g));
+  } else { /* if we don't want to test clique separator */
+    *err = 1; /* simply show failure */
+  }
   return 0;
 }
 
@@ -197,7 +203,7 @@ INLINE double dg_rhsc_direct0(const dg_t *g, int nocsep, int *ned, int *degs)
   int err;
 
   /* detect special cases when possible */
-  sc = dg_rhsc_spec0(g, nocsep, ned, degs, &err);
+  sc = dg_rhsc_spec0(g, nocsep, 1, ned, degs, &err);
   if (err == 0) return sc;
   else return dg_rhsc_directlow(g);
 }
@@ -257,7 +263,7 @@ INLINE double dg_rhsc0(const dg_t *g, int nocsep, int *ned, int *degs)
   if (g->n <= DGMAP_NMAX) {
     return dg_rhsc_lookup(g);
   } else {
-    sc = dg_rhsc_spec0(g, nocsep, ned, degs, &err);
+    sc = dg_rhsc_spec0(g, nocsep, 1, ned, degs, &err);
     if (err == 0) return sc;
     else return dg_rhsc_directlow(g);
   }

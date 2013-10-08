@@ -202,7 +202,7 @@ static void report(const av0_t *fbsm, const av0_t *nrsm,
 
 /* compute a virial coefficient with a lookup table */
 static void mcrat_lookup(int n, double nequil, double nsteps,
-    real amp, int gdisp, int nstfb, int nstcom)
+    real amp, int gdisp, int nstcom)
 {
   rvn_t x[DG_NMAX], nx[DG_NMAX], xi;
   int i, j, pid, it, acc, nbc;
@@ -220,7 +220,6 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   av0_clear(&racc);
   if (!bsim0) /* try to load previous data */
     load(fnout, &fbsm, &nrsm);
-  /* if (nnodes > 1) */
   /* scramble the random number generator */
   mtscramble(inode * 2034091783u + time(NULL));
 
@@ -234,8 +233,8 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   /* equilibration */
   for (t = 1; t <= nequil; t += 1)
     BCSTEP(acc, i, n, g, ng, x, xi, amp, gdisp);
-  printf("%4d: equilibrated at t %g, nedges %d, nstfb %d\n",
-      inode, nequil, dg_nedges(g), nstfb);
+  printf("%4d: equilibrated at t %g, nedges %d\n",
+      inode, nequil, dg_nedges(g));
   dg_encode(g, &code); /* initialize the code */
   /* call _lookup function first, to initialize the table */
   nbc = dg_biconnected_lookup(g);
@@ -246,7 +245,8 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
-    if ( rnd0() < ratcr ) { /* particle replacement */
+    if (ratcr > 0 && (ratcr >= 1 || rnd0() < ratcr)) {
+      /* particle replacement */
       /* it usually makes the simulation slower the result less precise
        * we keep it only for a psychological backup */
       dg_decode(g, &code);
@@ -304,7 +304,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
         double fb1 = dg_hsfb(g), nr1 = dg_nring(g);
         dg_decode(g, &code);
         if (fabs(fb - fb1) > 1e-3 || fabs(nr - nr1) > 1e-3) {
-          printf("%d: t %g, fb %d vs %d, nr %g vs %g\n",
+          printf("%d: t %g, fb %g vs %g, nr %g vs %g\n",
               inode, t, fb, fb1, nr, nr1);
           dg_print(g);
           exit(1);
@@ -429,17 +429,12 @@ INLINE double dg_hsfb_que(dgque_t *q, const dg_t *g, int nocsep,
 INLINE void mcrat_direct(int n, double nequil, double nsteps,
     real amp, int gdisp, int nstfb, int nstcom)
 {
-  rvn_t x[DG_NMAX], nx[DG_NMAX], xi;
-  int i, it, nz, nnz, nbc, acc;
-  double fb, nfb = 0;
-  double t, nr, nnr;
-  int hasnnr, hasnr;
+  rvn_t x[DG_NMAX], xi;
+  int i, it, acc, hasfb, hasnr, err, gdirty = 0, neval = 0;
+  int ned = 0, degs[DG_NMAX];
+  double t, fb, nr, sc;
   dg_t *g, *ng;
   av0_t fbsm, nrsm, cacc, racc;
-  int ifb; /* if fb is computed in this step */
-  int hasfb; /* if fb has been computed for the step */
-  int hasnfb = 0; /* if fb has been computed for the MC trial */
-  int neval = 0;
   dgque_t *que;
 
   av0_clear(&nrsm);
@@ -448,7 +443,6 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   av0_clear(&racc);
   if (!bsim0) /* try to load previous data */
     load(fnout, &fbsm, &nrsm);
-  /* if (nnodes > 1) */
   /* scramble the random number generator */
   mtscramble(inode * 2034091783u + time(NULL));
 
@@ -464,11 +458,9 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
       inode, nequil, dg_nedges(g), nstfb);
   die_if (!dg_biconnected(g),
       "%d, initial diagram not biconnected D %d\n", inode, D);
-  nz = (dg_cliquesep(g) == 0);
   que = dgque_open(cachesize, (n * (n - 1) / 2 + DG_NMAX - 1) / DG_NMAX);
-  fb = nz ? dg_hsfb_que(que, g, 1, NULL, NULL, NULL) : 0;
+  fb = (dg_cliquesep(g) == 0) ? dg_hsfb_que(que, g, 1, NULL, NULL, NULL) : 0;
   hasfb = 1;
-  ifb = 0;
   nr = dg_nring(g);
   hasnr = 1;
 
@@ -477,11 +469,10 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 #ifdef CHECK
     {
       double fb1 = dg_hsfb(g), nr1 = dg_nring(g);
-      int err = (fabs(nz - nz1) > 1e-3);
       if ( hasfb && fabs(fb - fb1) > 1e-3 ) err = 1;
       if ( hasnr && fabs(nr - nr1) > 1e-3 ) err = 1;
       if (err) {
-        printf("%d: PRE1 t %g, hasfb %d, fb %d (%d)\n",
+        printf("%d: PRE1 t %g, hasfb %d, fb %g (%g)\n",
             inode, t, hasfb, fb, fb1);
         dg_print(g);
         exit(1);
@@ -489,94 +480,62 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     }
 #endif
 
-    if (rnd0() < ratcr) { /* replace all coordinates */
-      /* it usually makes the simulation slower the result less precise
-       * we keep it only for a psychological backup */
-      acc = grepl(x, nx, g, ng);
-      if ( acc ) {
-        nz = (dg_cliquesep(g) == 0);
-        hasfb = 0;
-        fb = 0;
-        hasnr = 0;
-        nr = 0;
-      }
-      av0_add(&racc, acc);
+    if (ratcr > 0 && (ratcr >= 1 || rnd0() < ratcr)) {
+      /* displace one particle attached to an edge */
+      acc = verepl(x, xi, g, ng, &ned, degs, &gdirty);
+      racc.sx += acc;
+      racc.s += 1;
     } else {  /* randomly displace a particle */
       DISPRNDI(i, n, x, xi, amp, gdisp);
-      UPDGRAPH(i, n, g, ng, x, xi);
-
-      /* try to avoid the expensive computation of fb */
-      nbc = dg_biconnected(ng);
-      if ( !nbc ) {
-        nnz = 0;
-        nfb = 0;
-        nnr = 0;
-        hasnfb = 1;
-        hasnnr = 1;
-      } else { /* biconnected */
-        int ned = -1;
-        static int degs[DG_NMAX];
-        int err;
-        double sc;
-
-        /* detect special cases, including ring diagrams
-         * and clique separators */
-        sc = dg_rhsc_spec0(ng, 0, &ned, degs, &err);
-        if (err == 0) { /* special case worked */
-          hasnfb = 1;
-          if (fabs(sc) > 1e-3) {
-            nnz = 1;
-            nfb = DG_SC2FB(sc, ned);
-          } else {
-            nnz = 0;
-            nfb = 0;
-          }
-        } else { /* general case */
-          nnz = 1; /* no clique separator */
-          hasnfb = 0;
-          nfb = 0;
-        } /* end of the general case */
-        hasnnr = 0;
-        nnr = 0;
-      } /* end if biconnected */
-
-      acc = nbc;
-      if ( acc ) { /* accept the move */
+      UPDGRAPH(i, n, g, ng, x, xi, gdirty);
+      if ( !gdirty ) {
+        acc = 1;
+        rvn_copy(x[i], xi);
+      } else if ( (acc = dg_biconnected(ng)) != 0 ) {
         rvn_copy(x[i], xi);
         dg_copy(g, ng);
-        nz = nnz;
-        hasfb = hasnfb;
-        if (hasfb) fb = nfb;
-        hasnr = hasnnr;
-        if (hasnr) nr = nnr;
-      } /* if rejected, maintain the old `hasfb' value */
-
-      av0_add(&cacc, acc);
+      }
+      cacc.sx += acc;
+      cacc.s += 1;
+      ned = -1; /* ask dg_rhsc_spec0() to recompute degs[] */
     }
 
-    /* compute fb only when necessary
-     * this usually happens after an accepted move */
-    ifb = (nstfb == 1 || it % nstfb == 0);
-    if ( !hasfb && ifb ) {
-      fb = nz ? dg_hsfb_que(que, g, 1, NULL, NULL, &neval) : 0;
-      hasfb = 1;
-    }
+    /* try to compute fb every step if its computation is cheap
+     * this block useful if nstfb < 10 */
+    if ( acc && gdirty ) {
+      /* detect special cases, including ring diagrams
+       * we assume that ned and degs are available */
+      sc = dg_rhsc_spec0(ng, 0, 0, &ned, degs, &err);
+      hasfb = (err == 0); /* special case worked */
+      if (hasfb) fb = DG_SC2FB(sc, ned);
+      hasnr = 0; /* show that we have no nr */
+    } /* upon rejection, keep the old fb, hasfb, hasnr */
 
-    /* compute nr only when necessary */
-    if ( !hasnr && ifb ) {
-      nr = dg_nring(g);
-      hasnr = 1;
+    if (it % nstfb == 0) {
+      /* only compute fb when necessary */
+      if ( !hasfb ) {
+        if (dg_cliquesep(g) != 0) fb = 0;
+        else fb = dg_hsfb_que(que, g, 1, NULL, NULL, &neval);
+        hasfb = 1;
+      }
+      av0_add(&fbsm, fb);
+
+      /* only compute nr when necessary */
+      if ( !hasnr ) {
+        if (!acc) ned = -1; /* let dg_nring0() compute ned & degs */
+        nr = dg_nring0(g, &ned, degs);
+        hasnr = 1;
+      }
+      av0_add(&nrsm, nr);
     }
 
 #ifdef CHECK
     /* check if fb has been correctly computed */
     if (hasfb) {
-    //if ((ifb || sys >= 2)) {
-      int nz1 = (dg_cliquesep(g) == 0), ncl = dg_ncsep(g);
-      int fb1 = dg_hsfb(g);
-      if (!hasfb || fabs(nz - nz1) > 1e-3 || fabs(fb - fb1) > 1e-3) {
-        printf("%d: t %g, acc %d, ifb %d, hasfb %d, nz %d (%d), fb %d (%d)\n",
-            inode, t, acc, ifb, hasfb, nz, nz1, fb, fb1);
+      double fb1 = dg_hsfb(g);
+      if (!hasfb || fabs(fb - fb1) > 1e-3) {
+        printf("%d: t %g, acc %d, hasfb %d, fb %g (%g)\n",
+            inode, t, acc, hasfb, fb, fb1);
         dg_print(g);
         exit(1);
       }
@@ -590,13 +549,20 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         exit(1);
       }
     }
-#endif
-
-    /* accumulate data */
-    if ( ifb ) {
-      av0_add(&fbsm, fb);
-      av0_add(&nrsm, nr);
+    if (acc && gdirty) {
+      int degs1[DG_NMAX], ned1 = dg_degs(g, degs1);
+      int err = (ned1 != ned);
+      for (i = 0; i < n; i++)
+        if (degs1[i] != degs[i]) err++;
+      if (err) {
+        printf("%d: t %g, ned %d vs %d", inode, t, ned, ned1);
+        for (i = 0; i < n; i++)
+          printf("%d: %d vs %d\n", i, degs[i], degs1[i]);
+        dg_print(g);
+        exit(1);
+      }
     }
+#endif
 
     if (it % nstcom == 0)
       rvn_rmcom(x, n); /* remove the origin to the center of mass */
@@ -627,7 +593,7 @@ int main(int argc, char **argv)
 #endif
 
   if (lookup)
-    mcrat_lookup(n, nequil, nsteps, mcamp, gdisp, nstfb, nstcom);
+    mcrat_lookup(n, nequil, nsteps, mcamp, gdisp, nstcom);
   else
     mcrat_direct(n, nequil, nsteps, mcamp, gdisp, nstfb, nstcom);
 

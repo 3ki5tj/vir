@@ -404,13 +404,19 @@ INLINE void initxring(rvn_t *x, int n)
 
 
 /* construct a new graph `ng', with vertex i displaced */
-#define UPDGRAPH(i, nv, g, ng, x, xi) { int k_; \
+#define UPDGRAPH(i, nv, g, ng, x, xi, gdirty) { \
+  int k_, c0_, c1_; \
   ng->n = (nv); \
   dg_copy(ng, g); \
+  (gdirty) = 0; \
   for (k_ = 0; k_ < (nv); k_++) { \
     if (k_ == i) continue; \
-    if (rvn_dist2(xi, (x)[k_]) < 1) { DG_LINK(ng, i, k_); } \
+    c0_ = dg_linked(ng, i, k_); \
+    c1_ = (rvn_dist2(xi, (x)[k_]) < 1); \
+    if (c0_ == c1_) continue; \
+    if (c1_) { DG_LINK(ng, i, k_); } \
     else { DG_UNLINK(ng, i, k_); } \
+    (gdirty) = 1; \
   } }
 
 
@@ -418,9 +424,13 @@ INLINE void initxring(rvn_t *x, int n)
 /* A Monte Carlo step of sampling biconnected configurations
  * This is a macro for the function-version is slower */
 #define BCSTEP(acc, i, nv, g, ng, x, xi, amp, gauss) { \
+  int gdirty_; \
   DISPRNDI(i, nv, x, xi, amp, gauss); \
-  UPDGRAPH(i, nv, g, ng, x, xi); \
-  if ( dg_biconnected(ng) ) { \
+  UPDGRAPH(i, nv, g, ng, x, xi, gdirty_); \
+  if ( !gdirty_ ) { \
+    rvn_copy((x)[i], xi); \
+    acc = 1; \
+  } else if ( dg_biconnected(ng) ) { \
     rvn_copy((x)[i], xi); \
     dg_copy(g, ng); \
     acc = 1; \
@@ -430,16 +440,19 @@ INLINE void initxring(rvn_t *x, int n)
 
 /* construct a new graph with a single vertex i displaced
  * and save the corresponding array of displacements */
-#define UPDGRAPHR2(i, nv, g, ng, x, xi, r2, r2i) { int k_; \
+#define UPDGRAPHR2(i, nv, g, ng, x, xi, r2, r2i, gdirty) { \
+  int k_, c0_, c1_; \
   ng->n = (nv); \
   dg_copy(ng, g); \
+  (gdirty) = 0; \
   for ( (r2i)[i] = 0, k_ = 0; k_ < (nv); k_++) { \
     if ( k_ == i ) continue; \
-    if ( ((r2i)[k_] = rvn_dist2(xi, x[k_])) < (r2) ) { \
-      DG_LINK(ng, i, k_); \
-    } else { \
-      DG_UNLINK(ng, i, k_); \
-    } \
+    c0_ = dg_linked(ng, i, k_); \
+    c1_ = (((r2i)[k_] = rvn_dist2(xi, x[k_])) < (r2)); \
+    if ( c0_ == c1_ ) continue; \
+    if ( c1_ ) { DG_LINK(ng, i, k_); } \
+    else { DG_UNLINK(ng, i, k_); } \
+    (gdirty) = 1; \
   } }
 
 
@@ -455,13 +468,17 @@ INLINE void initxring(rvn_t *x, int n)
 /* A Monte Carlo step of sampling biconnected configurations
  * updating the r2ij[][] matrix */
 #define BCSTEPR2(acc, i, nv, g, ng, x, xi, r2ij, r2i, amp, gauss) { \
-  int j_; \
+  int j_, gdirty_ = 0; \
   DISPRNDI(i, nv, x, xi, amp, gauss); \
-  UPDGRAPHR2(i, nv, g, ng, x, xi, 1, r2i); \
-  if ( dg_biconnected(ng) ) { \
+  UPDGRAPHR2(i, nv, g, ng, x, xi, 1, r2i, gdirty_); \
+  if ( !gdirty_ ) { \
     rvn_copy((x)[i], xi); \
-    dg_copy(g, ng); \
     UPDR2(r2ij, r2i, nv, i, j_); \
+    acc = 1; \
+  } else if ( dg_biconnected(ng) ) { \
+    rvn_copy((x)[i], xi); \
+    UPDR2(r2ij, r2i, nv, i, j_); \
+    dg_copy(g, ng); \
     acc = 1; \
   } else { acc = 0; } }
 
@@ -619,6 +636,46 @@ INLINE int grepl0(rvn_t *x, rvn_t *nx, dg_t *g, dg_t *ng,
     return 1;
   } else return 0;
 }
+
+
+
+/* replace the coordinates of a random vertex on an edge */
+INLINE int verepl(rvn_t *x, rvn_t xi, dg_t *g, dg_t *ng,
+    int *nedg, int *degs, int *gdirty)
+{
+  int i, j, k, n = g->n, ne0, ne1, c0, c1;
+
+  ne0 = dg_randedge(g, &i, &j); /* select a random edge */
+  if (ne0 <= 0) return 0;
+  rvn_inc(rvn_rndball0(xi), x[j]);
+  dg_copy(ng, g);
+  *gdirty = 0;
+  for (k = 0; k < n; k++) { /* connectivity to i */
+    if (k == i || k == j) continue;
+    c0 = dg_linked(ng, i, k);
+    c1 = (rvn_dist2(xi, x[k]) < 1);
+    if (c0 == c1) continue;
+    if (c1) { DG_LINK(ng, i, k); }
+    else  { DG_UNLINK(ng, i, k); }
+    *gdirty = 1;
+  }
+  if ( !*gdirty ) {
+    rvn_copy(x[i], xi);
+    if (nedg != NULL) *nedg = dg_degs(ng, degs);
+    return 1;
+  }
+  if ( !dg_biconnected(ng) ) return 0;
+  if (nedg == NULL) {
+    ne1 = dg_nedges(ng);
+  } else { /* compute the degree sequence */
+    *nedg = ne1 = dg_degs(ng, degs);
+  }
+  if ( ne1 > ne0 && ne1 * rnd0() >= ne0 ) return 0;
+  dg_copy(g, ng);
+  rvn_copy(x[i], xi);
+  return 1;
+}
+
 
 
 
