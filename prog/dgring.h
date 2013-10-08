@@ -4,7 +4,8 @@
 
 
 
-/* compute the number of ring sub-graphs */
+/* compute the number of ring subgraphs
+ * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
 INLINE double dg_nring_spec0(const dg_t *g,
     int *ned, int *degs, int *err)
 {
@@ -50,7 +51,7 @@ INLINE double dg_nring_spec0(const dg_t *g,
 
 
 
-/* return the number of ring sub-graphs */
+/* return the number of ring subgraphs */
 INLINE double dg_nring_direct(const dg_t *g)
 {
   int st[DG_NMAX], top, i, n = g->n, root = 0;
@@ -91,6 +92,23 @@ INLINE double dg_nring_direct(const dg_t *g)
 
 
 
+#define dg_nring_mixed(g) dg_nring_mixed0(g, NULL, NULL)
+
+/* return the number of ring subgraphs
+ * use various techniques to accelerate the calculation
+ * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
+INLINE double dg_nring_mixed0(const dg_t *g, int *ned, int *degs)
+{
+  int err;
+  double nr;
+
+  nr = dg_nring_spec0(g, ned, degs, &err);
+  if (err == 0) return nr;
+  else return dg_nring_direct(g);
+}
+
+
+
 #define dg_nring_lookup(g) dg_nring_lookuplow(g->n, dg_getmapid(g))
 
 /* compute the number of ring subgraphs by a look up table */
@@ -113,7 +131,7 @@ INLINE double dg_nring_lookuplow(int n, unqid_t id)
     for (cnt = 0, k = 0; k < m->ng; k++) {
       dg_decode(g, &m->first[k]);
       if ( dg_biconnected(g) ) {
-        nr[n][k] = dg_nring_direct(g);
+        nr[n][k] = dg_nring_mixed(g);
         cnt++;
         nz++;
       } else nr[n][k] = 0;
@@ -133,15 +151,10 @@ INLINE double dg_nring_lookuplow(int n, unqid_t id)
  * using various techniques to accelerate the calculation */
 INLINE double dg_nring0(const dg_t *g, int *ned, int *degs)
 {
-  int err;
-  double nr;
-
   if (g->n <= DGMAP_NMAX) {
     return dg_nring_lookup(g);
   } else {
-    nr = dg_nring_spec0(g, ned, degs, &err);
-    if (err == 0) return nr;
-    else return dg_nring_direct(g);
+    return dg_nring_mixed0(g, ned, degs);
   }
 }
 

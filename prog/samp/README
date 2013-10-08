@@ -4,7 +4,7 @@ Computing the virial coefficients by Monte Carlo sampling
 
 Files
 -----
-mcrat.c     calculate the ratio of two successive virial coefficients
+mcrat0.c    calculate the virial coefficients
             Ree-Hoover star contents are used, so no need to sample
             over diagrams
 
@@ -31,9 +31,13 @@ dgmc.c      calculate the virial coefficients by Monte Carlo sampling
 
 mcrepl.c    coordinate replacement as a Monte Carlo move
 
+mcrat.c     sampling biconnected configurations, coupled with a sampler
+            that samples configurations without clique separators and an
+            importance sampler that samples configurations for fb
+
 mcratn.c    sampling along the number of clique separators
 
-mcwt.c      prototype code for sampling in three ensembles
+mcwt.c      prototype code for mcrat.c sampling in three ensembles
             biconnected, nonzero fb, and importance sampling
 
 mcnz.c      prototype code for sampling in two ensembles

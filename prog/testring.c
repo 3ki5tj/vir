@@ -64,6 +64,6 @@ int main(int argc, char **argv)
   };
   cmpref(4, ref4);
   cmpref(5, ref5);
-  
+
   return 0;
 }

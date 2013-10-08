@@ -119,7 +119,7 @@ INLINE int bitfirstlow(code_t x, code_t *b)
   return BRUIJNID32(*b);
 #elif CODEBITS == 64
   if (*b == 0) {
-    return *b;
+    return 0;
   } else {
     uint32_t low = *b & 0xffffffff;
     if (low) return BRUIJNID32_(low);
@@ -129,6 +129,26 @@ INLINE int bitfirstlow(code_t x, code_t *b)
 }
 
 
+/* macro version of bitfirstlow(); */
+#define BITFIRSTLOW32(x, b, id) { \
+  (b) = (x) & (-(x)); \
+  (id) = BRUIJNID32(b); }
+
+#define BITFIRSTLOW64(x, b, id) { \
+  (b) = (x) & (-(x)); \
+  if ((b) == 0) { id = 0; } \
+  else { uint32_t low_ = (b) & 0xffffffff; \
+    if (low_) { (id) = BRUIJNID32_(low_); } \
+    else { (id) = BRUIJNID32_(((b) >> 32) & 0xffffffff) + 32; } \
+  } }
+
+#if CODEBITS == 32
+#define BITFIRSTLOW(x, b, id) BITFIRSTLOW32(x, b, id)
+#elif CODEBITS == 64
+#define BITFIRSTLOW(x, b, id) BITFIRSTLOW64(x, b, id)
+#endif
+
+
 
 /* index of nonzero bit */
 INLINE int bitfirst(code_t x)
@@ -136,6 +156,8 @@ INLINE int bitfirst(code_t x)
   code_t b;
   return bitfirstlow(x, &b);
 }
+
+#define BITFIRST(x, id) { code_t b; id = BITFIRSTLOW(x, b, id); }
 
 
 

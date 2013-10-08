@@ -35,7 +35,6 @@ int nstfb = 0; /* interval of evaluting the weight */
 int nstcom = 10000; /* frequency of the n move */
 int nstrep = 1000000000; /* interval of reporting */
 int lookup = -1; /* if to use the lookup table */
-int cachesize = 5; /* number of recently visited diagrams */
 double ratcr = 0; /* rate of coordinates replacement */
 double r2cr = 0; /* variance of replaced coordinates */
 char *fnout = NULL;
@@ -61,7 +60,6 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-w", "%d", &nstfb, "interval of evaluating the weight");
   argopt_add(ao, "-q", "%d", &nstrep, "interval of reporting");
   argopt_add(ao, "-G", "%b", &gdisp, "normally-distributed displacement");
-  argopt_add(ao, "-C", "%d", &cachesize, "cache size of recently visited diagrams");
   argopt_add(ao, "-H", "%lf", &ratcr, "rate of coordinates replacement");
   argopt_add(ao, "-U", "%lf", &r2cr, "squared radius of replaced coordinates");
   argopt_add(ao, "-o", NULL, &fnout, "output file");
@@ -79,8 +77,7 @@ static void doargs(int argc, char **argv)
     if (lookup) {
       nstfb = 1;
     } else { /* TODO: improve this */
-      if (D >= 15) nstfb = 10;
-      else nstfb = 100;
+      nstfb = 10;
     }
   }
 
@@ -329,101 +326,6 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
 
 
-typedef struct {
-  struct {
-    double val; /* e.g., the value of fb */
-    code_t c[DG_NMAX/2]; /* code */
-  } *arr;
-  int nmax;
-  int cnt; /* number of entries */
-  int i; /* current point from 0 to cnt - 1 */
-  int k; /* number of code_t */
-} dgque_t;
-
-
-
-INLINE dgque_t *dgque_open(int cnt, int k)
-{
-  dgque_t *q;
-
-  xnew(q, 1);
-  q->nmax = cnt;
-  q->cnt = 0;
-  q->k = k;
-  die_if (k > DG_NMAX/2, "k %d, n %d is too large", k, n);
-  xnew(q->arr, q->nmax);
-  return q;
-}
-
-
-
-INLINE void dgque_close(dgque_t *q)
-{
-  free(q->arr);
-  free(q);
-}
-
-
-
-INLINE int dgque_find(const dgque_t *q, const code_t *c, double *x)
-{
-  int i, j, cnt = q->cnt, k = q->k;
-
-  for (i = 0; i < cnt; i++) {
-    for (j = 0; j < k; j++)
-      if (q->arr[i].c[j] != c[j])
-        break;
-    if (j == k) {
-      *x = q->arr[i].val;
-      return i;
-    }
-  }
-  return -1;
-}
-
-
-
-INLINE void dgque_add(dgque_t *q, code_t *c, double x)
-{
-  int i, j, k = q->k;
-
-  if (q->cnt < q->nmax) {
-    i = q->cnt;
-    q->arr[i].val = x;
-    for (j = 0; j < k; j++) q->arr[i].c[j] = c[j];
-    if ((q->cnt = i + 1) == q->nmax)
-      q->i = 0; /* set point */
-  } else { /* replace the q->i th point */
-    i = q->i;
-    q->arr[i].val = x;
-    for (j = 0; j < k; j++) q->arr[i].c[j] = c[j];
-    q->i = (i + 1) % q->nmax;
-  }
-}
-
-
-
-/* compute fb with a short history list
- * nocsep: no clique separator in the graph */
-INLINE double dg_hsfb_que(dgque_t *q, const dg_t *g, int nocsep,
-    int *ned, int *degs, int *neval)
-{
-  double fb = 0;
-  static code_t c[DG_NMAX/2];
-
-  dg_encode(g, c);
-  if (dgque_find(q, c, &fb) < 0) {
-    /* hsfb_mixed() is much faster than hsfb_rjw() in high dimensions D
-     * because when the number of edges ~ n, rhsc() is faster than hsfb() */
-    fb = dg_hsfb_mixed0(g, nocsep, ned, degs);
-    dgque_add(q, c, fb);
-    if (neval) (*neval)++;
-  }
-  return fb;
-}
-
-
-
 /* compute a virial coefficient by the ratio method
  * direct version without lookup table */
 INLINE void mcrat_direct(int n, double nequil, double nsteps,
@@ -435,7 +337,6 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   double t, fb, nr, sc;
   dg_t *g, *ng;
   av0_t fbsm, nrsm, cacc, racc;
-  dgque_t *que;
 
   av0_clear(&nrsm);
   av0_clear(&fbsm);
@@ -458,10 +359,9 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
       inode, nequil, dg_nedges(g), nstfb);
   die_if (!dg_biconnected(g),
       "%d, initial diagram not biconnected D %d\n", inode, D);
-  que = dgque_open(cachesize, (n * (n - 1) / 2 + DG_NMAX - 1) / DG_NMAX);
-  fb = (dg_cliquesep(g) == 0) ? dg_hsfb_que(que, g, 1, NULL, NULL, NULL) : 0;
+  fb = dg_hsfb_mixed(g);
   hasfb = 1;
-  nr = dg_nring(g);
+  nr = dg_nring_mixed(g);
   hasnr = 1;
 
   /* main loop */
@@ -503,7 +403,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     /* try to compute fb every step if its computation is cheap
      * this block useful if nstfb < 10 */
     if ( acc && gdirty ) {
-      /* detect special cases, including ring diagrams
+      /* detect special cases, including the ring diagram
        * we assume that ned and degs are available */
       sc = dg_rhsc_spec0(ng, 0, 0, &ned, degs, &err);
       hasfb = (err == 0); /* special case worked */
@@ -512,18 +412,18 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     } /* upon rejection, keep the old fb, hasfb, hasnr */
 
     if (it % nstfb == 0) {
+      if (!acc) ned = -1;
       /* only compute fb when necessary */
       if ( !hasfb ) {
-        if (dg_cliquesep(g) != 0) fb = 0;
-        else fb = dg_hsfb_que(que, g, 1, NULL, NULL, &neval);
+        fb = dg_hsfb_mixed0(g, 0, &ned, degs);
+        neval++;
         hasfb = 1;
       }
       av0_add(&fbsm, fb);
 
-      /* only compute nr when necessary */
-      if ( !hasnr ) {
-        if (!acc) ned = -1; /* let dg_nring0() compute ned & degs */
-        nr = dg_nring0(g, &ned, degs);
+      /* compute nr */
+      if (!hasnr) {
+        nr = dg_nring_mixed0(g, &ned, degs);
         hasnr = 1;
       }
       av0_add(&nrsm, nr);
@@ -574,7 +474,6 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   }
   dg_close(g);
   dg_close(ng);
-  dgque_close(que);
 }
 
 

@@ -94,7 +94,7 @@ static double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
  *                value of SC is zero
  *   if *err = 1, the diagram has no clique separator on return
  * *ned: number of edges; degs: unsorted degree sequence
- * if ned != NULL, *ned is computed on return */
+ * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
 INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
     int *ned, int *degs, int *err)
 {

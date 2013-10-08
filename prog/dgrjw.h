@@ -10,29 +10,41 @@
 #include <limits.h>
 
 
-typedef int64_t fb_t;
+#ifdef RJW32
 
-/* we will limit an n =
- * for n <= 20, max |fb(n)| = 20! = 2.4e18
- * for n <= 14, max |fb(n)| = 12! = 479001600 < |INT_MIN| */
-#define FBDIRTY ((fb_t) (-9.2e18))
+typedef int32_t fb_t;
+/* for n <= 14, max |fb(n)| = 12! = 479001600 < |FBDIRTY| */
+#define RJWNMAX 14
+#define FBDIRTY ((fb_t) 0x80808080) /* -2139062144 */
 #define FBINVALID(c) ((c) == FBDIRTY)
 
+#else /* 64-bit RJW */
+
+typedef int64_t fb_t;
+/* for n <= 20, max |fb(n)| = 20! = 2.4e18 < |FBDIRTY| */
+/* Note: the threshold is based on the limit 20! = 2.4e18
+ *  and 21! cannot be contained in a 64-bint integer
+ * The code may however fail before that due to the cancellation
+ *  in intermediate steps
+ * Another limit is that memory > 2^n * n */
+#define RJWNMAX 20
+#define FBDIRTY ((fb_t) 0x8080808080808080ull) /* -9187201950435737472 */
+#define FBINVALID(c) ((c) == FBDIRTY)
+#endif
 
 
 /* for a configuration, compute sum of all diagrams
   `c' is the connectivity matrix, `vs' is the vertex set */
 INLINE int dg_hsfqrjwlow(const code_t *c, code_t vs)
 {
-  code_t w, br;
+  code_t w, b;
 
-  /* if there is a bond, i.e., r(i, j) < 1, then fq = 1 */
-  for (w = vs; w; w ^= br) {
-    int r = bitfirstlow(w, &br);
-    /* if c[r] share vertices with vs, there is bond
-     * the regular partition function allows no clash
+  /* if there is a bond, i.e., r(i, j) < 1, then fq = 0 */
+  for (w = vs; w; w ^= b) {
+    /* if c[i] share vertices with vs, there is bond
+     * the Boltzmann weight = \prod_(ij) e_ij, and it allows no clash
      * therefore return zero immediately */
-    if (c[r] & vs) return 0;
+    if (c[bitfirstlow(w, &b)] & vs) return 0;
   }
   return 1;
 }
@@ -74,6 +86,7 @@ static fb_t dg_hsfcrjwlow(const code_t *c, code_t vs,
 
 
 
+#if 0
 /* compute the sum of connected diagrams by Wheatley's method
  * stand-alone driver */
 INLINE fb_t dg_hsfcrjw(const dg_t *g)
@@ -85,23 +98,22 @@ INLINE fb_t dg_hsfcrjw(const dg_t *g)
   die_if (n >= 31, "n = %d requires too much memory\n");
   if (fcarr == NULL) {
     nmax = n;
-    xnew(fcarr, 1u << nmax);
-    xnew(fqarr, 1u << nmax);
+    xnew(fcarr, 1u << (nmax + 1));
+    fqarr = fcarr + (1u << nmax);
   } else if (n > nmax) {
     nmax = n;
-    xrenew(fcarr, 1u << nmax);
-    xrenew(fqarr, 1u << nmax);
+    xrenew(fcarr, 1u << (nmax + 1));
+    fqarr = fcarr + (1u << nmax);
   }
-  for (i = 0; (unsigned) i < (1u << n); i++) {
+  for (i = 0; (unsigned) i < (1u << (n + 1)); i++)
     fcarr[i] = FBDIRTY;
-    fqarr[i] = FBDIRTY;
-  }
   return dg_hsfcrjwlow(g->c, mkbitsmask(n), fcarr, fqarr);
 }
+#endif
 
 
 
-INLINE fb_t dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
+INLINE fb_t dg_hsfa_rjwlow(const code_t *c, int n, int v, code_t vs,
     fb_t * RESTRICT faarr, fb_t * RESTRICT fbarr);
 
 
@@ -129,7 +141,7 @@ INLINE fb_t dg_hsfb_rjwlow(const code_t *c, int n, int v, code_t vs,
     i = bitfirstlow(r, &b);
     id = ((i + 1) << n) + vs; /* (i + 1) * 2^n + vs */
     if ( FBINVALID(faarr[id]) )
-      faarr[id] = dg_hsfarjwlow(c, n, i, vs, faarr, fbarr);
+      faarr[id] = dg_hsfa_rjwlow(c, n, i, vs, faarr, fbarr);
     fbarr[id] = (fb -= faarr[id]);
   }
   return fb;
@@ -139,7 +151,7 @@ INLINE fb_t dg_hsfb_rjwlow(const code_t *c, int n, int v, code_t vs,
 
 /* compute the sum of all connected diagrams with the articulation point at v
    and no articulation point at any vertex lower than v */
-INLINE fb_t dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
+INLINE fb_t dg_hsfa_rjwlow(const code_t *c, int n, int v, code_t vs,
     fb_t * RESTRICT faarr, fb_t * RESTRICT fbarr)
 {
   fb_t fa = 0;
@@ -164,7 +176,7 @@ INLINE fb_t dg_hsfarjwlow(const code_t *c, int n, int v, code_t vs,
       if ( FBINVALID(fbarr[id2]) )
         fbarr[id2] = dg_hsfb_rjwlow(c, n, v + 1, vs2, faarr, fbarr);
       if ( FBINVALID(faarr[id2]) )
-        faarr[id2] = dg_hsfarjwlow(c, n, v, vs2, faarr, fbarr);
+        faarr[id2] = dg_hsfa_rjwlow(c, n, v, vs2, faarr, fbarr);
       fa += fbarr[id1] * (fbarr[id2] + faarr[id2]);
     }
     /* update the subset `ms1' */
@@ -189,16 +201,17 @@ INLINE fb_t dg_hsfb_rjw(const dg_t *g)
   /* the memory requirement is 2^n * n */
   if (fbarr == NULL) {
     nmax = n;
-    xnew(faarr, (nmax + 1) << nmax);
-    xnew(fbarr, (nmax + 1) << nmax);
+    xnew(faarr, (nmax + 1) << (nmax + 1));
+    fbarr = faarr + ((nmax + 1) << nmax);
   } else if (n > nmax) {
     nmax = n;
-    xrenew(faarr, (nmax + 1) << nmax);
-    xrenew(fbarr, (nmax + 1) << nmax);
+    xrenew(faarr, (nmax + 1) << (nmax + 1));
+    fbarr = faarr + ((nmax + 1) << nmax);
   }
-  for (i = 0; i < ((nmax + 1) << nmax); i++)
-    faarr[i] = fbarr[i] = FBDIRTY;
-  return dg_hsfb_rjwlow(g->c, n, n, (1u << n) - 1, faarr, fbarr);
+  /* memset(faarr, 0x80u, ((n + 1) << (nmax + 1)) * sizeof(fb_t)); */
+  for (i = 0; i < (n + 1) << (nmax + 1); i++)
+    faarr[i] = FBDIRTY;
+  return dg_hsfb_rjwlow(g->c, n, n, mkbitsmask(n), faarr, fbarr);
 }
 
 
@@ -209,7 +222,8 @@ INLINE fb_t dg_hsfb_rjw(const dg_t *g)
  * a mixed strategy of dg_hsfb_rjw() and dg_rhsc()
  * nocsep = 1 means that the graph has been tested with no clique separator
  *        = 0 means it MAY have clique separators
- * *ned: number of edges; degs: degree sequence */
+ * *ned: number of edges; degs: degree sequence
+ * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
 INLINE double dg_hsfb_mixed0(const dg_t *g,
     int nocsep, int *ned, int *degs)
 {
@@ -221,11 +235,7 @@ INLINE double dg_hsfb_mixed0(const dg_t *g,
   sgn = 1 - (*ned % 2) * 2;
   if ( err == 0 ) {
     return sc * sgn;
-  } else if ( *ned <= 2*n - 3 || n > 20) {
-    /* Note: the threshold is based on the limit 20! = 2.4e18
-     * and 21! cannot be contained in a 64-bint integer
-     * The code may however fail before that due to cancelation
-     * Another limit is that memory > 2^n * n */
+  } else if ( *ned <= 2*n - 3 || n > RJWNMAX) {
     return dg_rhsc_directlow(g) * sgn;
   } else { /* hsfb_rjw() requires 2^(n + 1) * (n + 1) memory */
     return (double) dg_hsfb_rjw(g);
