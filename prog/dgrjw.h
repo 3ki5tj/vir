@@ -1,8 +1,7 @@
 #ifndef DGRJW_H__
 #define DGRJW_H__
 /* compute the overall weight of a configuration
- * by the method of Richard J. Wheatley,
- * PRL 110, 200601 (2013) */
+ * by the method of Richard J. Wheatley, PRL 110, 200601 (2013) */
 #include "dg.h"
 #include "dgcsep.h"
 #include "dgsc.h"
@@ -128,8 +127,11 @@ INLINE fb_t dg_hsfb_rjwlow(const code_t *c, int n, int v, code_t vs,
   fb_t fb;
   code_t r, b, bv = MKBIT(v);
 
-  if ((i = bitcount(vs)) <= 1) return 1;
-  else if (i == 2) return (c[ bitfirst(vs) ] & vs) ? -1 : 0;
+  if ((i = bitcount(vs)) <= 1) {
+    return 1;
+  } else if (i == 2) {
+    return (c[ bitfirst(vs) ] & vs) ? -1 : 0;
+  }
 
   /* start with the sum of connected diagrams, the first 2^n numbers of
    * fbarr and faarr are used for saving fcarr and fqarr, respectively */

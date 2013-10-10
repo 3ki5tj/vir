@@ -9,8 +9,9 @@
 #define ZCOM_AV
 #include "zcom.h"
 #include "dg.h"
-#include "dgrjw.h"
-#include "dgring.h"
+#include "dgrjw.h" /* hard-sphere weight / star content */
+#include "dgring.h" /* ring content */
+#include "dgmapl.h" /* larger lookup table */
 #include "mcutil.h"
 
 
@@ -35,6 +36,7 @@ int nstfb = 0; /* interval of evaluting the weight */
 int nstcom = 10000; /* frequency of the n move */
 int nstrep = 1000000000; /* interval of reporting */
 int lookup = -1; /* if to use the lookup table */
+int kdepth = 0; /* number of links to search in the larger lookup table */
 double ratcr = 0; /* rate of coordinates replacement */
 double r2cr = 0; /* variance of replaced coordinates */
 char *fnout = NULL;
@@ -57,6 +59,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-1", "%lf", &nsteps, "number of simulation steps");
   argopt_add(ao, "-a", "%r", &mcamp, "MC amplitude for system 0 (biconnected diagrams)");
   argopt_add(ao, "-L", "%d", &lookup, "lookup table (-1: automatic)");
+  argopt_add(ao, "-k", "%d", &kdepth, "number of links to search in the larger lookup table");
   argopt_add(ao, "-w", "%d", &nstfb, "interval of evaluating the weight");
   argopt_add(ao, "-q", "%d", &nstrep, "interval of reporting");
   argopt_add(ao, "-G", "%b", &gdisp, "normally-distributed displacement");
@@ -75,6 +78,8 @@ static void doargs(int argc, char **argv)
   /* interval of computing fb */
   if (nstfb <= 0) {
     if (lookup) {
+      nstfb = 1;
+    } else if (n <= DGMAPL_NMAX) {
       nstfb = 1;
     } else { /* TODO: improve this */
       nstfb = 10;
@@ -298,8 +303,10 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 #ifdef CHECK
       /* verify if fb has been correctly computed */
       {
-        double fb1 = dg_hsfb(g), nr1 = dg_nring(g);
+        double fb1, nr1;
         dg_decode(g, &code);
+        fb1 = dg_hsfb(g);
+        nr1 = dg_nring(g);
         if (fabs(fb - fb1) > 1e-3 || fabs(nr - nr1) > 1e-3) {
           printf("%d: t %g, fb %g vs %g, nr %g vs %g\n",
               inode, t, fb, fb1, nr, nr1);
@@ -313,7 +320,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
     av0_add(&nrsm, nr);
     av0_add(&fbsm, fb);
 
-    if (it % nstcom) rvn_rmcom(x, n);
+    if (it % nstcom == 0) rvn_rmcom(x, n);
 
     if (it % nstrep == 0 || t > nsteps - .5) {
       it = 0;
@@ -382,7 +389,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 
     if (ratcr > 0 && (ratcr >= 1 || rnd0() < ratcr)) {
       /* displace one particle attached to an edge */
-      acc = verepl(x, xi, g, ng, &ned, degs, &gdirty);
+      acc = verepl(x, xi, g, ng, &gdirty);
       racc.sx += acc;
       racc.s += 1;
     } else {  /* randomly displace a particle */
@@ -397,14 +404,13 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
       }
       cacc.sx += acc;
       cacc.s += 1;
-      ned = -1; /* ask dg_rhsc_spec0() to recompute degs[] */
     }
 
     /* try to compute fb every step if its computation is cheap
      * this block useful if nstfb < 10 */
     if ( acc && gdirty ) {
-      /* detect special cases, including the ring diagram
-       * we assume that ned and degs are available */
+      /* detect special cases, including the ring diagram */
+      ned = -1;
       sc = dg_rhsc_spec0(ng, 0, 0, &ned, degs, &err);
       hasfb = (err == 0); /* special case worked */
       if (hasfb) fb = DG_SC2FB(sc, ned);
@@ -412,20 +418,25 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     } /* upon rejection, keep the old fb, hasfb, hasnr */
 
     if (it % nstfb == 0) {
-      if (!acc) ned = -1;
-      /* only compute fb when necessary */
-      if ( !hasfb ) {
-        fb = dg_hsfb_mixed0(g, 0, &ned, degs);
-        neval++;
-        hasfb = 1;
+      if ( n <= DGMAPL_NMAX ) { /* use the larger lookup table */
+        if ( !hasfb || !hasnr ) {
+          fb = dg_fbnr_Lookup(g, kdepth, &nr);
+          hasfb = hasnr = 1;
+        }
+      } else {
+        /* only compute fb when necessary */
+        if ( !hasfb ) {
+          fb = dg_hsfb_mixed(g);
+          neval++;
+          hasfb = 1;
+        }
+        /* compute nr */
+        if (!hasnr) {
+          nr = dg_nring_mixed(g);
+          hasnr = 1;
+        }
       }
       av0_add(&fbsm, fb);
-
-      /* compute nr */
-      if (!hasnr) {
-        nr = dg_nring_mixed0(g, &ned, degs);
-        hasnr = 1;
-      }
       av0_add(&nrsm, nr);
     }
 

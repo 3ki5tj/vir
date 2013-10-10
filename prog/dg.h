@@ -29,8 +29,10 @@
 
 #if CODEBITS == 32
 typedef uint32_t code_t;
+typedef int32_t scode_t;
 #elif CODEBITS == 64
 typedef uint64_t code_t;
+typedef int64_t scode_t;
 #else
 #error "bad CODEBITS definition"
 #endif
@@ -121,7 +123,7 @@ INLINE int bitfirstlow(code_t x, code_t *b)
   if (*b == 0) {
     return 0;
   } else {
-    uint32_t low = *b & 0xffffffff;
+    uint32_t low = (uint32_t) (*b & 0xffffffff);
     if (low) return BRUIJNID32_(low);
     else return BRUIJNID32_(((*b) >> 32) & 0xffffffff) + 32;
   }
@@ -130,11 +132,11 @@ INLINE int bitfirstlow(code_t x, code_t *b)
 
 
 /* macro version of bitfirstlow(); */
-#define BITFIRSTLOW32(x, b, id) { \
+#define BITFIRSTLOW32(id, x, b) { \
   (b) = (x) & (-(x)); \
   (id) = BRUIJNID32(b); }
 
-#define BITFIRSTLOW64(x, b, id) { \
+#define BITFIRSTLOW64(id, x, b) { \
   (b) = (x) & (-(x)); \
   if ((b) == 0) { id = 0; } \
   else { uint32_t low_ = (b) & 0xffffffff; \
@@ -143,9 +145,9 @@ INLINE int bitfirstlow(code_t x, code_t *b)
   } }
 
 #if CODEBITS == 32
-#define BITFIRSTLOW(x, b, id) BITFIRSTLOW32(x, b, id)
+#define BITFIRSTLOW(id, x, b) BITFIRSTLOW32(id, x, b)
 #elif CODEBITS == 64
-#define BITFIRSTLOW(x, b, id) BITFIRSTLOW64(x, b, id)
+#define BITFIRSTLOW(id, x, b) BITFIRSTLOW64(id, x, b)
 #endif
 
 
@@ -157,7 +159,9 @@ INLINE int bitfirst(code_t x)
   return bitfirstlow(x, &b);
 }
 
-#define BITFIRST(x, id) { code_t b; id = BITFIRSTLOW(x, b, id); }
+
+
+#define BITFIRST(id, x) { code_t b_; BITFIRSTLOW(id, x, b_); }
 
 
 
@@ -401,12 +405,13 @@ INLINE dg_t *dg_clone(const dg_t *b)
 
 
 
-INLINE int dg_cmp(const dg_t *a, const dg_t *b)
+INLINE scode_t dg_cmp(const dg_t *a, const dg_t *b)
 {
-  int i, df;
+  int i;
+  scode_t df;
 
   for (i = 0; i < a->n; i++)
-    if ((df = a->c[i] - b->c[i]) != 0)
+    if ((df = (scode_t) (a->c[i] - b->c[i])) != 0)
       return df;
   return 0;
 }
@@ -472,7 +477,7 @@ INLINE int dg_biconnected(const dg_t *g)
     }
     return 1;
   } else if (n == 2) {
-    return (g->c[0] >> 1) & 1u;
+    return (int) ((g->c[0] >> 1) & 1u);
   } else /* if (n < 2) */ {
     return 1;
   }
@@ -486,7 +491,7 @@ INLINE int dg_biconnectedvs(const dg_t *g, code_t vs)
   code_t b, todo;
 
   for (todo = vs; todo; todo ^= b) {
-    b = todo & (code_t) (-todo); /* first vertex (1-bit) of the todo list */
+    b = todo & (-todo); /* first vertex (1-bit) of the todo list */
     if ( !dg_connectedvs(g, vs ^ b) )
       return 0;
   }
@@ -553,7 +558,7 @@ typedef short unqid_t;
 typedef struct {
   int ng; /* number of unique diagrams */
   unqid_t *map; /* map a diagram to the unique diagram
-                 `short' works for n <= 8 */
+                   `short' works for n <= 8 */
   code_t *first; /* index of the first unique diagram */
 } dgmap_t;
 
@@ -730,7 +735,6 @@ INLINE int dg_biconnected_lookuplow(int n, unqid_t id)
   }
   return bc[ n ][ id ];
 }
-
 
 
 #endif

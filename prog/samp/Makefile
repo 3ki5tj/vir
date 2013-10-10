@@ -6,12 +6,12 @@ LM = -lm
 # otherwise it causes trouble for mcgcr2.c in D = 15 and odd dimensions
 # for some icc versions
 CX = icc -O2 -march=native -ipo \
-     -Wall -Wunused -Wremarks -Wcheck -wd11001 -wd11006
+     -Wall -Wremarks -Wcheck -wd11001 -wd11006
 #CX = gcc -O3 -march=native -fwhole-program -Wall -Wextra -Wunused
 LMX =
 
-deps = dg.h dgcsep.h dgrjw.h dgsc.h dgring.h zcom.h Makefile mcutil.h
-bins = mcrat0 mcrat1 mcgc2 mcgcr2
+deps = dg.h dgmapl.h dgcsep.h dgrjw.h dgsc.h dgring.h zcom.h Makefile mcutil.h
+bins = mcrat0 mcrat0L mcrat1 mcgc2 mcgcr2
 bins_d = $(patsubst %,%_d, $(bins))
 
 all: $(bins)

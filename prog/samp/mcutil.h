@@ -640,8 +640,7 @@ INLINE int grepl0(rvn_t *x, rvn_t *nx, dg_t *g, dg_t *ng,
 
 
 /* replace the coordinates of a random vertex on an edge */
-INLINE int verepl(rvn_t *x, rvn_t xi, dg_t *g, dg_t *ng,
-    int *nedg, int *degs, int *gdirty)
+INLINE int verepl(rvn_t *x, rvn_t xi, dg_t *g, dg_t *ng, int *gdirty)
 {
   int i, j, k, n = g->n, ne0, ne1, c0, c1;
 
@@ -661,15 +660,10 @@ INLINE int verepl(rvn_t *x, rvn_t xi, dg_t *g, dg_t *ng,
   }
   if ( !*gdirty ) {
     rvn_copy(x[i], xi);
-    if (nedg != NULL) *nedg = dg_degs(ng, degs);
     return 1;
   }
   if ( !dg_biconnected(ng) ) return 0;
-  if (nedg == NULL) {
-    ne1 = dg_nedges(ng);
-  } else { /* compute the degree sequence */
-    *nedg = ne1 = dg_degs(ng, degs);
-  }
+  ne1 = dg_nedges(ng);
   if ( ne1 > ne0 && ne1 * rnd0() >= ne0 ) return 0;
   dg_copy(g, ng);
   rvn_copy(x[i], xi);

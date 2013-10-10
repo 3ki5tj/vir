@@ -42,18 +42,20 @@ static void speed_connected(int n, int nsteps)
   dg_t *g = dg_open(n);
   clock_t t0;
   int t, npr = n*(n-1)/2, i = 0, j = 1, sum = 0;
+  double tsum = 0;
 
   dg_full(g);
-
-  t0 = clock();
   for (t = 0; t < nsteps; t++) {
     parsepairindex((int) (npr *rnd0()), n, &i, &j);
     if (dg_linked(g, i, j)) dg_unlink(g, i, j);
     else dg_link(g, i, j);
+    t0 = clock();
     sum += dg_connected(g);
+    tsum += clock() - t0;
   }
-  printf("connected, n %d: time used: %gs/%d\n",
-      n, 1.*(clock() - t0) / CLOCKS_PER_SEC, nsteps);
+  tsum /= CLOCKS_PER_SEC;
+  printf("connected, n %d: time used: %gs/%d = %gmcs\n",
+      n, tsum, nsteps, tsum/nsteps*1e6);
   dg_close(g);
 }
 
@@ -81,6 +83,7 @@ static void verify_biconnected(int n, int nsteps)
   printf("verified biconnectivity of %d diagrams\n", nsteps);
   dg_close(g);
 }
+
 
 
 static void speed_biconnected(int n, int nsteps,
@@ -128,8 +131,9 @@ static void speed_biconnected(int n, int nsteps,
     }
 #endif
   }
-  printf("biconnected, n %d: time used: %gs/%d, av %g\n",
-      n, tsum / CLOCKS_PER_SEC, nsteps, 1. * sum / nsteps);
+  tsum /= CLOCKS_PER_SEC;
+  printf("biconnected, n %d: time used: %gs/%d = %gmcs, av %g\n",
+      n, tsum, nsteps, tsum / nsteps * 1e6, 1. * sum / nsteps);
   dg_close(g);
 }
 
@@ -207,7 +211,7 @@ int main(int argc, char **argv)
   if (argc > 4) nsteps1 = atoi(argv[4]);
   if (argc > 5) method = argv[5][0];
   if (argc > 6) nedmax = atoi(argv[6]);
-  printf("speed tsest: n %d, nsteps %d, method %c, nedmax %d\n",
+  printf("speed test: n %d, nsteps %d, method %c, nedmax %d\n",
       n1, nsteps1, method, nedmax);
   speed_connected(n1, nsteps1);
   speed_biconnected(n1, nsteps1, method, nedmax);

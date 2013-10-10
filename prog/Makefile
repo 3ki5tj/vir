@@ -5,7 +5,7 @@ LM = -lm
 CX = icc -O3 -march=native -ipo -Wall -Wunused -Wremarks -Wcheck -wd11001 -wd11006
 LMX =
 
-deps = dg.h dgcsep.h dgsc.h dgrjw.h dgring.h dgdb.h zcom.h Makefile
+deps = dg.h dgmapl.h dgcsep.h dgsc.h dgrjw.h dgring.h dgdb.h zcom.h Makefile
 bins = $(patsubst %.c,%, $(wildcard test*.c))
 bins_d = $(patsubst %.c,%_d, $(wildcard test*.c))
 
@@ -16,6 +16,9 @@ $(bins) : %: %.c $(deps)
 
 $(bins_d) : %_d: %.c $(deps)
 	$(CC) -o $@ $< $(LM)
+
+sync:
+	rsync -avzL *.[ch] cz1@129.109.88.204:lwork/vir
 
 clean:
 	rm -rf $(bins) $(bins_d) *~ a.out *.his MTSEED bin obj

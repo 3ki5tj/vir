@@ -32,7 +32,7 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
     /* select the vertex with the largest label */
     bw = numbered;
     for (r = ~numbered & mask; r; r ^= bv) {
-      v = bitfirstlow(r, &bv);
+      BITFIRSTLOW(v, r, bv);
       if ( l2[v]/2 == k - 1 ) { /* found it */
         numbered |= bv;
         break;
@@ -50,7 +50,7 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
 
     /* handle immediate neighbors of v */
     for (r = g->c[v] & ~numbered & mask; r; r ^= bw) {
-      w = bitfirstlow(r, &bw);
+      BITFIRSTLOW(w, r, bw);
       /* the immediate neighbors of w are the starting points
        * of the search, we group them by the labels */
       reach[ l2[w]/2 ] |= bw;
@@ -68,10 +68,10 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
     for (j = 0; j < k; j++) {
       while ( reach[j] ) { /* if the vertex set is not empty */
         /* delete the first w from reach[j] */
-        w = bitfirstlow(reach[j], &bw);
+        BITFIRSTLOW(w, reach[j], bw);
         reach[j] ^= bw; /* remove w from reach[j] */
         while ( (r = (g->c[w] & ~reached)) != 0 ) {
-          z = bitfirstlow(r, &bz);
+          BITFIRSTLOW(z, r, bz);
           reached |= bz;
           if ((l = l2[z]/2) > j) {
             reach[l] |= bz;
@@ -88,7 +88,7 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
     for (l = 0; l < 2*n; l++) cnt[l] = 0;
     /* accumulate the number of visits of each label */
     for (r = ~numbered & mask; r; r ^= bw) {
-      w = bitfirstlow(r, &bw);
+      BITFIRSTLOW(w, r, bw);
       cnt[ l2[w] ] = 1;
     }
     /* count the number of different labels */
@@ -96,7 +96,7 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
       if ( cnt[l] ) /* compute the new label */
         cnt[l] = k++; /* cnt[l] is now the new label */
     for (r = ~numbered & mask; r; r ^= bw) {
-      w = bitfirstlow(r, &bw);
+      BITFIRSTLOW(w, r, bw);
       l2[w] = 2 * cnt[ l2[w] ]; /* set the new label */
     }
   }
@@ -126,13 +126,13 @@ INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
     /* compute C(v), the set of succeeding vertices that
      * are adjacent to v */
     for (c = 0, r = (unvisited & f->c[v]); r; r ^= bw) {
-      w = bitfirstlow(r, &bw);
+      BITFIRSTLOW(w, r, bw);
       if (p[w] > p[v])
         c |= MKBIT(w);
     }
     /* test if C(v) is a clique, a fully-connected subgraph */
     for (r = c; r; r ^= bw) {
-      w = bitfirstlow(r, &bw);
+      BITFIRSTLOW(w, r, bw);
       /* c ^ bw is the set of vertices connected to `w'
        * in `c', if `c' is a clique */
       cb = c ^ bw;
