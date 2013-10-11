@@ -19,7 +19,7 @@
 
 /* Ree-Hoover formula for the star content of a larger diagram of
  * n vertices from that of a smaller diagram of n-1 vertices */
-static double dg_rhiter(int n, int n0, double sc)
+INLINE double dg_rhiter(int n, int n0, double sc)
 {
   int i;
 
@@ -32,7 +32,7 @@ static double dg_rhiter(int n, int n0, double sc)
 
 
 /* minimize the diagram of `g' by removing fully-connected vertices */
-static dg_t *dg_mintop(dg_t *g)
+INLINE dg_t *dg_mintop(dg_t *g)
 {
   int i;
   code_t mask = mkbitsmask(g->n);
@@ -54,7 +54,7 @@ static dg_t *dg_mintop(dg_t *g)
 
 /* recursively find the star content
  * starting from the edge (i, j + 1) */
-static double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
+INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
 {
   int n = g->n;
   double sc = 0;
@@ -99,7 +99,7 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
     int *ned, int *degs, int *err)
 {
   int i, j, n = g->n, ned0, ned1;
-  static int ldegs[DG_NMAX]; /* local buffer for the degree sequence */
+  TSTATIC int ldegs[DG_NMAX]; /* local buffer for the degree sequence */
 
   *err = 0;
   /* compute the degrees of all vertices */
@@ -170,7 +170,7 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
  * unconnected edge is treated as a wiggly line
  * SC = # of biconnected subgraphs with even edges removed
  *    - # of biconnected subgraphs with odd edges removed */
-static double dg_rhsc_directlow(const dg_t *g)
+INLINE double dg_rhsc_directlow(const dg_t *g)
 {
   double sc;
   dg_t *g0 = NULL;
@@ -213,38 +213,43 @@ INLINE double dg_rhsc_direct0(const dg_t *g, int nocsep, int *ned, int *degs)
 /* compute the star content by a look up table */
 INLINE double dg_rhsc_lookup(const dg_t *g)
 {
-  static double *sc[DGMAP_NMAX + 1]; /* biconnectivity of unique diagrams */
+  static double *sc[DGMAP_NMAX + 1];
   int n = g->n;
   dgmap_t *m = dgmap_ + n;
   code_t c;
 
   if (n <= 1) return 1;
-  if (sc[n] == NULL) { /* initialize the look-up table */
-    dg_t *g1;
-    int k, cnt = 0, nz = 0;
-    clock_t t0 = clock(), t1;
+#pragma omp critical
+  {
+    if (sc[n] == NULL) { /* initialize the look-up table */
+      dg_t *g1;
+      int k, cnt = 0, nz = 0;
+      double *scn;
+      clock_t t0 = clock(), t1;
 
-    if (n >= 8) printf("n %d: initializing...\n", n);
-    dgmap_init(m, n); /* compute the permutation mapping */
-    if (sc[n] == NULL) xnew(sc[n], m->ng);
+      if (n >= 8) printf("n %d: initializing...\n", n);
+      dgmap_init(m, n); /* compute the permutation mapping */
+      xnew(scn, m->ng);
 
-    t1 = clock();
-    if (n >= 8) printf("n %d: diagram-map initialized %gs\n",
-        n, 1.*(t1 - t0)/CLOCKS_PER_SEC);
-    /* loop over unique diagrams */
-    g1 = dg_open(n);
-    for (cnt = 0, k = 0; k < m->ng; k++) {
-      dg_decode(g1, &m->first[k]);
-      if ( dg_biconnected(g1) ) {
-        sc[n][k] = dg_rhsc_direct(g1);
-        cnt++;
-        nz += (fabs(sc[n][k]) > 0.5);
-      } else sc[n][k] = 0;
+      t1 = clock();
+      if (n >= 8) printf("n %d: diagram-map initialized %gs\n",
+          n, 1.*(t1 - t0)/CLOCKS_PER_SEC);
+      /* loop over unique diagrams */
+      g1 = dg_open(n);
+      for (cnt = 0, k = 0; k < m->ng; k++) {
+        dg_decode(g1, &m->first[k]);
+        if ( dg_biconnected(g1) ) {
+          scn[k] = dg_rhsc_direct(g1);
+          cnt++;
+          nz += (fabs(scn[k]) > 0.5);
+        } else scn[k] = 0;
+      }
+      dg_close(g1);
+      printf("n %d, computed star contents of %d/%d biconnected diagrams, %gs\n",
+          n, cnt, nz, 1.*(clock() - t1)/CLOCKS_PER_SEC);
+      sc[n] = scn;
     }
-    dg_close(g1);
-    printf("n %d, computed star contents of %d/%d biconnected diagrams, %gs\n",
-        n, cnt, nz, 1.*(clock() - t1)/CLOCKS_PER_SEC);
-  }
+  } /* omp critical */
   dg_encode(g, &c);
   return sc[n][ m->map[c] ]; /* m->map[c] is the id of the unique diagram */
 }

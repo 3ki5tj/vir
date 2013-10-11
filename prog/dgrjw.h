@@ -53,7 +53,7 @@ INLINE int dg_hsfqrjwlow(const code_t *c, code_t vs)
 /* for a configuration, compute the sum of connected diagrams by
  * Wheatley's recursion formula
  * `c' is the connectivity matrix,  `vs' is the vertex set */
-static fb_t dg_hsfcrjwlow(const code_t *c, code_t vs,
+INLINE fb_t dg_hsfcrjwlow(const code_t *c, code_t vs,
     fb_t * RESTRICT fcarr, fb_t * RESTRICT fqarr)
 {
   fb_t fc, fc1, fq2;
@@ -198,6 +198,10 @@ INLINE fb_t dg_hsfb_rjw(const dg_t *g)
 {
   static int nmax;
   static fb_t *faarr, *fbarr;
+/* every thread needs its own memory to do independent calculation
+ * so these variables must be thread private */
+#pragma omp threadprivate(nmax, faarr, fbarr)
+
   int i, n = g->n;
 
   /* the memory requirement is 2^n * n */
@@ -256,29 +260,35 @@ INLINE double dg_hsfb_lookuplow(int n, unqid_t id)
   static double *fb[DGMAP_NMAX + 1]; /* fb of unique diagrams */
 
   if (n <= 1) return 1;
-  if (fb[n] == NULL) { /* initialize the look-up table */
-    dg_t *g;
-    dgmap_t *m = dgmap_ + n;
-    int k, cnt = 0, nz = 0;
-    clock_t t0 = clock();
 
-    dgmap_init(m, n);
-    if (fb[n] == NULL) xnew(fb[n], m->ng);
+#pragma omp critical
+  {
+    if (fb[n] == NULL) { /* initialize the look-up table */
+      dg_t *g;
+      dgmap_t *m = dgmap_ + n;
+      int k, cnt = 0, nz = 0;
+      double *fbn;
+      clock_t t0 = clock();
 
-    /* loop over unique diagrams */
-    g = dg_open(n);
-    for (cnt = 0, k = 0; k < m->ng; k++) {
-      dg_decode(g, &m->first[k]);
-      if ( dg_biconnected(g) ) {
-        fb[n][k] = (double) (dg_cliquesep(g) ? 0 : dg_hsfb_rjw(g));
-        cnt++;
-        nz += (fabs(fb[n][k]) > .5);
-      } else fb[n][k] = 0;
+      dgmap_init(m, n);
+      xnew(fbn, m->ng);
+
+      /* loop over unique diagrams */
+      g = dg_open(n);
+      for (cnt = 0, k = 0; k < m->ng; k++) {
+        dg_decode(g, &m->first[k]);
+        if ( dg_biconnected(g) ) {
+          fbn[k] = (double) (dg_cliquesep(g) ? 0 : dg_hsfb_rjw(g));
+          cnt++;
+          nz += (fabs(fbn[k]) > .5);
+        } else fbn[k] = 0;
+      }
+      dg_close(g);
+      printf("%4d: n %d, computed hard sphere weights of %d/%d biconnected diagrams, %gs\n",
+          inode, n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+      fb[n] = fbn;
     }
-    dg_close(g);
-    printf("n %d, computed hard sphere weights of %d/%d biconnected diagrams, %gs\n",
-        n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
-  }
+  } /* omp critical */
   return fb[ n ][ id ];
 }
 

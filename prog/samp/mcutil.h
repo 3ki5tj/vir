@@ -187,7 +187,7 @@ INLINE double B4rat_ring(int d)
 INLINE double B4rat_diamond(int d)
 {
   /* Clisby and McCoy J. Stat. Phys. */
-  static double tab[] = {-8,
+  static const double tab[] = {-8,
     -14./3,
     -8 + 8*SQRT3OVERPI + 20./3*ONEOVERPISQR,
     -6347./3360,
@@ -214,7 +214,7 @@ INLINE double B4rat_full(int d)
 {
   /* Even: Clisby and McCoy, J. Stat. Phys. 114 1343 (2004)
    * Odd: Lyberg J. Stat. Phys. 119 747 (2005) */
-  static double tab[] = {0, 0,
+  static const double tab[] = {0, 0,
     8 - 12*SQRT3OVERPI + 8 * ONEOVERPISQR,
     (-89./280 - 219./1120*SQRT2OVERPI + 4131./2240*ACOS13OVERPI) * 4,
     8 - 18*SQRT3OVERPI + 238./9 * ONEOVERPISQR,
@@ -753,7 +753,7 @@ INLINE int dgmc_nremove1(const dg_t *g, dg_t *sg, int n, int *i)
 INLINE double trialvol(int n, int d)
 {
   double vol = 1;
-  static double ab[][2] = {{0.7, 1.8},
+  static const double ab[][2] = {{0.7, 1.8},
     {0.70, 1.8}, {0.70, 1.8}, {0.82, 1.9}, {0.90, 2.0}, {0.94, 2.0},
     {0.95, 2.0}, {0.95, 1.8}, {0.95, 1.8}, {0.95, 2.6}, {0.95, 3.0}};
   if (d <= 10) vol = ab[d][0] * n - ab[d][1];

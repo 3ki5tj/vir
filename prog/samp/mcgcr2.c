@@ -8,15 +8,6 @@
 #include "dgring.h"
 #include "mcutil.h"
 
-#ifdef MPI
-#include "mpi.h"
-#define MPI_MYREAL ( (sizeof(real) == sizeof(double)) ? MPI_DOUBLE : MPI_FLOAT )
-/* global variables */
-MPI_Comm comm = MPI_COMM_WORLD;
-#endif
-#define MASTER 0
-int inode = MASTER, nnodes = 1;
-
 
 
 int nmin = 1; /* the minimal order of virial coefficients */
@@ -1282,8 +1273,28 @@ int main(int argc, char **argv)
   MPI_Comm_rank(comm, &inode);
   MPI_Comm_size(comm, &nnodes);
 #endif
+
   doargs(argc, argv);
-  mcgcr(nmin, nmax, mtiers, nsteps, mcamp, neql, nequil, nstsave);
+
+#ifdef _OPENMP
+  nnodes = omp_get_num_threads();
+  if (nnodes == 1) {
+    nnodes = omp_get_max_threads();
+    omp_set_num_threads(nnodes);
+  }
+  printf("set up %d OpenMP threads\n", nnodes);
+
+#pragma omp parallel
+  {
+    inode = omp_get_thread_num();
+#endif
+
+    mcgcr(nmin, nmax, mtiers, nsteps, mcamp, neql, nequil, nstsave);
+
+#ifdef _OPENMP
+  }
+#endif
+
 #ifdef MPI
   MPI_Finalize();
 #endif

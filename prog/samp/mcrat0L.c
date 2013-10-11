@@ -18,17 +18,6 @@
 
 
 
-#ifdef MPI
-#include <mpi.h>
-#define MPI_MYREAL ( (sizeof(real) == sizeof(double)) ? MPI_DOUBLE : MPI_FLOAT )
-MPI_Comm comm = MPI_COMM_WORLD;
-#endif
-#define MASTER 0
-int inode = MASTER, nnodes = 1;
-
-
-
-
 int n = 9; /* order */
 double nequil = 1000000; /* number of equilibration steps */
 double nsteps = 10000000;
@@ -189,7 +178,7 @@ static void mcrat_Lookup(int n, double nequil, double nsteps,
     real amp, int nstfb, int nstcom)
 {
   rvn_t x[DG_NMAX], xi;
-  int i, it, acc, nbc, gdirty = 0, dirty = 0;
+  int i, it, acc, gdirty = 0, dirty = 0;
   dg_t *g, *ng;
   double t, fb, nr;
   av0_t fbsm, nrsm, cacc, racc;
@@ -217,8 +206,8 @@ static void mcrat_Lookup(int n, double nequil, double nsteps,
     BCSTEP(acc, i, n, g, ng, x, xi, amp, 0);
   printf("%4d: equilibrated at t %g, nedges %d\n",
       inode, nequil, dg_nedges(g));
-  nbc = dg_biconnected(g);
-  die_if (!nbc, "g %d not biconnected\n", g->n);
+  die_if (!dg_biconnected(g),
+      "initial graph (n = %d) not biconnected\n", g->n);
   fb = dg_fbnr_Lookup(g, kdepth, &nr);
 
   /* main loop */
@@ -267,9 +256,27 @@ int main(int argc, char **argv)
   MPI_Comm_rank(comm, &inode);
   MPI_Comm_size(comm, &nnodes);
 #endif
+
   doargs(argc, argv);
 
-  mcrat_Lookup(n, nequil, nsteps, mcamp, nstfb, nstcom);
+#ifdef _OPENMP
+  nnodes = omp_get_num_threads();
+  if (nnodes == 1) {
+    nnodes = omp_get_max_threads();
+    omp_set_num_threads(nnodes);
+  }
+  printf("set up %d OpenMP threads\n", nnodes);
+
+#pragma omp parallel
+  {
+    inode = omp_get_thread_num();
+#endif
+
+    mcrat_Lookup(n, nequil, nsteps, mcamp, nstfb, nstcom);
+
+#ifdef _OPENMP
+  }
+#endif
 
 #ifdef MPI
   MPI_Finalize();

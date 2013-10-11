@@ -5,11 +5,43 @@
 
 
 
+#ifdef MPI
+#include <mpi.h>
+#define MPI_MYREAL ( (sizeof(real) == sizeof(double)) ? MPI_DOUBLE : MPI_FLOAT )
+MPI_Comm comm = MPI_COMM_WORLD;
+#endif
+#define MASTER 0
+int inode = MASTER, nnodes = 1;
+
+#ifdef __INTEL_COMPILER
+#pragma warning(disable:161)  /* don't complain unknown omp pragma */
+#endif
+
+
+#pragma omp threadprivate(inode)
+
+
+
+#ifdef _OPENMP
+#define TSTATIC
+#else
+/* variables that can be static only with a single thread */
+#define TSTATIC static
+#endif
+
+
 #define ZCOM_PICK
 #define ZCOM_UTIL
 #define ZCOM_RV3
 #include "zcom.h"
 #include <time.h>
+
+
+
+#ifdef __INTEL_COMPILER
+/* operands evaluated in unspecified order */
+#pragma warning(disable:981)
+#endif
 
 
 
@@ -235,7 +267,8 @@ INLINE int dg_degs(const dg_t *g, int *degs)
 /* count sort the degree sequence, TO BE TESTED */
 INLINE void dg_csortdegs(const dg_t *g, int *degs)
 {
-  int i, j, k = 0, n = g->n, cnt[DG_NMAX] = {0};
+  int i, j, k = 0, n = g->n;
+  TSTATIC int cnt[DG_NMAX] = {0};
 
   for (i = 0; i < n; i++) cnt[ degs[i] ]++;
   for (i = n - 1; i >= 0; i--)
@@ -261,7 +294,7 @@ INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
 {
   int i, j, k, n = g->n, ne, ipr, rr;
   code_t c, b;
-  static int cnt[DG_NMAX];
+  TSTATIC int cnt[DG_NMAX];
 
   *i0 = *i1 = 0; /* in case no edge exists */
   for (ne = 0, i = 1; i < n; i++)
@@ -362,7 +395,7 @@ INLINE dg_t *dg_decode(dg_t *g, code_t *code)
 
 
 /* open a diagram */
-static dg_t *dg_open(int n)
+INLINE dg_t *dg_open(int n)
 {
   dg_t *g;
 
@@ -377,7 +410,7 @@ static dg_t *dg_open(int n)
 
 
 /* close the database */
-static void dg_close(dg_t *g)
+INLINE void dg_close(dg_t *g)
 {
   if (g->c) free(g->c);
   free(g);
@@ -418,11 +451,13 @@ INLINE scode_t dg_cmp(const dg_t *a, const dg_t *b)
 
 
 
-INLINE void dg_print(const dg_t *g)
+#define dg_print(g) dg_print0(g, NULL)
+
+INLINE void dg_print0(const dg_t *g, const char *nm)
 {
   int i, j;
 
-  printf("    ");
+  printf("%-4s", nm ? nm : "");
   for (i = 0; i < g->n; i++)
     printf(" %2d", i);
   printf("\n");
@@ -506,7 +541,7 @@ INLINE int dg_biconnectedvs(const dg_t *g, code_t vs)
 INLINE int dg_biconnected_std(const dg_t *g)
 {
   int i0, v, par, n = g->n, id, root = 0;
-  static int stack[DG_NMAX + 1], parent[DG_NMAX], dfn[DG_NMAX], low[DG_NMAX];
+  TSTATIC int stack[DG_NMAX + 1], parent[DG_NMAX], dfn[DG_NMAX], low[DG_NMAX];
 
   for (v = 0; v < n; v++) {
     dfn[v] = 0; /* no vertex is visited */
@@ -564,7 +599,7 @@ typedef struct {
 
 
 
-/* static diagram map for n <= DGMAP_NMAX */
+/* diagram map for n <= DGMAP_NMAX */
 #define DGMAP_NMAX 8
 dgmap_t dgmap_[DGMAP_NMAX + 1];
 
@@ -615,58 +650,67 @@ INLINE int dgmap_getperm(int n, int **pp)
 INLINE int dgmap_init(dgmap_t *m, int n)
 {
   code_t c, c1, ng, *masks, *ms;
-  int ipm, npm, *pm, i, j, ipr, npr, sz;
+  int ipm, npm, *pm, i, j, ipr, npr, sz, gid;
   clock_t t0;
 
   die_if (n > DGMAP_NMAX || n <= 0, "bad n %d\n", n);
   if (m->ng > 0) return 0; /* already initialized */
 
-  t0 = clock();
-  if (n >= 8) printf("n %d: initializing the diagram map\n", n);
+  /* this function can only be called once */
+#pragma omp critical
+  {
+    t0 = clock();
+    if (n >= 8) printf("%4d: n %d: initializing the diagram map\n", inode, n);
 
-  npr = n * (n - 1) / 2;
-  ng = (int)( 1u << npr );
-  xnew(m->map, ng);
-  for (c = 0; c < ng; c++) m->map[c] = -1;
-  xnew(m->first, sz = 1024);
+    npr = n * (n - 1) / 2;
+    ng = (int)( 1u << npr );
+    xnew(m->map, ng);
+    for (c = 0; c < ng; c++) m->map[c] = -1;
+    xnew(m->first, sz = 1024);
 
-  if (n == 1) {
-    m->map[0] = 0;
-    m->first[0] = 0;
-    return 0;
-  }
-
-  /* compute all permutations */
-  npm = dgmap_getperm(n, &pm);
-  /* for each permutation compute the mask of each particle pair */
-  xnew(masks, npm * npr);
-  for (ipm = 0; ipm < npm; ipm++)
-    for (ipr = 0, i = 0; i < n - 1; i++)
-      for (j = i + 1; j < n; j++, ipr++)
-        masks[ipm * npr + ipr] /* code bit of the pair (i, j) */
-          = MKBIT( getpairindex(pm[ipm*n + i], pm[ipm*n + j], n) );
-  free(pm);
-
-  /* loop over all diagrams */
-  for (m->ng = 0, c = 0; c < ng; c++) {
-    if (m->map[c] >= 0) continue;
-    if (m->ng >= sz) xrenew(m->first, sz += 1024);
-    m->first[m->ng] = c;
-    /* add all permutations of the diagram */
-    for (ms = masks, ipm = 0; ipm < npm; ipm++) {
-      /* `c1' is the code of the permutated diagram `c' */
-      for (c1 = 0, ipr = 0; ipr < npr; ipr++, ms++)
-        if ((c >> ipr) & 1u) c1 |= *ms;
-      if (m->map[c1] < 0) m->map[c1] = (unqid_t) m->ng;
-      else die_if (m->map[c1] != m->ng,
-        "error: corruption code: %#x %#x, graph %d, %d\n",
-        c, c1, m->map[c1], m->ng);
+    if (n == 1) {
+      m->map[0] = 0;
+      m->first[0] = 0;
+      goto END;
     }
-    m->ng++;
-  }
-  free(masks);
-  printf("n %d, initialized, %d unique diagrams, %gs\n",
-     n, m->ng, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+
+    /* compute all permutations */
+    npm = dgmap_getperm(n, &pm);
+    /* for each permutation compute the mask of each particle pair */
+    xnew(masks, npm * npr);
+    for (ipm = 0; ipm < npm; ipm++)
+      for (ipr = 0, i = 0; i < n - 1; i++)
+        for (j = i + 1; j < n; j++, ipr++)
+          masks[ipm * npr + ipr] /* code bit of the pair (i, j) */
+            = MKBIT( getpairindex(pm[ipm*n + i], pm[ipm*n + j], n) );
+    free(pm);
+
+    /* loop over all diagrams */
+    for (gid = 0, c = 0; c < ng; c++) {
+      if (m->map[c] >= 0) continue;
+      if (gid >= sz) xrenew(m->first, sz += 1024);
+      m->first[gid] = c;
+      /* add all permutations of the diagram */
+      for (ms = masks, ipm = 0; ipm < npm; ipm++) {
+        /* `c1' is the code of the permutated diagram `c' */
+        for (c1 = 0, ipr = 0; ipr < npr; ipr++, ms++)
+          if ((c >> ipr) & 1u) c1 |= *ms;
+        if (m->map[c1] < 0) {
+          m->map[c1] = (unqid_t) gid;
+        } else die_if (m->map[c1] != gid,
+          "%4d: error: corruption code: %#x %#x, graph %d, %d\n",
+          inode, c, c1, m->map[c1], gid);
+      }
+      gid++;
+    }
+    free(masks);
+    printf("%4d: n %d, initialized, %d unique diagrams, %gs\n",
+       inode, n, gid, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+    /* we set m->ng now, for everything is properly set now */
+    m->ng = gid;
+END:
+    ;
+  } /* omp critical */
   return 0;
 }
 
@@ -719,20 +763,24 @@ INLINE int dg_biconnected_lookuplow(int n, unqid_t id)
   /* biconnectivity of unique diagrams */
   static int *bc[DGMAP_NMAX + 1] = {NULL};
 
-  if (bc[n] == NULL) {
-    dg_t *g1 = dg_open(n);
-    dgmap_t *m = dgmap_ + n;
-    int k;
+#pragma omp critical
+  {
+    if (bc[n] == NULL) { /* initialize the look-up table */
+      dg_t *g1 = dg_open(n);
+      dgmap_t *m = dgmap_ + n;
+      int k, *bcn;
 
-    dgmap_init(m, n);
-    xnew(bc[n], m->ng);
-    for (k = 0; k < m->ng; k++) {
-      code_t c = m->first[k];
-      dg_decode(g1, &c);
-      bc[n][k] = dg_biconnected(g1);
+      dgmap_init(m, n);
+      xnew(bcn, m->ng);
+      for (k = 0; k < m->ng; k++) {
+        code_t c = m->first[k];
+        dg_decode(g1, &c);
+        bcn[k] = dg_biconnected(g1);
+      }
+      dg_close(g1);
+      bc[n] = bcn;
     }
-    dg_close(g1);
-  }
+  } /* omp critical */
   return bc[ n ][ id ];
 }
 

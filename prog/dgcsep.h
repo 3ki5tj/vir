@@ -157,8 +157,10 @@ INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
 /* test if a graph has a clique separator */
 INLINE code_t dg_cliquesep(const dg_t *g)
 {
-  static dg_t *fs[DG_NMAX + 1], *f; /* fill-in graph */
+  static dg_t *fs[DG_NMAX + 1];
   static int a[DG_NMAX], p[DG_NMAX]; /* a[k] is the kth vertex, p = a^(-1) */
+#pragma omp threadprivate(fs, a, p)
+  dg_t *f; /* fill-in graph */
   int n = g->n;
   code_t cl;
 
@@ -180,8 +182,10 @@ INLINE code_t dg_cliquesep(const dg_t *g)
 
 INLINE int dg_decompcsep(const dg_t *g, code_t * RESTRICT cl)
 {
-  static dg_t *fs[DG_NMAX + 1], *f;
+  static dg_t *fs[DG_NMAX + 1];
   static int a[DG_NMAX], p[DG_NMAX]; /* a[k] is the kth vertex, p = a^(-1) */
+#pragma omp threadprivate(fs, a, p)
+  dg_t *f;
   int n = g->n;
 
   if (fs[n] == NULL) fs[n] = dg_open(n);
@@ -202,12 +206,15 @@ INLINE int dg_ncsep_lookuplow(const dg_t *g, code_t c)
   static char *ncl[DGMAP_NMAX + 1];
   int n = g->n;
 
-  if (ncl[n] == NULL) {
-    int ipr, npr = 1u << (n * (n - 1) / 2);
-    xnew(ncl[n], npr);
-    for (ipr = 0; ipr < npr; ipr++) ncl[n][ipr] = (char) (-1);
-  }
-  if (ncl[n][c] < 0) ncl[n][c] = (char) dg_ncsep(g);
+#pragma omp critical
+  {
+    if (ncl[n] == NULL) {
+      int ipr, npr = 1u << (n * (n - 1) / 2);
+      xnew(ncl[n], npr);
+      for (ipr = 0; ipr < npr; ipr++) ncl[n][ipr] = (char) (-1);
+    }
+    if (ncl[n][c] < 0) ncl[n][c] = (char) dg_ncsep(g);
+  } /* omp critical */
   return ncl[n][c];
 }
 

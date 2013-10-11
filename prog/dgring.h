@@ -10,7 +10,7 @@ INLINE double dg_nring_spec0(const dg_t *g,
     int *ned, int *degs, int *err)
 {
   int i, j, n = g->n, ned0, ned1;
-  static int ldegs[DG_NMAX]; /* local buffer of the degree sequence */
+  TSTATIC int ldegs[DG_NMAX]; /* local buffer of the degree sequence */
   double x;
 
   *err = 0;
@@ -117,29 +117,35 @@ INLINE double dg_nring_lookuplow(int n, unqid_t id)
   static double *nr[DGMAP_NMAX + 1]; /* nr of unique diagrams */
 
   if (n <= 1) return 1;
-  if (nr[n] == NULL) { /* initialize the look-up table */
-    dg_t *g;
-    dgmap_t *m = dgmap_ + n;
-    int k, cnt = 0, nz = 0;
-    clock_t t0 = clock();
 
-    dgmap_init(m, n);
-    if (nr[n] == NULL) xnew(nr[n], m->ng);
+#pragma omp critical
+  {
+    if (nr[n] == NULL) { /* initialize the look-up table */
+      dg_t *g;
+      dgmap_t *m = dgmap_ + n;
+      int k, cnt = 0, nz = 0;
+      double *nrn;
+      clock_t t0 = clock();
 
-    /* loop over unique diagrams */
-    g = dg_open(n);
-    for (cnt = 0, k = 0; k < m->ng; k++) {
-      dg_decode(g, &m->first[k]);
-      if ( dg_biconnected(g) ) {
-        nr[n][k] = dg_nring_mixed(g);
-        cnt++;
-        nz++;
-      } else nr[n][k] = 0;
+      dgmap_init(m, n);
+      xnew(nrn, m->ng);
+
+      /* loop over unique diagrams */
+      g = dg_open(n);
+      for (cnt = 0, k = 0; k < m->ng; k++) {
+        dg_decode(g, &m->first[k]);
+        if ( dg_biconnected(g) ) {
+          nrn[k] = dg_nring_mixed(g);
+          cnt++;
+          nz++;
+        } else nrn[k] = 0;
+      }
+      dg_close(g);
+      printf("%4d: n %d, computed # of subrings of %d/%d biconnected diagrams, %gs\n",
+          inode, n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+      nr[n] = nrn;
     }
-    dg_close(g);
-    printf("n %d, computed # of subrings of %d/%d biconnected diagrams, %gs\n",
-        n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
-  }
+  } /* omp critical */
   return nr[ n ][ id ];
 }
 

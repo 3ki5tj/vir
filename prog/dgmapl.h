@@ -194,26 +194,33 @@ INLINE void dgmapl_close(dgmapl_t *mapl)
 INLINE double dg_fbnr_Lookup0(const dg_t *g, int k, double *nr,
     int nocsep, int *ned, int *degs)
 {
-  static dgmapl_t *mapl[DGMAPL_NMAX + 1], *tb;
-  code_t c;
-  int n = g->n, st[DGMAPL_NMAX + 1];
-  dgmapl_int_t ifb, inr;
-  double fb;
 #ifdef DGMAPL_DEBUG
   static uint64_t mis = 0, tot = 0, cnt = 0, hit = 0;
 #endif
+  static dgmapl_t *mapl[DGMAPL_NMAX + 1];
+  code_t c;
+  int n = g->n, st[DGMAPL_NMAX + 1];
+  dgmapl_int_t ifb, inr;
+  dgmapl_t *tb;
+  double fb;
 
   die_if (n <= 0 || n > DGMAPL_NMAX, "bad n %d\n", n);
-  if (mapl[n] == NULL) {
-    clock_t t0 = clock();
-    mapl[n] = dgmapl_open(n, k);
-    fprintf(stderr, "initialized fb/nr-mapl for %d, k %d, time %gs\n",
-        n, mapl[n]->k, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+
+  #pragma omp critical
+  {
+    if (mapl[n] == NULL) {
+      clock_t t0 = clock();
+      mapl[n] = dgmapl_open(n, k);
+      fprintf(stderr, "initialized fb/nr-mapl for %d, k %d, time %gs\n",
+          n, mapl[n]->k, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+    }
   }
+
   tb = mapl[n];
   c = dgmapl_getchain(g, tb->k, st);
   if (c != 0 && (ifb = tb->fb[c]) != DGMAPL_BAD) {
 #ifdef DGMAPL_DEBUG
+#pragma omp atomic
     hit += 1;
 #endif
     fb = ifb;
@@ -221,19 +228,28 @@ INLINE double dg_fbnr_Lookup0(const dg_t *g, int k, double *nr,
     fb = dg_hsfb_mixed0(g, nocsep, ned, degs);
     if (c != 0 && fabs(fb) < fabs(DGMAPL_BAD)) { /* save the value */
       ifb = (dgmapl_int_t) ((fb < 0) ? (fb - .5) : (fb + .5));
-      //tb->val[c] = ifb; cnt++;
+#pragma omp critical
+      {
 #ifdef DGMAPL_DEBUG
-      cnt +=
+        cnt +=
 #endif
-      dgmapl_savevalue(tb->fb, ifb, g, tb->k, tb->k, st);
+        dgmapl_savevalue(tb->fb, ifb, g, tb->k, tb->k, st);
+      }
     }
   }
-#ifdef DGMAPL_DEBUG
-  tot += 1;
-  mis += (c == 0);
-  if (tot % 1000000 == 0)
-    fprintf(stderr, "cnt %g/%g = %g, hits %g/%g = %g%%, misses %g/%g = %g%% graphs\n",
-        1.*cnt, 1.*tot, 1.*cnt/tot, 1.*hit, 1.*tot, 100.*hit/tot, 1.*mis, 1.*tot, 100.*mis/tot);
+
+#ifdef DGMAPL_DEBUG /* debugging code */
+#ifndef DGMAPL_NSTREP
+#define DGMAPL_NSTREP 1000000
+#endif
+#pragma omp critical
+  {
+    tot += 1;
+    mis += (c == 0);
+    if (tot % DGMAPL_NSTREP == 0)
+      fprintf(stderr, "%4d: cnt %g, hits %g/%g = %g%%, misses %g/%g = %g%% graphs\n",
+          inode, 1.*cnt, 1.*hit, 1.*tot, 100.*hit/tot, 1.*mis, 1.*tot, 100.*mis/tot);
+  }
 #endif
 
   if (c != 0) { /* if c == 0, there is no ring content */
@@ -243,7 +259,10 @@ INLINE double dg_fbnr_Lookup0(const dg_t *g, int k, double *nr,
       *nr = dg_nring_mixed0(g, ned, degs);
       if (c != 0 && fabs(*nr) < fabs(DGMAPL_BAD)) { /* save the value */
         inr = (dgmapl_int_t) ((*nr < 0) ? (*nr - .5) : (*nr + .5));
-        dgmapl_savevalue(tb->nr, inr, g, tb->k, tb->k, st);
+#pragma omp critical
+        {
+          dgmapl_savevalue(tb->nr, inr, g, tb->k, tb->k, st);
+        }
       }
     }
   }

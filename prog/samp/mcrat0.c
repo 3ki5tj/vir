@@ -16,17 +16,6 @@
 
 
 
-#ifdef MPI
-#include <mpi.h>
-#define MPI_MYREAL ( (sizeof(real) == sizeof(double)) ? MPI_DOUBLE : MPI_FLOAT )
-MPI_Comm comm = MPI_COMM_WORLD;
-#endif
-#define MASTER 0
-int inode = MASTER, nnodes = 1;
-
-
-
-
 int n = 7; /* order */
 double nequil = 1000000; /* number of equilibration steps */
 double nsteps = 10000000;
@@ -74,6 +63,13 @@ static void doargs(int argc, char **argv)
   /* decide whether to use lookup table or not */
   if (lookup < 0)
     lookup = (n <= DGMAP_NMAX);
+
+#ifdef _OPENMP
+  /* use shorter chain length for the larger table in the thread case */
+  if (kdepth <= 0 && sizeof(code_t) > 4) {
+    if (n == 9 && D > 2) kdepth = 7;
+  }
+#endif
 
   /* interval of computing fb */
   if (nstfb <= 0) {
@@ -207,7 +203,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
     real amp, int gdisp, int nstcom)
 {
   rvn_t x[DG_NMAX], nx[DG_NMAX], xi;
-  int i, j, pid, it, acc, nbc;
+  int i, j, pid, it, acc;
   dg_t *g, *ng;
   code_t code, ncode;
   double t, fb, nr;
@@ -237,13 +233,13 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
     BCSTEP(acc, i, n, g, ng, x, xi, amp, gdisp);
   printf("%4d: equilibrated at t %g, nedges %d\n",
       inode, nequil, dg_nedges(g));
-  dg_encode(g, &code); /* initialize the code */
   /* call _lookup function first, to initialize the table */
-  nbc = dg_biconnected_lookup(g);
+  die_if (!dg_biconnected_lookup(g),
+      "initial graph (n = %d) is not biconnected\n", g->n);
+  dg_encode(g, &code); /* initialize the code */
   gmapid = dgmap_[n].map[code];
-  //nbc = dg_biconnected_lookuplow(n, gmapid);
-  fb = nbc ? dg_hsfb_lookuplow(n, gmapid) : 0;
-  nr = nbc ? dg_nring_lookuplow(n, gmapid) : 0;
+  fb = dg_hsfb_lookuplow(n, gmapid);
+  nr = dg_nring_lookuplow(n, gmapid);
 
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
@@ -502,10 +498,27 @@ int main(int argc, char **argv)
   fprintf(stderr, "checking code is enabled\n");
 #endif
 
-  if (lookup)
-    mcrat_lookup(n, nequil, nsteps, mcamp, gdisp, nstcom);
-  else
-    mcrat_direct(n, nequil, nsteps, mcamp, gdisp, nstfb, nstcom);
+#ifdef _OPENMP
+  nnodes = omp_get_num_threads();
+  if (nnodes == 1) {
+    nnodes = omp_get_max_threads();
+    omp_set_num_threads(nnodes);
+  }
+  printf("set up %d OpenMP threads\n", nnodes);
+
+#pragma omp parallel
+  {
+    inode = omp_get_thread_num();
+#endif
+
+    if (lookup)
+      mcrat_lookup(n, nequil, nsteps, mcamp, gdisp, nstcom);
+    else
+      mcrat_direct(n, nequil, nsteps, mcamp, gdisp, nstfb, nstcom);
+
+#ifdef _OPENMP
+  }
+#endif
 
 #ifdef MPI
   MPI_Finalize();
