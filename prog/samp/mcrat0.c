@@ -335,9 +335,9 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     real amp, int gdisp, int nstfb, int nstcom)
 {
   rvn_t x[DG_NMAX], xi;
-  int i, it, acc, hasfb, hasnr, err, gdirty = 0, neval = 0;
+  int i, it, acc, hasfb, gdirty = 0, neval = 0;
   int ned = 0, degs[DG_NMAX];
-  double t, fb, nr, sc;
+  double t, fb, nr;
   dg_t *g, *ng;
   av0_t fbsm, nrsm, cacc, racc;
 
@@ -363,18 +363,15 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   die_if (!dg_biconnected(g),
       "%d, initial diagram not biconnected D %d\n", inode, D);
   fb = dg_hsfb_mixed(g);
-  hasfb = 1;
   nr = dg_nring_mixed(g);
-  hasnr = 1;
+  hasfb = 1;
 
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
 #ifdef CHECK
     {
       double fb1 = dg_hsfb(g), nr1 = dg_nring(g);
-      if ( hasfb && fabs(fb - fb1) > 1e-3 ) err = 1;
-      if ( hasnr && fabs(nr - nr1) > 1e-3 ) err = 1;
-      if (err) {
+      if ( hasfb && (fabs(fb - fb1) > 1e-3 || fabs(nr - nr1) > 1e-3) ) {
         printf("%d: PRE1 t %g, hasfb %d, fb %g (%g)\n",
             inode, t, hasfb, fb, fb1);
         dg_print(g);
@@ -402,35 +399,25 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
       cacc.s += 1;
     }
 
-    /* try to compute fb every step if its computation is cheap
-     * this block useful if nstfb < 10 */
-    if ( acc && gdirty ) {
-      /* detect special cases, including the ring diagram */
-      ned = -1;
-      sc = dg_rhsc_spec0(ng, 0, 0, &ned, degs, &err);
-      hasfb = (err == 0); /* special case worked */
-      if (hasfb) fb = DG_SC2FB(sc, ned);
-      hasnr = 0; /* show that we have no nr */
-    } /* upon rejection, keep the old fb, hasfb, hasnr */
+    if ( acc && gdirty )
+      hasfb = 0;
 
     if (it % nstfb == 0) {
-      if ( n <= DGMAPL_NMAX ) { /* use the larger lookup table */
-        if ( !hasfb || !hasnr ) {
+      if ( !hasfb ) {
+        ned = -1;
+        /* detect special cases, including the ring diagram
+         * but it does not detect clique separators */
+        hasfb = (dg_fbnr_spec0(ng, &fb, &nr, &ned, degs) == 0);
+      }
+      if ( !hasfb ) {
+        if ( n <= DGMAPL_NMAX ) { /* use the larger lookup table */
           fb = dg_fbnr_Lookup(g, kdepth, &nr);
-          hasfb = hasnr = 1;
-        }
-      } else {
-        /* only compute fb when necessary */
-        if ( !hasfb ) {
+        } else {
           fb = dg_hsfb_mixed(g);
-          neval++;
-          hasfb = 1;
-        }
-        /* compute nr */
-        if (!hasnr) {
           nr = dg_nring_mixed(g);
-          hasnr = 1;
+          neval++;
         }
+        hasfb = 1;
       }
       av0_add(&fbsm, fb);
       av0_add(&nrsm, nr);
@@ -439,19 +426,10 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 #ifdef CHECK
     /* check if fb has been correctly computed */
     if (hasfb) {
-      double fb1 = dg_hsfb(g);
-      if (!hasfb || fabs(fb - fb1) > 1e-3) {
-        printf("%d: t %g, acc %d, hasfb %d, fb %g (%g)\n",
-            inode, t, acc, hasfb, fb, fb1);
-        dg_print(g);
-        exit(1);
-      }
-    }
-    if (hasnr) {
-      double nr1 = dg_nring(g);
-      if (fabs(nr - nr1) > 1e-3) {
-        printf("%d: t %g, acc %d, hasnr %d, nr %g (%g)\n",
-            inode, t, acc, hasnr, nr, nr1);
+      double fb1 = dg_hsfb(g), nr1 = dg_nring(g);
+      if (fabs(fb - fb1) > 1e-3 || fabs(nr - nr1) > 1e-3) {
+        printf("%d: t %g, acc %d, fb %g (%g), nr %g (%g)\n",
+            inode, t, acc, fb, fb1, nr, nr1);
         dg_print(g);
         exit(1);
       }

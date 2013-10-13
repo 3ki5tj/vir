@@ -26,6 +26,9 @@ INLINE double dg_rhiter(int n, int n0, double sc)
   if (n < n0) return 0;
   for (i = n0; i < n; i++) /* Ree and Hoover formula */
     sc *= (i - 1) * (i % 2 ? -1 : 1);
+  /* e.g. if SC(2) = 1, then
+   * n:   2  3  4  5  6   7    8     9    10
+   * SC:  1  1 -2 -6 24 120 -720 -5040 40320 */
   return sc;
 }
 
@@ -99,7 +102,8 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
     int *ned, int *degs, int *err)
 {
   int i, j, n = g->n, ned0, ned1;
-  TSTATIC int ldegs[DG_NMAX]; /* local buffer for the degree sequence */
+  static int ldegs[DG_NMAX]; /* local buffer for the degree sequence */
+#pragma omp threadprivate(ldegs)
 
   *err = 0;
   /* compute the degrees of all vertices */
@@ -219,37 +223,45 @@ INLINE double dg_rhsc_lookup(const dg_t *g)
   code_t c;
 
   if (n <= 1) return 1;
+
+  if (sc[n] == NULL) {
+#ifdef _OPENMP
+    /* the outer `if' is used to avoid the critical block */
 #pragma omp critical
-  {
-    if (sc[n] == NULL) { /* initialize the look-up table */
-      dg_t *g1;
-      int k, cnt = 0, nz = 0;
-      double *scn;
-      clock_t t0 = clock(), t1;
+    {
+      if (sc[n] == NULL) { /* initialize the look-up table */
+#endif /* _OPENMP */
+        dg_t *g1;
+        int k, cnt = 0, nz = 0;
+        double *scn;
+        clock_t t0 = clock(), t1;
 
-      if (n >= 8) printf("n %d: initializing...\n", n);
-      dgmap_init(m, n); /* compute the permutation mapping */
-      xnew(scn, m->ng);
+        if (n >= 8) printf("n %d: initializing...\n", n);
+        dgmap_init(m, n); /* compute the permutation mapping */
+        xnew(scn, m->ng);
 
-      t1 = clock();
-      if (n >= 8) printf("n %d: diagram-map initialized %gs\n",
-          n, 1.*(t1 - t0)/CLOCKS_PER_SEC);
-      /* loop over unique diagrams */
-      g1 = dg_open(n);
-      for (cnt = 0, k = 0; k < m->ng; k++) {
-        dg_decode(g1, &m->first[k]);
-        if ( dg_biconnected(g1) ) {
-          scn[k] = dg_rhsc_direct(g1);
-          cnt++;
-          nz += (fabs(scn[k]) > 0.5);
-        } else scn[k] = 0;
+        t1 = clock();
+        if (n >= 8) printf("n %d: diagram-map initialized %gs\n",
+            n, 1.*(t1 - t0)/CLOCKS_PER_SEC);
+        /* loop over unique diagrams */
+        g1 = dg_open(n);
+        for (cnt = 0, k = 0; k < m->ng; k++) {
+          dg_decode(g1, &m->first[k]);
+          if ( dg_biconnected(g1) ) {
+            scn[k] = dg_rhsc_direct(g1);
+            cnt++;
+            nz += (fabs(scn[k]) > 0.5);
+          } else scn[k] = 0;
+        }
+        dg_close(g1);
+        printf("n %d, computed star contents of %d/%d biconnected diagrams, %gs\n",
+            n, cnt, nz, 1.*(clock() - t1)/CLOCKS_PER_SEC);
+        sc[n] = scn;
+#ifdef _OPENMP
       }
-      dg_close(g1);
-      printf("n %d, computed star contents of %d/%d biconnected diagrams, %gs\n",
-          n, cnt, nz, 1.*(clock() - t1)/CLOCKS_PER_SEC);
-      sc[n] = scn;
-    }
-  } /* omp critical */
+    } /* omp critical */
+#endif /* _OPENMP */
+  }
   dg_encode(g, &c);
   return sc[n][ m->map[c] ]; /* m->map[c] is the id of the unique diagram */
 }
