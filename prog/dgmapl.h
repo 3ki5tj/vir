@@ -1,18 +1,25 @@
 #ifndef DGMAPL_H__
 #define DGMAPL_H__
 
+#ifndef DGMAPL_NMAX
 #define DGMAPL_NMAX 9
+#endif
 
 #if DGMAPL_NMAX >= 10 /* for future extension, if any */
-#define CODEBITS 64
-#endif
+#ifndef CODEBITS
+#define CODEBITS 64 /* for the table key is over 2^32 */
+#endif /* CODEBITS */
+#endif /* DGMAPL_NMAX >= 10 */
+
 #include "dg.h"
 #include "dgsc.h"
+#if DGMAPL_NMAX <= 9
 #ifndef RJW32
 #define RJW32 1 /* 32-bit integer is good enough for the
                    RJW recursion at n = 9 < 14, and it is faster
                    on a 32-bit machine */
-#endif
+#endif /* RJW32 */
+#endif /* DGMAPL_NMAX <= 9 */
 #include "dgrjw.h"
 #include "dgring.h"
 
@@ -125,8 +132,8 @@ INLINE int dgmapl_save2full(dgmapl_int_t (*arr)[2], const dgmapl_int_t val[2],
       //printf("above is %d, code %#8x\n\n", cnt, (unsigned) c); //getchar();
       if ( (arr[c][0] != DGMAPL_BAD && arr[c][0] != val[0])
         || (arr[c][1] != DGMAPL_BAD && arr[c][1] != val[1]) ) {
-        fprintf(stderr, "%#x has been occupied, %d,%d (new) vs %d,%d (old)\n",
-            (unsigned) c, val[0], val[1], arr[c][0], arr[c][1]);
+        fprintf(stderr, "%#" PRIx64 " has been occupied, %d,%d (new) vs %d,%d (old)\n",
+            (uint64_t) c, val[0], val[1], arr[c][0], arr[c][1]);
         dg_print(g);
         exit(1);
       }
@@ -166,8 +173,8 @@ INLINE dgmapl_t *dgmapl_open(int n, int k)
 {
   dgmapl_t *mapl;
   uint64_t i, size;
-  static const int kdef[DGMAPL_NMAX + 1] = {0,
-    0, 1, 2, 3, 4, 4, 5, 6, 8};
+  static const int kdef[] = {0,
+    0, 1, 2, 3, 4, 4, 5, 6, 8, 9};
 
   die_if (n > DGMAPL_NMAX, "n %d is too large\n", n);
   xnew(mapl, 1);
@@ -243,7 +250,7 @@ INLINE double dg_fbnr_Lookup0(const dg_t *g, int k, double *nr,
   c = dgmapl_getchain(g, tb->k, st);
   if (c == 0) { /* the lookup table is not applicable, do it directly */
 #ifdef DGMAPL_DEBUG
-#pragma omp critical 
+#pragma omp critical
     { mis += 1; tot += 1; }
 #endif
     *nr = 0;

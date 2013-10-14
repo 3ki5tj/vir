@@ -8,9 +8,6 @@
 #define ZCOM_RVN
 #define ZCOM_AV
 #include "zcom.h"
-#include "dg.h"
-#include "dgrjw.h" /* hard-sphere weight / star content */
-#include "dgring.h" /* ring content */
 #include "dgmapl.h" /* larger lookup table */
 #include "mcutil.h"
 
@@ -29,6 +26,7 @@ int kdepth = 0; /* number of links to search in the larger lookup table */
 double ratcr = 0; /* rate of coordinates replacement */
 double r2cr = 0; /* variance of replaced coordinates */
 char *fnout = NULL;
+char *prefix = ".";
 
 int bsim0 = 0;
 
@@ -55,6 +53,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-H", "%lf", &ratcr, "rate of coordinates replacement");
   argopt_add(ao, "-U", "%lf", &r2cr, "squared radius of replaced coordinates");
   argopt_add(ao, "-o", NULL, &fnout, "output file");
+  argopt_add(ao, "-P", NULL, &prefix, "directory to save data");
   argopt_add(ao, "-B", "%b", &bsim0, "discard data in previous simulations");
   argopt_add(ao, "-V", "%lf", &Bring, "value of the ring integral");
   argopt_add(ao, "-I", NULL, &fnBring, "name of the virial series file");
@@ -66,7 +65,7 @@ static void doargs(int argc, char **argv)
 
 #ifdef _OPENMP
   /* use shorter chain length for the larger table in the thread case */
-  if (kdepth <= 0 && sizeof(code_t) > 4) {
+  if (kdepth <= 0 && sizeof(long) > 4) {
     if (n == 9 && D > 2) kdepth = 7;
   }
 #endif
@@ -114,7 +113,7 @@ static void doargs(int argc, char **argv)
 
 
 #define mkfndef(fn, fndef, d, n, inode) if (fn == NULL) { \
-  sprintf(fndef, "mrD%dn%d.dat%d", d, n, inode); \
+  sprintf(fndef, "%s/mrD%dn%d.dat%d", prefix, d, n, inode); \
   if (inode == MASTER) fndef[strlen(fndef) - 1] = '\0'; \
   fn = fndef; }
 
@@ -219,7 +218,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   if (!bsim0) /* try to load previous data */
     load(fnout, &fbsm, &nrsm);
   /* scramble the random number generator */
-  mtscramble(inode * 2034091783u + time(NULL));
+  mtscramble(inode * 2038074743u + nnodes * time(NULL));
 
   g = dg_open(n);
   ng = dg_open(n);
@@ -348,7 +347,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   if (!bsim0) /* try to load previous data */
     load(fnout, &fbsm, &nrsm);
   /* scramble the random number generator */
-  mtscramble(inode * 2034091783u + time(NULL));
+  mtscramble(inode * 2038074743u + nnodes * time(NULL));
 
   ng = dg_open(n);
   g = dg_open(n);

@@ -15,7 +15,7 @@
  * ``Algorithmic aspects of vertex elimination on graphs''
  * Donald J. Rose, R. Endre Tarjan and George S. Lueker
  * SIAM J. Comput. Vol 5, No. 2, June 1976 */
-INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
+INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
 {
   int i, j, k, v = 0, w, z, l, n = g->n;
   code_t numbered, reached, bv, bw, bz, r, mask;
@@ -40,7 +40,6 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
     }
     die_if (bw == numbered, "i %d no vertex is left\n", i);
     if (a) a[i] = v;
-    if (p) p[v] = i;
     /* reach[l] gives the set of vertcies with the same label `l'
      * the label `l' is the hierarchy level of the spanning tree
      * vertices with the same label are treated as the same */
@@ -107,29 +106,26 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a, int *p)
 /* decompose a diagram by clique separators
  * A clique separator is a fully-connected subgraph
  * `g' is the input diagram, `f' is the fill-in diagram
+ * `a' is the elimination order, a[0] is the first vertex to eliminate
  * return the number of cliques, `cl' is the array of cliques
- * `stop1' means stop the search after the first step
+ * `stop1' means stop the search after the first clique separator
  * The algorithm first find a minimal order of elimination.
  * Using this order on a graph with a clique separator, at least
  * one part of the graph is eliminated before the clique
  * ``Decomposition by clique separators'' Robert E. Tarjan,
  * Discrete Mathematics 55 (1985) 221-232 */
 INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
-    const int *a, const int *p, code_t * RESTRICT cl, int stop1)
+    const int *a, code_t * RESTRICT cl, int stop1)
 {
   int v, w, i, n = g->n, ncl = 0;
   code_t cb, c, bw, r, unvisited = mkbitsmask(n);
 
   for (i = 0; i < n; i++) {
     v = a[i];
-    unvisited &= ~MKBIT(v); /* remove the `v' bit */
+    unvisited ^= MKBIT(v); /* remove the `v' bit */
     /* compute C(v), the set of succeeding vertices that
      * are adjacent to v */
-    for (c = 0, r = (unvisited & f->c[v]); r; r ^= bw) {
-      BITFIRSTLOW(w, r, bw);
-      if (p[w] > p[v])
-        c |= MKBIT(w);
-    }
+    c = unvisited & f->c[v];
     /* test if C(v) is a clique, a fully-connected subgraph */
     for (r = c; r; r ^= bw) {
       BITFIRSTLOW(w, r, bw);
@@ -137,13 +133,13 @@ INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
        * in `c', if `c' is a clique */
       cb = c ^ bw;
       if ((g->c[w] & cb) != cb) /* not a clique */
-        break; /* break the loop prematurally */
+        break; /* break the loop prematurally, r != 0 */
     }
-    if (r == 0) { /* if the loop completed, `c' is a clique */
+    if (r == 0) { /* if the loop is completed, `c' is a clique */
       if (unvisited  == c) { /* clique `c' == the rest vertices */
-        return ncl;
+        return ncl;          /* so it is not a separator */
       } else { /* found a clique `c' */
-        if (cl) cl[ncl] = c;
+        if (cl != NULL) cl[ncl] = c;
         ncl++;
         if (stop1) return 1;
       }
@@ -158,8 +154,8 @@ INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
 INLINE code_t dg_cliquesep(const dg_t *g)
 {
   static dg_t *fs[DG_NMAX + 1];
-  static int a[DG_NMAX], p[DG_NMAX]; /* a[k] is the kth vertex, p = a^(-1) */
-#pragma omp threadprivate(fs, a, p)
+  static int a[DG_NMAX]; /* a[k] is the kth vertex */
+#pragma omp threadprivate(fs, a)
   dg_t *f; /* fill-in graph */
   int n = g->n;
   code_t cl;
@@ -168,10 +164,10 @@ INLINE code_t dg_cliquesep(const dg_t *g)
   f = fs[n];
 
   /* 1. find a minimal ordering and its fill-in */
-  dg_minimalorder(g, f, a, p);
+  dg_minimalorder(g, f, a);
 
   /* 2. clique decomposition (stop after the first clique) */
-  if ( dg_decompcliqueseplow(g, f, a, p, &cl, 1) ) return cl;
+  if ( dg_decompcliqueseplow(g, f, a, &cl, 1) ) return cl;
   else return 0;
 }
 
@@ -183,8 +179,8 @@ INLINE code_t dg_cliquesep(const dg_t *g)
 INLINE int dg_decompcsep(const dg_t *g, code_t * RESTRICT cl)
 {
   static dg_t *fs[DG_NMAX + 1];
-  static int a[DG_NMAX], p[DG_NMAX]; /* a[k] is the kth vertex, p = a^(-1) */
-#pragma omp threadprivate(fs, a, p)
+  static int a[DG_NMAX]; /* a[k] is the kth vertex */
+#pragma omp threadprivate(fs, a)
   dg_t *f;
   int n = g->n;
 
@@ -192,10 +188,10 @@ INLINE int dg_decompcsep(const dg_t *g, code_t * RESTRICT cl)
   f = fs[n];
 
   /* 1. find a minimal ordering and its fill-in */
-  dg_minimalorder(g, f, a, p);
+  dg_minimalorder(g, f, a);
 
   /* 2. clique decomposition */
-  return dg_decompcliqueseplow(g, f, a, p, cl, 0);
+  return dg_decompcliqueseplow(g, f, a, cl, 0);
 }
 
 

@@ -642,7 +642,7 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
   MPI_Bcast(gc->Zr, gc->nmax + 1, MPI_DOUBLE, MASTER, comm);
   MPI_Bcast(gc->rc, gc->nmax + 1, MPI_MYREAL, MASTER, comm);
   if (nnodes > 1) /* scramble the random number generator */
-    mtscramble(inode * 2034091783u + time(NULL));
+    mtscramble(inode * 2038074743u + nnodes * time(NULL));
   MPI_Barrier(comm);
   if (inode == MASTER)
     for (i = nmin; i <= nmax; i++)

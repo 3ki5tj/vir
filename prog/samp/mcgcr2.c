@@ -1056,7 +1056,7 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
   MPI_Bcast(gc->rc, gc->nens, MPI_MYREAL, MASTER, comm);
   MPI_Bcast(gc->sr, gc->nens, MPI_MYREAL, MASTER, comm);
   if (nnodes > 1) /* scramble the random number generator */
-    mtscramble(inode * 2034091783u + time(NULL));
+    mtscramble(inode * 2038074743u + nnodes * time(NULL));
   MPI_Barrier(comm);
   if (inode == MASTER)
     gc_print(gc, 1, NULL, NULL, NULL);

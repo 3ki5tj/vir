@@ -138,14 +138,14 @@ Benchmark of mcrat0
 require 1G memory
 
 T60: single thread:             3min
-     two threads openmp:        3min40s/6m5s 
+     two threads openmp:        3min40s/6m5s
 
 ipo: single thread:             56s
-     8-thread openmp:           1m9s            10m8s  (-1 1e9) or 11m7s (single-if version) 
-     32-thread openmp:          12m35s/45m25s
+     8-thread openmp:           1m9s            10m8s  (-1 1e9) or 11m7s (single-if version)
+     32-thread openmp:          12m35s/45m25s   (double-if, single-if version lasts much longer > 24m/48m)
      MPI/gcc, mpirun -np 8:     1m21s           9m33s (-1 1e9)
      MPI/gcc, mpirun -np 1:     55s             6m35s (-1 1e9)
-     
+
 
 NOTES
 ~~~~~
