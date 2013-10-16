@@ -406,15 +406,14 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         ned = -1;
         /* detect special cases, including the ring diagram
          * but it does not detect clique separators */
-        hasfb = (dg_fbnr_spec0(ng, &fb, &nr, &ned, degs) == 0);
-      }
-      if ( !hasfb ) {
-        if ( n <= DGMAPL_NMAX ) { /* use the larger lookup table */
-          fb = dg_fbnr_Lookup(g, kdepth, &nr);
-        } else {
-          fb = dg_hsfb_mixed(g);
-          nr = dg_nring_mixed(g);
-          neval++;
+        if (dg_fbnr_spec0(g, &fb, &nr, &ned, degs) != 0) {
+          if ( n <= DGMAPL_NMAX ) { /* use the larger lookup table */
+            fb = dg_fbnr_Lookup(g, kdepth, &nr);
+          } else {
+            fb = dg_hsfb_mixed0(g, 0, &ned, degs);
+            nr = dg_nring_mixed0(g, &ned, degs);
+            neval++;
+          }
         }
         hasfb = 1;
       }
