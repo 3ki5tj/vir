@@ -258,44 +258,33 @@ INLINE double dg_hsfb_mixed0(const dg_t *g,
 INLINE double dg_hsfb_lookuplow(int n, unqid_t id)
 {
   static double *fb[DGMAP_NMAX + 1]; /* fb of unique diagrams */
+#pragma omp threadprivate(fb)
 
   if (n <= 1) return 1;
 
   /* initialize the look-up table */
   if (fb[n] == NULL) {
-#ifdef _OPENMP
-    /* the outer the `if' tries to avoid the critical section */
-#pragma omp critical
-    {
-      if (fb[n] == NULL) {
-#endif /* _OPENMP */
-        dg_t *g;
-        dgmap_t *m = dgmap_ + n;
-        int k, cnt = 0, nz = 0;
-        double *fbn;
-        clock_t t0 = clock();
+    dg_t *g;
+    dgmap_t *m = dgmap_ + n;
+    int k, cnt = 0, nz = 0;
+    clock_t t0 = clock();
 
-        dgmap_init(m, n);
-        xnew(fbn, m->ng);
+    dgmap_init(m, n);
+    xnew(fb[n], m->ng);
 
-        /* loop over unique diagrams */
-        g = dg_open(n);
-        for (cnt = 0, k = 0; k < m->ng; k++) {
-          dg_decode(g, &m->first[k]);
-          if ( dg_biconnected(g) ) {
-            fbn[k] = (double) (dg_cliquesep(g) ? 0 : dg_hsfb_rjw(g));
-            cnt++;
-            nz += (fabs(fbn[k]) > .5);
-          } else fbn[k] = 0;
-        }
-        dg_close(g);
-        printf("%4d: n %d, computed hard sphere weights of %d/%d biconnected diagrams, %gs\n",
-            inode, n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
-        fb[n] = fbn;
-#ifdef _OPENMP
-      }
-    } /* omp critical */
-#endif /* _OPENMP */
+    /* loop over unique diagrams */
+    g = dg_open(n);
+    for (cnt = 0, k = 0; k < m->ng; k++) {
+      dg_decode(g, &m->first[k]);
+      if ( dg_biconnected(g) ) {
+        fb[n][k] = (double) (dg_cliquesep(g) ? 0 : dg_hsfb_rjw(g));
+        cnt++;
+        nz += (fabs(fb[n][k]) > .5);
+      } else fb[n][k] = 0;
+    }
+    dg_close(g);
+    printf("%4d: n %d, computed hard sphere weights of %d/%d biconnected diagrams, %gs\n",
+        inode, n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
   }
   return fb[ n ][ id ];
 }

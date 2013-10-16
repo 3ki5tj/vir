@@ -139,35 +139,59 @@ Regular lookup table
 ~~~~~~~~~~~~~~~~~~~~~
 D = 3, n = 7, -1 1e9 -0 1e6, vir = 0.0130228
 negligible memory requirement
-T60:  single thread:            2m41s/2m40                  icc -DD=3 -O2 -march=native -ipo mcrat0.c && time ./a.out -n 7 -1 1e9 -0 1e6
-                                3m52s/3m49                  gcc -DD=3 -O2 -ipo mcrat0.c -lm && time ./a.out -n 7 -1 1e9 -9 1e6
-      two threads openmp:       4m21s/7m35s                 icc -DD=3 -openmp -O2 -march=native -ipo mcrat0.c && time ./a.out -n 7 -1 1e9 -0 1e6
+T60:  single thread:            2m41s/2m40s, 2m38s/2m36s    icc -DD=3 -O2 -march=native -ipo mcrat0.c && time ./a.out -n 7 -1 1e9 -0 1e6
+                                3m52s/3m49s, 3m57s/3m54s    gcc -DD=3 -O2 -march=native mcrat0.c -lm && time ./a.out -n 7 -1 1e9 -0 1e6
+      two threads openmp:       4m21s/7m35s, 4m14s/7m37s    icc -DD=3 -openmp -O2 -march=native -ipo mcrat0.c && time ./a.out -n 7 -1 1e9 -0 1e6
                                 5m17s/9m6s                  gcc -DD=3 -fopenmp -O2 -march=native mcrat0.c -lm && time ./a.out -n 7 -1 1e9 -0 1e6
+      MPI/gcc -np 2:            5m13s/9m29s, 5m53s/10m5s    mpicc -DMPI -DD=3 -O2 -march=native mcrat0.c && rm -f mr* && time mpirun -np 2 ./a.out -n 7 -1 1e9 -0 1e6
+                                4m45s/8m30s                 mpicc -DMPI -DD=3 -O3 -march=native mcrat0.c && rm -f mr* && time mpirun -np 2 ./a.out -n 7 -1 1e9 -0 1e6
 
-Larger lookup table 
+ipo:  single thread:            58s                         icc -DD=3 -O2 -march=native -ipo mcrat0.c && time ./a.out -n 7 -1 1e9 -0 1e6
+                                1m21s                       gcc -DD=3 -O2 -march=native mcrat0.c -lm && time ./a.out -n 7 -1 1e9 -0 1e6
+                                1m3s                        gcc -DD=3 -O3 -march=native mcrat0.c -lm && time ./a.out -n 7 -1 1e9 -0 1e6
+      8 threads openmp:         2m35s/20m35s, 2m34/20m28s   icc -DD=3 -openmp -O2 -march=native -ipo mcrat0.c && time ./a.out -n 7 -1 1e9 -0 1e6
+                                2m7s/16m33s                 gcc -DD=3 -fopenmp -O2 -march=native mcrat0.c -lm && time ./a.out -n 7 -1 1e9 -0 1e6
+      two threads openmp:       1m24/2m47                   icc -DD=3 -openmp -O2 -march=native -ipo mcrat0.c && time ./a.out -n 7 -1 1e9 -0 1e6
+                                1m22s/2m44s                 gcc -DD=3 -fopenmp -O2 -march=native mcrat0.c -lm && time ./a.out -n 7 -1 1e9 -0 1e6
+      MPI/gcc -np 8:            2m16s/16m5s                 mpicc -DMPI -DD=3 -O3 -march=native mcrat0.c && rm -f mr* && time mpirun -np 8 ./a.out -n 7 -1 1e9 -0 1e6
+      MPI/gcc -np 2:            1m7s/2m11s                  mpicc -DMPI -DD=3 -O3 -march=native mcrat0.c && rm -f mr* && time mpirun -np 2 ./a.out -n 7 -1 1e9 -0 1e6
+
+
+Larger lookup table
 ~~~~~~~~~~~~~~~~~~~~~
 D = 2, n = 9, -1 1e8 -0 1e6, vir = 0.0362202
 require at least 1G memory
 T60:  single thread:            2m19s/2m16                  icc -DD=2 -O2 -march=native -ipo mcrat0.c && time ./a.out -n 9 -1 1e8 -0 1e6
-                                2m16s/2m13                  gcc -DD=2 -O2 -ipo mcrat0.c -lm && time ./a.out -n 9 -1 1e8 -9 1e6
+                                2m16s/2m13                  gcc -DD=2 -O2 -march=native mcrat0.c -lm && time ./a.out -n 9 -1 1e8 -0 1e6
       two threads openmp:       2m43s/4m45s                 icc -DD=2 -openmp -O2 -march=native -ipo mcrat0.c && time ./a.out -n 9 -1 1e8 -0 1e6
                                 2m36s/4m11s                 gcc -DD=2 -fopenmp -O2 -march=native mcrat0.c -lm && time ./a.out -n 9 -1 1e8 -0 1e6
       (no MPI version for it requires at least 2G memory)
 
 D = 2, n = 9, -1 1e9 -0 1e6, vir = 0.0362202
-ipo:  single thread:            7m26s                       icc -DD=2 -O2 -march=native -ipo mcrat0.c && time ./a.out -n 9 -1 1e9 -0 1e6
-                                6m39s                       gcc -DD=2 -O2 -march=native mcrat0.c -lm && time ./a.out -n 9 -1 1e9 -0 1e6
-      single thread (-k 7):     5m54s                       icc -DD=2 -O2 -march=native -ipo mcrat0.c && time ./a.out -n 9 -1 1e9 -0 1e6 -k 7
+(note: dropping -march=native improves efficiency, in the single-core case)
+ipo:  single thread:            6m42s                       icc -DD=2 -O2 -ipo mcrat0.c && time ./a.out -n 9 -1 1e9 -0 1e6
+                                6m39s, 7m2s                 gcc -DD=2 -O2 -march=native mcrat0.c -lm && time ./a.out -n 9 -1 1e9 -0 1e6
+      single thread (-k 7):     5m33s                       icc -DD=2 -O2 -ipo mcrat0.c && time ./a.out -n 9 -1 1e9 -0 1e6 -k 7
                                 5m42s                       gcc -DD=2 -O2 -march=native mcrat0.c -lm && time ./a.out -n 9 -1 1e9 -0 1e6 -k 7
-      8-thread openmp:          1m9s
-                                10m8s (-1 1e9)
-                                11m7s (single-if)
-      32-thread openmp:         12m35s/45m25s (double-if)
-      MPI/gcc, mpirun -np 8:    9m33s (-1 1e9)
+      8-thread openmp (-k 8):   12m21s/88m36s               icc -DD=2 -openmp -O2 -ipo mcrat0.c && time ./a.out -n 9 -1 1e9 -0 1e6 -k 8
+                                11m11s/80m58s               icc -DD=2 -openmp -O2 -march=native -ipo mcrat0.c && time ./a.out -n 9 -1 1e9 -0 1e6 -k 8
+      8-thread openmp (-k 7):   8m23s/66m49s                icc -DD=2 -openmp -O2 -ipo mcrat0.c && time ./a.out -n 9 -1 1e9 -0 1e6 -k 7
+                                8m8s/64m53s (cache)
+      2-thread openmp (-k 7):   5m45s/11m29s                icc -DD=2 -openmp -O2 -ipo mcrat0.c && time ./a.out -n 9 -1 1e9 -0 1e6 -k 7
+      MPI/gcc, -np 8:           9m33s
 
- 
+
+
 Direct method
 ~~~~~~~~~~~~~~~~~~~~~
+D = 2, n = 10, -1 1e8 -0 1e6 -w 10, vir = 0.019953
+
+T60:  single thread:            9m44s/9m37                  icc -DD=2 -O2 -march=native -ipo mcrat0.c && time ./a.out -n 10 -1 1e8 -0 1e6
+                                9m05s/8m58                  gcc -DD=2 -O2 -march=native mcrat0.c -lm && time ./a.out -n 10 -1 1e8 -9 1e6
+      two threads openmp:       14m9s/22m54s                icc -DD=2 -openmp -O2 -march=native -ipo mcrat0.c && time ./a.out -n 10 -1 1e8 -0 1e6
+                                13m2s/21m35s                gcc -DD=2 -fopenmp -O2 -march=native mcrat0.c -lm && time ./a.out -n 10 -1 1e8 -0 1e6
+      MPI/gcc -np 8:            13m16s/22m12s               mpicc -DD=2 -O2 -march=native mcrat0.c -lm && rm -f mr* && time mpirun -np 2 ./a.out -n 10 -1 1e8 -0 1e6
+
 
 
 

@@ -21,7 +21,7 @@ MPILM =
 
 
 deps = dg.h dgmapl.h dgcsep.h dgrjw.h dgsc.h dgring.h zcom.h Makefile mcutil.h
-bins = mcrat0 mcrat0L mcrat1 mcgc2 mcgcr2
+bins = mcrat0 mcrat1 mcgc2 mcgcr2
 bins_d = $(patsubst %, %_d, $(bins))
 bins_mp = $(patsubst %, %_mp, $(bins))
 bins_mpi = $(patsubst %, %_mpi, $(bins))

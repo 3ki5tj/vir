@@ -92,8 +92,12 @@ LOOPEND:
 INLINE int dgmapl_save2full(dgmapl_int_t (*arr)[2], const dgmapl_int_t val[2],
     const dg_t *g, int k, int top, int *st)
 {
+#define DGMAPL_LISTSIZE 200
   int n = g->n, cnt = 0, i;
-  code_t vs, c, b, ms[DGMAPL_NMAX + 1];
+  code_t vs, c, b;
+  code_t ms[DGMAPL_NMAX + 1];
+  code_t ls[DGMAPL_LISTSIZE]; /* buffer to save updated values */
+  int lscnt = 0, j;
 
   vs = ms[0] = mkbitsmask(n);
   if (top != 0) {
@@ -138,10 +142,18 @@ INLINE int dgmapl_save2full(dgmapl_int_t (*arr)[2], const dgmapl_int_t val[2],
         exit(1);
       }
 
+      if (arr[c][0] == DGMAPL_BAD && arr[c][1] == DGMAPL_BAD) {
+        ls[lscnt] = c;
+        if (++lscnt >= DGMAPL_LISTSIZE) {
 #pragma omp critical
-      {
-        arr[c][0] = val[0];
-        arr[c][1] = val[1];
+          { /* dump */
+            for (j = 0; j < lscnt; j++) {
+              arr[ls[j]][0] = val[0];
+              arr[ls[j]][1] = val[1];
+            }
+          }
+          lscnt = 0; /* clear the buffer */
+        }
       }
       cnt++;
       /* fall through to pop */
@@ -153,6 +165,13 @@ INLINE int dgmapl_save2full(dgmapl_int_t (*arr)[2], const dgmapl_int_t val[2],
     ms[top] ^= b; /* remove b from ms[top] */
   }
   //printf("got %d\n", cnt); getchar();
+#pragma omp critical
+  { /* dump */
+    for (j = 0; j < lscnt; j++) {
+      arr[ls[j]][0] = val[0];
+      arr[ls[j]][1] = val[1];
+    }
+  }
   return cnt;
 }
 

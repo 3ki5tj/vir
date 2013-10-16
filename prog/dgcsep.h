@@ -200,28 +200,19 @@ INLINE int dg_decompcsep(const dg_t *g, code_t * RESTRICT cl)
 INLINE int dg_ncsep_lookuplow(const dg_t *g, code_t c)
 {
   static char *ncl[DGMAP_NMAX + 1];
+#pragma omp threadprivate(ncl)
   int n = g->n, ncs;
 
   /* initialize the lookup table */
   if (ncl[n] == NULL) {
-#ifdef _OPENMP
-#pragma omp critical
-    {
-      if (ncl[n] == NULL) {
-#endif /* _OPENMP */
-        int ipr, npr = 1u << (n * (n - 1) / 2);
-        xnew(ncl[n], npr);
-        for (ipr = 0; ipr < npr; ipr++) ncl[n][ipr] = (char) (-1);
-#ifdef _OPENMP
-      }
-    } /* omp critical */
-#endif /* _OPENMP */
+    int ipr, npr = 1u << (n * (n - 1) / 2);
+    xnew(ncl[n], npr);
+    for (ipr = 0; ipr < npr; ipr++) ncl[n][ipr] = (char) (-1);
   }
 
   ncs = ncl[n][c];
   if (ncs < 0) {
     ncs = dg_ncsep(g);
-#pragma omp critical
     ncl[n][c] = (char) ncs; /* save the value */
   }
   return ncs;

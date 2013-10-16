@@ -218,6 +218,7 @@ INLINE double dg_rhsc_direct0(const dg_t *g, int nocsep, int *ned, int *degs)
 INLINE double dg_rhsc_lookup(const dg_t *g)
 {
   static double *sc[DGMAP_NMAX + 1];
+#pragma omp threadprivate(sc)
   int n = g->n;
   dgmap_t *m = dgmap_ + n;
   code_t c;
@@ -225,42 +226,30 @@ INLINE double dg_rhsc_lookup(const dg_t *g)
   if (n <= 1) return 1;
 
   if (sc[n] == NULL) {
-#ifdef _OPENMP
-    /* the outer `if' is used to avoid the critical block */
-#pragma omp critical
-    {
-      if (sc[n] == NULL) { /* initialize the look-up table */
-#endif /* _OPENMP */
-        dg_t *g1;
-        int k, cnt = 0, nz = 0;
-        double *scn;
-        clock_t t0 = clock(), t1;
+    dg_t *g1;
+    int k, cnt = 0, nz = 0;
+    clock_t t0 = clock(), t1;
 
-        if (n >= 8) printf("n %d: initializing...\n", n);
-        dgmap_init(m, n); /* compute the permutation mapping */
-        xnew(scn, m->ng);
+    if (n >= 8) printf("n %d: initializing...\n", n);
+    dgmap_init(m, n); /* compute the permutation mapping */
+    xnew(sc[n], m->ng);
 
-        t1 = clock();
-        if (n >= 8) printf("n %d: diagram-map initialized %gs\n",
-            n, 1.*(t1 - t0)/CLOCKS_PER_SEC);
-        /* loop over unique diagrams */
-        g1 = dg_open(n);
-        for (cnt = 0, k = 0; k < m->ng; k++) {
-          dg_decode(g1, &m->first[k]);
-          if ( dg_biconnected(g1) ) {
-            scn[k] = dg_rhsc_direct(g1);
-            cnt++;
-            nz += (fabs(scn[k]) > 0.5);
-          } else scn[k] = 0;
-        }
-        dg_close(g1);
-        printf("n %d, computed star contents of %d/%d biconnected diagrams, %gs\n",
-            n, cnt, nz, 1.*(clock() - t1)/CLOCKS_PER_SEC);
-        sc[n] = scn;
-#ifdef _OPENMP
-      }
-    } /* omp critical */
-#endif /* _OPENMP */
+    t1 = clock();
+    if (n >= 8) printf("n %d: diagram-map initialized %gs\n",
+        n, 1.*(t1 - t0)/CLOCKS_PER_SEC);
+    /* loop over unique diagrams */
+    g1 = dg_open(n);
+    for (cnt = 0, k = 0; k < m->ng; k++) {
+      dg_decode(g1, &m->first[k]);
+      if ( dg_biconnected(g1) ) {
+        sc[n][k] = dg_rhsc_direct(g1);
+        cnt++;
+        nz += (fabs(sc[n][k]) > 0.5);
+      } else sc[n][k] = 0;
+    }
+    dg_close(g1);
+    printf("n %d, computed star contents of %d/%d biconnected diagrams, %gs\n",
+        n, cnt, nz, 1.*(clock() - t1)/CLOCKS_PER_SEC);
   }
   dg_encode(g, &c);
   return sc[n][ m->map[c] ]; /* m->map[c] is the id of the unique diagram */

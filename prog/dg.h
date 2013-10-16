@@ -465,6 +465,7 @@ INLINE void dg_print0(const dg_t *g, const char *nm)
 }
 
 
+
 /* check if a diagram is connected */
 #define dg_connected(g) dg_connectedvs(g, mkbitsmask(g->n))
 
@@ -603,8 +604,9 @@ dgmap_t dgmap_[DGMAP_NMAX + 1];
 /* compute all permutations of n */
 INLINE int dgmap_getperm(int n, int **pp)
 {
-  int np, npp, ipp, i;
-  int top, st[DGMAP_NMAX + 2], used[DGMAP_NMAX + 2] = {0};
+  int np, npp, ipp, i, top;
+  static int st[DGMAP_NMAX + 2], used[DGMAP_NMAX + 2];
+#pragma omp threadprivate(st, used)
 
   for (np = 1, i = 1; i <= n; i++) np *= i;
   npp = np * n;
@@ -727,11 +729,10 @@ INLINE int dgmap_init(dgmap_t *m, int n)
 INLINE unqid_t dg_getmapidx(const dg_t *g, code_t *c)
 {
   int n = g->n;
-  dgmap_t *m = dgmap_ + n;
 
-  dgmap_init(m, n);
+  dgmap_init(&dgmap_[n], n);
   dg_encode(g, c);
-  return m->map[*c];
+  return dgmap_[n].map[*c];
 }
 
 
@@ -769,31 +770,22 @@ INLINE int dg_biconnected_lookuplow(int n, unqid_t id)
 {
   /* biconnectivity of unique diagrams */
   static int *bc[DGMAP_NMAX + 1] = {NULL};
+#pragma omp threadprivate(bc)
 
   if (bc[n] == NULL) {
-#ifdef _OPENMP
-#pragma omp critical
-    {
-      if (bc[n] == NULL) {
-#endif /* _OPENMP */
-        /* initialize the look-up table */
-        dg_t *g1 = dg_open(n);
-        dgmap_t *m = dgmap_ + n;
-        int k, *bcn;
+    /* initialize the look-up table */
+    dg_t *g1 = dg_open(n);
+    dgmap_t *m = dgmap_ + n;
+    int k;
 
-        dgmap_init(m, n);
-        xnew(bcn, m->ng);
-        for (k = 0; k < m->ng; k++) {
-          code_t c = m->first[k];
-          dg_decode(g1, &c);
-          bcn[k] = dg_biconnected(g1);
-        }
-        dg_close(g1);
-        bc[n] = bcn;
-#ifdef _OPENMP
-      }
-    } /* omp critical */
-#endif /* _OPENMP */
+    dgmap_init(m, n);
+    xnew(bc[n], m->ng);
+    for (k = 0; k < m->ng; k++) {
+      code_t c = m->first[k];
+      dg_decode(g1, &c);
+      bc[n][k] = dg_biconnected(g1);
+    }
+    dg_close(g1);
   }
   return bc[ n ][ id ];
 }

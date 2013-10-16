@@ -1,6 +1,6 @@
 #ifndef DGRING_H__
 #define DGRING_H__
-#include "dg.h"
+#include "dgrjw.h"
 
 
 
@@ -178,43 +178,33 @@ INLINE double dg_nring_mixed0(const dg_t *g, int *ned, int *degs)
 INLINE double dg_nring_lookuplow(int n, unqid_t id)
 {
   static double *nr[DGMAP_NMAX + 1]; /* nr of unique diagrams */
+#pragma omp threadprivate(nr)
 
   if (n <= 1) return 1;
 
   /* initialize the look-up table */
   if (nr[n] == NULL) {
-#ifdef _OPENMP
-#pragma omp critical
-    {
-      if (nr[n] == NULL) {
-#endif /* _OPENMP */
-        dg_t *g;
-        dgmap_t *m = dgmap_ + n;
-        int k, cnt = 0, nz = 0;
-        double *nrn;
-        clock_t t0 = clock();
+    dg_t *g;
+    dgmap_t *m = dgmap_ + n;
+    int k, cnt = 0, nz = 0;
+    clock_t t0 = clock();
 
-        dgmap_init(m, n);
-        xnew(nrn, m->ng);
+    dgmap_init(m, n);
+    xnew(nr[n], m->ng);
 
-        /* loop over unique diagrams */
-        g = dg_open(n);
-        for (cnt = 0, k = 0; k < m->ng; k++) {
-          dg_decode(g, &m->first[k]);
-          if ( dg_biconnected(g) ) {
-            nrn[k] = dg_nring_mixed(g);
-            cnt++;
-            nz++;
-          } else nrn[k] = 0;
-        }
-        dg_close(g);
-        printf("%4d: n %d, computed # of subrings of %d/%d biconnected diagrams, %gs\n",
-            inode, n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
-        nr[n] = nrn;
-#ifdef _OPENMP
-      }
-    } /* omp critical */
-#endif /* _OPENMP */
+    /* loop over unique diagrams */
+    g = dg_open(n);
+    for (cnt = 0, k = 0; k < m->ng; k++) {
+      dg_decode(g, &m->first[k]);
+      if ( dg_biconnected(g) ) {
+        nr[n][k] = dg_nring_mixed(g);
+        cnt++;
+        nz++;
+      } else nr[n][k] = 0;
+    }
+    dg_close(g);
+    printf("%4d: n %d, computed # of subrings of %d/%d biconnected diagrams, %gs\n",
+          inode, n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
   }
   return nr[ n ][ id ];
 }
