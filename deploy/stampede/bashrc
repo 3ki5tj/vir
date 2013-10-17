@@ -1,0 +1,8 @@
+export PATH=$PATH:$HOME/app/bin
+PS1='\u@\h:\w\$ '
+alias qsub='sbatch'
+alias qdel='scancel'
+alias qstat='squeue'
+export KMP_AFFINITY=scatter
+export MIC_KMP_AFFINITY=balanced
+

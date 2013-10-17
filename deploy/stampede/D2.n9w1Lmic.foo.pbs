@@ -1,0 +1,16 @@
+#!/bin/bash
+#SBATCH -J D2n9w1Lmic
+#SBATCH -o D2n9w1Lmic.o%j
+#SBATCH -n 16
+#SBATCH -p normal-mic
+#SBATCH -t 24:00:00
+
+icc   -DD=2 -mmic -openmp -O2 -march=native -ipo ../../mcrat0.c -o a.mic
+mpicc -DD=2 -DMPI=1       -O2 -march=native -ipo ../../mcrat0.c -o a.out
+
+export KMP_AFFINITY=scatter
+export MIC_KMP_AFFINITY=balanced
+
+./a.mic       -n 9 -1 1e14 -q 200000000  -w 1 -P mic -k 7 &
+ibrun ./a.out -n 9 -1 1e14 -q 2000000000 -w 1
+

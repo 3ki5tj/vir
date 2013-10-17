@@ -33,6 +33,9 @@ int bsim0 = 0;
 double Bring = 1; /* to be loaded from file */
 char *fnBring = NULL;
 
+int nthreads = 1;
+unsigned mtseed = 0;
+
 
 
 /* handle arguments */
@@ -57,6 +60,8 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-B", "%b", &bsim0, "discard data in previous simulations");
   argopt_add(ao, "-V", "%lf", &Bring, "value of the ring integral");
   argopt_add(ao, "-I", NULL, &fnBring, "name of the virial series file");
+  argopt_add(ao, "--nthr", "%d", &nthreads, "number of threads");
+  argopt_add(ao, "--rng", "%u", &mtseed, "set the RNG seed offset");
   argopt_parse(ao, argc, argv);
 
   /* decide whether to use lookup table or not */
@@ -220,7 +225,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   if (!bsim0) /* try to load previous data */
     load(fnout, &fbsm, &nrsm);
   /* scramble the random number generator */
-  mtscramble(inode * 2038074743u + nnodes * time(NULL));
+  mtscramble(inode * 2038074743u + nnodes * (time(NULL) + mtseed));
 
   g = dg_open(n);
   ng = dg_open(n);
@@ -477,10 +482,15 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef _OPENMP
-  nnodes = omp_get_num_threads();
-  if (nnodes == 1) {
-    nnodes = omp_get_max_threads();
+  if (nthreads > 1) {
+    nnodes = nthreads;
     omp_set_num_threads(nnodes);
+  } else {
+    nnodes = omp_get_num_threads();
+    if (nnodes == 1) {
+      nnodes = omp_get_max_threads();
+      omp_set_num_threads(nnodes);
+    }
   }
   printf("set up %d OpenMP threads\n", nnodes);
 
