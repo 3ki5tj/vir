@@ -24,9 +24,16 @@
 #include "dgring.h"
 
 
-typedef int16_t dgmapl_int_t;
-#define DGMAPL_MAX ((int16_t)  32767) /* maximal allowable 16-bit integer */
-#define DGMAPL_BAD ((int16_t) -32767) /* minimal 16-bit integer */
+#ifdef DGMAPL_INT32
+/* if DGMAPL_NMAX >= 10, 32-bit integer may be preferrable */
+typedef int32_t dgmapl_int_t; /* data type for fb and nr */
+#define DGMAPL_MAX ((dgmapl_int_t)  2147483647) /* maximal allowable 32-bit integer */
+#define DGMAPL_BAD ((dgmapl_int_t) -2147483647) /* minimal 32-bit integer */
+#else
+typedef int16_t dgmapl_int_t; /* data type for fb and nr */
+#define DGMAPL_MAX ((dgmapl_int_t)  32767) /* maximal allowable 16-bit integer */
+#define DGMAPL_BAD ((dgmapl_int_t) -32767) /* minimal 16-bit integer */
+#endif
 
 
 
