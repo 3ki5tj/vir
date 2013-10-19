@@ -13,20 +13,24 @@
 
 typedef int32_t fb_t;
 /* for n <= 14, max |fb(n)| = 12! = 479001600 < |FBDIRTY| */
+#ifndef RJWNMAX
 #define RJWNMAX 14
+#endif
 #define FBDIRTY ((fb_t) 0x80808080) /* -2139062144 */
 #define FBINVALID(c) ((c) == FBDIRTY)
 
 #else /* 64-bit RJW */
 
 typedef int64_t fb_t;
-/* for n <= 20, max |fb(n)| = 20! = 2.4e18 < |FBDIRTY| */
+/* for n <= 22, max |fb(n)| = 20! = 2.4e18 < |FBDIRTY| */
 /* Note: the threshold is based on the limit 20! = 2.4e18
  *  and 21! cannot be contained in a 64-bint integer
  * The code may however fail before that due to the cancellation
  *  in intermediate steps
- * Another limit is that memory > 2^n * n */
-#define RJWNMAX 20
+ * Another limit is that memory > 2^(n + 1) * (n + 1) */
+#ifndef RJWNMAX
+#define RJWNMAX 22
+#endif
 #define FBDIRTY ((fb_t) 0x8080808080808080ull) /* -9187201950435737472 */
 #define FBINVALID(c) ((c) == FBDIRTY)
 #endif
@@ -203,19 +207,26 @@ INLINE fb_t dg_hsfb_rjw(const dg_t *g)
 #pragma omp threadprivate(nmax, faarr, fbarr)
 
   int i, n = g->n;
+  size_t size;
 
-  /* the memory requirement is 2^n * n */
+  /* the memory requirement is 2^(n + 1) * (n + 1) * sizeof(fb_t) */
   if (fbarr == NULL) {
     nmax = n;
-    xnew(faarr, (nmax + 1) << (nmax + 1));
-    fbarr = faarr + ((nmax + 1) << nmax);
+    size = (nmax + 1) << nmax;
+    xnew(faarr, size * 2);
+    fbarr = faarr + size;
+    fprintf(stderr, "%4d: dgrjw allocated %gMB memory\n", inode,
+        size * 2. * sizeof(fb_t) / (1024*1024));
   } else if (n > nmax) {
     nmax = n;
-    xrenew(faarr, (nmax + 1) << (nmax + 1));
-    fbarr = faarr + ((nmax + 1) << nmax);
+    size = (nmax + 1) << nmax;
+    xrenew(faarr, size * 2);
+    fbarr = faarr + size;
+    fprintf(stderr, "%4d: dgrjw allocated %gMB memory\n", inode,
+        size * 2. * sizeof(fb_t) / (1024*1024));
   }
-  /* memset(faarr, 0x80u, ((n + 1) << (nmax + 1)) * sizeof(fb_t)); */
-  for (i = 0; i < (n + 1) << (nmax + 1); i++)
+  /* memset(faarr, 0x80u, ((n + 1) << (n + 1)) * sizeof(fb_t)); */
+  for (i = 0; i < (n + 1) << (n + 1); i++)
     faarr[i] = FBDIRTY;
   return dg_hsfb_rjwlow(g->c, n, n, mkbitsmask(n), faarr, fbarr);
 }

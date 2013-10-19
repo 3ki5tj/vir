@@ -28,7 +28,7 @@ set xlabel "Dimension {/Arial-Italic D}" offset 0, 0.5
 #set mytics 5
 set ytics font tcfont offset 0., 0
 set format y '10^{%T}'
-set ylabel "Probability to form a biconnected cluster" offset .5, 0
+set ylabel "Probability of forming a biconnected cluster" offset .5, 0
 #set key left bottom Left reverse width -0 font "Arial, 12"
 
 plot [:45][1e-8:] \

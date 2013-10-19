@@ -23,9 +23,11 @@ static void bcstat(int nmax, double nsteps)
   for (n = 0; n <= nmax; n++) cnt[n] = 0;
 
   rvn_zero(v[0]);
+  rvn_zero(v[1]);
   for (t = 1; t <= nsteps; t += 1) {
     /* linear chain */
-    for (n = 1; n < nmax; n++)
+    v[1][0] = pow(rnd0(), 1./D);
+    for (n = 2; n < nmax; n++)
       rvn_add(v[n], v[n - 1], rvn_rndball0(u));
 
     /* construct the diagram */
@@ -39,7 +41,7 @@ static void bcstat(int nmax, double nsteps)
     for (n = 3; n <= nmax; n++) { /* over n-vertex graphs */
       for (i = 0; i <= nmax - n; i++) { /* offset */
         /* construct the vertex set */
-        vs = (((code_t) 1u << n) - 1) << i;
+        vs = mkbitsmask(n) << i;
         if (dg_biconnectedvs(g, vs))
           cnt[n] += 1.;
       }
@@ -62,7 +64,7 @@ static void bcstat(int nmax, double nsteps)
 
 int main(int argc, char *argv[])
 {
-  int nmax = 30;
+  int nmax = 32;
   double nsteps = 1e7;
 
   if (argc > 1) nmax = atoi(argv[1]);

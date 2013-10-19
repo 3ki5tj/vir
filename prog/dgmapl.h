@@ -5,7 +5,7 @@
 #define DGMAPL_NMAX 9
 #endif
 
-#if DGMAPL_NMAX >= 10 /* for future extension, if any */
+#if DGMAPL_NMAX >= 10
 #ifndef CODEBITS
 #define CODEBITS 64 /* for the table key is over 2^32 */
 #endif /* CODEBITS */
@@ -13,13 +13,6 @@
 
 #include "dg.h"
 #include "dgsc.h"
-#if DGMAPL_NMAX <= 9
-#ifndef RJW32
-#define RJW32 1 /* 32-bit integer is good enough for the
-                   RJW recursion at n = 9 < 14, and it is faster
-                   on a 32-bit machine */
-#endif /* RJW32 */
-#endif /* DGMAPL_NMAX <= 9 */
 #include "dgrjw.h"
 #include "dgring.h"
 
@@ -209,7 +202,12 @@ INLINE dgmapl_t *dgmapl_open(int n, int k)
     k = kdef[n];
   mapl->k = k;
   size = (uint64_t) 1u << (n * (n - 1) / 2 - k);
+  die_if (n*(n-1)/2-k > (int) sizeof(code_t) * 8,
+      "n %d, k %d cannot be contained in %d bits, increase CODEBITS\n",
+      n, k, (int) sizeof(code_t));
   xnew(mapl->fbnr, size);
+  fprintf(stderr, "%4d: dgmapl allocated %gGB memory\n", inode,
+      1. * size * sizeof(mapl->fbnr[0]) / (1024.*1024.*1024.) );
   for (i = 0; i < size; i++) {
     mapl->fbnr[i][0] = DGMAPL_BAD;
     mapl->fbnr[i][1] = DGMAPL_BAD;

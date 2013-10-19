@@ -12,6 +12,7 @@ dgcs.h      Ree-Hoover star content, which can be used to compute
             the total weight of a configuration of a hard-sphere system
 dgrjw.h     the total weight of a configuration of a hard-sphere system
             alternative algorithm by R. J. Wheatley
+            consider #define RJW32 1 on a 32-bit machine
 dgdb.h      database
 dgque.h     short history list
 

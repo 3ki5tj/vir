@@ -34,7 +34,7 @@ double Bring = 1; /* to be loaded from file */
 char *fnBring = NULL;
 
 int nthreads = 1;
-unsigned mtseed = 0;
+unsigned rngseed = 0;
 
 
 
@@ -61,7 +61,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-V", "%lf", &Bring, "value of the ring integral");
   argopt_add(ao, "-I", NULL, &fnBring, "name of the virial series file");
   argopt_add(ao, "--nthr", "%d", &nthreads, "number of threads");
-  argopt_add(ao, "--rng", "%u", &mtseed, "set the RNG seed offset");
+  argopt_add(ao, "--rng", "%u", &rngseed, "set the RNG seed offset");
   argopt_parse(ao, argc, argv);
 
   /* decide whether to use lookup table or not */
@@ -225,7 +225,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   if (!bsim0) /* try to load previous data */
     load(fnout, &fbsm, &nrsm);
   /* scramble the random number generator */
-  mtscramble(inode * 2038074743u + nnodes * (time(NULL) + mtseed));
+  mtscramble(inode * 2038074743u + nnodes * (time(NULL) + rngseed));
 
   g = dg_open(n);
   ng = dg_open(n);
@@ -354,7 +354,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   if (!bsim0) /* try to load previous data */
     load(fnout, &fbsm, &nrsm);
   /* scramble the random number generator */
-  mtscramble(inode * 2038074743u + nnodes * time(NULL));
+  mtscramble(inode * 2038074743u + nnodes * (time(NULL) + rngseed));
 
   ng = dg_open(n);
   g = dg_open(n);
@@ -391,6 +391,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
       acc = verepl(x, xi, g, ng, &gdirty);
       racc.sx += acc;
       racc.s += 1;
+      if ( acc && gdirty ) hasfb = 0;
     } else {  /* randomly displace a particle */
       DISPRNDI(i, n, x, xi, amp, gdisp);
       UPDGRAPH(i, n, g, ng, x, xi, gdirty);
@@ -400,13 +401,11 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
       } else if ( (acc = dg_biconnected(ng)) != 0 ) {
         rvn_copy(x[i], xi);
         dg_copy(g, ng);
+        hasfb = 0;
       }
       cacc.sx += acc;
       cacc.s += 1;
     }
-
-    if ( acc && gdirty )
-      hasfb = 0;
 
     if (it % nstfb == 0) {
       if ( !hasfb ) {
