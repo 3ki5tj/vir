@@ -32,9 +32,38 @@ static void foo(int k, int n, int nsteps)
 }
 
 
+
+static int testbyte3(int x0)
+{
+  int x1;
+  byte3_t b3;
+
+  x1 = b3toi( itob3(x0, b3) );
+  printf("x0 %12d(0x%8x) --> byte3 0x%02x%02x%02x --> x1 %12d(0x%8x)\n",
+      x0, x0, b3[2], b3[1], b3[0], x1, x1);
+  return x1;
+}
+
+
+
 int main(int argc, char **argv)
 {
   int n = 9, nsteps = 1000000, k = 4;
+
+  testbyte3(17);
+  testbyte3(-129);
+  testbyte3(-654321);
+  testbyte3(-123456);
+  testbyte3(0x808080);
+  testbyte3(0x800000);
+  testbyte3(-8388608);
+  testbyte3(0x7fffff);
+  testbyte3(0x8080);
+  testbyte3(0x7f7f7f);
+  testbyte3(0x808080);
+  testbyte3(0x7f7f7f7f);
+  testbyte3(0x80808080);
+  printf("short %d, %x \n", (int16_t) 0x8080, 32639);
   if (argc >= 2) n = atoi(argv[1]);
   if (argc >= 3) nsteps = atoi(argv[2]);
   if (argc >= 4) k = atoi(argv[3]);

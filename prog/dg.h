@@ -671,6 +671,8 @@ INLINE int dgmap_init(dgmap_t *m, int n)
       npr = n * (n - 1) / 2;
       ng = (int)( 1u << npr );
       xnew(m->map, ng);
+      fprintf(stderr, "%4d: dgmap allocated %gMB for n %d\n",
+          inode, ng * sizeof(m->map[0]) / (1024.*1024), n);
       for (c = 0; c < ng; c++) m->map[c] = -1;
       xnew(m->first, sz = 1024);
 

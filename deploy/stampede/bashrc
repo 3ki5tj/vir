@@ -3,6 +3,6 @@ PS1='\u@\h:\w\$ '
 alias qsub='sbatch'
 alias qdel='scancel'
 alias qstat='squeue'
+alias qinfo='sinfo -o "%20P %5a %.10L %20F"'
 export KMP_AFFINITY=scatter
 export MIC_KMP_AFFINITY=balanced
-

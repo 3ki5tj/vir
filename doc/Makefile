@@ -1,6 +1,6 @@
 prj=vir
 
-figs=bcacc.pdf
+figs=bcacc.pdf vir64.pdf ergo.png
 
 $(prj).pdf: $(prj).tex  $(prj)text.pdf Makefile $(figs)
 	pdflatex $(prj).tex

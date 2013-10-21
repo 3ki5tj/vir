@@ -206,28 +206,29 @@ INLINE fb_t dg_hsfb_rjw(const dg_t *g)
  * so these variables must be thread private */
 #pragma omp threadprivate(nmax, faarr, fbarr)
 
-  int i, n = g->n;
+  int n = g->n;
   size_t size;
 
   /* the memory requirement is 2^(n + 1) * (n + 1) * sizeof(fb_t) */
   if (fbarr == NULL) {
     nmax = n;
-    size = (nmax + 1) << nmax;
+    size = (nmax + 1) << nmax; /* (nmax + 1) * 2^nmax */
     xnew(faarr, size * 2);
     fbarr = faarr + size;
-    fprintf(stderr, "%4d: dgrjw allocated %gMB memory\n", inode,
-        size * 2. * sizeof(fb_t) / (1024*1024));
+    fprintf(stderr, "%4d: dgrjw allocated %gMB memory for n %d\n", inode,
+        size * 2. * sizeof(fb_t) / (1024*1024), nmax);
   } else if (n > nmax) {
     nmax = n;
-    size = (nmax + 1) << nmax;
+    size = (nmax + 1) << nmax; /* (nmax + 1) * 2^nmax */
     xrenew(faarr, size * 2);
     fbarr = faarr + size;
-    fprintf(stderr, "%4d: dgrjw allocated %gMB memory\n", inode,
-        size * 2. * sizeof(fb_t) / (1024*1024));
+    fprintf(stderr, "%4d: dgrjw reallocated %gMB memory for n %d\n", inode,
+        size * 2. * sizeof(fb_t) / (1024*1024), nmax);
   }
-  /* memset(faarr, 0x80u, ((n + 1) << (n + 1)) * sizeof(fb_t)); */
-  for (i = 0; i < (n + 1) << (n + 1); i++)
-    faarr[i] = FBDIRTY;
+  size = ((size_t) (n + 1) << n); /* (n + 1) * 2^n */
+  /* every byte of FBDIRTY is 0x80, so we can use memset() */
+  memset(faarr, 0x80, size * sizeof(faarr[0]));
+  memset(fbarr, 0x80, size * sizeof(fbarr[0]));
   return dg_hsfb_rjwlow(g->c, n, n, mkbitsmask(n), faarr, fbarr);
 }
 

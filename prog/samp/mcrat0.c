@@ -225,7 +225,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   if (!bsim0) /* try to load previous data */
     load(fnout, &fbsm, &nrsm);
   /* scramble the random number generator */
-  mtscramble(inode * 2038074743u + nnodes * (time(NULL) + rngseed));
+  mtscramble(inode * 2038074743u + nnodes * time(NULL) + rngseed);
 
   g = dg_open(n);
   ng = dg_open(n);
@@ -237,8 +237,8 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   /* equilibration */
   for (t = 1; t <= nequil; t += 1)
     BCSTEP(acc, i, n, g, ng, x, xi, amp, gdisp);
-  printf("%4d: equilibrated at t %g, nedges %d\n",
-      inode, nequil, dg_nedges(g));
+  printf("%4d: equilibrated at t %g, nedges %d, rng: %p, %#x\n",
+      inode, nequil, dg_nedges(g), mr_->arr, (unsigned) mr_->arr[0]);
   /* call _lookup function first, to initialize the table */
   die_if (!dg_biconnected_lookup(g),
       "initial graph (n = %d) is not biconnected\n", g->n);
@@ -354,7 +354,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   if (!bsim0) /* try to load previous data */
     load(fnout, &fbsm, &nrsm);
   /* scramble the random number generator */
-  mtscramble(inode * 2038074743u + nnodes * (time(NULL) + rngseed));
+  mtscramble(inode * 2038074743u + nnodes * time(NULL) + rngseed);
 
   ng = dg_open(n);
   g = dg_open(n);
@@ -364,8 +364,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   /* equilibration */
   for (t = 1; t <= nequil; t += 1)
     BCSTEP(acc, i, n, g, ng, x, xi, amp, gdisp);
-  printf("%4d: equilibrated at t %g, nedges %d, nstfb %d\n",
-      inode, nequil, dg_nedges(g), nstfb);
+  printf("%4d: equilibrated at t %g, nedges %d, nstfb %d, rng %p, %#x\n",
+      inode, nequil, dg_nedges(g), nstfb, mr_->arr, (unsigned) mr_->arr[0]);
   die_if (!dg_biconnected(g),
       "%d, initial diagram not biconnected D %d\n", inode, D);
   fb = dg_hsfb_mixed(g);

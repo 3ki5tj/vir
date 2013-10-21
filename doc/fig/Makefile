@@ -2,7 +2,7 @@
 PS = $(patsubst %.gp,%.ps, $(wildcard *.gp))
 PDF = $(patsubst %.gp,%.pdf, $(wildcard *.gp))
 PNG = $(patsubst %.gp,%.png, $(wildcard *.gp))
-deps = Makefile
+deps = Makefile bcacc.txt
 
 default: $(PDF)
 

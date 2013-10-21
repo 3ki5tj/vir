@@ -808,7 +808,7 @@ def getfnbas():
 def getslaves(fnbas):
   ''' get a list file names of non-master nodes '''
   ls = glob.glob(fnbas + "[0-9]*")
-  print "got %d files for %s" % (len(ls) + 1, fnbas) 
+  print "got %d files for %s" % (len(ls) + 1, fnbas)
   return ls
 
 
