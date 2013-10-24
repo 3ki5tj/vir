@@ -102,10 +102,9 @@ static void doargs(int argc, char **argv)
   /* Metropolis move */
   if (nmvtype == 0) updrc = 0;
 
-  /* make nstcs a multiple of nsted */
-  nstcs = (nstcs + nsted - 1) / nsted * nsted;
-
-  if (D >= 15) nstcs = nsted;
+  if (nstcs >= 0) /* round nstcs a multiple of nsted */
+    nstcs = (nstcs + nsted - 1) / nsted * nsted;
+  if (D >= 15 && nstcs < 0) nstcs = nsted;
   if (nstfb < 0) nstfb = nstcs;
 
   if (nedxmax < 0) {
@@ -532,6 +531,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
   gc->nedg[n][0] += 1;
   gc->nedg[n][1] += ned;
 
+  if (nstcs <= 0) return;
   if (n <= nlookup || ((int) fmod(t + .5, nstcs) == 0) ) {
     /* check if the graph has a clique separator
      * but in special cases, fb and nr are computed as well */
@@ -554,7 +554,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       err = errnr = 0;
     } else {
       /* this function implicitly computes the clique separator
-       * with very small overhead */
+       * with a very small overhead */
       sc = dg_rhsc_spec0(g, 0, 1, &ned, degs, &err);
       if (err == 0) {
         ncs = (fabs(sc) > 1e-3);
@@ -567,6 +567,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
     gc->ncsp[n][0] += 1;
     gc->ncsp[n][1] += ncs;
 
+    if (nstfb <= 0) return;
     if (n <= nlookup || (nstfb > 0 && (int) fmod(t + .5, nstfb) == 0)) {
       /* compute fb, if it is cheap */
       if ( err ) { /* if dg_rhsc_spec0() fails, no clique separator */
