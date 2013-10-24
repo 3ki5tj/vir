@@ -20,6 +20,10 @@ from math import *
 
 
 
+verbose = 1 # verbose level
+
+
+
 def errarr(arr):
   ''' calculate the error of the array `arr' '''
   m = len(arr) # number of copies
@@ -184,11 +188,12 @@ class MR:
   ''' a class for combining data from mcrat.c '''
   once = 0
 
-  def __init__(me, fn, fnBring = None):
+  def __init__(me, fn, fnBring = None, use3 = 0):
     s = open(fn).readlines()
     me.initmr(s[0])
     me.adddata(s[1])
     me.loadBring(fnBring)
+    me.use3 = use3
 
 
 
@@ -257,7 +262,7 @@ class MR:
     me.nr = me.nrsm[1] / me.nrsm[0]
     rv = -me.Bring / me.nr;
     me.fb0 = me.fbsm[0][1] / me.fbsm[0][0]
-    if me.tag == 'M':
+    if me.tag == 'M': # original mcrat.c
       me.nz = me.nzsm[1] / me.nzsm[0]
       me.ta0 = me.tacc[0][1] / me.tacc[0][0]
       me.ta1 = me.tacc[1][1] / me.tacc[1][0]
@@ -266,8 +271,11 @@ class MR:
       me.fb2 = me.fbsm[2][1] / me.fbsm[2][0] * (me.Z[2]
                / me.Z[1]) * me.ta0 / me.ta1 * me.nz
       me.vir = [me.fb0 * rv, me.fb1 * rv, me.fb2 * rv]
-    else:
-      me.vir = [me.fb0 * rv]
+    else: # mcrat0.c
+      if me.use3:
+        me.vir = [me.fb0 * rv, me.fb0, me.nr]
+      else:
+        me.vir = [me.fb0 * rv]
 
 
 
@@ -290,10 +298,11 @@ class MR:
       if me.evir:
         s += "%9.2e %9.2e %9.2e " % (
             me.evir[0], me.evir[1], me.evir[2])
-      print "saved mr file %s, tot %g, %g, %g" % (
-          fn, me.fbsm[0][0], me.fbsm[1][0], me.fbsm[2][0])
-      print "D %d, n %d, %+.6e (%.1e) %+.6e (%.1e) %+.6e (%.1e) " % (me.D, me.n,
-          me.vir[0], me.evir[0], me.vir[1], me.evir[1], me.vir[2], me.evir[2])
+      if verbose:
+        print "saved mr file %s, tot %g, %g, %g" % (
+            fn, me.fbsm[0][0], me.fbsm[1][0], me.fbsm[2][0])
+        print "D %d, n %d, %+.6e (%.1e) %+.6e (%.1e) %+.6e (%.1e) " % (me.D, me.n,
+            me.vir[0], me.evir[0], me.vir[1], me.evir[1], me.vir[2], me.evir[2])
     else: # output of mcrat0
       info = "#0 %d %d V0\n" % (me.D, me.n)
       s += "%16.0f %+17.14f " % (
@@ -303,28 +312,29 @@ class MR:
       s += "%+20.14e " % (me.vir[0])
       if me.evir:
         s += "%9.2e " % (me.evir[0])
-      print "saved mr file %s, tot %g" % (fn, me.fbsm[0][0])
-      print "D %d, n %d, %+.6e (%.1e) " % (me.D, me.n,
-          me.vir[0], me.evir[0])
+      if verbose:
+        print "saved mr file %s, tot %g" % (fn, me.fbsm[0][0])
+        print "D %d, n %d, %+.6e (%.1e) " % (me.D, me.n,
+            me.vir[0], me.evir[0])
     s += "\n"
     open(fn, "w").write(info + s)
 
 
 
   @staticmethod
-  def sumdat(fnbas, fnls):
+  def sumdat(fnbas, fnls, use3 = 0):
     ''' sum over data in fnbas + fnls '''
-    mr = MR(fnbas)
+    mr = MR(fnbas, use3 = use3) # create a class, read data in fnbas
     m = len(fnls) + 1
     mrls = [None] * m
     fnls = [fnbas,] + fnls
     # sum over all file lists
     for i in range(m):
       fn = fnls[i]
-      mrls[i] = MR(fn)
+      mrls[i] = MR(fn, use3 = use3) # read data in fn
       mrls[i].recompute() # compute individual vir
-      if i > 0: mr.absorb(mrls[i])
-    mr.recompute()
+      if i > 0: mr.absorb(mrls[i]) # mr += mrls[i]
+    mr.recompute() # on all data
 
     # compute errors
     virls = [None] * m
@@ -553,7 +563,8 @@ class GC:
     s[0] = "#%s %d %d V%d %d 1 %s\n" % (me.tag, me.D,
         me.nmax, me.ver, me.nmin, me.nedxmax)
     open(fn, "w").writelines(s)
-    print "saved Zrh file %s, tot %g" % (fn, me.tot)
+    if verbose:
+      print "saved Zrh file %s, tot %g" % (fn, me.tot)
 
 
 
@@ -711,7 +722,8 @@ class GC:
       me.tot += me.hist[i]
     s[0] = ' '.join(me.info) + '\n'
     open(fn, "w").writelines(s)
-    print "saved Zrr file %s, tot %g" % (fn, me.tot)
+    if verbose:
+      print "saved Zrr file %s, tot %g" % (fn, me.tot)
 
 
 
@@ -750,7 +762,8 @@ class GC:
     s[0] = "# %d %d V3 %d 1 %s\n" % (
         me.D, me.nmax, me.nmin, me.nedxmax)
     open(fn, "w").writelines(s)
-    print "saved Zr file %s, tot %g" % (fn, me.tot)
+    if verbose:
+      print "saved Zr file %s, tot %g" % (fn, me.tot)
 
 
 
@@ -800,35 +813,98 @@ class GC:
 
 
 
-def getlserr(ls):
-  n = len(ls)
-  if n <= 0: return
+def niceprint(x, err, n = 0, i = 0):
+  ''' print the number with error aligned on the second line '''
+  ox = floor(log10(fabs(x)))
+  oy = floor(log10(err))
+  if ox >= oy:
+    padding = int(ox - oy + .5)
+  else:
+    padding = int(ox - oy - .5)
+  if padding <= 0: padding -= 1
+  if verbose:
+    print "%4d/%4d: %+20.10e\n" % (n, i, x) + " " * (
+        padding + 15) + "%9.2e" % (err)
+
+
+
+def getlserr(ls, n):
+  q = len(ls)
+  if q <= 0: return
   m = len(ls[0][0])
-  print "list has %s items, each with %d quantities" % (n, m)
+  if verbose:
+    print "list has %s items, each with %d quantities" % (q, m)
+  avls = []
+  errls = []
   for j in range(m): # loop over quantities
     suminvvar = 0
     sumx = 0
     sumw = 1e-100
-    for i in range(n): # loop over copies
+    for i in range(q): # loop over copies
       invsig = 1./ls[i][1][j]
       invvar = invsig * invsig # inverse variance
       suminvvar += invvar
       sumw += invvar
       sumx += ls[i][0][j] * invvar
-    if n > 1: # print the break down
-      for i in range(n):
+    if q > 1 and verbose: # print the break down
+      for i in range(q):
         # id, dir, weight, x, err
         print "%2d %-20s %5.2f%% %+20.10e %9.2e" % (
             i + 1, ls[i][2], 100*pow(1./ls[i][1][j], 2)/suminvvar,
             ls[i][0][j], ls[i][1][j])
     avx = sumx / sumw
     err = 1./sqrt(suminvvar)
-    ox = floor(log10(fabs(avx)))
-    oy = floor(log10(err))
-    padding = int(ox - oy + .5)
-    if padding == 0: padding -= 1
-    print "%4d: %+20.10e\n" % (j, avx) + " " * (padding+10) + "%9.2e" % (err)
+    niceprint(avx, err, n, j)
+    avls += [avx,]
+    errls += [err,]
+  return avls, errls
 
+
+
+def guessdirs(n):
+  # try to search directories of order n
+  dirs = [d for d in glob.glob("n%d*" % n) if os.path.isdir(d)]
+  dirs += [d for d in glob.glob("n%d*/mic*" % n) if os.path.isdir(d)]
+  dirs = list( set( dirs ) )
+  dirs.sort()
+  if len(dirs) == 0:
+    print "cannot find directories of order %d" % n
+    return None
+  return dirs
+
+
+
+def dodir(dirs, n, sum3 = 0):
+  if dirs == None or len(dirs) == 0:
+    dirs = guessdirs(n)
+    if dirs == None:
+      return None, None
+  ls = []
+  i = 0
+  for d in dirs:
+    (x, err) = aggregate(None, d, sum3 = sum3)
+    if x:
+      ls += [(x, err, d),]
+      i += 1
+      if verbose:
+        print "Directory %d: %s, %s (%s)\n" % (i, d, x, err)
+  return getlserr(ls, n)
+
+
+
+def scandirs(fns):
+  ''' scan over directories '''
+  n = 4
+  ls = []
+  while 1:
+    x, err = dodir(None, n)
+    if x == None: break
+    ls += [(n, x, err)]
+    n += 1
+  for n, x, err in ls:
+    for i in range(len(x)):
+      niceprint(x[i], err[i], n, i)
+  return ls
 
 
 
@@ -859,29 +935,32 @@ def getfnbas(fninp):
 def getslaves(fnbas):
   ''' get a list file names of non-master nodes '''
   ls = glob.glob(fnbas + "[0-9]*")
-  print "got %d files for %s" % (len(ls) + 1, fnbas)
+  if verbose:
+    print "got %d files for %s" % (len(ls) + 1, fnbas)
   return ls
 
 
 
-def aggregate(fninp, dir = None):
+def aggregate(fninp, dir = None, sum3 = 0):
   ''' aggregate data for fninp '''
   dir0 = os.getcwd()
   if dir: os.chdir(dir)
   fnbas = getfnbas(fninp)
   if not fnbas:
-    print "cannot find a .dat file under %s" % dir
+    if verbose:
+      print "cannot find a .dat file under %s" % dir
     if dir: os.chdir(dir0)
     return None, None
   elif not os.path.exists(fnbas):
-    print "cannot find %s" % fnbas
+    if verbose:
+      print "cannot find %s, dir %s/%s" % (fnbas, dir, dir0)
     if dir: os.chdir(dir0)
     return None, None
   fnls = getslaves(fnbas)
   if fnbas.startswith("Z"):
     (x, err) = GC.sumdat(fnbas, fnls)
   elif fnbas.startswith("mr"):
-    (x, err) = MR.sumdat(fnbas, fnls)
+    (x, err) = MR.sumdat(fnbas, fnls, sum3)
   else:
     (x, err) = INT.sumdat(fnbas, fnls)
   if dir: os.chdir(dir0)
@@ -900,7 +979,7 @@ def usage():
   Without the input, the program will try search proper input dat files
 
   OPTIONS:
-
+   -s: scan over directories of different n
    -n: grand aggregation for all folders with n
    -d: input are directories to aggregate
   """
@@ -911,8 +990,8 @@ def usage():
 def doargs():
   ''' Handle common parameters from command line options '''
   try:
-    opts, args = getopt.gnu_getopt(sys.argv[1:], "dn:",
-         ["dir", "order=", "help",])
+    opts, args = getopt.gnu_getopt(sys.argv[1:], "sdn:",
+         ["scan", "dir", "order=", "help",])
   except getopt.GetoptError, err:
     # print help information and exit:
     print str(err) # will print something like "option -a not recognized"
@@ -924,43 +1003,30 @@ def doargs():
   for o, a in opts:
     if o in ("-d", "--dir"):
       isdir = 1
+    elif o in ("-s", "--scan"):
+      isdir = -1
     elif o in ("-n", "--order",):
       n = int(a)
       isdir = 1
     elif o in ("-h", "--help",):
       usage()
 
-  ls = args
-  if isdir and len(ls) == 0:
+  fns = args
+  if isdir > 0:
     if n == 0: usage()
-    # try to search directories of order n
-    ls = [d for d in glob.glob("n%d*" % n) if os.path.isdir(d)]
-    ls += [d for d in glob.glob("n%d*/mic*" % n) if os.path.isdir(d)]
-    ls = list( set( ls ) )
-    ls.sort()
-    if len(ls) == 0:
-      print "cannot find directories of order %d" % n
-      usage()
-    print "directories for n = %d, %s" % (n, ls)
-  return isdir, ls
+  return isdir, fns, n
 
 
 
 # main function starts here
 if __name__ == "__main__":
-  isdir, fns = doargs()
+  isdir, fns, n = doargs()
 
-  if isdir: # directory mode
-    ls = []
-    i = 0
-    for d in fns:
-      (x, err) = aggregate(None, d)
-      if x:
-        ls += [(x, err, d),]
-        i += 1
-        print "Directory %d: %s, %s (%s)\n" % (i, d, x, err)
-    getlserr(ls)
-  else:
+  if isdir < 0: # scan directories
+    scandirs(fns)
+  elif isdir > 0: # multiple directory mode
+    dodir(fns, n)
+  else: # under a single directory
     if len(fns):
       for fn in fns: aggregate(fn)
     else:

@@ -23,8 +23,8 @@ static void cmpref(int n, edges_t *ref)
       dg_link(g, ref[i].id[j][0], ref[i].id[j][1]);
     cn = dg_connected(g);
     bc = dg_biconnected(g);
-    bc1 = dg_biconnected(g);
-    if (cn != ref[i].cn || bc != ref[i].bc || bc != ref[i].bc) {
+    bc1 = dg_biconnected_std(g);
+    if (cn != ref[i].cn || bc != ref[i].bc || bc1 != ref[i].bc) {
       printf("n %d: model %d, connected %d vs %d, biconnected %d, %d vs %d (ref)\n",
           n, i, cn, ref[i].cn, bc, bc1, ref[i].bc);
       dg_print(g);

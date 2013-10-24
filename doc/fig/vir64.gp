@@ -3,13 +3,13 @@ reset
 
 set encoding cp1250 # make minus sign longer
 #set encoding iso_8859_1
-set terminal postscript enhanced font "Arial, 16"
+set terminal postscript enhanced font "Arial, 18"
                                 #size 10, 4 lw 2.0 font "Arial, 14"
 set output "vir64.ps"
 
 
 
-tcfont="Arial, 14"
+tcfont="Arial, 16"
 set key spacing 1.5
 
 set style line 1 lc rgb "#aaaaaa" lt 1 lw 0.5

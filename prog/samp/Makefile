@@ -60,4 +60,11 @@ clean:
 	rm -rf $(bins) $(bins_d) $(bins_mp) $(bins_mpi) *~ a.out gmon.out *.his MTSEED bin obj
 
 usb:
-	$(MAKE) -C ../.. usb
+	$(MAKE) -C ../.. $@
+
+pack:
+	$(MAKE) -C ../.. $@
+
+zip:
+	$(MAKE) -C ../.. $@
+

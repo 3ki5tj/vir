@@ -230,12 +230,12 @@ INLINE double dg_rhsc_lookup(const dg_t *g)
     int k, cnt = 0, nz = 0;
     clock_t t0 = clock(), t1;
 
-    if (n >= 8) printf("n %d: initializing...\n", n);
+    if (n >= 8) fprintf(stderr, "n %d: initializing...\n", n);
     dgmap_init(m, n); /* compute the permutation mapping */
     xnew(sc[n], m->ng);
 
     t1 = clock();
-    if (n >= 8) printf("n %d: diagram-map initialized %gs\n",
+    if (n >= 8) fprintf(stderr, "n %d: diagram-map initialized %gs\n",
         n, 1.*(t1 - t0)/CLOCKS_PER_SEC);
     /* loop over unique diagrams */
     g1 = dg_open(n);
@@ -248,7 +248,7 @@ INLINE double dg_rhsc_lookup(const dg_t *g)
       } else sc[n][k] = 0;
     }
     dg_close(g1);
-    printf("n %d, computed star contents of %d/%d biconnected diagrams, %gs\n",
+    fprintf(stderr, "n %d, computed star contents of %d/%d biconnected diagrams, %gs\n",
         n, cnt, nz, 1.*(clock() - t1)/CLOCKS_PER_SEC);
   }
   dg_encode(g, &c);

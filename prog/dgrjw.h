@@ -295,7 +295,7 @@ INLINE double dg_hsfb_lookuplow(int n, unqid_t id)
       } else fb[n][k] = 0;
     }
     dg_close(g);
-    printf("%4d: n %d, computed hard sphere weights of %d/%d biconnected diagrams, %gs\n",
+    fprintf(stderr, "%4d: n %d, computed hard sphere weights of %d/%d biconnected diagrams, %gs\n",
         inode, n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
   }
   return fb[ n ][ id ];

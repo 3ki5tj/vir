@@ -203,7 +203,7 @@ INLINE double dg_nring_lookuplow(int n, unqid_t id)
       } else nr[n][k] = 0;
     }
     dg_close(g);
-    printf("%4d: n %d, computed # of subrings of %d/%d biconnected diagrams, %gs\n",
+    fprintf(stderr, "%4d: n %d, computed # of subrings of %d/%d biconnected diagrams, %gs\n",
           inode, n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
   }
   return nr[ n ][ id ];

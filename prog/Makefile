@@ -24,4 +24,11 @@ clean:
 	rm -rf $(bins) $(bins_d) *~ a.out *.his MTSEED bin obj
 
 usb:
-	$(MAKE) -C .. usb
+	$(MAKE) -C .. $@
+
+pack:
+	$(MAKE) -C .. $@
+
+zip:
+	$(MAKE) -C .. $@
+

@@ -31,6 +31,8 @@ typedef int32_t dgmapl_fb_t; /* internal type to save fb and nr */
 #define DGMAPL_BAD ((dgmapl_int_t) 0x80808080)
 
 #elif defined(DGMAPL_INT24) /* 3-byte, or 24-bit, integer */
+/* this is only needed for DGMAPL_NMAX = 10, and in this case,
+ * it is only effective for D == 2, and possibly 3, but not higher */
 typedef byte3_t dgmapl_fb_t;
 #define DGMAPL_MAX ((dgmapl_int_t) 0x7f7f7f)
 #define DGMAPL_BAD ((dgmapl_int_t) 0xff808080)

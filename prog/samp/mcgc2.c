@@ -339,12 +339,12 @@ INLINE double gc_fprintZr(gc_t *gc, FILE *fp,
         i, gc->ZZ[i], gc->Z[i], Zr[i], rc[i],
         gc->hist[i], gc->nup[i-1][0], gc->ndown[i][0],
         gc->nup[i-1][1] / gc->nup[i-1][0],
-        gc->ndown[i][1] / gc->ndown[i][0]);
+        gc->ndown[i][1] / gc->ndown[i][0]); /* 10 numbers */
     if (nmvtype == 1)
       fprintf(fp, "%14.0f %.14f ", gc->ngpr[i][0],
-          gc->ngpr[i][1] / gc->ngpr[i][0]);
+          gc->ngpr[i][1] / gc->ngpr[i][0]); /* 12 numbers */
     fprintf(fp, "%14.0f %17.14f ", gc->ring[i][0],
-        gc->ring[i][1] / gc->ring[i][0]);
+        gc->ring[i][1] / gc->ring[i][0]); /* 14 numbers */
     fprintf(fp, "%14.0f %14.0f %14.0f %18.14f %16.14f %16.14f %+17.14f "
         "%+20.14e %+20.14e\n",
         gc->nedg[i][0], gc->ncsp[i][0], gc->fbsm[i][0],
@@ -352,7 +352,7 @@ INLINE double gc_fprintZr(gc_t *gc, FILE *fp,
         gc->ncsp[i][1] / gc->ncsp[i][0],
         gc->fbsm[i][2] / gc->fbsm[i][0],
         gc->fbsm[i][1] / gc->fbsm[i][0],
-        gc->B[i], gc->B2[i]);
+        gc->B[i], gc->B2[i]); /* 23 numbers */
     tot += gc->hist[i];
   }
   return tot;

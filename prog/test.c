@@ -24,6 +24,15 @@ int main(void)
   dg_t *g;
   code_t c[2];
 
+#ifdef __INTEL_COMPILER
+  {
+    printf("first bits: 0x14 %d, 0x80000000 %d, 0 %d\n",
+        _bit_scan_forward(0x14),
+        _bit_scan_forward(0x80000000),
+        _bit_scan_forward(0));
+  }
+#endif
+
   testperm(3);
 
   g = dg_open(10);

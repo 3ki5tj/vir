@@ -20,3 +20,11 @@ $(bins_d) : %_d: %.c $(deps)
 clean:
 	rm -f $(bins) $(bins_d) *~ a.out *.his MTSEED
 
+usb:
+	$(MAKE) -C ../.. $@
+
+pack:
+	$(MAKE) -C ../.. $@
+
+zip:
+	$(MAKE) -C ../.. $@
