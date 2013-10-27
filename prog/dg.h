@@ -3,6 +3,11 @@
 /* handling diagrams in the virial expansion
  * using bitwise operations */
 
+#if defined(__GNUC__) && !defined(__INTEL_COMPILER)
+  /* ignore all openmp pragmas */
+  #pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#endif
+
 
 
 #ifdef MPI
@@ -120,21 +125,66 @@ INLINE code_t bitinvert(code_t x, int k)
 
 
 
+/* reverse bits */
+INLINE code_t bitreverse(code_t x)
+{
+  static const unsigned char bitrev[256] = {
+    #define R2(n)     n,     n + 2*64,     n + 1*64,     n + 3*64
+    #define R4(n) R2(n), R2(n + 2*16), R2(n + 1*16), R2(n + 3*16)
+    #define R6(n) R4(n), R4(n + 2*4 ), R4(n + 1*4 ), R4(n + 3*4 )
+    R6(0), R6(2), R6(1), R6(3) };
+  code_t c;
+  unsigned char *p = (unsigned char *) &x;
+  unsigned char *q = (unsigned char *) &c;
+#if (CODEBITS == 32)
+  q[3] = bitrev[p[0]];
+  q[2] = bitrev[p[1]];
+  q[1] = bitrev[p[2]];
+  q[0] = bitrev[p[3]];
+#else
+  q[7] = bitrev[p[0]];
+  q[6] = bitrev[p[1]];
+  q[5] = bitrev[p[2]];
+  q[4] = bitrev[p[3]];
+  q[3] = bitrev[p[4]];
+  q[2] = bitrev[p[5]];
+  q[1] = bitrev[p[6]];
+  q[0] = bitrev[p[7]];
+#endif
+  return c;
+}
+
+
+
 /* ********************** BITFIRST BEGINS ****************************** */
 
 
 
-const int bruijn_index_[32] =
+#if (CODEBITS == 32)
+const int bruijn32_[32] =
   { 0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
     31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9};
 
-#define BRUIJNID32(b) \
-  bruijn_index_[((b) * 0x077CB531) >> 27]
+#define BRUIJNID(b) bruijn32_[((b) * 0x077CB531) >> 27]
 
-#define BRUIJNID32_(b) \
-  bruijn_index_[((((b) * 0x077CB531)) >> 27) & 0x1f]
+#elif (CODEBITS == 64) /* 64-bit */
+
+const int bruijn64_[64] =
+  {  0,  1,  2,  7,  3, 13,  8, 19,  4, 25, 14, 28,  9, 34, 20, 40,
+     5, 17, 26, 38, 15, 46, 29, 48, 10, 31, 35, 54, 21, 50, 41, 57,
+    63,  6, 12, 18, 24, 27, 33, 39, 16, 37, 45, 47, 30, 53, 49, 56,
+    62, 11, 23, 32, 36, 44, 52, 55, 61, 22, 43, 51, 60, 42, 59, 58};
+
+#define BRUIJNID(b) bruijn64_[((b) * 0x218A392CD3D5DBFULL) >> 58]
+
+#endif /* CODEBITS == 64 */
 
 
+
+/* macro version of bitfirstlow(); */
+#define BITFIRSTLOW(id, x, b) { \
+  (b) = (x) & (-(x)); \
+  (id) = BRUIJNID(b); }
 
 /* find the index of the lowest 1 bit
  * on return *b is the nonzero bit
@@ -145,41 +195,12 @@ const int bruijn_index_[32] =
 INLINE int bitfirstlow(code_t x, code_t *b)
 {
   (*b) = x & (-x); /* such that only the lowest 1-bit survives */
-#if CODEBITS == 32
-  return BRUIJNID32(*b);
-#elif CODEBITS == 64
-  if (*b == 0) {
-    return 0;
-  } else {
-    uint32_t low = (uint32_t) (*b & 0xffffffff);
-    if (low) return BRUIJNID32_(low);
-    else return BRUIJNID32_(((*b) >> 32) & 0xffffffff) + 32;
-  }
-#endif
+  return BRUIJNID(*b);
 }
 
 
 
-/* macro version of bitfirstlow(); */
-#define BITFIRSTLOW32(id, x, b) { \
-  (b) = (x) & (-(x)); \
-  (id) = BRUIJNID32(b); }
-
-#define BITFIRSTLOW64(id, x, b) { \
-  (b) = (x) & (-(x)); \
-  if ((b) == 0) { id = 0; } \
-  else { uint32_t low_ = (b) & 0xffffffff; \
-    if (low_) { (id) = BRUIJNID32_(low_); } \
-    else { (id) = BRUIJNID32_(((b) >> 32) & 0xffffffff) + 32; } \
-  } }
-
-#if CODEBITS == 32
-#define BITFIRSTLOW(id, x, b) BITFIRSTLOW32(id, x, b)
-#elif CODEBITS == 64
-#define BITFIRSTLOW(id, x, b) BITFIRSTLOW64(id, x, b)
-#endif
-
-
+#define BITFIRST(id, x) { code_t b_; BITFIRSTLOW(id, x, b_); }
 
 /* index of nonzero bit */
 INLINE int bitfirst(code_t x)
@@ -189,8 +210,6 @@ INLINE int bitfirst(code_t x)
 }
 
 
-
-#define BITFIRST(id, x) { code_t b_; BITFIRSTLOW(id, x, b_); }
 
 /* ********************** BITFIRST ENDS ****************************** */
 

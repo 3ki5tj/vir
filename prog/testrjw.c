@@ -1,6 +1,5 @@
-#include <time.h>
 #include "dgrjw.h"
-
+#include "testutil.h"
 
 
 typedef struct {
@@ -40,11 +39,10 @@ static void cmpref(int n, edges_t *ref)
 
 
 /* test the speed of computing fb */
-static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
+static void testspeed(int n, int nsamp, int nedmax, char method)
 {
-  int t, ipr, npr = n * (n - 1)/2, i, j, ned;
   double fb, sum = 0;
-  int eql = 1, nequil = 1000, isamp = 0, acc;
+  int t, ned, eql = 1, nequil = 1000, isamp = 0, good = 0, tot = 0;
   dg_t *g;
   clock_t t0;
   double tsum = 0;
@@ -67,25 +65,8 @@ static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
 
   for (t = 1; ; t++) {
     /* randomly switch an edge */
-    ipr = (int) (npr * rnd0());
-    parsepairindex(ipr, n, &i, &j);
-    if (dg_linked(g, i, j)) { /* unlink (i, j) */
-      dg_unlink(g, i, j);
-      acc = dg_biconnected(g);
-      if ( acc ) {
-        ned--;
-      } else {
-        dg_link(g, i, j);
-      }
-    } else { /* link (i, j) */
-      acc = 1;
-      if (ned >= nedmax) /* avoid increasing edges */
-        acc = (rnd0() < rnp);
-      if (acc) {
-        ned++;
-        dg_link(g, i, j);
-      }
-    }
+    dg_rndswitchedge(g, &ned, nedmax, rnp);
+
     if (eql && t >= nequil) {
       t = 0;
       eql = 0; /* stop equilibration */
@@ -94,13 +75,9 @@ static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
 
     if (t % 10 != 0) continue; /* avoid successive correlation */
 
-    //if (t % 1000 == 0) printf("ned %d, t %d\n", ned, t);
-    if (t % 1000000 == 0) { /* adjust rnp */
-      rnp *= 0.5;
-      printf("adjusting rnp to %g, ned %d, n %d\n", rnp, ned, n);
-    }
+    adjustrnp(ned, nedmax, t, 1000000, &good, &tot, &rnp);
     die_if (dg_nedges(g) != ned, "ned %d vs. %d\n", ned, dg_nedges(g));
-    if ( ned < nedmin || ned > nedmax) continue;
+    if ( ned > nedmax ) continue;
     if ( dg_cliquesep(g) ) continue; /* avoid clique separable */
 
     t0 = clock();
@@ -126,7 +103,9 @@ static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
     }
     tsum += clock() - t0;
     sum += fb;
+#ifdef VERBOSE
     printf("i %d, t %d, ned %d, fb %g\n", isamp, t, ned, fb);
+#endif
 #if 0
     if (dg_hsfb_mixed(g) != dg_hsfb_rjw(g)) {
       printf("corruption %d vs %d csep %d\n", dg_hsfb_mixed(g), dg_hsfb_rjw(g), dg_cliquesep(g));
@@ -138,9 +117,9 @@ static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
   }
 
   tsum /= CLOCKS_PER_SEC;
-  printf("star content, n %d, samples %d, steps %d, nedges %d-%d; "
+  printf("star content, n %d, samples %d, steps %d, nedmax %d; "
       "method %c, fbav %g, time used: %gs/%d = %gms\n",
-      n, nsamp, t, nedmin, nedmax, method,
+      n, nsamp, t, nedmax, method,
       1.*sum/nsamp, tsum, nsamp, tsum / nsamp * 1000);
   dg_close(g);
 }
@@ -149,7 +128,7 @@ static void testspeed(int n, int nsamp, int nedmin, int nedmax, char method)
 
 int main(int argc, char **argv)
 {
-  int n = 12, nsamp = 1000, nedmin = 0, nedmax = 1000000;
+  int n = 12, nsamp = 1000, nedmax = 1000000;
   char method = 'd'; /* default */
 
   edges_t ref4[] = {
@@ -197,7 +176,7 @@ int main(int argc, char **argv)
   if (argc >= 4) nedmax = atoi(argv[3]);
   die_if (nedmax <= n, "nedmax %d <= n %d\n", nedmax, n);
   if (argc >= 5) method = argv[4][0];
-  testspeed(n, nsamp, nedmin, nedmax, method);
+  testspeed(n, nsamp, nedmax, method);
   mtsave(NULL);
   return 0;
 }

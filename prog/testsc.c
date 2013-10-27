@@ -1,6 +1,6 @@
-#include <time.h>
 #include "dgsc.h"
 #include "dgrjw.h"
+#include "testutil.h"
 
 
 
@@ -42,14 +42,12 @@ static void cmpref(int n, edges_t *ref)
 
 /* test the speed of computing star content
  * see the function with the same name for a more advanced version */
-static void testspeed(int n, int nsamp, char method)
+static void testspeed(int n, int nsamp, int nedmax, char method)
 {
-  int t, ipr, npr = n * (n - 1)/2, i, j, nequil = 1000;
-  double sum = 0;
-  int eql = 1, isamp = 0;
+  int t, ned, nequil = 1000, eql = 1, isamp = 0, good = 0, tot = 0;
   dg_t *g;
   clock_t t0;
-  double tsum = 0;
+  double sum, tsum = 0, rnp = 0.1;
 
   g = dg_open(n);
   dg_full(g);
@@ -79,17 +77,10 @@ static void testspeed(int n, int nsamp, char method)
     dg_close(g2);
   }
 
+  ned = dg_nedges(g);
   for (t = 0; ; t++) {
     /* randomly switch an edge */
-    ipr = (int) (npr * rnd0());
-    parsepairindex(ipr, n, &i, &j);
-    if (dg_linked(g, i, j)) {
-      dg_unlink(g, i, j);
-      if ( !dg_biconnected(g) )
-        dg_link(g, i, j);
-    } else {
-      dg_link(g, i, j);
-    }
+    dg_rndswitchedge(g, &ned, nedmax, rnp);
 
     if (eql && t >= nequil) {
       t = 0;
@@ -98,6 +89,8 @@ static void testspeed(int n, int nsamp, char method)
 
     if (t % 10 != 0) continue; /* avoid successive correlation */
 
+    adjustrnp(ned, nedmax, t, 1000000, &good, &tot, &rnp);
+    if ( ned > nedmax ) continue;
     if ( dg_cliquesep(g) ) continue;
 
     t0 = clock();
@@ -141,13 +134,14 @@ int main(void)
     {5, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}}, -4},
     {-1, {{0, 0}}, 0},
   };
+  int nedmax = 1000;
 
   cmpref(5, ref5);
   cmpref(6, ref6);
-  testspeed(5, 100000, 'l');
-  testspeed(6, 100000, 'l');
-  testspeed(7, 100000, 'l');
-  testspeed(8, 1000000, 'l');
-  testspeed(8, 1000, 'd');
+  testspeed(5, 100000,  nedmax, 'l');
+  testspeed(6, 100000,  nedmax, 'l');
+  testspeed(7, 100000,  nedmax, 'l');
+  testspeed(8, 1000000, nedmax, 'l');
+  testspeed(8, 1000,    nedmax, 'd');
   return 0;
 }

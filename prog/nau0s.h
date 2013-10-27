@@ -1,0 +1,1 @@
+../../nauty/min/nau0s.h

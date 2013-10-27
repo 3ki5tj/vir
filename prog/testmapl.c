@@ -1,73 +1,71 @@
 #include "dgmapl.h"
+#include "testutil.h"
 
 
-static void foo(int k, int n, int nsteps)
+static void testspeed(int k, int n, int nsamp, int nedmax)
 {
-  dg_t *g, *ng;
-  int i, j, t, err = 0, st[DGMAPL_NMAX + 1];
+  dg_t *g;
+  int t, ned, eql = 1, nequil = 1000, isamp, good = 0, tot = 0;
+  int err = 0, st[DGMAPL_NMAX + 1];
   clock_t t0;
-  double tsum = 0;
+  double tsum = 0, rnp = 0.1;
 
+  printf("getchain: speed test for n %d, k %d, nsamp %d, nedmax %d\n",
+      n, k, nsamp, nedmax);
   g = dg_open(n);
-  ng = dg_open(n);
   dg_full(g);
-  for (t = 0; t < nsteps; t++) {
-    i = randpair(n, &j);
-    if ( dg_linked(g, i, j) ) {
-      dg_unlink(g, i, j);
-      if (!dg_biconnected(g))
-        dg_link(g, i, j); /* link back */
-    } else {
-      dg_link(g, i, j);
+  for (t = 0; ; t++) {
+    dg_rndswitchedge(g, &ned, nedmax, rnp);
+    if (eql && t >= nequil) {
+      t = 0;
+      eql = 0;
+      continue;
     }
+    if (t % 10 != 0) continue;
+    adjustrnp(ned, nedmax, t, 1000000, &good, &tot, &rnp);
+    if ( ned > nedmax ) continue;
     t0 = clock();
     err += (dgmapl_getchain(g, k, st) == 0);
     tsum += clock() - t0;
+    if (++isamp >= nsamp) break;
   }
   tsum /= CLOCKS_PER_SEC;
-  printf("getchain() err %d,%g, %g/%d = %gmcs\n",
-    err, 1.*err/nsteps, tsum, nsteps, tsum/nsteps*1e6);
+  printf("getchain() err %d(%g%%), time %g/%d = %gmcs\n",
+    err, 100.*err/nsamp, tsum, nsamp, tsum/nsamp*1e6);
   dg_close(g);
-  dg_close(ng);
 }
 
 
 
-static int testbyte3(int x0)
+static void testbyte3(void)
 {
-  int x1;
+  int x0, x1, i;
   byte3_t b3;
+  int arr[] = {17, -129, -654321, -123456, 0x808080, 0x800000, -8388608,
+    0x7fffff, 0x8080, 0x7f7f7f, 0x808080, 0x7f7f7f7f, 0x80808080, 0};
 
-  x1 = b3toi( itob3(x0, b3) );
-  printf("x0 %12d(0x%8x) --> byte3 0x%02x%02x%02x --> x1 %12d(0x%8x)\n",
-      x0, x0, b3[2], b3[1], b3[0], x1, x1);
-  return x1;
+  for (i = 0; ; i++) {
+    x0 = arr[i];
+    if (x0 == 0) break;
+    x1 = b3toi( itob3(x0, b3) );
+    printf("x0 %12d(0x%8x) --> byte3 0x%02x%02x%02x --> x1 %12d(0x%8x)\n",
+        x0, x0, b3[2], b3[1], b3[0], x1, x1);
+  }
 }
 
 
 
 int main(int argc, char **argv)
 {
-  int n = 9, nsteps = 1000000, k = 4;
+  int k = 7, n = 9, nsamp = 1000000, nedmax = 1000000;
 
-  testbyte3(17);
-  testbyte3(-129);
-  testbyte3(-654321);
-  testbyte3(-123456);
-  testbyte3(0x808080);
-  testbyte3(0x800000);
-  testbyte3(-8388608);
-  testbyte3(0x7fffff);
-  testbyte3(0x8080);
-  testbyte3(0x7f7f7f);
-  testbyte3(0x808080);
-  testbyte3(0x7f7f7f7f);
-  testbyte3(0x80808080);
+  testbyte3();
   printf("short %d, %x \n", (int16_t) 0x8080, 32639);
-  if (argc >= 2) n = atoi(argv[1]);
-  if (argc >= 3) nsteps = atoi(argv[2]);
-  if (argc >= 4) k = atoi(argv[3]);
-  foo(k, n, nsteps);
+  if (argc >= 2) k = atoi(argv[1]);
+  if (argc >= 3) n = atoi(argv[2]);
+  if (argc >= 4) nsamp = atoi(argv[3]);
+  if (argc >= 5) nedmax = atoi(argv[4]);
+  testspeed(k, n, nsamp, nedmax);
   return 0;
 }
 

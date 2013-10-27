@@ -1,17 +1,5 @@
-#include <time.h>
-#include "dg.h"
 #include "dgcsep.h"
-
-
-
-static void dg_linkpairs(dg_t *g, int pair[][2])
-{
-  int i;
-
-  for (i = 0; pair[i][0] >= 0; i++)
-    dg_link(g, pair[i][0], pair[i][1]);
-}
-
+#include "testutil.h"
 
 
 /* test the RTL example */
@@ -95,26 +83,40 @@ static void testcsep(void)
 
 
 
-static void speed_cliquesep(int n, int nsteps)
+static void speed_cliquesep(int n, int nsamp, int nedmax)
 {
   dg_t *g = dg_open(n);
   clock_t t0;
-  int t, npr = n*(n-1)/2, i, j, cnt = 0;
+  int t, ned, eql = 1, nequil = 1000, isamp = 0, good = 0, tot = 0;
   double tsum = 0, sum = 0;
+  double rnp = 0.1; /* rate for moves increasing edges */
 
+  printf("speed test for n %d, nsamp %d, nedmax %d\n",
+      n, nsamp, nedmax);
   dg_full(g);
-  for (t = 0; t < nsteps; t++) {
-    parsepairindex((int) (npr *rnd0()), n, &i, &j);
-    if (dg_linked(g, i, j)) dg_unlink(g, i, j);
-    else dg_link(g, i, j);
+  ned = dg_nedges(g);
+  for (t = 1; ; t++) {
+    /* randomly switch an edge */
+    dg_rndswitchedge(g, &ned, nedmax, rnp);
+
+    if (eql && t >= nequil) {
+      t = 0;
+      eql = 0; /* stop equilibration */
+      continue;
+    }
+
+    if (t % 10 != 0) continue; /* avoid successive correlation */
+    adjustrnp(ned, nedmax, t, 1000000, &good, &tot, &rnp);
+    if ( ned > nedmax ) continue;
+
     t0 = clock();
     sum += (dg_cliquesep(g) == 0);
     tsum += clock() - t0;
-    cnt++;
+    if (++isamp >= nsamp) break;
   }
   tsum /= CLOCKS_PER_SEC;
   printf("dg_cliquesep: n %d; sum %g; time used: %gs/%d = %gmcs\n",
-      n, sum/cnt, tsum, cnt, tsum/cnt*1e6);
+      n, sum/nsamp, tsum, nsamp, tsum/nsamp*1e6);
   dg_close(g);
 }
 
@@ -127,7 +129,7 @@ static void speed_cliquesep(int n, int nsteps)
 static void verify_allzerofb(int n, int verbose)
 {
   dg_t *g = dg_open(n);
-  int t, ncsep, cnt = 0, *visited;
+  int ncsep, cnt = 0, *visited;
   code_t c, npr;
   double fb;
   unqid_t uid;
@@ -209,13 +211,16 @@ static void verify_zerofb(int n, int nsteps)
 
 int main(int argc, char **argv)
 {
-  int i, n = 9, nsteps = 1000000;
+  int i, n = 9, nsteps = 1000000, nedmax = 1000;
   testrtl();
   testcsep();
   if (argc >= 2) n = atoi(argv[1]);
   if (argc >= 3) nsteps = atoi(argv[2]);
-  /* T60 3mcs */
-  speed_cliquesep(n, nsteps);
+  if (argc >= 4) nedmax = atoi(argv[3]);
+  /* T60 2mcs default setting */
+  speed_cliquesep(n, nsteps, nedmax);
+  printf("\n\n\n");
+
   for (i = 3; i <= DGMAP_NMAX; i++)
     verify_allzerofb(i, 0);
   verify_zerofb(n, nsteps);
