@@ -11,6 +11,13 @@
 #endif /* CODEBITS */
 #endif /* DGMAPL_NMAX >= 10 */
 
+#if defined(N) && N > DGMAPL_NMAX
+  #define DGMAPL_EXISTS 0
+#else
+  #define DGMAPL_EXISTS 1
+#endif
+
+
 #include "dg.h"
 #include "dgsc.h"
 #include "dgrjw.h"
@@ -95,10 +102,11 @@ INLINE void dgmapl_seti2(dgmapl_fb_t * RESTRICT x, dgmapl_int_t * RESTRICT i)
 /* encode a graph according to the permuation `st' */
 INLINE code_t dgmapl_encode(const dg_t *g, int k, int *st)
 {
-  int n = g->n, i, j, jmax, pid;
+  int i, j, jmax, pid;
+  DG_DEFN_(g);
   code_t c;
 
-  for (pid = 0, c = 0, i = 2; i < n; i++) {
+  for (pid = 0, c = 0, i = 2; i < DG_N_; i++) {
     jmax = (i <= k) ? (i - 1) : i;
     for (j = 0; j < jmax; j++, pid++)
       if ( dg_linked(g, st[i], st[j]) )
@@ -113,11 +121,13 @@ INLINE code_t dgmapl_encode(const dg_t *g, int k, int *st)
  * set `ring' to 1 to find a closed ring */
 INLINE code_t dgmapl_getchain(const dg_t *g, int k, int *st)
 {
-  int n = g->n, err = 1, top, i;
+  int err = 1, top, i;
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
   code_t vs, c, b, ms[DGMAPL_NMAX + 1];
 
   top = 0;
-  ms[top] = vs = mkbitsmask(n);
+  ms[top] = vs = DG_MASKN_;
   while (1) {
     if (ms[top] != 0) { /* push */
       BITFIRSTLOW(st[top], ms[top], b);
@@ -142,7 +152,7 @@ LOOPEND:
   /* settle the indices of the rest vertices */
   for (i = k + 1, c = vs; c; c ^= b, i++)
     BITFIRSTLOW(st[i], c, b);
-  die_if (i != n, "i %d, n %d, vs %#x, k %d\n", i, n, (unsigned) vs, k);
+  die_if (i != DG_N_, "i %d, n %d, vs %#x, k %d\n", i, DG_N_, (unsigned) vs, k);
   return dgmapl_encode(g, k, st);
 }
 
@@ -156,14 +166,16 @@ INLINE int dgmapl_save2full(dgmapl_fb_t (* RESTRICT arr)[2],
     int k, int top, int * RESTRICT st)
 {
 #define DGMAPL_LISTSIZE 200
-  int n = g->n, cnt = 0, i;
+  int cnt = 0, i;
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
   code_t vs, c, b;
   code_t ms[DGMAPL_NMAX + 1];
   code_t ls[DGMAPL_LISTSIZE]; /* buffer to save updated values */
   int lscnt = 0, j;
   dgmapl_int_t iarr[2];
 
-  vs = ms[0] = mkbitsmask(n);
+  vs = ms[0] = DG_MASKN_;
   if (top != 0) {
     die_if (k != top, "top %d must be %d\n", top, k);
     /* reconstruct the stack from st[] */
@@ -190,7 +202,7 @@ INLINE int dgmapl_save2full(dgmapl_fb_t (* RESTRICT arr)[2],
       ms[top + 1] = vs ^ b;
       if (top < k) /* enforcing the connectivity top-(top+1) */
         ms[top + 1] &= g->c[ st[top] ];
-      if (top + 1 < n) { /* to the next step to avoid popping */
+      if (top + 1 < DG_N_) { /* to the next step to avoid popping */
         vs ^= b;
         top++;
         continue;
@@ -247,6 +259,7 @@ INLINE int dgmapl_save2full(dgmapl_fb_t (* RESTRICT arr)[2],
 
 
 
+#if DGMAPL_EXISTS
 /* for n = 9, nr <= 9!/18 = 20160, |fb| <= 7! = 5040
  * so they can be contained in a 16-bit integer */
 typedef struct {
@@ -296,11 +309,11 @@ INLINE void dgmapl_close(dgmapl_t *mapl)
 
 
 
-#define dg_fbnr_Lookup(g, k, nr) dg_fbnr_Lookup0(g, k, nr, 0, NULL, NULL)
+#define dgmapl_fbnr_lookup(g, k, nr) dgmapl_fbnr_lookup0(g, k, nr, 0, NULL, NULL)
 
 /* compute fb and nr by the larger lookup table
  * set k = 0 to use the default search length */
-INLINE double dg_fbnr_Lookup0(const dg_t *g, int k, double *nr,
+INLINE double dgmapl_fbnr_lookup0(const dg_t *g, int k, double *nr,
     int nocsep, int *ned, int *degs)
 {
 #ifdef DGMAPL_DEBUG
@@ -311,7 +324,8 @@ INLINE double dg_fbnr_Lookup0(const dg_t *g, int k, double *nr,
 #pragma omp threadprivate(st)
 
   code_t c;
-  int n = g->n, hasnew;
+  int hasnew;
+  DG_DEFN_(g);
   dgmapl_int_t ifbnr[2];
   dgmapl_t *tb;
   double fb;
@@ -319,7 +333,7 @@ INLINE double dg_fbnr_Lookup0(const dg_t *g, int k, double *nr,
   die_if (n <= 0 || n > DGMAPL_NMAX, "bad n %d\n", n);
 
   /* allocate memory */
-  if (mapl[n] == NULL) {
+  if (mapl[DG_N_] == NULL) {
 #ifdef _OPENMP
     /* We test mapl[n] twice here. If mapl[n] != NULL, then the map
      * memory has been allocated, and we may safely skip the critical
@@ -329,19 +343,19 @@ INLINE double dg_fbnr_Lookup0(const dg_t *g, int k, double *nr,
      * thread can see `mapl[n]' is no longer NULL, and skip the block */
 #pragma omp critical
     {
-      if (mapl[n] == NULL) {
+      if (mapl[DG_N_] == NULL) {
 #endif /* _OPENMP */
         clock_t t0 = clock();
-        mapl[n] = dgmapl_open(n, k);
+        mapl[DG_N_] = dgmapl_open(DG_N_, k);
         fprintf(stderr, "%4d: initialized fb/nr-mapl for %d, k %d, time %gs\n",
-            inode, n, mapl[n]->k, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+            inode, DG_N_, mapl[DG_N_]->k, 1.*(clock() - t0)/CLOCKS_PER_SEC);
 #ifdef _OPENMP
       }
     } /* omp critical */
 #endif /* _OPENMP */
   }
 
-  tb = mapl[n];
+  tb = mapl[DG_N_];
   c = dgmapl_getchain(g, tb->k, st);
   if (c == 0) { /* the lookup table is not applicable, do it directly */
 #ifdef DGMAPL_DEBUG
@@ -415,7 +429,7 @@ INLINE double dg_fbnr_Lookup0(const dg_t *g, int k, double *nr,
   return fb;
 }
 
-
+#endif /* DGMAPL_EXIST */
 
 
 #endif

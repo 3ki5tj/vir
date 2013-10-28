@@ -198,9 +198,13 @@ int main(int argc, char **argv)
   int n = DG_NMAX, nsteps = 1000000;
   int n1 = 9, nsteps1 = 100000000, method = 0, nedmax = 100000;
 
+#ifndef N
   cmpref(3, ref3);
   cmpref(4, ref4);
   cmpref(5, ref5);
+#else
+  n = n1 = N;
+#endif
 
   if (argc > 1) n = atoi(argv[1]);
   if (argc > 2) nsteps = atoi(argv[2]);

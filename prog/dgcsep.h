@@ -17,21 +17,22 @@
  * SIAM J. Comput. Vol 5, No. 2, June 1976 */
 INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
 {
-  int i, j, k, v = 0, w, z, l, n = g->n;
-  code_t numbered, reached, bv, bw, bz, r, mask;
+  int i, j, k, v = 0, w, z, l;
+  code_t numbered, reached, bv, bw, bz, r;
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
   int l2[DG_NMAX]; /* the label l times 2 */
   code_t reach[DG_NMAX]; /* reach[label] gives a set of vertices */
   int cnt[DG_NMAX * 2];
 
-  mask = mkbitsmask(n);
   if (f) dg_copy(f, g);
-  for (i = 0; i < n; i++) l2[i] = 0; /* l(i) * 2 */
+  for (i = 0; i < DG_N_; i++) l2[i] = 0; /* l(i) * 2 */
   reached = numbered = 0;
   k = 1; /* number of different labels */
-  for (i = n - 1; i >= 0; i--) {
+  for (i = DG_N_ - 1; i >= 0; i--) {
     /* select the vertex with the largest label */
     bw = numbered;
-    for (r = ~numbered & mask; r; r ^= bv) {
+    for (r = ~numbered & DG_MASKN_; r; r ^= bv) {
       BITFIRSTLOW(v, r, bv);
       if ( l2[v]/2 == k - 1 ) { /* found it */
         numbered |= bv;
@@ -48,7 +49,7 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
     reached = numbered;
 
     /* handle immediate neighbors of v */
-    for (r = g->c[v] & ~numbered & mask; r; r ^= bw) {
+    for (r = g->c[v] & ~numbered & DG_MASKN_; r; r ^= bw) {
       BITFIRSTLOW(w, r, bw);
       /* the immediate neighbors of w are the starting points
        * of the search, we group them by the labels */
@@ -84,17 +85,17 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
     }
 
     /* re-assign labels of the vertices by counting sort */
-    for (l = 0; l < 2*n; l++) cnt[l] = 0;
+    for (l = 0; l < 2*DG_N_; l++) cnt[l] = 0;
     /* accumulate the number of visits of each label */
-    for (r = ~numbered & mask; r; r ^= bw) {
+    for (r = ~numbered & DG_MASKN_; r; r ^= bw) {
       BITFIRSTLOW(w, r, bw);
       cnt[ l2[w] ] = 1;
     }
     /* count the number of different labels */
-    for (k = 0, l = 0; l < 2*n; l++)
+    for (k = 0, l = 0; l < 2*DG_N_; l++)
       if ( cnt[l] ) /* compute the new label */
         cnt[l] = k++; /* cnt[l] is now the new label */
-    for (r = ~numbered & mask; r; r ^= bw) {
+    for (r = ~numbered & DG_MASKN_; r; r ^= bw) {
       BITFIRSTLOW(w, r, bw);
       l2[w] = 2 * cnt[ l2[w] ]; /* set the new label */
     }
@@ -117,10 +118,12 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
 INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
     const int *a, code_t * RESTRICT cl, int stop1)
 {
-  int v, w, i, n = g->n, ncl = 0;
-  code_t cb, c, bw, r, unvisited = mkbitsmask(n);
+  int v, w, i, ncl = 0;
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
+  code_t cb, c, bw, r, unvisited = DG_MASKN_;
 
-  for (i = 0; i < n; i++) {
+  for (i = 0; i < DG_N_; i++) {
     v = a[i];
     unvisited ^= MKBIT(v); /* remove the `v' bit */
     /* compute C(v), the set of succeeding vertices that
@@ -157,11 +160,11 @@ INLINE code_t dg_cliquesep(const dg_t *g)
   static int a[DG_NMAX]; /* a[k] is the kth vertex */
 #pragma omp threadprivate(fs, a)
   dg_t *f; /* fill-in graph */
-  int n = g->n;
+  DG_DEFN_(g);
   code_t cl;
 
-  if (fs[n] == NULL) fs[n] = dg_open(n);
-  f = fs[n];
+  if (fs[DG_N_] == NULL) fs[DG_N_] = dg_open(DG_N_);
+  f = fs[DG_N_];
 
   /* 1. find a minimal ordering and its fill-in */
   dg_minimalorder(g, f, a);
@@ -182,10 +185,10 @@ INLINE int dg_decompcsep(const dg_t *g, code_t * RESTRICT cl)
   static int a[DG_NMAX]; /* a[k] is the kth vertex */
 #pragma omp threadprivate(fs, a)
   dg_t *f;
-  int n = g->n;
+  DG_DEFN_(g);
 
-  if (fs[n] == NULL) fs[n] = dg_open(n);
-  f = fs[n];
+  if (fs[DG_N_] == NULL) fs[DG_N_] = dg_open(DG_N_);
+  f = fs[DG_N_];
 
   /* 1. find a minimal ordering and its fill-in */
   dg_minimalorder(g, f, a);
@@ -196,28 +199,29 @@ INLINE int dg_decompcsep(const dg_t *g, code_t * RESTRICT cl)
 
 
 
+#if DGMAP_EXISTS
 /* compute the number of nodes the clique-separator decomposition */
 INLINE int dg_ncsep_lookuplow(const dg_t *g, code_t c)
 {
   static char *ncl[DGMAP_NMAX + 1];
 #pragma omp threadprivate(ncl)
-  int n = g->n, ncs;
+  int ncs;
+  DG_DEFN_(g);
 
   /* initialize the lookup table */
-  if (ncl[n] == NULL) {
-    int ipr, npr = 1u << (n * (n - 1) / 2);
-    xnew(ncl[n], npr);
-    for (ipr = 0; ipr < npr; ipr++) ncl[n][ipr] = (char) (-1);
+  if (ncl[DG_N_] == NULL) {
+    int ipr, npr = 1u << (DG_N_ * (DG_N_ - 1) / 2);
+    xnew(ncl[DG_N_], npr);
+    for (ipr = 0; ipr < npr; ipr++) ncl[DG_N_][ipr] = (char) (-1);
   }
 
-  ncs = ncl[n][c];
+  ncs = ncl[DG_N_][c];
   if (ncs < 0) {
     ncs = dg_ncsep(g);
-    ncl[n][c] = (char) ncs; /* save the value */
+    ncl[DG_N_][c] = (char) ncs; /* save the value */
   }
   return ncs;
 }
-
 
 
 /* compute the number of nodes the clique-separator decomposition */
@@ -229,6 +233,7 @@ INLINE int dg_ncsep_lookup(const dg_t *g)
   dg_encode(g, &code);
   return dg_ncsep_lookuplow(g, code);
 }
+#endif /* DGMAP_EXISTS */
 
 #endif
 

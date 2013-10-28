@@ -96,21 +96,22 @@ INLINE fb_t dg_hsfcrjw(const dg_t *g)
 {
   static int nmax;
   static fb_t *fcarr, *fqarr;
-  int i, n = g->n;
+  int i;
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
 
-  die_if (n >= 31, "n = %d requires too much memory\n");
   if (fcarr == NULL) {
-    nmax = n;
+    nmax = DG_N_;
     xnew(fcarr, 1u << (nmax + 1));
     fqarr = fcarr + (1u << nmax);
-  } else if (n > nmax) {
-    nmax = n;
+  } else if (DG_N_ > nmax) {
+    nmax = DG_N_;
     xrenew(fcarr, 1u << (nmax + 1));
     fqarr = fcarr + (1u << nmax);
   }
-  for (i = 0; (unsigned) i < (1u << (n + 1)); i++)
+  for (i = 0; (unsigned) i < (1u << (DG_N_ + 1)); i++)
     fcarr[i] = FBDIRTY;
-  return dg_hsfcrjwlow(g->c, mkbitsmask(n), fcarr, fqarr);
+  return dg_hsfcrjwlow(g->c, DG_MASKN_, fcarr, fqarr);
 }
 #endif
 
@@ -145,9 +146,9 @@ INLINE fb_t dg_hsfb_rjwlow(const code_t *c, int n, int v, code_t vs,
   /* remove diagrams with the lowest articulation points at i < v */
   for (r = vs & (bv - 1); r; r ^= b) {
     i = bitfirstlow(r, &b);
-    id = ((i + 1) << n) + vs; /* (i + 1) * 2^n + vs */
+    id = ((i + 1) << DG_N_) + vs; /* (i + 1) * 2^n + vs */
     if ( FBINVALID(faarr[id]) )
-      faarr[id] = dg_hsfa_rjwlow(c, n, i, vs, faarr, fbarr);
+      faarr[id] = dg_hsfa_rjwlow(c, DG_N_, i, vs, faarr, fbarr);
     fbarr[id] = (fb -= faarr[id]);
   }
   return fb;
@@ -173,16 +174,16 @@ INLINE fb_t dg_hsfa_rjwlow(const code_t *c, int n, int v, code_t vs,
   /* loop over subsets of vs, stops when vs == vs1 */
   for (ms1 = 0; ms1 ^ ms;) {
     vs1 = ms1 | (b1 | bv);
-    id1 = ((v + 1) << n) + vs1;
+    id1 = ((v + 1) << DG_N_) + vs1;
     if ( FBINVALID(fbarr[id1]) )
-      fbarr[id1] = dg_hsfb_rjwlow(c, n, v + 1, vs1, faarr, fbarr);
+      fbarr[id1] = dg_hsfb_rjwlow(c, DG_N_, v + 1, vs1, faarr, fbarr);
     if ( fbarr[id1] != 0 ) {
       vs2 = (vs1 ^ vs) | bv; /* complement set of vs */
-      id2 = ((v + 1) << n) + vs2;
+      id2 = ((v + 1) << DG_N_) + vs2;
       if ( FBINVALID(fbarr[id2]) )
-        fbarr[id2] = dg_hsfb_rjwlow(c, n, v + 1, vs2, faarr, fbarr);
+        fbarr[id2] = dg_hsfb_rjwlow(c, DG_N_, v + 1, vs2, faarr, fbarr);
       if ( FBINVALID(faarr[id2]) )
-        faarr[id2] = dg_hsfa_rjwlow(c, n, v, vs2, faarr, fbarr);
+        faarr[id2] = dg_hsfa_rjwlow(c, DG_N_, v, vs2, faarr, fbarr);
       fa += fbarr[id1] * (fbarr[id2] + faarr[id2]);
     }
     /* update the subset `ms1' */
@@ -206,30 +207,37 @@ INLINE fb_t dg_hsfb_rjw(const dg_t *g)
  * so these variables must be thread private */
 #pragma omp threadprivate(nmax, faarr, fbarr)
 
-  int n = g->n;
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
   size_t size;
 
   /* the memory requirement is 2^(n + 1) * (n + 1) * sizeof(fb_t) */
   if (fbarr == NULL) {
-    nmax = n;
+    /* even if we know N, we still use dynamic allocation
+     * because this function might not be called at all
+     * in high dimensions */
+    nmax = DG_N_;
     size = (nmax + 1) << nmax; /* (nmax + 1) * 2^nmax */
     xnew(faarr, size * 2);
     fbarr = faarr + size;
     fprintf(stderr, "%4d: dgrjw allocated %gMB memory for n %d\n", inode,
         size * 2. * sizeof(fb_t) / (1024*1024), nmax);
-  } else if (n > nmax) {
-    nmax = n;
+  }
+#ifndef N /* if N is fixed no need to reallocate */
+  else if (DG_N_ > nmax) {
+    nmax = DG_N_;
     size = (nmax + 1) << nmax; /* (nmax + 1) * 2^nmax */
     xrenew(faarr, size * 2);
     fbarr = faarr + size;
     fprintf(stderr, "%4d: dgrjw reallocated %gMB memory for n %d\n", inode,
         size * 2. * sizeof(fb_t) / (1024*1024), nmax);
   }
-  size = ((size_t) (n + 1) << n); /* (n + 1) * 2^n */
+#endif
+  size = ((size_t) (DG_N_ + 1) << DG_N_); /* (n + 1) * 2^n */
   /* every byte of FBDIRTY is 0x80, so we can use memset() */
   memset(faarr, 0x80, size * sizeof(faarr[0]));
   memset(fbarr, 0x80, size * sizeof(fbarr[0]));
-  return dg_hsfb_rjwlow(g->c, n, n, mkbitsmask(n), faarr, fbarr);
+  return dg_hsfb_rjwlow(g->c, DG_N_, DG_N_, DG_MASKN_, faarr, fbarr);
 }
 
 
@@ -245,16 +253,16 @@ INLINE fb_t dg_hsfb_rjw(const dg_t *g)
 INLINE double dg_hsfb_mixed0(const dg_t *g,
     int nocsep, int *ned, int *degs)
 {
-  int n = g->n, sgn, err, nedges = -1;
+  int err, nedges = -1;
+  DG_DEFN_(g);
   double sc;
 
-  if (ned == NULL) ned = &nedges;
+  if ( ned == NULL ) ned = &nedges;
   sc = dg_rhsc_spec0(g, nocsep, 1, ned, degs, &err);
-  sgn = 1 - (*ned % 2) * 2;
   if ( err == 0 ) {
-    return sc * sgn;
-  } else if ( *ned <= 2*n - 3 || n > RJWNMAX) {
-    return dg_rhsc_directlow(g) * sgn;
+    return DG_SC2FB(sc, *ned);
+  } else if ( *ned <= 2*DG_N_ - 3 || DG_N_ > RJWNMAX) {
+    return DG_SC2FB(dg_rhsc_directlow(g), *ned);
   } else { /* hsfb_rjw() requires 2^(n + 1) * (n + 1) memory */
     return (double) dg_hsfb_rjw(g);
   }
@@ -262,6 +270,7 @@ INLINE double dg_hsfb_mixed0(const dg_t *g,
 
 
 
+#if DGMAP_EXISTS
 #define dg_hsfb_lookup(g) dg_hsfb_lookuplow(g->n, dg_getmapid(g))
 
 
@@ -272,35 +281,35 @@ INLINE double dg_hsfb_lookuplow(int n, unqid_t id)
   static double *fb[DGMAP_NMAX + 1]; /* fb of unique diagrams */
 #pragma omp threadprivate(fb)
 
-  if (n <= 1) return 1;
+  if (DG_N_ <= 1) return 1;
 
   /* initialize the look-up table */
-  if (fb[n] == NULL) {
+  if (fb[DG_N_] == NULL) {
     dg_t *g;
-    dgmap_t *m = dgmap_ + n;
+    dgmap_t *m = dgmap_ + DG_N_;
     int k, cnt = 0, nz = 0;
     clock_t t0 = clock();
 
-    dgmap_init(m, n);
-    xnew(fb[n], m->ng);
+    dgmap_init(m, DG_N_);
+    xnew(fb[DG_N_], m->ng);
 
     /* loop over unique diagrams */
-    g = dg_open(n);
+    g = dg_open(DG_N_);
     for (cnt = 0, k = 0; k < m->ng; k++) {
       dg_decode(g, &m->first[k]);
       if ( dg_biconnected(g) ) {
-        fb[n][k] = (double) (dg_cliquesep(g) ? 0 : dg_hsfb_rjw(g));
+        fb[DG_N_][k] = (double) (dg_cliquesep(g) ? 0 : dg_hsfb_rjw(g));
         cnt++;
-        nz += (fabs(fb[n][k]) > .5);
-      } else fb[n][k] = 0;
+        nz += (fabs(fb[DG_N_][k]) > .5);
+      } else fb[DG_N_][k] = 0;
     }
     dg_close(g);
     fprintf(stderr, "%4d: n %d, computed hard sphere weights of %d/%d biconnected diagrams, %gs\n",
-        inode, n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+        inode, DG_N_, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
   }
-  return fb[ n ][ id ];
+  return fb[ DG_N_ ][ id ];
 }
-
+#endif /* DGMAP_EXISTS */
 
 
 #define dg_hsfb(g) dg_hsfb0(g, 0, NULL, NULL)
@@ -309,11 +318,11 @@ INLINE double dg_hsfb_lookuplow(int n, unqid_t id)
  * nocsep: if the graph has been tested with no clique separator */
 INLINE double dg_hsfb0(dg_t *g, int nocsep, int *ned, int *degs)
 {
-  if (g->n <= DGMAP_NMAX) {
+#if DGMAP_EXISTS
+  if (g->n <= DGMAP_NMAX)
     return dg_hsfb_lookup(g);
-  } else {
-    return dg_hsfb_mixed0(g, nocsep, ned, degs);
-  }
+#endif
+  return dg_hsfb_mixed0(g, nocsep, ned, degs);
 }
 
 

@@ -12,8 +12,11 @@
 #include "mcutil.h"
 
 
-
+#ifdef N
+int n = N;
+#else
 int n = 7; /* order */
+#endif
 double nequil = 1000000; /* number of equilibration steps */
 double nsteps = 10000000;
 real mcamp = 1.5;
@@ -204,6 +207,7 @@ static void report(const av0_t *fbsm, const av0_t *nrsm,
 
 
 
+#if DGMAP_EXISTS
 /* compute a virial coefficient with a lookup table */
 static void mcrat_lookup(int n, double nequil, double nsteps,
     real amp, int gdisp, int nstcom)
@@ -216,7 +220,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   av0_t fbsm, nrsm, cacc, racc;
   unqid_t gmapid;
 
-  die_if (n > DGMAP_NMAX, "no diagram map for n %d\n", n);
+  die_if (DG_N_ > DGMAP_NMAX, "no diagram map for n %d\n", DG_N_);
 
   av0_clear(&nrsm);
   av0_clear(&fbsm);
@@ -229,23 +233,23 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
   g = dg_open(n);
   ng = dg_open(n);
-  initxring(x, n);
-  mkgraph(g, x, n);
+  initxring(x, DG_N_);
+  mkgraph(g, x, DG_N_);
   die_if (!dg_biconnected(g),
       "%4d: initial diagram not biconnected D %d\n", inode, D);
 
   /* equilibration */
   for (t = 1; t <= nequil; t += 1)
-    BCSTEP(acc, i, n, g, ng, x, xi, amp, gdisp);
+    BCSTEP(acc, i, DG_N_, g, ng, x, xi, amp, gdisp);
   printf("%4d: equilibrated at t %g, nedges %d, rng: %p, %#x\n",
       inode, nequil, dg_nedges(g), mr_->arr, (unsigned) mr_->arr[0]);
   /* call _lookup function first, to initialize the table */
   die_if (!dg_biconnected_lookup(g),
-      "initial graph (n = %d) is not biconnected\n", g->n);
+      "initial graph (n = %d) is not biconnected\n", DG_N_);
   dg_encode(g, &code); /* initialize the code */
-  gmapid = dgmap_[n].map[code];
-  fb = dg_hsfb_lookuplow(n, gmapid);
-  nr = dg_nring_lookuplow(n, gmapid);
+  gmapid = dgmap_[DG_N_].map[code];
+  fb = dg_hsfb_lookuplow(DG_N_, gmapid);
+  nr = dg_nring_lookuplow(DG_N_, gmapid);
 
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
@@ -264,7 +268,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
       av0_add(&racc, acc);
     } else {
       /* randomly displace a particle */
-      i = (int) (rnd0() * n);
+      i = (int) (rnd0() * DG_N_);
       if (gdisp)
         rvn_granddisp(xi, x[i], amp);
       else
@@ -273,13 +277,13 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
       /* directly change the connectivity bitstring of the graph */
       ncode = code;
       /* for j < i pairs */
-      for (pid = i - 1, j = 0; j < i; j++, pid += n - j - 1)
+      for (pid = i - 1, j = 0; j < i; j++, pid += DG_N_ - j - 1)
         if (rvn_dist2(xi, x[j]) >= 1)
           ncode &= ~(1u << pid);
         else
           ncode |= (1u << pid);
       /* for j > i pairs */
-      for (j = i + 1, pid = n*i - j*i/2; j < n; j++, pid++)
+      for (j = i + 1, pid = DG_N_*i - j*i/2; j < DG_N_; j++, pid++)
         if (rvn_dist2(xi, x[j]) >= 1)
           ncode &= ~(1u << pid);
         else
@@ -289,13 +293,13 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
         acc = 1;
         rvn_copy(x[i], xi);
       } else {
-        gmapid = dgmap_[n].map[ncode];
-        acc = dg_biconnected_lookuplow(n, gmapid);
+        gmapid = dgmap_[DG_N_].map[ncode];
+        acc = dg_biconnected_lookuplow(DG_N_, gmapid);
         if ( acc ) { /* accept the move */
           rvn_copy(x[i], xi);
           code = ncode;
-          fb = dg_hsfb_lookuplow(n, gmapid);
-          nr = dg_nring_lookuplow(n, gmapid);
+          fb = dg_hsfb_lookuplow(DG_N_, gmapid);
+          nr = dg_nring_lookuplow(DG_N_, gmapid);
         }
       }
 
@@ -322,7 +326,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
     av0_add(&nrsm, nr);
     av0_add(&fbsm, fb);
 
-    if (it % nstcom == 0) rvn_rmcom(x, n);
+    if (it % nstcom == 0) rvn_rmcom(x, DG_N_);
 
     if (it % nstrep == 0 || t > nsteps - .5) {
       it = 0;
@@ -332,6 +336,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   dg_close(g);
   dg_close(ng);
 }
+#endif
 
 
 
@@ -358,12 +363,12 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 
   ng = dg_open(n);
   g = dg_open(n);
-  initxring(x, n);
-  mkgraph(g, x, n);
+  initxring(x, DG_N_);
+  mkgraph(g, x, DG_N_);
 
   /* equilibration */
   for (t = 1; t <= nequil; t += 1)
-    BCSTEP(acc, i, n, g, ng, x, xi, amp, gdisp);
+    BCSTEP(acc, i, DG_N_, g, ng, x, xi, amp, gdisp);
   printf("%4d: equilibrated at t %g, nedges %d, nstfb %d, rng %p, %#x\n",
       inode, nequil, dg_nedges(g), nstfb, mr_->arr, (unsigned) mr_->arr[0]);
   die_if (!dg_biconnected(g),
@@ -393,8 +398,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
       racc.s += 1;
       if ( acc && gdirty ) hasfb = 0;
     } else {  /* randomly displace a particle */
-      DISPRNDI(i, n, x, xi, amp, gdisp);
-      UPDGRAPH(i, n, g, ng, x, xi, gdirty);
+      DISPRNDI(i, DG_N_, x, xi, amp, gdisp);
+      UPDGRAPH(i, DG_N_, g, ng, x, xi, gdirty);
       if ( !gdirty ) {
         acc = 1;
         rvn_copy(x[i], xi);
@@ -413,9 +418,13 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         /* detect special cases, including the ring diagram
          * but it does not detect clique separators */
         if (dg_fbnr_spec0(g, &fb, &nr, &ned, degs) != 0) {
-          if ( n <= DGMAPL_NMAX ) { /* use the larger lookup table */
-            fb = dg_fbnr_Lookup(g, kdepth, &nr);
-          } else {
+#if DGMAPL_EXISTS
+          if ( DG_N_ <= DGMAPL_NMAX ) { /* use the larger lookup table */
+            fb = dgmapl_fbnr_lookup(g, kdepth, &nr);
+          }
+          else
+#endif /* DGMAPL_EXISTS */
+          {
             fb = dg_hsfb_mixed0(g, 0, &ned, degs);
             nr = dg_nring_mixed0(g, &ned, degs);
             neval++;
@@ -441,11 +450,11 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     if (acc && gdirty) {
       int degs1[DG_NMAX], ned1 = dg_degs(g, degs1);
       int err = (ned1 != ned);
-      for (i = 0; i < n; i++)
+      for (i = 0; i < DG_N_; i++)
         if (degs1[i] != degs[i]) err++;
       if (err) {
         printf("%d: t %g, ned %d vs %d", inode, t, ned, ned1);
-        for (i = 0; i < n; i++)
+        for (i = 0; i < DG_N_; i++)
           printf("%d: %d vs %d\n", i, degs[i], degs1[i]);
         dg_print(g);
         exit(1);
@@ -454,7 +463,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 #endif
 
     if (it % nstcom == 0)
-      rvn_rmcom(x, n); /* remove the origin to the center of mass */
+      rvn_rmcom(x, DG_N_); /* remove the origin to the center of mass */
 
     if (it % nstrep == 0 || t > nsteps - .5) {
       it = 0;
@@ -498,9 +507,11 @@ int main(int argc, char **argv)
     inode = omp_get_thread_num();
 #endif
 
-    if (lookup)
+#if DGMAP_EXISTS
+    if (lookup) {
       mcrat_lookup(n, nequil, nsteps, mcamp, gdisp, nstcom);
-    else
+    } else
+#endif
       mcrat_direct(n, nequil, nsteps, mcamp, gdisp, nstfb, nstcom);
 
 #ifdef _OPENMP

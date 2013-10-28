@@ -41,11 +41,10 @@ static void cmpref(int n, edges_t *ref)
 /* test the speed of computing fb */
 static void testspeed(int n, int nsamp, int nedmax, char method)
 {
-  double fb, sum = 0;
   int t, ned, eql = 1, nequil = 1000, isamp = 0, good = 0, tot = 0;
   dg_t *g;
   clock_t t0;
-  double tsum = 0;
+  double fb, sum = 0, tsum = 0;
   double rnp = 0.1; /* rate for moves increasing edges */
 
   printf("speed test for n %d, nsamp %d, nedmax %d, method %c\n",
@@ -86,12 +85,12 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
        * the lookup table when possible */
       fb = dg_hsfb(g);
     } else if (method == 's' || method == 'r') { /* Ree-Hoover star content*/
-      fb = DG_SC2FB( dg_rhsc_direct(g), ned );
+      fb = DG_SC2FB( dg_rhsc_directlow(g), ned );
     } else if (method == 'w') { /* Wheatley */
       fb = (double) dg_hsfb_rjw(g);
     } else if (method == 'p') { /* comparison */
       double fb1 = (double) dg_hsfb_rjw(g);
-      double fb2 = DG_SC2FB( dg_rhsc_direct(g), ned );
+      double fb2 = DG_SC2FB( dg_rhsc_directlow(g), ned );
       if (fabs(fb1 - fb2) > 1e-6) {
         fprintf(stderr, "fb %g (rjw) vs %g (sc)\n", fb1, fb2);
         dg_print(g);
@@ -128,9 +127,11 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
 
 int main(int argc, char **argv)
 {
-  int n = 12, nsamp = 1000, nedmax = 1000000;
+  int i, n = 12, nsamp = 1000, nedmax = 1000000;
   char method = 'd'; /* default */
-
+#ifdef N
+  n = N;
+#endif
   edges_t ref4[] = {
     {0, {{0, 0}}, -2},
     {1, {{0, 1}}, 0},
@@ -165,11 +166,14 @@ int main(int argc, char **argv)
     {2, {{0, 1}, {2, 3}}, 60},
     {-1, {{0, 0}}, 0},
   };
+  edges_t *refs[8] = {NULL, NULL, NULL, NULL, ref4, ref5, ref6, ref7};
 
-  cmpref(4, ref4);
-  cmpref(5, ref5);
-  cmpref(6, ref6);
-  cmpref(7, ref7);
+#ifndef N
+  for (i = 4; i <= 7; i++)
+    cmpref(i, refs[i]);
+#elif (N >= 4) && (N <= 7)
+  cmpref(N, refs[N]);
+#endif
 
   if (argc >= 2) n = atoi(argv[1]);
   if (argc >= 3) nsamp = atoi(argv[2]);

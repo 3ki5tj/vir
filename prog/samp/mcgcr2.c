@@ -838,6 +838,7 @@ INLINE int bcrstep(int i0, int j0, dg_t *g, dg_t *ng,
 #define changenapair(i, j, g, r2ij, rc) \
     changenapair_metro(i, j, g, r2ij, rc)
 
+#if 0
 /* change the distance-restrained pair */
 INLINE int changenapair_simple(int *i, int *j, const dg_t *g,
     real r2ij[][DG_NMAX], real rc)
@@ -848,7 +849,7 @@ INLINE int changenapair_simple(int *i, int *j, const dg_t *g,
   tmp = *i, *i = *j, *j = tmp;
   return 1;
 }
-
+#endif
 
 
 /* change the distance-restrained pair */

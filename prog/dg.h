@@ -3,7 +3,12 @@
 /* handling diagrams in the virial expansion
  * using bitwise operations */
 
-#if defined(__GNUC__) && !defined(__INTEL_COMPILER)
+
+#ifdef __INTEL_COMPILER
+  /* 161: don't complain unknown omp pragma
+   * 981: operands evaluated in unspecified order */
+  #pragma warning disable 161 981
+#elif defined(__GNUC__) && !defined(__INTEL_COMPILER)
   /* ignore all openmp pragmas */
   #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #endif
@@ -18,11 +23,6 @@ MPI_Comm comm = MPI_COMM_WORLD;
 #define MASTER 0
 int inode = MASTER, nnodes = 1;
 
-#ifdef __INTEL_COMPILER
-#pragma warning(disable:161)  /* don't complain unknown omp pragma */
-#endif
-
-
 #pragma omp threadprivate(inode)
 
 
@@ -34,17 +34,25 @@ int inode = MASTER, nnodes = 1;
 #include <time.h>
 
 
-
-#ifdef __INTEL_COMPILER
-/* operands evaluated in unspecified order */
-#pragma warning(disable:981)
+/* if the user defined a fixed N, fixed length loops can be used
+ * but all diagrams must be of size n
+ * otherwise we define DG_N_ as n, whatever it is */
+#ifdef  N
+#define DG_N_ N
+#define DG_DEFN_(g)
+#define DG_MASKN_ ((N == CODEBITS) ? (code_t) -1 : MKBIT(N) - (code_t) 1)
+#define DG_DEFMASKN_()
+#else
+#define DG_N_ n
+#define DG_DEFN_(g) int n = (g)->n;
+#define DG_MASKN_ maskn
+#define DG_DEFMASKN_() code_t maskn = mkbitsmask(n);
 #endif
-
 
 
 #ifndef CODEBITS
 #ifdef NMAX
-#define CODEBITS NMAX
+#define CODEBITS ((NMAX + 31)/32*32)
 #else
 /* Note:
  * #define CODEBITS (sizeof(code_t) * 8)
@@ -69,7 +77,11 @@ typedef int64_t scode_t;
 
 
 /* we only support a graph with at most CODEBITS vertices */
+#ifdef N
+#define DG_NMAX N /* we know the size */
+#else
 #define DG_NMAX CODEBITS
+#endif
 
 
 
@@ -254,6 +266,9 @@ INLINE dg_t *dg_remove1(dg_t *sg, dg_t *g, int i0)
   int i, is = 0, n = g->n;
   code_t maskl, maskh;
 
+#ifdef N
+  die_if(n - 1 != N, "dg_remove1 cannot be used n %d with fixed N\n", n);
+#endif
   maskl = mkbitsmask(i0);
   maskh = ~maskl;
   for (i = 0; i < n; i++) {
@@ -274,9 +289,10 @@ INLINE dg_t *dg_remove1(dg_t *sg, dg_t *g, int i0)
 /* get the degree sequence, return the number of edges */
 INLINE int dg_degs(const dg_t *g, int *degs)
 {
-  int i, sum = 0, n = g->n;
+  int i, sum = 0;
+  DG_DEFN_(g);
 
-  for (i = 0; i < n; i++)
+  for (i = 0; i < DG_N_; i++)
     sum += ( degs[i] = dg_deg(g, i) );
   return sum / 2;
 }
@@ -286,12 +302,13 @@ INLINE int dg_degs(const dg_t *g, int *degs)
 /* count sort the degree sequence, TO BE TESTED */
 INLINE void dg_csortdegs(const dg_t *g, int *degs)
 {
-  int i, j, k = 0, n = g->n;
+  int i, j, k = 0;
+  DG_DEFN_(g);
   static int cnt[DG_NMAX] = {0};
 #pragma omp threadprivate(cnt)
 
-  for (i = 0; i < n; i++) cnt[ degs[i] ]++;
-  for (i = n - 1; i >= 0; i--)
+  for (i = 0; i < DG_N_; i++) cnt[ degs[i] ]++;
+  for (i = DG_N_ - 1; i >= 0; i--)
     for (j = 0; j < cnt[i]; j++) degs[k++] = i;
 }
 
@@ -301,8 +318,9 @@ INLINE void dg_csortdegs(const dg_t *g, int *degs)
 INLINE int dg_nedges(const dg_t *g)
 {
   int i, ne;
+  DG_DEFN_(g);
 
-  for (ne = i = 0; i < g->n; i++)
+  for (ne = i = 0; i < DG_N_; i++)
     ne += bitcount(g->c[i]);
   return ne / 2; /* divided by 2 for double-counting */
 }
@@ -312,17 +330,18 @@ INLINE int dg_nedges(const dg_t *g)
 /* choose a random edge, return the number of edges */
 INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
 {
-  int i, j, k, n = g->n, ne, ipr, rr;
+  int i, j, k, ne, ipr, rr;
+  DG_DEFN_(g);
   code_t c, b;
   static int cnt[DG_NMAX];
 #pragma omp threadprivate(cnt)
 
   *i0 = *i1 = 0; /* in case no edge exists */
-  for (ne = 0, i = 1; i < n; i++)
+  for (ne = 0, i = 1; i < DG_N_; i++)
     ne += cnt[i] = bitcount(g->c[i] & mkbitsmask(i));
   rr = (int) (rnd0() * 2 * ne);
   ipr = rr / 2;
-  for (i = 1; i < n; ipr -= cnt[i], i++) {
+  for (i = 1; i < DG_N_; ipr -= cnt[i], i++) {
     if (ipr < cnt[i]) { /* found it */
       for (c = g->c[i] & mkbitsmask(i), k = -1, j = 0; j <= ipr; j++, c ^= b)
         k = bitfirstlow(c, &b);
@@ -340,9 +359,10 @@ INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
 /* remove all edges */
 INLINE void dg_empty(dg_t *g)
 {
-  int i, n = g->n;
+  int i;
+  DG_DEFN_(g);
 
-  for (i = 0; i < n; i++)
+  for (i = 0; i < DG_N_; i++)
     g->c[i] = 0;
 }
 
@@ -352,11 +372,12 @@ INLINE void dg_empty(dg_t *g)
 INLINE void dg_full(dg_t *g)
 {
   int i;
-  code_t mask = mkbitsmask(g->n); /* the lowest n-bits are 1s */
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
 
-  for (i = 0;  i < g->n; i++)
+  for (i = 0;  i < DG_N_; i++)
     /* all bits, except the ith, are 1s */
-    g->c[i] = mask ^ MKBIT(i);
+    g->c[i] = DG_MASKN_ ^ MKBIT(i);
 }
 
 
@@ -364,11 +385,12 @@ INLINE void dg_full(dg_t *g)
 /* the complement diagram of h: link <---> g: unlink */
 INLINE dg_t *dg_complement(dg_t *h, dg_t *g)
 {
-  int i, n = g->n;
-  code_t mask = mkbitsmask(g->n);
+  int i;
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
 
-  for (i = 0; i < n; i++)
-    h->c[i] = mask ^ (g->c[i] | MKBIT(i));
+  for (i = 0; i < DG_N_; i++)
+    h->c[i] = DG_MASKN_ ^ (g->c[i] | MKBIT(i));
   return h;
 }
 
@@ -377,16 +399,19 @@ INLINE dg_t *dg_complement(dg_t *h, dg_t *g)
 /* code the connectivity */
 INLINE code_t *dg_encode(const dg_t *g, code_t *code)
 {
-  int i, ib = 0, n = g->n;
+  int i, ib = 0;
+  DG_DEFN_(g);
   code_t *c = code, ci;
 
-  for (*c = 0, i = 0; i < n - 1; i++) {
+  for (*c = 0, i = 0; i < DG_N_ - 1; i++) {
     *c |= ((ci = g->c[i]) >> (i + 1)) << ib;
-    ib += n - 1 - i;
+    ib += DG_N_ - 1 - i;
+#if !defined(N) || (N*(N-1)/2 > CODEBITS)
     if (ib >= CODEBITS) {
       ib -= CODEBITS;
-      *(++c) = ci >> (n - ib);
+      *(++c) = ci >> (DG_N_ - ib);
     }
+#endif
   }
   return code;
 }
@@ -396,18 +421,22 @@ INLINE code_t *dg_encode(const dg_t *g, code_t *code)
 /* code the connectivity */
 INLINE dg_t *dg_decode(dg_t *g, code_t *code)
 {
-  int i, j, ib = 0, n = g->n;
+  int i, j, ib = 0;
+  DG_DEFN_(g);
   code_t *c = code;
 
   dg_empty(g);
-  for (i = 0; i < n - 1; i++) {
-    for (j = i + 1; j < n; j++) {
+  for (i = 0; i < DG_N_ - 1; i++) {
+    for (j = i + 1; j < DG_N_; j++) {
       if ((*c >> ib) & 1u)
         DG_LINK(g, i, j);
-      if (++ib == CODEBITS) {
+      ++ib;
+#if !defined(N) || (N*(N-1)/2 > CODEBITS)
+      if (ib == CODEBITS) {
         ib = 0;
         c++;
       }
+#endif
     }
   }
   return g;
@@ -420,11 +449,15 @@ INLINE dg_t *dg_open(int n)
 {
   dg_t *g;
 
+#ifdef N
+  die_if (n != N, "this version only support fixed N %d != n %d", N, n);
+#endif
   xnew(g, 1);
+
   g->n = n;
   /* NOTE: some functions may not work for n == DG_NMAX */
   die_if (n > DG_NMAX, "do not support %d atoms\n", n);
-  xnew(g->c, g->n);
+  xnew(g->c, n);
   return g;
 }
 
@@ -443,8 +476,9 @@ INLINE void dg_close(dg_t *g)
 INLINE dg_t *dg_copy(dg_t *a, const dg_t *b)
 {
   int i;
+  DG_DEFN_(b);
 
-  for (i = 0; i < b->n; i++)
+  for (i = 0; i < DG_N_; i++)
     a->c[i] = b->c[i];
   return a;
 }
@@ -462,9 +496,10 @@ INLINE dg_t *dg_clone(const dg_t *b)
 INLINE scode_t dg_cmp(const dg_t *a, const dg_t *b)
 {
   int i;
+  DG_DEFN_(a);
   scode_t df;
 
-  for (i = 0; i < a->n; i++)
+  for (i = 0; i < DG_N_; i++)
     if ((df = (scode_t) (a->c[i] - b->c[i])) != 0)
       return df;
   return 0;
@@ -477,15 +512,16 @@ INLINE scode_t dg_cmp(const dg_t *a, const dg_t *b)
 INLINE void dg_print0(const dg_t *g, const char *nm)
 {
   int i, j;
+  DG_DEFN_(g);
 
   printf("%-4s", nm ? nm : "");
-  for (i = 0; i < g->n; i++)
+  for (i = 0; i < DG_N_; i++)
     printf(" %2d", i);
   printf("\n");
 
-  for (i = 0; i < g->n; i++) {
+  for (i = 0; i < DG_N_; i++) {
     printf("%2d: ", i);
-    for (j = 0; j < g->n; j++)
+    for (j = 0; j < DG_N_; j++)
       printf("  %c", dg_linked(g, i, j) ? '*' : ' ');
     printf("\n");
   }
@@ -494,7 +530,11 @@ INLINE void dg_print0(const dg_t *g, const char *nm)
 
 
 /* check if a diagram is connected */
+#ifdef N
+#define dg_connected(g) dg_connectedvs(g, DG_MASKN_)
+#else
 #define dg_connected(g) dg_connectedvs(g, mkbitsmask(g->n))
+#endif
 
 /* check if the subdiagram of the vertex set `vs' is connected */
 INLINE int dg_connectedvs(const dg_t *g, code_t vs)
@@ -523,17 +563,18 @@ INLINE int dg_connectedvs(const dg_t *g, code_t vs)
  * we do not use lookup table by default */
 INLINE int dg_biconnected(const dg_t *g)
 {
-  int i, n = g->n;
-  code_t mask = mkbitsmask(n);
+  int i;
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
 
-  if (n > 2) {
-    for (i = 0; i < n; i++) {
-      code_t vs = mask ^ MKBIT(i);
+  if (DG_N_ > 2) {
+    for (i = 0; i < DG_N_; i++) {
+      code_t vs = DG_MASKN_ ^ MKBIT(i);
       if ( !dg_connectedvs(g, vs) )
         return 0;
     }
     return 1;
-  } else if (n == 2) {
+  } else if (DG_N_ == 2) {
     return (int) ((g->c[0] >> 1) & 1u);
   } else /* if (n < 2) */ {
     return 1;
@@ -562,11 +603,12 @@ INLINE int dg_biconnectedvs(const dg_t *g, code_t vs)
  * slower than the default bitwise version */
 INLINE int dg_biconnected_std(const dg_t *g)
 {
-  int i0, v, par, n = g->n, id, root = 0;
+  int i0, v, par, id, root = 0;
+  DG_DEFN_(g);
   static int stack[DG_NMAX + 1], parent[DG_NMAX], dfn[DG_NMAX], low[DG_NMAX];
 #pragma omp threadprivate(stack, parent, dfn, low)
 
-  for (v = 0; v < n; v++) {
+  for (v = 0; v < DG_N_; v++) {
     dfn[v] = 0; /* no vertex is visited */
     parent[v] = -1; /* no parent */
   }
@@ -576,11 +618,11 @@ INLINE int dg_biconnected_std(const dg_t *g)
   /* depth-first search to construct the spanning tree */
   for (i0 = 1; i0; ) {
     par = (i0 >= 1) ? stack[i0 - 1] : -1;
-    if (i0 == n) {
-      v = n; /* last level, no need to DFS */
+    if (i0 == DG_N_) {
+      v = DG_N_; /* last level, no need to DFS */
     } else {
       /* v == the first unvisited vertex adjacent to `par' */
-      for (v = ++stack[i0]; v < n; stack[i0] = ++v)
+      for (v = ++stack[i0]; v < DG_N_; stack[i0] = ++v)
         /* dfn[] of an unvisited vertex is 0 */
         if ( dfn[v] == 0 && dg_linked(g, par, v) ) {
           dfn[v] = low[v] = ++id;
@@ -589,8 +631,8 @@ INLINE int dg_biconnected_std(const dg_t *g)
           break; /* break the loop to go to the next level */
         }
     }
-    if (v == n) { /* all children of `par' are visited, ready to pop */
-      for (v = 0; v < n; v++) { /* update lowpoints */
+    if (v == DG_N_) { /* all children of `par' are visited, ready to pop */
+      for (v = 0; v < DG_N_; v++) { /* update lowpoints */
         /* if we get here with i0 == 1, it means no vertex is connected to `root'
            if we get here with i0 == 2, it means there is vertex not connected
              to the first branch of the tree grown from `root', the graph is
@@ -610,7 +652,19 @@ INLINE int dg_biconnected_std(const dg_t *g)
 }
 
 
+/* diagram map for n <= DGMAP_NMAX */
+#ifndef DGMAP_NMAX
+#define DGMAP_NMAX 8
+#endif
 
+#if !defined(N) || N <= DGMAP_NMAX
+#define DGMAP_EXISTS 1
+#else
+#define DGMAP_EXISTS 0
+#endif
+
+
+#if DGMAP_EXISTS
 typedef short unqid_t;
 
 typedef struct {
@@ -622,8 +676,6 @@ typedef struct {
 
 
 
-/* diagram map for n <= DGMAP_NMAX */
-#define DGMAP_NMAX 8
 dgmap_t dgmap_[DGMAP_NMAX + 1];
 
 
@@ -710,14 +762,16 @@ INLINE int dgmap_init(dgmap_t *m, int n)
       }
 
       /* compute all permutations */
-      npm = dgmap_getperm(n, &pm);
+      npm = dgmap_getperm(DG_N_, &pm);
       /* for each permutation compute the mask of each particle pair */
       xnew(masks, npm * npr);
       for (ipm = 0; ipm < npm; ipm++)
-        for (ipr = 0, i = 0; i < n - 1; i++)
-          for (j = i + 1; j < n; j++, ipr++)
+        for (ipr = 0, i = 0; i < DG_N_ - 1; i++)
+          for (j = i + 1; j < DG_N_; j++, ipr++)
             masks[ipm * npr + ipr] /* code bit of the pair (i, j) */
-              = MKBIT( getpairindex(pm[ipm*n + i], pm[ipm*n + j], n) );
+              = MKBIT( getpairindex(
+                    pm[ipm*DG_N_ + i], pm[ipm*DG_N_ + j], DG_N_
+                    ) );
       free(pm);
 
       /* loop over all diagrams */
@@ -740,7 +794,7 @@ INLINE int dgmap_init(dgmap_t *m, int n)
       }
       free(masks);
       fprintf(stderr, "%4d: n %d, initialized, %d unique diagrams, %gs\n",
-         inode, n, gid, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+         inode, DG_N_, gid, 1.*(clock() - t0)/CLOCKS_PER_SEC);
       /* we set m->ng now, for everything is properly set now */
       m->ng = gid;
   END:
@@ -757,11 +811,11 @@ INLINE int dgmap_init(dgmap_t *m, int n)
 /* retrieve the diagram id */
 INLINE unqid_t dg_getmapidx(const dg_t *g, code_t *c)
 {
-  int n = g->n;
+  DG_DEFN_(g);
 
-  dgmap_init(&dgmap_[n], n);
+  dgmap_init(&dgmap_[DG_N_], DG_N_);
   dg_encode(g, c);
-  return dgmap_[n].map[*c];
+  return dgmap_[DG_N_].map[*c];
 }
 
 
@@ -801,24 +855,24 @@ INLINE int dg_biconnected_lookuplow(int n, unqid_t id)
   static int *bc[DGMAP_NMAX + 1] = {NULL};
 #pragma omp threadprivate(bc)
 
-  if (bc[n] == NULL) {
+  if (bc[DG_N_] == NULL) {
     /* initialize the look-up table */
-    dg_t *g1 = dg_open(n);
-    dgmap_t *m = dgmap_ + n;
+    dg_t *g1 = dg_open(DG_N_);
+    dgmap_t *m = dgmap_ + DG_N_;
     int k;
 
-    dgmap_init(m, n);
-    xnew(bc[n], m->ng);
+    dgmap_init(m, DG_N_);
+    xnew(bc[DG_N_], m->ng);
     for (k = 0; k < m->ng; k++) {
       code_t c = m->first[k];
       dg_decode(g1, &c);
-      bc[n][k] = dg_biconnected(g1);
+      bc[DG_N_][k] = dg_biconnected(g1);
     }
     dg_close(g1);
   }
-  return bc[ n ][ id ];
+  return bc[ DG_N_ ][ id ];
 }
-
+#endif /* DGMAP_EXISTS */
 
 #endif
 

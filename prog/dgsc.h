@@ -182,7 +182,9 @@ INLINE double dg_rhsc_directlow(const dg_t *g)
   /* first find the minimal set of vertices that
    * contain the wiggly lines */
   g0 = dg_clone(g);
+#ifndef N /* mintop is disable for fixed diagrams */
   dg_mintop(g0);
+#endif
   sc = 1 + dg_rhsc_recur(g0, -1, 0, 0);
   /* use the Ree-Hoover formula to go from n0 to n */
   sc = dg_rhiter(g->n, g0->n, sc);
@@ -214,47 +216,48 @@ INLINE double dg_rhsc_direct0(const dg_t *g, int nocsep, int *ned, int *degs)
 
 
 
+#if DGMAP_EXISTS
 /* compute the star content by a look up table */
 INLINE double dg_rhsc_lookup(const dg_t *g)
 {
   static double *sc[DGMAP_NMAX + 1];
 #pragma omp threadprivate(sc)
-  int n = g->n;
-  dgmap_t *m = dgmap_ + n;
+  DG_DEFN_(g);
+  dgmap_t *m = dgmap_ + DG_N_;
   code_t c;
 
-  if (n <= 1) return 1;
+  if (DG_N_ <= 1) return 1;
 
-  if (sc[n] == NULL) {
+  if (sc[DG_N_] == NULL) {
     dg_t *g1;
     int k, cnt = 0, nz = 0;
     clock_t t0 = clock(), t1;
 
-    if (n >= 8) fprintf(stderr, "n %d: initializing...\n", n);
-    dgmap_init(m, n); /* compute the permutation mapping */
-    xnew(sc[n], m->ng);
+    if (DG_N_ >= 8) fprintf(stderr, "n %d: initializing...\n", DG_N_);
+    dgmap_init(m, DG_N_); /* compute the permutation mapping */
+    xnew(sc[DG_N_], m->ng);
 
     t1 = clock();
-    if (n >= 8) fprintf(stderr, "n %d: diagram-map initialized %gs\n",
-        n, 1.*(t1 - t0)/CLOCKS_PER_SEC);
+    if (DG_N_ >= 8) fprintf(stderr, "n %d: diagram-map initialized %gs\n",
+        DG_N_, 1.*(t1 - t0)/CLOCKS_PER_SEC);
     /* loop over unique diagrams */
-    g1 = dg_open(n);
+    g1 = dg_open(DG_N_);
     for (cnt = 0, k = 0; k < m->ng; k++) {
       dg_decode(g1, &m->first[k]);
       if ( dg_biconnected(g1) ) {
-        sc[n][k] = dg_rhsc_direct(g1);
+        sc[DG_N_][k] = dg_rhsc_direct(g1);
         cnt++;
-        nz += (fabs(sc[n][k]) > 0.5);
-      } else sc[n][k] = 0;
+        nz += (fabs(sc[DG_N_][k]) > 0.5);
+      } else sc[DG_N_][k] = 0;
     }
     dg_close(g1);
     fprintf(stderr, "n %d, computed star contents of %d/%d biconnected diagrams, %gs\n",
-        n, cnt, nz, 1.*(clock() - t1)/CLOCKS_PER_SEC);
+        DG_N_, cnt, nz, 1.*(clock() - t1)/CLOCKS_PER_SEC);
   }
   dg_encode(g, &c);
-  return sc[n][ m->map[c] ]; /* m->map[c] is the id of the unique diagram */
+  return sc[DG_N_][ m->map[c] ]; /* m->map[c] is the id of the unique diagram */
 }
-
+#endif /* DGMAP_EXISTS */
 
 
 #define dg_rhsc(g) dg_rhsc0(g, 0, NULL, NULL)
@@ -266,13 +269,13 @@ INLINE double dg_rhsc0(const dg_t *g, int nocsep, int *ned, int *degs)
   double sc;
   int err;
 
-  if (g->n <= DGMAP_NMAX) {
+#if DGMAP_EXISTS
+  if (g->n <= DGMAP_NMAX)
     return dg_rhsc_lookup(g);
-  } else {
-    sc = dg_rhsc_spec0(g, nocsep, 1, ned, degs, &err);
-    if (err == 0) return sc;
-    else return dg_rhsc_directlow(g);
-  }
+#endif
+  sc = dg_rhsc_spec0(g, nocsep, 1, ned, degs, &err);
+  if (err == 0) return sc;
+  else return dg_rhsc_directlow(g);
 }
 
 

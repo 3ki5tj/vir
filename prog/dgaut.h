@@ -1,6 +1,11 @@
 #ifndef DGAUT_H__
 #define DGAUT_H__
+/* canonical label */
+
 #include "dg.h"
+
+
+/* set nauty parameteters */
 #define WORDSIZE        CODEBITS
 #define MAXN            DG_NMAX
 #define ONE_WORD_SETS
@@ -27,7 +32,6 @@ INLINE dg_t *dg_canlabel(dg_t *gout, const dg_t *gin)
   for (i = 0; i < n; i++) gout->c[i] = bitreverse(gc[i]);
   return gout;
 }
-
 
 
 

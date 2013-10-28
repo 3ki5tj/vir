@@ -121,7 +121,7 @@ static void speed_cliquesep(int n, int nsamp, int nedmax)
 }
 
 
-
+#ifdef VERIFY
 #include "dgrjw.h"
 
 /* verify all graphs of n vertices with clique separators
@@ -206,24 +206,39 @@ static void verify_zerofb(int n, int nsteps)
   dg_close(g);
   printf("verified zero fb for %d graphs of n = %d\n", cnt, n);
 }
+#endif /* defined(VERIFY) */
 
 
 
 int main(int argc, char **argv)
 {
-  int i, n = 9, nsteps = 1000000, nedmax = 1000;
+  int n = 9, nsteps = 1000000, nedmax = 1000;
+#ifdef N
+  n = N;
+#endif
+#ifndef N
   testrtl();
   testcsep();
+#endif
   if (argc >= 2) n = atoi(argv[1]);
   if (argc >= 3) nsteps = atoi(argv[2]);
   if (argc >= 4) nedmax = atoi(argv[3]);
   /* T60 2mcs default setting */
   speed_cliquesep(n, nsteps, nedmax);
-  printf("\n\n\n");
 
-  for (i = 3; i <= DGMAP_NMAX; i++)
-    verify_allzerofb(i, 0);
+#ifdef VERIFY
+  printf("\n\n\n");
+#ifdef N
+  verify_allzerofb(N, 0);
+#else
+  {
+    int i;
+    for (i = 3; i <= DGMAP_NMAX; i++)
+      verify_allzerofb(i, 0);
+  }
+#endif
   verify_zerofb(n, nsteps);
+#endif /* VERIFY */
   return 0;
 }
 

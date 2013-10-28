@@ -9,7 +9,8 @@
 INLINE double dg_nring_spec0(const dg_t *g,
     int *ned, int *degs, int *err)
 {
-  int i, j, n = g->n, ned0, ned1;
+  int i, j, ned0, ned1;
+  DG_DEFN_(g);
   double x;
   static int ldegs[DG_NMAX]; /* local buffer of the degree sequence */
 #pragma omp threadprivate(ldegs)
@@ -24,25 +25,25 @@ INLINE double dg_nring_spec0(const dg_t *g,
     ned0 = *ned;
   }
 
-  if (ned0 <= n + 1) {
-    if (ned0 == n) return 1;
+  if (ned0 <= DG_N_ + 1) {
+    if (ned0 == DG_N_) return 1;
 
     /* ned0 == n + 1
      * (a) if the two deg-3 vertices are mutually connected,
      * then there is a ring
      * (b) if the two deg-3 vertices are connected to deg-2 vertices
      * then no subgraph is ring */
-    for (i = 0; i < n; i++)
+    for (i = 0; i < DG_N_; i++)
       if (degs[i] == 3) break;
-    for (j = i + 1; j < n; j++)
+    for (j = i + 1; j < DG_N_; j++)
       if (degs[j] == 3) break;
     /* if j >= n, diagram is not biconnected */
-    return j < n && dg_linked(g, i, j);
+    return j < DG_N_ && dg_linked(g, i, j);
   }
 
-  ned1 = n * (n - 1) / 2 - ned0;
+  ned1 = DG_N_ * (DG_N_ - 1) / 2 - ned0;
   if (ned1 == 0) { /* full diagram return n!/(2*n) */
-    for (x = 1, i = 3; i < n; i++) x *= i;
+    for (x = 1, i = 3; i < DG_N_; i++) x *= i;
     return x;
   }
 
@@ -59,7 +60,8 @@ INLINE double dg_nring_spec0(const dg_t *g,
 INLINE int dg_fbnr_spec0(const dg_t *g, double *fb, double *nr,
     int *ned, int *degs)
 {
-  int i, j, n = g->n, ned0, ned1;
+  int i, j, ned0, ned1;
+  DG_DEFN_(g);
   double x;
   static int ldegs[DG_NMAX]; /* local buffer of the degree sequence */
 #pragma omp threadprivate(ldegs)
@@ -74,8 +76,8 @@ INLINE int dg_fbnr_spec0(const dg_t *g, double *fb, double *nr,
     ned0 = *ned;
   }
 
-  if (ned0 <= n + 1) {
-    if (ned0 == n) {
+  if (ned0 <= DG_N_ + 1) {
+    if (ned0 == DG_N_) {
       *fb = DG_SC2FB(1, ned0);
       *nr = 1;
     } else {
@@ -85,12 +87,12 @@ INLINE int dg_fbnr_spec0(const dg_t *g, double *fb, double *nr,
        * clique separtor
        * (b) if the two deg-3 vertices are connected to deg-2 vertices
        * then no subgraph is ring, and sc = 1 */
-      for (i = 0; i < n; i++)
+      for (i = 0; i < DG_N_; i++)
         if (degs[i] == 3) break;
-      for (j = i + 1; j < n; j++)
+      for (j = i + 1; j < DG_N_; j++)
         if (degs[j] == 3) break;
       /* if j >= n, diagram is not biconnected */
-      if (j >= n) return -1;
+      if (j >= DG_N_) return -1;
       if (dg_linked(g, i, j)) { /* case (a) */
         *fb = 0;
         *nr = 1;
@@ -102,11 +104,11 @@ INLINE int dg_fbnr_spec0(const dg_t *g, double *fb, double *nr,
     return 0;
   }
 
-  ned1 = n * (n - 1) / 2 - ned0;
+  ned1 = DG_N_ * (DG_N_ - 1) / 2 - ned0;
   if (ned1 == 0) { /* full diagram nr = n!/(2*n), fb */
-    for (x = 1, i = 3; i < n; i++) x *= i;
+    for (x = 1, i = 3; i < DG_N_; i++) x *= i;
     *nr = x;
-    *fb = DG_SC2FB(dg_rhiter(n, 2, 1), ned0);
+    *fb = DG_SC2FB(dg_rhiter(DG_N_, 2, 1), ned0);
     return 0;
   }
   return -1;
@@ -117,18 +119,20 @@ INLINE int dg_fbnr_spec0(const dg_t *g, double *fb, double *nr,
 /* return the number of ring subgraphs */
 INLINE double dg_nring_direct(const dg_t *g)
 {
-  int st[DG_NMAX], top, i, n = g->n, root = 0;
-  code_t unused, c, b, mask = mkbitsmask(n);
+  int st[DG_NMAX], top, i, root = 0;
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
+  code_t unused, c, b;
   double cnt = 0;
 
-  if (n <= 2) {
-    if (n <= 1) return 1;
+  if (DG_N_ <= 2) {
+    if (DG_N_ <= 1) return 1;
     else return (g->c[1] & 0x1) ? 1 : 0;
   }
   st[0] = root;
   st[1] = 0;
   top = 1;
-  unused = mask ^ MKBIT(root);
+  unused = DG_MASKN_ ^ MKBIT(root);
   while (1) {
     /* construct a set of vertices that satisfy
      * 1. unused
@@ -172,6 +176,7 @@ INLINE double dg_nring_mixed0(const dg_t *g, int *ned, int *degs)
 
 
 
+#if DGMAP_EXISTS
 #define dg_nring_lookup(g) dg_nring_lookuplow(g->n, dg_getmapid(g))
 
 /* compute the number of ring subgraphs by a look up table */
@@ -180,35 +185,35 @@ INLINE double dg_nring_lookuplow(int n, unqid_t id)
   static double *nr[DGMAP_NMAX + 1]; /* nr of unique diagrams */
 #pragma omp threadprivate(nr)
 
-  if (n <= 1) return 1;
+  if (DG_N_ <= 1) return 1;
 
   /* initialize the look-up table */
-  if (nr[n] == NULL) {
+  if (nr[DG_N_] == NULL) {
     dg_t *g;
-    dgmap_t *m = dgmap_ + n;
+    dgmap_t *m = dgmap_ + DG_N_;
     int k, cnt = 0, nz = 0;
     clock_t t0 = clock();
 
-    dgmap_init(m, n);
-    xnew(nr[n], m->ng);
+    dgmap_init(m, DG_N_);
+    xnew(nr[DG_N_], m->ng);
 
     /* loop over unique diagrams */
-    g = dg_open(n);
+    g = dg_open(DG_N_);
     for (cnt = 0, k = 0; k < m->ng; k++) {
       dg_decode(g, &m->first[k]);
       if ( dg_biconnected(g) ) {
-        nr[n][k] = dg_nring_mixed(g);
+        nr[DG_N_][k] = dg_nring_mixed(g);
         cnt++;
         nz++;
-      } else nr[n][k] = 0;
+      } else nr[DG_N_][k] = 0;
     }
     dg_close(g);
     fprintf(stderr, "%4d: n %d, computed # of subrings of %d/%d biconnected diagrams, %gs\n",
-          inode, n, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+          inode, DG_N_, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
   }
-  return nr[ n ][ id ];
+  return nr[ DG_N_ ][ id ];
 }
-
+#endif /* DGMAP_EXISTS */
 
 
 #define dg_nring(g) dg_nring0(g, NULL, NULL)
@@ -217,11 +222,11 @@ INLINE double dg_nring_lookuplow(int n, unqid_t id)
  * using various techniques to accelerate the calculation */
 INLINE double dg_nring0(const dg_t *g, int *ned, int *degs)
 {
-  if (g->n <= DGMAP_NMAX) {
+#if DGMAP_EXISTS
+  if (g->n <= DGMAP_NMAX)
     return dg_nring_lookup(g);
-  } else {
-    return dg_nring_mixed0(g, ned, degs);
-  }
+#endif
+  return dg_nring_mixed0(g, ned, degs);
 }
 
 
