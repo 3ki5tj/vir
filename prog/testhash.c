@@ -1,7 +1,4 @@
-#ifndef N
-#define N 10
-#endif
-#include "dghash2.h"
+#include "dghash.h"
 #include "testutil.h"
 
 
@@ -40,13 +37,14 @@ INLINE double dghash_dummy_lookup(const dg_t *g)
     dghash_stat(hash, stderr);
   }
   tot += 1;
-  ls = hash->ls + dghash_getid(g, c, hash->bits);
-  pos = dgls_find(ls, c, &ipos);
+  ls = hash->ls + dghash_getid(g, c, hash->cwords, hash->bits);
+  pos = dgls_find(ls, c, hash->cwords, &ipos);
   if (pos >= 0) { /* entry exists */
     hits += 1;
     return ls->arr[pos].fb;
   }
-  dgls_add(ls, ipos, c, 1, 1, hash->blksz, &hash->mem, hash->memmax);
+  dgls_add(ls, ipos, c, hash->cwords, 1.0, 1.0,
+      hash->blksz, &hash->mem, hash->memmax);
   return 1;
 }
 
@@ -98,8 +96,11 @@ static void test_rndcover(int n, int nsamp, int nedmax)
 
 int main(int argc, char **argv)
 {
-  int n = N, nsamp = 40000000, nedmax = 1000000;
+  int n = 9, nsamp = 40000000, nedmax = 1000000;
 
+#ifdef N
+  n = N;
+#endif
   if (argc >= 2) n = atoi(argv[1]);
   if (argc >= 3) nsamp = atoi(argv[2]);
   if (argc >= 4) nedmax = atoi(argv[3]);

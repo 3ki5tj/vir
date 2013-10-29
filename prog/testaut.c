@@ -1,7 +1,6 @@
-#include "dgcsep.h"
 #include "dgaut.h"
+#include "dgcsep.h"
 #include "testutil.h"
-
 
 
 static void testfoo(int n)

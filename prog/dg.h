@@ -659,13 +659,17 @@ INLINE int dg_biconnected_std(const dg_t *g)
 #endif
 
 #if !defined(N) || N <= DGMAP_NMAX
-#define DGMAP_EXISTS 1
+  #ifndef DGMAP_EXISTS
+  #define DGMAP_EXISTS 1
+  #endif
 #else
-#define DGMAP_EXISTS 0
+  #ifdef DGMAP_EXISTS
+  #undef DGMAP_EXISTS
+  #endif
 #endif
 
 
-#if DGMAP_EXISTS
+#ifdef DGMAP_EXISTS
 typedef short unqid_t;
 
 typedef struct {
@@ -873,7 +877,7 @@ INLINE int dg_biconnected_lookuplow(int n, unqid_t id)
   }
   return bc[ DG_N_ ][ id ];
 }
-#endif /* DGMAP_EXISTS */
+#endif /* defined(DGMAP_EXISTS) */
 
-#endif
+#endif /* DG_H__ */
 

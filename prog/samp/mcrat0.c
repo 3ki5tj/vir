@@ -9,9 +9,11 @@
 #define ZCOM_AV
 #include "zcom.h"
 #include "dgmapl.h" /* larger lookup table */
-#ifdef N /* if N can be determined, use the hash-table */
 #include "dghash.h"
-#endif
+/* dg.h, ..., dgring.h are included in dgmapl.h or dghash.h if they exist
+ * the preferred CODEBITS are set there, if neither is available, we include
+ * dgring.h directly */
+#include "dgring.h"
 #include "mcutil.h"
 
 
@@ -42,6 +44,12 @@ char *fnBring = NULL;
 int nthreads = 1;
 unsigned rngseed = 0;
 
+#ifdef DGHASH_EXISTS
+int hash_on = -1; /* 1: on, 0: off, -1: default */
+int hash_bits = 0;
+unsigned hash_blksz = 0;
+unsigned hash_memmax = 0;
+#endif
 
 
 /* handle arguments */
@@ -68,6 +76,12 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-I", NULL, &fnBring, "name of the virial series file");
   argopt_add(ao, "--nthr", "%d", &nthreads, "number of threads");
   argopt_add(ao, "--rng", "%u", &rngseed, "set the RNG seed offset");
+#ifdef DGHASH_EXISTS
+  argopt_add(ao, "--hash",        "%d", &hash_on,     "use the hash table (default: -1)");
+  argopt_add(ao, "--hash-bits",   "%d", &hash_bits,   "number of bits in the hash table");
+  argopt_add(ao, "--hash-blksz",  "%u", &hash_blksz,  "number of entries to allocate in each hash table list");
+  argopt_add(ao, "--hash-memmax", "%u", &hash_memmax, "maximal memory for the hash table");
+#endif
   argopt_parse(ao, argc, argv);
 
   /* decide whether to use lookup table or not */
@@ -81,14 +95,34 @@ static void doargs(int argc, char **argv)
   }
 #endif
 
+  /* try to decide if to use the hash table */
+  if (hash_on < 0) {
+    hash_on = 1;
+#ifdef DGMAPL_EXISTS
+    /* the hash table (at n = 9) is generally not as efficient
+     * because we have to compute the canonical label */
+    if (n <= DGMAPL_NMAX) {
+      hash_on = 0; /* turn off the hash table */
+    } else
+#endif
+    if (D > 15 && n < 64) { /* TODO: improve this */
+      hash_on = 0;
+    }
+  }
+
   /* interval of computing fb */
   if (nstfb <= 0) {
     if (lookup) {
       nstfb = 1;
+#ifdef DGMAPL_EXISTS
     } else if (n <= DGMAPL_NMAX) {
       nstfb = 1;
+#endif
     } else { /* TODO: improve this */
       nstfb = 10;
+#ifdef DGHASH_EXISTS
+      if (hash_on) nstfb = 1;
+#endif
     }
   }
 
@@ -210,7 +244,7 @@ static void report(const av0_t *fbsm, const av0_t *nrsm,
 
 
 
-#if DGMAP_EXISTS
+#ifdef DGMAP_EXISTS
 /* compute a virial coefficient with a lookup table */
 static void mcrat_lookup(int n, double nequil, double nsteps,
     real amp, int gdisp, int nstcom)
@@ -339,7 +373,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   dg_close(g);
   dg_close(ng);
 }
-#endif
+#endif /* defined(DGMAP_EXISTS) */
 
 
 
@@ -354,6 +388,15 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   double t, fb, nr;
   dg_t *g, *ng;
   av0_t fbsm, nrsm, cacc, racc;
+#ifdef DGHASH_EXISTS
+  static dghash_t *hash = NULL;
+
+#pragma omp critical
+  {
+    if ( hash_on )
+      hash = dghash_open(n, hash_bits, hash_blksz, hash_memmax);
+  }
+#endif
 
   av0_clear(&nrsm);
   av0_clear(&fbsm);
@@ -421,16 +464,22 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         /* detect special cases, including the ring diagram
          * but it does not detect clique separators */
         if (dg_fbnr_spec0(g, &fb, &nr, &ned, degs) != 0) {
-#if DGMAPL_EXISTS
-          if ( DG_N_ <= DGMAPL_NMAX ) { /* use the larger lookup table */
+#ifdef DGMAPL_EXISTS
+          if ( DG_N_ <= DGMAPL_NMAX && !hash_on ) { /* use the larger lookup table */
             fb = dgmapl_fbnr_lookup(g, kdepth, &nr);
-          }
-          else
+          } else
 #endif /* DGMAPL_EXISTS */
           {
-            fb = dg_hsfb_mixed0(g, 0, &ned, degs);
-            nr = dg_nring_mixed0(g, &ned, degs);
-            neval++;
+#ifdef DGHASH_EXISTS
+            if (hash != NULL) {
+              fb = dghash_fbnr_lookup0(hash, g, &nr, 0, &ned, degs);
+            } else 
+#endif
+            {
+              fb = dg_hsfb_mixed0(g, 0, &ned, degs);
+              nr = dg_nring_mixed0(g, &ned, degs);
+              neval++;
+            }
           }
         }
         hasfb = 1;
@@ -471,6 +520,9 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     if (it % nstrep == 0 || t > nsteps - .5) {
       it = 0;
       report(&fbsm, &nrsm, &cacc, &racc, t, -1, &neval);
+#ifdef DGHASH_EXISTS
+      if (hash != NULL && inode == MASTER) dghash_stat(hash, stderr);
+#endif
     }
   }
   dg_close(g);
@@ -510,11 +562,11 @@ int main(int argc, char **argv)
     inode = omp_get_thread_num();
 #endif
 
-#if DGMAP_EXISTS
+#ifdef DGMAP_EXISTS
     if (lookup) {
       mcrat_lookup(n, nequil, nsteps, mcamp, gdisp, nstcom);
     } else
-#endif
+#endif /* defined(DGMAP_EXISTS) */
       mcrat_direct(n, nequil, nsteps, mcamp, gdisp, nstfb, nstcom);
 
 #ifdef _OPENMP

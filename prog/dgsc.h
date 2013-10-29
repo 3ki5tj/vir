@@ -216,7 +216,7 @@ INLINE double dg_rhsc_direct0(const dg_t *g, int nocsep, int *ned, int *degs)
 
 
 
-#if DGMAP_EXISTS
+#ifdef DGMAP_EXISTS
 /* compute the star content by a look up table */
 INLINE double dg_rhsc_lookup(const dg_t *g)
 {
@@ -257,7 +257,7 @@ INLINE double dg_rhsc_lookup(const dg_t *g)
   dg_encode(g, &c);
   return sc[DG_N_][ m->map[c] ]; /* m->map[c] is the id of the unique diagram */
 }
-#endif /* DGMAP_EXISTS */
+#endif /* defined(DGMAP_EXISTS) */
 
 
 #define dg_rhsc(g) dg_rhsc0(g, 0, NULL, NULL)
@@ -269,10 +269,11 @@ INLINE double dg_rhsc0(const dg_t *g, int nocsep, int *ned, int *degs)
   double sc;
   int err;
 
-#if DGMAP_EXISTS
+#ifdef DGMAP_EXISTS
   if (g->n <= DGMAP_NMAX)
     return dg_rhsc_lookup(g);
-#endif
+#endif /* defined(DGMAP_EXISTS) */
+
   sc = dg_rhsc_spec0(g, nocsep, 1, ned, degs, &err);
   if (err == 0) return sc;
   else return dg_rhsc_directlow(g);

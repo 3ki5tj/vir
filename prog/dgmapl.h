@@ -5,22 +5,24 @@
 #define DGMAPL_NMAX 9
 #endif
 
+#if defined(N) && N > DGMAPL_NMAX
+  #ifdef DGMAPL_EXISTS
+  #undef DGMAPL_EXISTS
+  #endif
+#else
+  #ifndef DGMAPL_EXISTS
+  #define DGMAPL_EXISTS 1
+  #endif
+#endif
+
+#ifdef DGMAPL_EXISTS
+
 #if DGMAPL_NMAX >= 10
 #ifndef CODEBITS
 #define CODEBITS 64 /* for the table key is over 2^32 */
 #endif /* CODEBITS */
 #endif /* DGMAPL_NMAX >= 10 */
 
-#if defined(N) && N > DGMAPL_NMAX
-  #define DGMAPL_EXISTS 0
-#else
-  #define DGMAPL_EXISTS 1
-#endif
-
-
-#include "dg.h"
-#include "dgsc.h"
-#include "dgrjw.h"
 #include "dgring.h"
 
 
@@ -259,7 +261,6 @@ INLINE int dgmapl_save2full(dgmapl_fb_t (* RESTRICT arr)[2],
 
 
 
-#if DGMAPL_EXISTS
 /* for n = 9, nr <= 9!/18 = 20160, |fb| <= 7! = 5040
  * so they can be contained in a 16-bit integer */
 typedef struct {
@@ -330,7 +331,7 @@ INLINE double dgmapl_fbnr_lookup0(const dg_t *g, int k, double *nr,
   dgmapl_t *tb;
   double fb;
 
-  die_if (n <= 0 || n > DGMAPL_NMAX, "bad n %d\n", n);
+  die_if (DG_N_ <= 0 || DG_N_ > DGMAPL_NMAX, "bad n %d\n", DG_N_);
 
   /* allocate memory */
   if (mapl[DG_N_] == NULL) {
@@ -429,8 +430,8 @@ INLINE double dgmapl_fbnr_lookup0(const dg_t *g, int k, double *nr,
   return fb;
 }
 
-#endif /* DGMAPL_EXIST */
+#endif /* defined(DGMAPL_EXISTS) */
 
 
-#endif
+#endif /* DGMAPL_H__ */
 

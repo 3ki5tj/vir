@@ -9,7 +9,7 @@
 #include <limits.h>
 
 
-#ifdef RJW32
+#if defined(RJW32) || (defined(N) && N <= 14 && CODEBITS == 32)
 
 typedef int32_t fb_t;
 /* for n <= 14, max |fb(n)| = 12! = 479001600 < |FBDIRTY| */
@@ -270,7 +270,7 @@ INLINE double dg_hsfb_mixed0(const dg_t *g,
 
 
 
-#if DGMAP_EXISTS
+#ifdef DGMAP_EXISTS
 #define dg_hsfb_lookup(g) dg_hsfb_lookuplow(g->n, dg_getmapid(g))
 
 
@@ -309,7 +309,7 @@ INLINE double dg_hsfb_lookuplow(int n, unqid_t id)
   }
   return fb[ DG_N_ ][ id ];
 }
-#endif /* DGMAP_EXISTS */
+#endif /* defined(DGMAP_EXISTS) */
 
 
 #define dg_hsfb(g) dg_hsfb0(g, 0, NULL, NULL)
@@ -318,10 +318,11 @@ INLINE double dg_hsfb_lookuplow(int n, unqid_t id)
  * nocsep: if the graph has been tested with no clique separator */
 INLINE double dg_hsfb0(dg_t *g, int nocsep, int *ned, int *degs)
 {
-#if DGMAP_EXISTS
+#ifdef DGMAP_EXISTS
   if (g->n <= DGMAP_NMAX)
     return dg_hsfb_lookup(g);
-#endif
+#endif /* defined(DGMAP_EXISTS) */
+
   return dg_hsfb_mixed0(g, nocsep, ned, degs);
 }
 

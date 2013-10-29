@@ -199,7 +199,7 @@ INLINE int dg_decompcsep(const dg_t *g, code_t * RESTRICT cl)
 
 
 
-#if DGMAP_EXISTS
+#ifdef DGMAP_EXISTS
 /* compute the number of nodes the clique-separator decomposition */
 INLINE int dg_ncsep_lookuplow(const dg_t *g, code_t c)
 {
@@ -233,7 +233,7 @@ INLINE int dg_ncsep_lookup(const dg_t *g)
   dg_encode(g, &code);
   return dg_ncsep_lookuplow(g, code);
 }
-#endif /* DGMAP_EXISTS */
+#endif /* defined(DGMAP_EXISTS) */
 
 #endif
 

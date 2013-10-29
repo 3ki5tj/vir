@@ -176,7 +176,7 @@ INLINE double dg_nring_mixed0(const dg_t *g, int *ned, int *degs)
 
 
 
-#if DGMAP_EXISTS
+#ifdef DGMAP_EXISTS
 #define dg_nring_lookup(g) dg_nring_lookuplow(g->n, dg_getmapid(g))
 
 /* compute the number of ring subgraphs by a look up table */
@@ -213,7 +213,7 @@ INLINE double dg_nring_lookuplow(int n, unqid_t id)
   }
   return nr[ DG_N_ ][ id ];
 }
-#endif /* DGMAP_EXISTS */
+#endif /* defined(DGMAP_EXISTS) */
 
 
 #define dg_nring(g) dg_nring0(g, NULL, NULL)
@@ -222,10 +222,10 @@ INLINE double dg_nring_lookuplow(int n, unqid_t id)
  * using various techniques to accelerate the calculation */
 INLINE double dg_nring0(const dg_t *g, int *ned, int *degs)
 {
-#if DGMAP_EXISTS
+#ifdef DGMAP_EXISTS
   if (g->n <= DGMAP_NMAX)
     return dg_nring_lookup(g);
-#endif
+#endif /* defined(DGMAP_EXITS) */
   return dg_nring_mixed0(g, ned, degs);
 }
 
