@@ -1,3 +1,7 @@
+#ifndef N
+#define N 10
+#endif
+
 #include "dghash.h"
 #include "testutil.h"
 
@@ -25,22 +29,19 @@ INLINE double dghash_dummy_lookup(const dg_t *g)
   DG_DEFN_(g);
   int pos, ipos;
   dgls_t *ls;
-  static double tot = 0, hits = 0;
 
   if (hash == NULL) {
     hash = dghash_open(DG_N_, HASHBITS, BLKSZ, MEMMAX);
+    hash->dostat = 1; /* turn on statistics */
   }
 
-  if (tot > 0 && fmod(tot, 1000000) < 0.1) {
-    fprintf(stderr, "tot %10.4e, hits %5.2f%%, ",
-        tot, 100.*hits/tot);
-    dghash_stat(hash, stderr);
-  }
-  tot += 1;
   ls = hash->ls + dghash_getid(g, c, hash->cwords, hash->bits);
   pos = dgls_find(ls, c, hash->cwords, &ipos);
+  hash->tot += 1;
+  hash->hits += (pos >= 0);
+  if (fmod(hash->tot, 1000000) < 0.1)
+    dghash_printstat(hash, stderr);
   if (pos >= 0) { /* entry exists */
-    hits += 1;
     return ls->arr[pos].fb;
   }
   dgls_add(ls, ipos, c, hash->cwords, 1.0, 1.0,

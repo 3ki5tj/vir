@@ -116,6 +116,8 @@ The dimension D needs to specified during compilation, e.g.,
   -DD=20
 by default D=3
 
+When the hash table is used, defining the order in advance can save memory
+  -DN=12
 
 
 
@@ -171,6 +173,8 @@ ipo:  single thread:            58s                         icc -DD=3 -O2 -march
       MPI/gcc -np 8:            2m16s/16m5s                 mpicc -DMPI -DD=3 -O3 -march=native mcrat0.c && rm -f mr* && time mpirun -np 8 ./a.out -n 7 -1 1e9 -0 1e6
       MPI/gcc -np 2:            1m7s/2m11s                  mpicc -DMPI -DD=3 -O3 -march=native mcrat0.c && rm -f mr* && time mpirun -np 2 ./a.out -n 7 -1 1e9 -0 1e6
 
+Note the 8 threads on ipo are actually produced by hyperthreads.  There are only four real threads.
+
 mic (1e8 steps for each thread):
 60 threads 2m20s
 61 threads 2m27s
@@ -188,7 +192,7 @@ T60:  single thread:            2m19s/2m16                  icc -DD=2 -O2 -march
                                 2m36s/4m11s                 gcc -DD=2 -fopenmp -O2 -march=native mcrat0.c -lm && time ./a.out -n 9 -1 1e8 -0 1e6
       (no MPI version for it requires at least 2G memory)
 
-      two threads openmp:       5m2s/8m43s                  icc -DD=2 -DN=9 -openmp -O2 -march=native -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 --hash=1
+      two threads openmp:       5m2s/8m43s                  icc -DD=2 -DN=9 -openmp -O2 -march=native -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 --hash-mode=1
       (hash version)
 
 D = 2, n = 9, -1 1e9 -0 1e6, vir = 0.0362202
@@ -209,20 +213,24 @@ ipo:  single thread:            6m42s                       icc -DD=2 -O2 -ipo m
 Hash table
 ~~~~~~~~~~~~~~~~~~~~~
 D = 2, n = 10, -1 1e8 -0 1e6 -w 1, vir = 0.019953
+T60:  single thread:            5m50s/5m42                  icc -DD=2 -DN=10 -O2 -march=native -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1
 
-ipo:  single thread:            9m44s/9m37                  icc -DD=2 -DN=10 -O2 -march=native -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash=1
-      two threads:              9m44s/9m37                  icc -DD=2 -DN=10 -openmp -O2 -march=native -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS="2" ./a.out -1 1e8 -0 1e6 --hash=1
+
+D = 2, n = 10, -1 1e9 -0 1e6 -w 1, vir = 0.019953
+ipo:  single thread:            15m30s/15m30s               icc -DD=2 -DN=10 -O2 -march=native -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e9 -0 1e6 --hash-mode=1
+      two threads:              18m0s/36m0s                 icc -DD=2 -DN=10 -openmp -O2 -march=native -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS="2" ./a.out -1 1e9 -0 1e6 --hash-mode=1
+      8 threads:                18m0s/36m0s                 icc -DD=2 -DN=10 -openmp -O2 -march=native -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS="8" ./a.out -1 1e9 -0 1e6 --hash-mode=1
 
 
 Direct method
 ~~~~~~~~~~~~~~~~~~~~~
 D = 2, n = 10, -1 1e8 -0 1e6 -w 10, vir = 0.019953
 
-T60:  single thread:            9m44s/9m37                  icc -DD=2 -O2 -march=native -ipo mcrat0.c && time ./a.out -n 10 -1 1e8 -0 1e6 --hash=0
-                                9m05s/8m58                  gcc -DD=2 -O2 -march=native mcrat0.c -lm && time ./a.out -n 10 -1 1e8 -9 1e6 --hash=0
-      two threads openmp:       14m9s/22m54s                icc -DD=2 -openmp -O2 -march=native -ipo mcrat0.c && time ./a.out -n 10 -1 1e8 -0 1e6 --hash=0
-                                13m2s/21m35s                gcc -DD=2 -fopenmp -O2 -march=native mcrat0.c -lm && time ./a.out -n 10 -1 1e8 -0 1e6 --hash=0
-      MPI/gcc -np 8:            13m16s/22m12s               mpicc -DD=2 -O2 -march=native mcrat0.c -lm && rm -f mr* && time mpirun -np 2 ./a.out -n 10 -1 1e8 -0 1e6 --hash=0
+T60:  single thread:            9m44s/9m37                  icc -DD=2 -O2 -march=native -ipo mcrat0.c && time ./a.out -n 10 -1 1e8 -0 1e6 --hash-mode=0
+                                9m05s/8m58                  gcc -DD=2 -O2 -march=native mcrat0.c -lm && time ./a.out -n 10 -1 1e8 -9 1e6 --hash-mode=0
+      two threads openmp:       14m9s/22m54s                icc -DD=2 -openmp -O2 -march=native -ipo mcrat0.c && time ./a.out -n 10 -1 1e8 -0 1e6 --hash-mode=0
+                                13m2s/21m35s                gcc -DD=2 -fopenmp -O2 -march=native mcrat0.c -lm && time ./a.out -n 10 -1 1e8 -0 1e6 --hash-mode=0
+      MPI/gcc -np 8:            13m16s/22m12s               mpicc -DD=2 -O2 -march=native mcrat0.c -lm && rm -f mr* && time mpirun -np 2 ./a.out -n 10 -1 1e8 -0 1e6 --hash-mode=0
 
 
 

@@ -223,7 +223,7 @@ int main(int argc, char **argv)
   if (argc >= 2) n = atoi(argv[1]);
   if (argc >= 3) nsteps = atoi(argv[2]);
   if (argc >= 4) nedmax = atoi(argv[3]);
-  /* T60 2mcs default setting */
+  /* T60 3mcs default setting */
   speed_cliquesep(n, nsteps, nedmax);
 
 #ifdef VERIFY

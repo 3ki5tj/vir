@@ -104,15 +104,16 @@ INLINE void dgmapl_seti2(dgmapl_fb_t * RESTRICT x, dgmapl_int_t * RESTRICT i)
 /* encode a graph according to the permuation `st' */
 INLINE code_t dgmapl_encode(const dg_t *g, int k, int *st)
 {
-  int i, j, jmax, pid;
+  int i, j, jmax;
   DG_DEFN_(g);
-  code_t c;
+  code_t c, ci, pb;
 
-  for (pid = 0, c = 0, i = 2; i < DG_N_; i++) {
+  for (pb = 1, c = 0, i = 2; i < DG_N_; i++) {
     jmax = (i <= k) ? (i - 1) : i;
-    for (j = 0; j < jmax; j++, pid++)
-      if ( dg_linked(g, st[i], st[j]) )
-        c |= (code_t) 1 << pid;
+    ci = g->c[st[i]];
+    for (j = 0; j < jmax; j++, pb <<= 1)
+      if ( ci & MKBIT(st[j]) )
+        c |= pb;
   }
   return c;
 }
@@ -171,7 +172,7 @@ INLINE int dgmapl_save2full(dgmapl_fb_t (* RESTRICT arr)[2],
   int cnt = 0, i;
   DG_DEFN_(g);
   DG_DEFMASKN_();
-  code_t vs, c, b;
+  code_t vs, c, b, ci;
   code_t ms[DGMAPL_NMAX + 1];
   code_t ls[DGMAPL_LISTSIZE]; /* buffer to save updated values */
   int lscnt = 0, j;
@@ -184,8 +185,9 @@ INLINE int dgmapl_save2full(dgmapl_fb_t (* RESTRICT arr)[2],
     for (i = 0; i < top; i++) {
       b = MKBIT(st[i]);
       vs ^= b; /* remove b from the stack */
-      ms[i + 1] = vs & g->c[ st[i] ];
-      if ( !dg_linked(g, st[i], st[i+1]) ) {
+      ci = g->c[ st[i] ];
+      ms[i + 1] = vs & ci;
+      if ( !(ci & MKBIT(st[i+1])) ) {
         fprintf(stderr, "i %d, no edge between %d and %d\n", i, st[i], st[i+1]);
         for (i = 0; i <= top; i++) printf("%d, %d\n", i, st[i]);
         dg_print(g);
@@ -266,38 +268,45 @@ INLINE int dgmapl_save2full(dgmapl_fb_t (* RESTRICT arr)[2],
 typedef struct {
   int n;
   int k;
+  size_t size;
   dgmapl_fb_t (*fbnr)[2];
+  int dostat;
+  double tot, misses, hits; /* stats */
 } dgmapl_t;
 
 
 
 INLINE dgmapl_t *dgmapl_open(int n, int k)
 {
-  dgmapl_t *mapl;
-  uint64_t size;
+  dgmapl_t *m;
   static const int kdef[] = {0,
     0, 1, 2, 3, 4, 4, 5, 6, 8, 9};
   clock_t t0;
 
   die_if (n > DGMAPL_NMAX, "n %d is too large\n", n);
-  xnew(mapl, 1);
-  mapl->n = n;
-  if (k <= 0) /* choose a default k */
+  xnew(m, 1);
+  m->n = n;
+  if (k <= 0) { /* choose a default k */
     k = kdef[n];
-  mapl->k = k;
-  size = (uint64_t) 1u << (n * (n - 1) / 2 - k);
+    /* use shorter chain length for the larger table in the thread case */
+    if (n == 9 && sizeof(long) > 4) k = 7;
+  }
+  m->k = k;
+  m->size = (uint64_t) 1u << (n * (n - 1) / 2 - k);
   die_if (n*(n-1)/2-k > (int) sizeof(code_t) * 8,
       "n %d, k %d cannot be contained in %d bits, increase CODEBITS\n",
       n, k, (int) sizeof(code_t));
-  xnew(mapl->fbnr, size);
+  xnew(m->fbnr, m->size);
+  m->dostat = 0; /* disable stat by default, the user can turn it on manually */
+  m->tot = m->misses = m->hits = 1e-30;
   fprintf(stderr, "%4d: dgmapl allocated %gGB memory\n", inode,
-      1. * size * sizeof(mapl->fbnr[0]) / (1024.*1024.*1024.) );
+      1. * m->size * sizeof(m->fbnr[0]) / (1024.*1024.*1024.) );
   t0 = clock();
   /* since DGMAPL_BAD is 0x8080, 0x808080, or 0x80808080, we can use this trick */
-  memset(mapl->fbnr, 0x80, size * sizeof(mapl->fbnr[0]));
+  memset(m->fbnr, 0x80, m->size * sizeof(m->fbnr[0]));
   fprintf(stderr, "%4d: dgmapl memory set, %gs\n",
       inode, 1.*(clock() - t0)/CLOCKS_PER_SEC);
-  return mapl;
+  return m;
 }
 
 
@@ -310,72 +319,72 @@ INLINE void dgmapl_close(dgmapl_t *mapl)
 
 
 
-#define dgmapl_fbnr_lookup(g, k, nr) dgmapl_fbnr_lookup0(g, k, nr, 0, NULL, NULL)
+#define dgmapl_fbnr_lookup(g, nr) dgmapl_fbnr_lookup0(NULL, g, nr, 0, NULL, NULL)
 
 /* compute fb and nr by the larger lookup table
  * set k = 0 to use the default search length */
-INLINE double dgmapl_fbnr_lookup0(const dg_t *g, int k, double *nr,
-    int nocsep, int *ned, int *degs)
+INLINE double dgmapl_fbnr_lookup0(dgmapl_t *m, const dg_t *g,
+    double *nr, int nocsep, int *ned, int *degs)
 {
-#ifdef DGMAPL_DEBUG
-  static uint64_t mis = 0, tot = 0, cnt = 0, hit = 0;
-#endif
-  static dgmapl_t *mapl[DGMAPL_NMAX + 1];
+  static dgmapl_t *mapl[DGMAPL_NMAX + 1]; /* default maps are shared */
   static int st[DGMAPL_NMAX + 1];
 #pragma omp threadprivate(st)
-
   code_t c;
   int hasnew;
   DG_DEFN_(g);
   dgmapl_int_t ifbnr[2];
-  dgmapl_t *tb;
   double fb;
 
   die_if (DG_N_ <= 0 || DG_N_ > DGMAPL_NMAX, "bad n %d\n", DG_N_);
 
-  /* allocate memory */
-  if (mapl[DG_N_] == NULL) {
+  if (m == NULL) { /* initialize the stock hash table */
+    die_if (DG_N_ > DGMAPL_NMAX, "n %d is too large %d\n", DG_N_, DGMAPL_NMAX);
+    /* allocate memory */
+    if (mapl[DG_N_] == NULL) {
 #ifdef _OPENMP
-    /* We test mapl[n] twice here. If mapl[n] != NULL, then the map
-     * memory has been allocated, and we may safely skip the critical
-     * block.  If mapl[n] == NULL, the if clause inside the critical
-     * block ensures that the memory is not allocated twice.  That is,
-     * after the first thread leaves the critical block, the second
-     * thread can see `mapl[n]' is no longer NULL, and skip the block */
+      /* We test mapl[n] twice here. If mapl[n] != NULL, then the map
+       * memory has been allocated, and we may safely skip the critical
+       * block.  If mapl[n] == NULL, the if clause inside the critical
+       * block ensures that the memory is not allocated twice.  That is,
+       * after the first thread leaves the critical block, the second
+       * thread can see `mapl[n]' is no longer NULL, and skip the block */
 #pragma omp critical
-    {
-      if (mapl[DG_N_] == NULL) {
+      {
+        if (mapl[DG_N_] == NULL) {
 #endif /* _OPENMP */
-        clock_t t0 = clock();
-        mapl[DG_N_] = dgmapl_open(DG_N_, k);
-        fprintf(stderr, "%4d: initialized fb/nr-mapl for %d, k %d, time %gs\n",
-            inode, DG_N_, mapl[DG_N_]->k, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+          clock_t t0 = clock();
+          mapl[DG_N_] = dgmapl_open(DG_N_, 0);
+          fprintf(stderr, "%4d: initialized fb/nr-mapl for %d, k %d, time %gs\n",
+              inode, DG_N_, mapl[DG_N_]->k, 1.*(clock() - t0)/CLOCKS_PER_SEC);
 #ifdef _OPENMP
-      }
-    } /* omp critical */
+        }
+      } /* omp critical */
 #endif /* _OPENMP */
+    }
+    m = mapl[DG_N_];
   }
 
-  tb = mapl[DG_N_];
-  c = dgmapl_getchain(g, tb->k, st);
-  if (c == 0) { /* the lookup table is not applicable, do it directly */
-#ifdef DGMAPL_DEBUG
+  c = dgmapl_getchain(g, m->k, st);
+  if (c != 0)
+    dgmapl_geti2(ifbnr, m->fbnr[c]);
+  
+  if (m->dostat) {
 #pragma omp critical
-    { mis += 1; tot += 1; }
-#endif
+    {
+      m->tot += 1;
+      m->misses += (c == 0);
+      m->hits += (c != 0 && ifbnr[0] != DGMAPL_BAD);
+    }
+  }
+  
+  if (c == 0) { /* the lookup table is not applicable, do it directly */
     *nr = 0;
     fb = dg_hsfb_mixed0(g, nocsep, ned, degs);
     return fb;
   }
 
-  dgmapl_geti2(ifbnr, tb->fbnr[c]);
-
   hasnew = 0; /* if we have computed new values */
   if (ifbnr[0] != DGMAPL_BAD) {
-#ifdef DGMAPL_DEBUG
-#pragma omp atomic
-    hit += 1;
-#endif
     fb = ifbnr[0];
   } else {
     fb = dg_hsfb_mixed0(g, nocsep, ned, degs);
@@ -399,36 +408,33 @@ INLINE double dgmapl_fbnr_lookup0(const dg_t *g, int k, double *nr,
   if (hasnew) {
 #ifdef DGMAPL_SIMPLEUPDATE
 #pragma omp critical
-    {
-      dgmapl_seti2(tb->fbnr[c], ifbnr);
-#ifdef DGMAPL_DEBUG
-      cnt += 1;
-#endif
-    }
-#else /* full update, slower but more effective */
-#ifdef DGMAPL_DEBUG
-    cnt +=
-#endif
-      /* save fb and nr for different ways of tracing the graph */
-      dgmapl_save2full(tb->fbnr, ifbnr, g, tb->k, tb->k, st);
+    dgmapl_seti2(m->fbnr[c], ifbnr);
+#else
+    /* full update, slower but more effective */
+    /* save fb and nr for different ways of tracing the graph */
+    dgmapl_save2full(m->fbnr, ifbnr, g, m->k, m->k, st);
 #endif /* DGMAPL_SIMPLEUPDATE */
   }
 
-#ifdef DGMAPL_DEBUG /* debugging code */
-#pragma omp critical
-  {
-    tot += 1;
-#ifndef DGMAPL_NSTREP
-#define DGMAPL_NSTREP 1000000
-#endif
-    if (tot % DGMAPL_NSTREP == 0)
-      fprintf(stderr, "%4d: cnt %g, hits %g/%g = %g%%, misses %g/%g = %g%% graphs\n",
-          inode, 1.*cnt, 1.*hit, 1.*tot, 100.*hit/tot, 1.*mis, 1.*tot, 100.*mis/tot);
-  }
-#endif /* DGMAPL_DEBUG */
-
   return fb;
 }
+
+
+
+INLINE void dgmapl_printstat(const dgmapl_t *m, FILE *fp)
+{
+  size_t i, cnt = 0;
+  dgmapl_int_t ifbnr[2];
+
+  for (i = 0; i < m->size; i++) {
+    dgmapl_geti2(ifbnr, m->fbnr[i]);
+    if (ifbnr[0] != DGMAPL_BAD || ifbnr[1] != DGMAPL_BAD) 
+      cnt++;
+  }
+  fprintf(fp, "%4d: hits %5.2f%%, misses %g%%, cnt %g\n",
+      inode, 100.*m->hits/m->tot, 100.*m->misses/m->tot, 1.*cnt);
+}
+
 
 #endif /* defined(DGMAPL_EXISTS) */
 

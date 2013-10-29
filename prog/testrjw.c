@@ -180,6 +180,7 @@ int main(int argc, char **argv)
   if (argc >= 4) nedmax = atoi(argv[3]);
   die_if (nedmax <= n, "nedmax %d <= n %d\n", nedmax, n);
   if (argc >= 5) method = argv[4][0];
+  /* 18ms by default setting */
   testspeed(n, nsamp, nedmax, method);
   mtsave(NULL);
   return 0;

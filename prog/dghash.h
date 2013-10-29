@@ -131,6 +131,8 @@ typedef struct {
   dgls_t *ls;
   size_t mem; /* total memory usage in bytes */
   size_t memmax; /* maximal memory usage in bytes */
+  int dostat;
+  double tot, hits; /* statistics */
 } dghash_t;
 
 
@@ -166,13 +168,15 @@ INLINE dghash_t *dghash_open(int n, int bits, size_t blksz, size_t memmax)
   }
   h->mem = h->lsn * sizeof(h->ls[0]);
   if (inode == MASTER) {
-    fprintf(stderr, "dghash bits %d, blksz %u, mem %gM, cbits %d, cwords %d\n",
-      bits, (unsigned) blksz, memmax/(1024.*1024), n*(n - 1)/2, h->cwords);
+    fprintf(stderr, "dghash bits %d, blksz %u, mem %gM, cbits %d, cwords %d, unit %dB\n",
+        bits, (unsigned) blksz, memmax/(1024.*1024),
+        n*(n - 1)/2, h->cwords, (int) sizeof(dglsent_t));
     if (h->cwords * 2 < DGHASH_CWORDS)
-      fprintf(stderr, "dghash can save memory with predefined N (%d >> %d)  or DGHASH_CWORDS (%d >> %d)\n",
+      fprintf(stderr, "dghash can save memory with predefined N (%d >> %d) or DGHASH_CWORDS (%d >> %d)\n",
           DG_NMAX, n, DGHASH_CWORDS, h->cwords);
   }
-
+  h->dostat = 0; /* turn off stat by default, the user can turn it on manually */
+  h->tot = h->hits = 1e-30;
   return h;
 }
 
@@ -263,9 +267,9 @@ INLINE int dgls_add(dgls_t *ls, int ipos, const code_t *c, int cwords,
 INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
     double *nr, int nocsep, int *ned, int *degs)
 {
-  static dghash_t *hash[DG_NMAX + 1];
   static code_t c[DGHASH_CWORDS];
-#pragma omp threadprivate(hash, c)
+#pragma omp threadprivate(c)
+  static dghash_t *hash[DG_NMAX + 1]; /* default hash, shared */
   DG_DEFN_(g);
   int pos, ipos;
   dgls_t *ls;
@@ -289,6 +293,13 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
 
   ls = h->ls + dghash_getid(g, c, h->cwords, h->bits);
   pos = dgls_find(ls, c, h->cwords, &ipos);
+  if (h->dostat) { /* accumulate statistics */
+#pragma omp critical
+    {
+      h->tot += 1;
+      h->hits += (pos >= 0);
+    }
+  }
   if (pos >= 0) { /* entry exists */
     *nr = ls->arr[pos].nr;
     return ls->arr[pos].fb;
@@ -306,7 +317,7 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
 
 
 /* compute and print statistics of the usage of the hash table */
-INLINE void dghash_stat(const dghash_t *h, FILE *fp)
+INLINE void dghash_printstat(const dghash_t *h, FILE *fp)
 {
   size_t i, nz = 0;
   int x, hmax = 0, hmin = 10000;
@@ -332,7 +343,9 @@ INLINE void dghash_stat(const dghash_t *h, FILE *fp)
     smb /= nz;
     sm2b = (sm2b / nz) - smb * smb;
   }
-  fprintf(fp, "dghash: cnt %.0f, used %" PRIu64 "/%" PRIu64 " (%5.2f%%), "
+  fprintf(fp, "dghash: ");
+  if (h->dostat) fprintf(fp, "hits %5.2f%%, ", 100.*h->hits/h->tot);
+  fprintf(fp, "cnt %.0f, used %" PRIu64 "/%" PRIu64 " (%5.2f%%), "
       "av. %.3f(%.3f), nzav. %.2f(%.2f), %d-%d, mem. %.2fM (pack %5.2f%%)\n",
       cnt, (uint64_t) nz, (uint64_t) h->lsn, 100.*nz/h->lsn,
       sm, sqrt(sm2), smb, sqrt(sm2b), hmin, hmax,

@@ -42,7 +42,7 @@ int inode = MASTER, nnodes = 1;
 #ifdef  N
 #define DG_N_ N
 #define DG_DEFN_(g)
-#define DG_MASKN_ ((N == CODEBITS) ? (code_t) -1 : MKBIT(N) - (code_t) 1)
+#define DG_MASKN_ mkbitsmask(N)
 #define DG_DEFMASKN_()
 #else
 #define DG_N_ n
@@ -94,18 +94,86 @@ typedef struct {
 
 
 
+#if CODEBITS == 32
+
+code_t bitsmask_[CODEBITS + 1] = {0, 
+        0x1,        0x3,        0x7,        0xf,
+       0x1f,       0x3f,       0x7f,       0xff,
+      0x1ff,      0x3ff,      0x7ff,      0xfff,
+     0x1fff,     0x3fff,     0x7fff,     0xffff,
+    0x1ffff,    0x3ffff,    0x7ffff,    0xfffff,
+   0x1fffff,   0x3fffff,   0x7fffff,   0xffffff,
+  0x1ffffff,  0x3ffffff,  0x7ffffff,  0xfffffff,
+ 0x1fffffff, 0x3fffffff, 0x7fffffff, 0xffffffff};
+
+code_t bit1_[CODEBITS + 1] = { 
+        0x1,        0x2,        0x4,        0x8,
+       0x10,       0x20,       0x40,       0x80,
+      0x100,      0x200,      0x400,      0x800,
+     0x1000,     0x2000,     0x4000,     0x8000,
+    0x10000,    0x20000,    0x40000,    0x80000,
+   0x100000,   0x200000,   0x400000,   0x800000,
+  0x1000000,  0x2000000,  0x4000000,  0x8000000,
+ 0x10000000, 0x20000000, 0x40000000, 0x80000000};
+
+#elif CODEBITS == 64
+
+code_t bitsmask_[CODEBITS + 1] = {0,
+                0x1ull,                0x3ull,                0x7ull,                0xfull,
+               0x1full,               0x3full,               0x7full,               0xffull,
+              0x1ffull,              0x3ffull,              0x7ffull,              0xfffull,
+             0x1fffull,             0x3fffull,             0x7fffull,             0xffffull,
+            0x1ffffull,            0x3ffffull,            0x7ffffull,            0xfffffull,
+           0x1fffffull,           0x3fffffull,           0x7fffffull,           0xffffffull,
+          0x1ffffffull,          0x3ffffffull,          0x7ffffffull,          0xfffffffull,
+         0x1fffffffull,         0x3fffffffull,         0x7fffffffull,         0xffffffffull,
+        0x1ffffffffull,        0x3ffffffffull,        0x7ffffffffull,        0xfffffffffull,
+       0x1fffffffffull,       0x3fffffffffull,       0x7fffffffffull,       0xffffffffffull,
+      0x1ffffffffffull,      0x3ffffffffffull,      0x7ffffffffffull,      0xfffffffffffull,
+     0x1fffffffffffull,     0x3fffffffffffull,     0x7fffffffffffull,     0xffffffffffffull,
+    0x1ffffffffffffull,    0x3ffffffffffffull,    0x7ffffffffffffull,    0xfffffffffffffull,
+   0x1fffffffffffffull,   0x3fffffffffffffull,   0x7fffffffffffffull,   0xffffffffffffffull,
+  0x1ffffffffffffffull,  0x3ffffffffffffffull,  0x7ffffffffffffffull,  0xfffffffffffffffull,
+ 0x1fffffffffffffffull, 0x3fffffffffffffffull, 0x7fffffffffffffffull, 0xffffffffffffffffull};
+
+code_t bit1_[CODEBITS + 1] = {
+                0x1ull,                0x2ull,                0x4ull,                0x8ull,
+               0x10ull,               0x20ull,               0x40ull,               0x80ull,
+              0x100ull,              0x200ull,              0x400ull,              0x800ull,
+             0x1000ull,             0x2000ull,             0x4000ull,             0x8000ull,
+            0x10000ull,            0x20000ull,            0x40000ull,            0x80000ull,
+           0x100000ull,           0x200000ull,           0x400000ull,           0x800000ull,
+          0x1000000ull,          0x2000000ull,          0x4000000ull,          0x8000000ull,
+         0x10000000ull,         0x20000000ull,         0x40000000ull,         0x80000000ull,
+        0x100000000ull,        0x200000000ull,        0x400000000ull,        0x800000000ull,
+       0x1000000000ull,       0x2000000000ull,       0x4000000000ull,       0x8000000000ull,
+      0x10000000000ull,      0x20000000000ull,      0x40000000000ull,      0x80000000000ull,
+     0x100000000000ull,     0x200000000000ull,     0x400000000000ull,     0x800000000000ull,
+    0x1000000000000ull,    0x2000000000000ull,    0x4000000000000ull,    0x8000000000000ull,
+   0x10000000000000ull,   0x20000000000000ull,   0x40000000000000ull,   0x80000000000000ull,
+  0x100000000000000ull,  0x200000000000000ull,  0x400000000000000ull,  0x800000000000000ull,
+ 0x1000000000000000ull, 0x2000000000000000ull, 0x4000000000000000ull, 0x8000000000000000ull};
+#endif
+
+
+#if 1
+
+/* make the ith bit */
+#define MKBIT(n) bit1_[n]
+/* make a mask with the lowest (n + 1) bits being 1s */
+#define mkbitsmask(n) bitsmask_[n]
+
+#else
+
 /* make the ith bit */
 #define MKBIT(n) (((code_t) 1u) << (code_t) (n))
-
-
-
 /* make a mask with the lowest n bits being 1 */
 INLINE code_t mkbitsmask(int n)
 {
   if (n == CODEBITS) return (code_t) (-1);
   else return MKBIT(n) - (code_t) 1;
 }
-
+#endif
 
 
 /* count the number of 1 bits in x

@@ -30,7 +30,6 @@ int nstfb = 0; /* interval of evaluting the weight */
 int nstcom = 10000; /* frequency of the n move */
 int nstrep = 1000000000; /* interval of reporting */
 int lookup = -1; /* if to use the lookup table */
-int kdepth = 0; /* number of links to search in the larger lookup table */
 double ratcr = 0; /* rate of coordinates replacement */
 double r2cr = 0; /* variance of replaced coordinates */
 char *fnout = NULL;
@@ -44,11 +43,19 @@ char *fnBring = NULL;
 int nthreads = 1;
 unsigned rngseed = 0;
 
-#ifdef DGHASH_EXISTS
+int mapl_on = -1;
+#ifdef DGMAPL_EXISTS
+int mapl_kdepth = 0; /* number of links to search in the larger lookup table */
+int mapl_stat = 0;
+#endif
+
+
 int hash_on = -1; /* 1: on, 0: off, -1: default */
+#ifdef DGHASH_EXISTS
 int hash_bits = 0;
 unsigned hash_blksz = 0;
-unsigned hash_memmax = 0;
+double hash_memmax = 0;
+int hash_stat = 0;
 #endif
 
 
@@ -63,7 +70,6 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-1", "%lf", &nsteps, "number of simulation steps");
   argopt_add(ao, "-a", "%r", &mcamp, "MC amplitude for system 0 (biconnected diagrams)");
   argopt_add(ao, "-L", "%d", &lookup, "lookup table (-1: automatic)");
-  argopt_add(ao, "-k", "%d", &kdepth, "number of links to search in the larger lookup table");
   argopt_add(ao, "-w", "%d", &nstfb, "interval of evaluating the weight");
   argopt_add(ao, "-q", "%d", &nstrep, "interval of reporting");
   argopt_add(ao, "-G", "%b", &gdisp, "normally-distributed displacement");
@@ -76,11 +82,20 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-I", NULL, &fnBring, "name of the virial series file");
   argopt_add(ao, "--nthr", "%d", &nthreads, "number of threads");
   argopt_add(ao, "--rng", "%u", &rngseed, "set the RNG seed offset");
+
+  argopt_add(ao, "--mapl-mode",   "%d", &mapl_on,      "turn on/off the larger lookup table");
+#ifdef DGMAPL_EXISTS
+  argopt_add(ao, "-k",            "%d", &mapl_kdepth,  "number of links to search in the larger lookup table");
+  argopt_add(ao, "--mapl-kdepth", "%d", &mapl_kdepth,  "number of links to search in the larger lookup table");
+  argopt_add(ao, "--mapl-stat",   "%b", &mapl_stat,    "obtain large look up table statistics");
+#endif
+
+  argopt_add(ao, "--hash-mode",   "%d",   &hash_on,     "turn on/off the hash table (default: -1)");
 #ifdef DGHASH_EXISTS
-  argopt_add(ao, "--hash",        "%d", &hash_on,     "use the hash table (default: -1)");
-  argopt_add(ao, "--hash-bits",   "%d", &hash_bits,   "number of bits in the hash table");
-  argopt_add(ao, "--hash-blksz",  "%u", &hash_blksz,  "number of entries to allocate in each hash table list");
-  argopt_add(ao, "--hash-memmax", "%u", &hash_memmax, "maximal memory for the hash table");
+  argopt_add(ao, "--hash-bits",   "%d",   &hash_bits,   "number of bits in the hash table");
+  argopt_add(ao, "--hash-blksz",  "%u",   &hash_blksz,  "number of entries to allocate in each hash table list");
+  argopt_add(ao, "--hash-memmax", "%lf",  &hash_memmax, "maximal memory for the hash table");
+  argopt_add(ao, "--hash-stat",   "%b",   &hash_stat,   "compute statistics");
 #endif
   argopt_parse(ao, argc, argv);
 
@@ -88,41 +103,37 @@ static void doargs(int argc, char **argv)
   if (lookup < 0)
     lookup = (n <= DGMAP_NMAX);
 
-#ifdef _OPENMP
-  /* use shorter chain length for the larger table in the thread case */
-  if (kdepth <= 0 && sizeof(long) > 4) {
-    if (n == 9) kdepth = 7;
+  /* decide if we should use the larger lookup table */
+#ifdef DGMAPL_EXISTS
+  if (mapl_on != 0) { /* default or explicitedly turned on */
+    mapl_on = (n <= DGMAPL_NMAX);
   }
+#else
+  mapl_on = 0;
 #endif
 
-  /* try to decide if to use the hash table */
-  if (hash_on < 0) {
-    hash_on = 1;
-#ifdef DGMAPL_EXISTS
-    /* the hash table (at n = 9) is generally not as efficient
-     * because we have to compute the canonical label */
-    if (n <= DGMAPL_NMAX) {
-      hash_on = 0; /* turn off the hash table */
-    } else
-#endif
-    if (D > 15 && n < 64) { /* TODO: improve this */
+  /* decide if we should use the hash table */
+#ifdef DGHASH_EXISTS
+  if (hash_on != 0) {
+    hash_on = 1; /* turn on the hash table generally */
+    /* the hash table (at leat at n <= 9) is generally not as efficient
+     * as the larger lookup table, because we have to compute
+     * the canonical label */
+    if (mapl_on > 0) /* allow the larger lookup table */
       hash_on = 0;
-    }
+    if (D > 15 && n <= 64) /* TODO: improve this */
+      hash_on = 0;
   }
+#else
+  hash_on = 0;
+#endif
 
   /* interval of computing fb */
   if (nstfb <= 0) {
-    if (lookup) {
+    if (lookup || mapl_on || hash_on) {
       nstfb = 1;
-#ifdef DGMAPL_EXISTS
-    } else if (n <= DGMAPL_NMAX) {
-      nstfb = 1;
-#endif
     } else { /* TODO: improve this */
       nstfb = 10;
-#ifdef DGHASH_EXISTS
-      if (hash_on) nstfb = 1;
-#endif
     }
   }
 
@@ -316,15 +327,15 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
       /* for j < i pairs */
       for (pid = i - 1, j = 0; j < i; j++, pid += DG_N_ - j - 1)
         if (rvn_dist2(xi, x[j]) >= 1)
-          ncode &= ~(1u << pid);
+          ncode &= ~MKBIT(pid);
         else
-          ncode |= (1u << pid);
+          ncode |= MKBIT(pid);
       /* for j > i pairs */
       for (j = i + 1, pid = DG_N_*i - j*i/2; j < DG_N_; j++, pid++)
         if (rvn_dist2(xi, x[j]) >= 1)
-          ncode &= ~(1u << pid);
+          ncode &= ~MKBIT(pid);
         else
-          ncode |= (1u << pid);
+          ncode |= MKBIT(pid);
 
       if (ncode == code) { /* topology unchanged */
         acc = 1;
@@ -388,15 +399,30 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   double t, fb, nr;
   dg_t *g, *ng;
   av0_t fbsm, nrsm, cacc, racc;
+
+  /* both the large map and hash table are shared among threads */
+#ifdef DGMAPL_EXISTS
+  static dgmapl_t *mapl = NULL;
+#endif
 #ifdef DGHASH_EXISTS
   static dghash_t *hash = NULL;
+#endif
 
 #pragma omp critical
   {
-    if ( hash_on )
-      hash = dghash_open(n, hash_bits, hash_blksz, hash_memmax);
-  }
+#ifdef DGMAPL_EXISTS
+    if ( mapl_on ) {
+      mapl = dgmapl_open(n, mapl_kdepth);
+      mapl->dostat = mapl_stat;
+    }
 #endif
+#ifdef DGHASH_EXISTS
+    if ( hash_on ) {
+      hash = dghash_open(n, hash_bits, hash_blksz, (size_t) (hash_memmax + .5));
+      hash->dostat = hash_stat;
+    }
+#endif
+  }
 
   av0_clear(&nrsm);
   av0_clear(&fbsm);
@@ -466,14 +492,14 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         if (dg_fbnr_spec0(g, &fb, &nr, &ned, degs) != 0) {
 #ifdef DGMAPL_EXISTS
           if ( DG_N_ <= DGMAPL_NMAX && !hash_on ) { /* use the larger lookup table */
-            fb = dgmapl_fbnr_lookup(g, kdepth, &nr);
+            fb = dgmapl_fbnr_lookup0(mapl, g, &nr, 0, &ned, degs);
           } else
 #endif /* DGMAPL_EXISTS */
           {
 #ifdef DGHASH_EXISTS
             if (hash != NULL) {
               fb = dghash_fbnr_lookup0(hash, g, &nr, 0, &ned, degs);
-            } else 
+            } else
 #endif
             {
               fb = dg_hsfb_mixed0(g, 0, &ned, degs);
@@ -520,8 +546,13 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     if (it % nstrep == 0 || t > nsteps - .5) {
       it = 0;
       report(&fbsm, &nrsm, &cacc, &racc, t, -1, &neval);
+#ifdef DGMAPL_EXISTS
+      if (mapl != NULL && inode == MASTER)
+        dgmapl_printstat(mapl, stderr);
+#endif
 #ifdef DGHASH_EXISTS
-      if (hash != NULL && inode == MASTER) dghash_stat(hash, stderr);
+      if (hash != NULL && inode == MASTER)
+        dghash_printstat(hash, stderr);
 #endif
     }
   }

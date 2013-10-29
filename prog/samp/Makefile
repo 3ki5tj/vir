@@ -20,7 +20,7 @@ MPICC = mpicc -DMPI -Wall -Wextra -O3 -march=native
 MPILM =
 
 
-deps = dg.h dgmapl.h dgcsep.h dgrjw.h dgsc.h dgring.h zcom.h Makefile mcutil.h
+deps = dg.h dgmapl.h dgcsep.h dgrjw.h dgsc.h dgring.h dgaut.h dghash.h zcom.h Makefile mcutil.h
 bins = mcrat0 mcrat1 mcgc2 mcgcr2
 bins_d = $(patsubst %, %_d, $(bins))
 bins_mp = $(patsubst %, %_mp, $(bins))
@@ -57,7 +57,8 @@ sync2::
 	rsync -e gsissh -avL Bring.dat kraken-gsi.nics.xsede.org:work/vir
 
 clean:
-	rm -rf $(bins) $(bins_d) $(bins_mp) $(bins_mpi) *~ a.out gmon.out *.his MTSEED bin obj
+	rm -rf $(bins) $(bins_d) $(bins_mp) $(bins_mpi) *~ a.out gmon.out \
+	  *.his MTSEED bin obj r[0-9][0-9][0-9]hs
 
 usb:
 	$(MAKE) -C ../.. $@

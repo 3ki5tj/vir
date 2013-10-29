@@ -162,7 +162,7 @@ INLINE fb_t dg_hsfa_rjwlow(const code_t *c, int n, int v, code_t vs,
     fb_t * RESTRICT faarr, fb_t * RESTRICT fbarr)
 {
   fb_t fa = 0;
-  code_t ms, ms1, vs1, vs2, s, b, bv = 1u << v, b1, id1, id2;
+  code_t ms, ms1, vs1, vs2, s, b, bv = MKBIT(v), b1, id1, id2;
 
   b1 = vs & (-vs); /* lowest vertex */
   if ( b1 == bv ) { /* if vertex 1 coincide with `v', find the next lowest */
