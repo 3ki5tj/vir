@@ -9,6 +9,9 @@
 #define ZCOM_AV
 #include "zcom.h"
 #include "dgmapl.h" /* larger lookup table */
+#ifdef N /* if N can be determined, use the hash-table */
+#include "dghash.h"
+#endif
 #include "mcutil.h"
 
 

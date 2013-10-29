@@ -6,11 +6,13 @@
 
 #ifdef __INTEL_COMPILER
   /* 161: don't complain unknown omp pragma
+   * 869: unreferenced parameter (n)
    * 981: operands evaluated in unspecified order */
-  #pragma warning disable 161 981
+  #pragma warning disable 161 869 981
 #elif defined(__GNUC__) && !defined(__INTEL_COMPILER)
   /* ignore all openmp pragmas */
   #pragma GCC diagnostic ignored "-Wunknown-pragmas"
+  #pragma GCC diagonstic ignored "-Wunused-parameter"
 #endif
 
 
@@ -300,10 +302,9 @@ INLINE int dg_degs(const dg_t *g, int *degs)
 
 
 /* count sort the degree sequence, TO BE TESTED */
-INLINE void dg_csortdegs(const dg_t *g, int *degs)
+INLINE void dg_csortdegs(int n, int *degs)
 {
   int i, j, k = 0;
-  DG_DEFN_(g);
   static int cnt[DG_NMAX] = {0};
 #pragma omp threadprivate(cnt)
 
