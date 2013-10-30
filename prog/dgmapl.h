@@ -420,7 +420,7 @@ INLINE double dgmapl_fbnr_lookup0(dgmapl_t *m, const dg_t *g,
 
 
 
-INLINE void dgmapl_printstat(const dgmapl_t *m, FILE *fp)
+INLINE void dgmapl_printstat(dgmapl_t *m, FILE *fp)
 {
   size_t i, cnt = 0;
   dgmapl_int_t ifbnr[2];
@@ -430,9 +430,17 @@ INLINE void dgmapl_printstat(const dgmapl_t *m, FILE *fp)
     if (ifbnr[0] != DGMAPL_BAD || ifbnr[1] != DGMAPL_BAD)
       cnt++;
   }
-  fprintf(fp, "%4d: hits %.0f/%.0f = %5.2f%%, misses %.0f/%.0f = %g%%, cnt %g\n",
-      inode, m->hits, m->tot, 100.*m->hits/m->tot,
-      m->misses, m->tot, 100.*m->misses/m->tot, 1.*cnt);
+  fprintf(fp, "%4d: cnt %g, ", inode, 1.*cnt);
+  if (m->dostat) {
+    fprintf(fp, "hits %.0f/%.0f = %5.2f%%, misses %.0f/%.0f = %g%%, ",
+        m->hits, m->tot, 100.*m->hits/m->tot,
+        m->misses, m->tot, 100.*m->misses/m->tot);
+#pragma omp critical
+    { /* refresh hits */
+      m->hits = m->misses = m->tot = 1e-30;
+    }
+  }
+  fprintf(fp, "\n");
 }
 
 

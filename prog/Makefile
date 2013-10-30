@@ -2,7 +2,7 @@
 CC = gcc -O0 -Wall -Wunused -Wextra -g
 LM = -lm
 # optimized compiling
-CX = icc -O3 -march=native -ipo -Wall -Wunused -Wremarks -Wcheck -wd11001 -wd11006
+CX = icc -O2 -ipo -Wall -Wunused -Wremarks -Wcheck -wd11001 -wd11006
 LMX =
 
 deps = dg.h dgcsep.h dgsc.h dgrjw.h dgring.h dgmapl.h dgaut.h dghash.h zcom.h testutil.h Makefile
@@ -21,7 +21,7 @@ sync:
 	rsync -avzL *.[ch] cz1@129.109.88.204:lwork/vir
 
 clean:
-	rm -rf $(bins) $(bins_d) *~ a.out *.his MTSEED bin obj r[0-9][0-9][0-9]hs
+	rm -rf $(bins) $(bins_d) *~ a.out *.his MTSEED bin obj r[0-9][0-9][0-9][a-z]*
 
 usb:
 	$(MAKE) -C .. $@

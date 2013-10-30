@@ -824,7 +824,7 @@ INLINE int bcrstep(int i0, int j0, dg_t *g, dg_t *ng,
   /* the new graph needs to be biconnected and without
    * the articulation pair (i0, j0) */
   } else if ( dg_biconnected(ng)
-    && dg_connectedvs(ng, mkbitsmask(n) ^ MKBIT(i0) ^ MKBIT(j0)) ) {
+    && dg_connectedvs(ng, MKBITSMASK(n) ^ MKBIT(i0) ^ MKBIT(j0)) ) {
     dg_copy(g, ng);
     rvn_copy(x[i], xi);
     UPDR2(r2ij, r2i, n, i, j);
@@ -860,7 +860,7 @@ INLINE int changenapair_metro(int *i, int *j, const dg_t *g,
 
   ni = randpair(g->n, &nj);
   if ( !(ni == *i && nj == *j) && !(ni == *j && nj == *i)
-    && dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(ni) ^ MKBIT(nj))
+    && dg_connectedvs(g, MKBITSMASK(g->n) ^ MKBIT(ni) ^ MKBIT(nj))
     && r2ij[ni][nj] < rc * rc ) {
     *i = ni;
     *j = nj;
@@ -925,7 +925,7 @@ INLINE int nmove_restraineddown2pure(int i0, int j0,
 
   if (Zr < 1 && rnd0() >= Zr) return 0;
   i = (rnd0() > 0.5) ? i0 : j0;
-  if ( n > 2 && !dg_biconnectedvs(g, mkbitsmask(n) ^ MKBIT(i)) )
+  if ( n > 2 && !dg_biconnectedvs(g, MKBITSMASK(n) ^ MKBIT(i)) )
     return 0;
   dg_remove1(g, g, i);
   /* update x */
@@ -1027,7 +1027,7 @@ static int check(const dg_t *g, rvn_t *x, real (*r2ij)[DG_NMAX],
           i0, j0, n, r2ij[i0][j0], rc2, gc->rc[iens]);
       err++;
     }
-    if ( !dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(i0) ^ MKBIT(j0)) ) {
+    if ( !dg_connectedvs(g, MKBITSMASK(g->n) ^ MKBIT(i0) ^ MKBIT(j0)) ) {
       fprintf(stderr, "the pair (%d, %d) is articulated\n", i0, j0);
       err++;
     }
@@ -1168,7 +1168,7 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
           else /* select a random pair */
             pj = randpair(g->n, &pi);
 
-          if ( (g->n <= 3 || dg_connectedvs(g, mkbitsmask(g->n) ^ MKBIT(pi) ^ MKBIT(pj)))
+          if ( (g->n <= 3 || dg_connectedvs(g, MKBITSMASK(g->n) ^ MKBIT(pi) ^ MKBIT(pj)))
             && r2ij[pj][pi] < dblsqr(gc->rc[iens - 1] * gc->sr[iens - 1])
             && (nmvtype == 0 || rnd0() < gc->Zr[iens] * ned) ) {
             acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i, 1. / gc->sr[iens - 1],

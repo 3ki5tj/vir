@@ -322,7 +322,7 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
 
 
 /* compute and print statistics of the usage of the hash table */
-INLINE void dghash_printstat(const dghash_t *h, FILE *fp)
+INLINE void dghash_printstat(dghash_t *h, FILE *fp)
 {
   size_t i, nz = 0;
   int x, hmax = 0, hmin = 10000;
@@ -349,7 +349,13 @@ INLINE void dghash_printstat(const dghash_t *h, FILE *fp)
     sm2b = (sm2b / nz) - smb * smb;
   }
   fprintf(fp, "%4d: dghash: ", inode);
-  if (h->dostat) fprintf(fp, "hits %5.2f%%, ", 100.*h->hits/h->tot);
+  if (h->dostat) {
+    fprintf(fp, "hits %5.2f%%, ", 100.*h->hits/h->tot);
+#pragma omp critical
+    { /* reset hits */
+      h->hits = h->tot = 1e-30;
+    }
+  }
   fprintf(fp, "cnt %.0f, used %" PRIu64 "/%" PRIu64 " (%5.2f%%), "
       "av. %.3f(%.3f), nzav. %.2f(%.2f), %d-%d, mem. %.2fM (pack %5.2f%%)\n",
       cnt, (uint64_t) nz, (uint64_t) h->lsn, 100.*nz/h->lsn,

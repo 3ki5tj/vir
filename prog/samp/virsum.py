@@ -953,7 +953,7 @@ def aggregate(fninp, dir = None, sum3 = 0):
     return None, None
   elif not os.path.exists(fnbas):
     if verbose:
-      print "cannot find %s, dir %s/%s" % (fnbas, dir, dir0)
+      print "cannot find %s, dir %s %s" % (fnbas, dir, dir0)
     if dir: os.chdir(dir0)
     return None, None
   fnls = getslaves(fnbas)

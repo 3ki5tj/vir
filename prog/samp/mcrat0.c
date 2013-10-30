@@ -45,14 +45,13 @@ unsigned rngseed = 0;
 
 int mapl_on = -1;
 int mapl_kdepth = 0; /* number of links to search in the larger lookup table */
-int mapl_stat = 0;
-
 
 int hash_on = -1; /* 1: on, 0: off, -1: default */
 int hash_bits = 0;
 unsigned hash_blksz = 0;
 double hash_memmax = 0;
-int hash_stat = 0;
+
+int dostat = 0; /* applies to mapl and hash */
 
 
 /* handle arguments */
@@ -83,13 +82,13 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--mapl-mode",   "%d", &mapl_on,      "turn on/off the larger lookup table");
   argopt_add(ao, "-k",            "%d", &mapl_kdepth,  "number of links to search in the larger lookup table");
   argopt_add(ao, "--mapl-kdepth", "%d", &mapl_kdepth,  "number of links to search in the larger lookup table");
-  argopt_add(ao, "--mapl-stat",   "%b", &mapl_stat,    "obtain large look up table statistics");
 
   argopt_add(ao, "--hash-mode",   "%d",   &hash_on,     "turn on/off the hash table (default: -1)");
   argopt_add(ao, "--hash-bits",   "%d",   &hash_bits,   "number of bits in the hash table");
   argopt_add(ao, "--hash-blksz",  "%u",   &hash_blksz,  "number of entries to allocate in each hash table list");
   argopt_add(ao, "--hash-memmax", "%lf",  &hash_memmax, "maximal memory for the hash table");
-  argopt_add(ao, "--hash-stat",   "%b",   &hash_stat,   "compute statistics");
+
+  argopt_add(ao, "--stat",        "%b",   &dostat,      "compute statistics");
 
   argopt_parse(ao, argc, argv);
 
@@ -409,7 +408,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 #pragma omp critical
     if ( mapl == NULL ) {
       mapl = dgmapl_open(n, mapl_kdepth);
-      mapl->dostat = mapl_stat;
+      mapl->dostat = dostat;
     }
     //printf("%4d: mapl %p\n", inode, mapl);
   }
@@ -420,7 +419,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 #pragma omp critical
     if ( hash == NULL ) {
       hash = dghash_open(n, hash_bits, hash_blksz, (size_t) (hash_memmax + .5));
-      hash->dostat = hash_stat;
+      hash->dostat = dostat;
     }
     //printf("%4d: hash %p\n", inode, hash);
   }

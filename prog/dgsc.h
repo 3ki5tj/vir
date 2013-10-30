@@ -38,7 +38,7 @@ INLINE double dg_rhiter(int n, int n0, double sc)
 INLINE dg_t *dg_mintop(dg_t *g)
 {
   int i;
-  code_t mask = mkbitsmask(g->n);
+  code_t mask = MKBITSMASK(g->n);
 
   /* remove fully-connected vertices until it is no longer biconnected */
   for (i = 0; i < g->n; i++) {

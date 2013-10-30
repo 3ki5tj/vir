@@ -1,6 +1,6 @@
 /* iterate over permutations of n */
-#include <stdio.h>
 #include "dgring.h"
+#include "testutil.h"
 
 
 
@@ -42,9 +42,49 @@ static void cmpref(int n, edges_t *ref)
 
 
 
+static void testspeed(int n, int nsamp, int nedmax)
+{
+  dg_t *g = dg_open(n);
+  clock_t t0;
+  int t, ned, eql = 1, nequil = 1000, isamp = 0, good = 0, tot = 0;
+  double tsum = 0, sum = 0;
+  double rnp = 0.1; /* rate for moves increasing edges */
+
+  printf("speed test for n %d, nsamp %d, nedmax %d\n",
+      n, nsamp, nedmax);
+  dg_full(g);
+  ned = dg_nedges(g);
+  for (t = 1; ; t++) {
+    /* randomly switch an edge */
+    dg_rndswitchedge(g, &ned, nedmax, rnp);
+
+    if (eql && t >= nequil) {
+      t = 0;
+      eql = 0; /* stop equilibration */
+      continue;
+    }
+
+    if (t % 10 != 0) continue; /* avoid successive correlation */
+    adjustrnp(ned, nedmax, t, 1000000, &good, &tot, &rnp);
+    if ( ned > nedmax ) continue;
+
+    t0 = clock();
+    sum += dg_nring_direct(g);
+    tsum += clock() - t0;
+    if (++isamp >= nsamp) break;
+  }
+  tsum /= CLOCKS_PER_SEC;
+  printf("dg_nring: n %d; ave. %g; time used: %gs/%d = %gmcs\n",
+      n, sum/nsamp, tsum, nsamp, tsum/nsamp*1e6);
+  dg_close(g);
+}
+
+
+
 int main(int argc, char **argv)
 {
   edges_t ref4[] = {
+    {5, {{0, 1}, {0, 2}, {0, 3}, {1, 3}, {2, 3}}, 1},
     {5, {{0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}, 1},
     {4, {{0, 1}, {1, 2}, {2, 3}, {3, 0}}, 1},
     {4, {{0, 1}, {1, 3}, {2, 3}, {2, 0}}, 1},
@@ -52,7 +92,6 @@ int main(int argc, char **argv)
     {5, {{0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}, 1},
     {5, {{0, 1}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}, 1},
     {5, {{0, 1}, {0, 2}, {1, 2}, {1, 3}, {2, 3}}, 1},
-    {5, {{0, 1}, {0, 2}, {0, 3}, {1, 3}, {2, 3}}, 1},
     {5, {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {2, 3}}, 1},
     {5, {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}}, 1},
     {6, {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}, 3},
@@ -62,8 +101,27 @@ int main(int argc, char **argv)
     {10, {{0, 1}, {0, 2}, {0, 3}, {0, 4}, {1, 2}, {1, 3}, {1, 4}, {2, 3}, {2, 4}, {3, 4}}, 12},
     {-1, {{0, 0}}, 0},
   };
+  int n = 9, nsamp = 100000, nedmax = 1000000;
+
+#ifdef N
+  n = N;
+#endif
+
+#ifndef N
   cmpref(4, ref4);
   cmpref(5, ref5);
+#endif
 
+  if (argc >= 2) n = atoi(argv[1]);
+  if (argc >= 3) nsamp = atoi(argv[2]);
+  if (argc >= 4) nedmax = atoi(argv[3]);
+  /* with default setting, nedmax = inf, N not predefined
+   * T60 timing Oct. 30 2013
+   * 2.7mcs, n = 7
+   * 7.3mcs, n = 8
+   * 25mcs,  n = 9
+   * 103mcs, n = 10
+   * 487mcs, n = 11 */
+  testspeed(n, nsamp, nedmax);
   return 0;
 }

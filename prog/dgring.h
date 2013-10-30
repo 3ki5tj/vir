@@ -119,39 +119,53 @@ INLINE int dg_fbnr_spec0(const dg_t *g, double *fb, double *nr,
 /* return the number of ring subgraphs */
 INLINE double dg_nring_direct(const dg_t *g)
 {
-  int st[DG_NMAX], top, i, root = 0;
   DG_DEFN_(g);
   DG_DEFMASKN_();
-  code_t unused, c, b;
+  int st[DG_NMAX], top, sttop, root = 0;
+  code_t unused, c, b, croot, ccp;
   double cnt = 0;
 
   if (DG_N_ <= 2) {
     if (DG_N_ <= 1) return 1;
-    else return (g->c[1] & 0x1) ? 1 : 0;
+    else return (g->c[1] & 0x1);
   }
   st[0] = root;
   st[1] = 0;
   top = 1;
   unused = DG_MASKN_ ^ MKBIT(root);
+  croot = g->c[root];
+
+  ccp = unused & croot; /* ccp: set of unused vertices adjacent to st[top-1] */
+  sttop = st[top];
+
   while (1) {
+    code_t ccp0 = ccp; /* backup ccp in case pushing failed */
     /* construct a set of vertices that satisfy
-     * 1. unused
-     * 2. connected to st[top-1]
-     * 3. indices > st[top] */
-    if ( (c = unused & g->c[ st[top - 1] ]
-            & ~mkbitsmask(st[top] + 1)) != 0 ) {
-      i = bitfirstlow(c, &b);
-      unused ^= b;
-      st[top] = i;
-      if (unused) { /* there are still unused vertices */
-        st[++top] = 0; /* push, clear the next level */
-      } else { /* no vertex left, stay in the highest level */
-        if (g->c[root] & b) cnt += 1;
-        unused ^= b;
+     * 1. in ccp: unused && connected to st[top-1]
+     * 2. indices > sttop */
+    c = ccp & MKINVBITSMASK(sttop + 1);
+    if ( c != 0 ) {
+      BITFIRSTLOW(sttop, c, b);
+      unused ^= b; /* remove b from the unused vertex set */
+      ccp = unused & g->c[sttop];
+      if (ccp) { /* there are still unused vertices */
+        if (top < DG_N_ - 2) { /* push */
+          st[top++] = sttop; /* save the current top */
+          sttop = 0; /* clear the next level */
+          continue;
+        }
+        /* stay on the highest level, fall through
+         * ccp should be a single bit representing the last the vertex */
+        cnt += ((croot & ccp) != 0); /* check ccp and the root are adjacent */
       }
-    } else { /* exhausted this level */
-      if (--top <= 0) break;
-      unused ^= MKBIT(st[top]);
+      /* stay on this level */
+      ccp = ccp0; /* recover the old ccp */
+      unused ^= b; /* add b back to the unused vertices */
+    } else { /* exhausted this level, pop  */
+      if (--top == 0) break;
+      sttop = st[top];
+      unused ^= MKBIT(sttop); /* add b back to the unused vertices */
+      ccp = unused & g->c[st[top - 1]]; /* reconstruct ccp */
     }
   }
   return cnt / 2; /* clockwise & counterclockwise */

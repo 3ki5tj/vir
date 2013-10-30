@@ -602,7 +602,7 @@ INLINE int getpair(int *pi, int *pj, const dg_t *g,
 {
   int i, j, npr = 0, id, n = g->n;
   static int pr[DG_NMAX*DG_NMAX];
-  code_t mask = mkbitsmask(n);
+  code_t mask = MKBITSMASK(n);
 
   for (i = 0; i < n; i++) { /* the vertex to remove */
     if ( n > 2 && !dg_biconnectedvs(g, mask ^ MKBIT(i)) ) continue;
@@ -727,7 +727,7 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
           /* test if * the graph is biconnected without i
            * and the pair i and j are connected */
           if ( ( n > 2
-              && !dg_biconnectedvs(g, mkbitsmask(n) ^ MKBIT(i)) )
+              && !dg_biconnectedvs(g, MKBITSMASK(n) ^ MKBIT(i)) )
            || rvn_dist2(x[i], x[j]) >= dblsqr(gc->rc[n]) )
             goto STEP_END;
         }

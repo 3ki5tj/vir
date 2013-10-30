@@ -41,14 +41,16 @@ int inode = MASTER, nnodes = 1;
  * otherwise we define DG_N_ as n, whatever it is */
 #ifdef  N
 #define DG_N_ N
+#define DG_GN_(g) N
 #define DG_DEFN_(g)
-#define DG_MASKN_ mkbitsmask(N)
+#define DG_MASKN_ MKBITSMASK(N)
 #define DG_DEFMASKN_()
 #else
 #define DG_N_ n
+#define DG_GN_(g) ((g)->n)
 #define DG_DEFN_(g) int n = (g)->n;
 #define DG_MASKN_ maskn
-#define DG_DEFMASKN_() code_t maskn = mkbitsmask(n);
+#define DG_DEFMASKN_() code_t maskn = MKBITSMASK(n);
 #endif
 
 
@@ -96,6 +98,7 @@ typedef struct {
 
 #if CODEBITS == 32
 
+/* these masks can be generated from the helper python script mask.py */
 code_t bitsmask_[CODEBITS + 1] = {0,
         0x1,        0x3,        0x7,        0xf,
        0x1f,       0x3f,       0x7f,       0xff,
@@ -106,15 +109,15 @@ code_t bitsmask_[CODEBITS + 1] = {0,
   0x1ffffff,  0x3ffffff,  0x7ffffff,  0xfffffff,
  0x1fffffff, 0x3fffffff, 0x7fffffff, 0xffffffff};
 
-code_t bit1_[CODEBITS + 1] = {
-        0x1,        0x2,        0x4,        0x8,
-       0x10,       0x20,       0x40,       0x80,
-      0x100,      0x200,      0x400,      0x800,
-     0x1000,     0x2000,     0x4000,     0x8000,
-    0x10000,    0x20000,    0x40000,    0x80000,
-   0x100000,   0x200000,   0x400000,   0x800000,
-  0x1000000,  0x2000000,  0x4000000,  0x8000000,
- 0x10000000, 0x20000000, 0x40000000, 0x80000000};
+code_t invbitsmask_[CODEBITS + 1] = {0xffffffff,
+ 0xfffffffe, 0xfffffffc, 0xfffffff8, 0xfffffff0,
+ 0xffffffe0, 0xffffffc0, 0xffffff80, 0xffffff00,
+ 0xfffffe00, 0xfffffc00, 0xfffff800, 0xfffff000,
+ 0xffffe000, 0xffffc000, 0xffff8000, 0xffff0000,
+ 0xfffe0000, 0xfffc0000, 0xfff80000, 0xfff00000,
+ 0xffe00000, 0xffc00000, 0xff800000, 0xff000000,
+ 0xfe000000, 0xfc000000, 0xf8000000, 0xf0000000,
+ 0xe0000000, 0xc0000000, 0x80000000,        0x0};
 
 #elif CODEBITS == 64
 
@@ -136,6 +139,24 @@ code_t bitsmask_[CODEBITS + 1] = {0,
   0x1ffffffffffffffull,  0x3ffffffffffffffull,  0x7ffffffffffffffull,  0xfffffffffffffffull,
  0x1fffffffffffffffull, 0x3fffffffffffffffull, 0x7fffffffffffffffull, 0xffffffffffffffffull};
 
+code_t invbitsmask_[CODEBITS + 1] = {0xffffffffffffffffull,
+ 0xfffffffffffffffeull, 0xfffffffffffffffcull, 0xfffffffffffffff8ull, 0xfffffffffffffff0ull,
+ 0xffffffffffffffe0ull, 0xffffffffffffffc0ull, 0xffffffffffffff80ull, 0xffffffffffffff00ull,
+ 0xfffffffffffffe00ull, 0xfffffffffffffc00ull, 0xfffffffffffff800ull, 0xfffffffffffff000ull,
+ 0xffffffffffffe000ull, 0xffffffffffffc000ull, 0xffffffffffff8000ull, 0xffffffffffff0000ull,
+ 0xfffffffffffe0000ull, 0xfffffffffffc0000ull, 0xfffffffffff80000ull, 0xfffffffffff00000ull,
+ 0xffffffffffe00000ull, 0xffffffffffc00000ull, 0xffffffffff800000ull, 0xffffffffff000000ull,
+ 0xfffffffffe000000ull, 0xfffffffffc000000ull, 0xfffffffff8000000ull, 0xfffffffff0000000ull,
+ 0xffffffffe0000000ull, 0xffffffffc0000000ull, 0xffffffff80000000ull, 0xffffffff00000000ull,
+ 0xfffffffe00000000ull, 0xfffffffc00000000ull, 0xfffffff800000000ull, 0xfffffff000000000ull,
+ 0xffffffe000000000ull, 0xffffffc000000000ull, 0xffffff8000000000ull, 0xffffff0000000000ull,
+ 0xfffffe0000000000ull, 0xfffffc0000000000ull, 0xfffff80000000000ull, 0xfffff00000000000ull,
+ 0xffffe00000000000ull, 0xffffc00000000000ull, 0xffff800000000000ull, 0xffff000000000000ull,
+ 0xfffe000000000000ull, 0xfffc000000000000ull, 0xfff8000000000000ull, 0xfff0000000000000ull,
+ 0xffe0000000000000ull, 0xffc0000000000000ull, 0xff80000000000000ull, 0xff00000000000000ull,
+ 0xfe00000000000000ull, 0xfc00000000000000ull, 0xf800000000000000ull, 0xf000000000000000ull,
+ 0xe000000000000000ull, 0xc000000000000000ull, 0x8000000000000000ull,                0x0ull};
+
 #endif
 
 
@@ -144,8 +165,12 @@ code_t bitsmask_[CODEBITS + 1] = {0,
 #define MKBIT(n) (((code_t) 1u) << (code_t) (n))
 
 #if 1
-/* make a mask with the lowest n bits being 1s */
-#define mkbitsmask(n) bitsmask_[n]
+/* make a mask with the lowest n bits being 1s, other bits being 0s */
+#define MKBITSMASK(n) bitsmask_[n]
+#define mkbitsmask(n) MKBITSMASK(n) /* for compatibility */
+
+/* make a mask with the lowest n bits being 0s, other bits being 1s */
+#define MKINVBITSMASK(n) invbitsmask_[n]
 
 #else
 
@@ -344,7 +369,7 @@ INLINE dg_t *dg_remove1(dg_t *sg, dg_t *g, int i0)
 #ifdef N
   die_if(n - 1 != N, "dg_remove1 cannot be used n %d with fixed N\n", n);
 #endif
-  maskl = mkbitsmask(i0);
+  maskl = MKBITSMASK(i0);
   maskh = ~maskl;
   for (i = 0; i < n; i++) {
     if (i0 == i) continue;
@@ -412,13 +437,16 @@ INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
 
   *i0 = *i1 = 0; /* in case no edge exists */
   for (ne = 0, i = 1; i < DG_N_; i++)
-    ne += cnt[i] = bitcount(g->c[i] & mkbitsmask(i));
+    ne += cnt[i] = bitcount(g->c[i] & MKBITSMASK(i));
   rr = (int) (rnd0() * 2 * ne);
   ipr = rr / 2;
+  /* we will go through pairs such 0 <= j < i < N */
   for (i = 1; i < DG_N_; ipr -= cnt[i], i++) {
     if (ipr < cnt[i]) { /* found it */
-      for (c = g->c[i] & mkbitsmask(i), k = -1, j = 0; j <= ipr; j++, c ^= b)
-        k = bitfirstlow(c, &b);
+      c = g->c[i] & MKBITSMASK(i);
+      for (k = -1, j = 0; j <= ipr; j++, c ^= b) {
+        BITFIRSTLOW(k, c, b);
+      }
       die_if (k < 0, "i %d, k %d\n", i, k);
       if (rr % 2) { *i0 = i, *i1 = k; }
       else { *i0 = k, *i1 = i; }
@@ -481,6 +509,8 @@ INLINE code_t *dg_encode(const dg_t *g, code_t *code)
     *c |= ((ci = g->c[i]) >> (i + 1)) << ib;
     ib += DG_N_ - 1 - i;
 #if !defined(N) || (N*(N-1)/2 > CODEBITS)
+    /* avoid the following step, if the number of edges
+     * can be always contained in a single code_t */
     if (ib >= CODEBITS) {
       ib -= CODEBITS;
       *(++c) = ci >> (DG_N_ - ib);
@@ -506,6 +536,8 @@ INLINE dg_t *dg_decode(dg_t *g, code_t *code)
         DG_LINK(g, i, j);
       ++ib;
 #if !defined(N) || (N*(N-1)/2 > CODEBITS)
+      /* avoid the following step, if the number of edges
+       * can be always contained in a single code_t */
       if (ib == CODEBITS) {
         ib = 0;
         c++;
@@ -604,11 +636,7 @@ INLINE void dg_print0(const dg_t *g, const char *nm)
 
 
 /* check if a diagram is connected */
-#ifdef N
-#define dg_connected(g) dg_connectedvs(g, DG_MASKN_)
-#else
-#define dg_connected(g) dg_connectedvs(g, mkbitsmask(g->n))
-#endif
+#define dg_connected(g) dg_connectedvs((g), MKBITSMASK(DG_GN_(g)))
 
 /* check if the subdiagram of the vertex set `vs' is connected */
 INLINE int dg_connectedvs(const dg_t *g, code_t vs)
@@ -921,7 +949,7 @@ INLINE void dgmap_done(void)
 
 
 /* the macro is slower than the direct version (due to dg_getmapid()) */
-#define dg_biconnected_lookup(g) dg_biconnected_lookuplow(g->n, dg_getmapid(g))
+#define dg_biconnected_lookup(g) dg_biconnected_lookuplow(DG_GN_(g), dg_getmapid(g))
 
 /* check if a diagram is biconnected (lookup version)
  * use it only if `id' is known, otherwise it is slower */
