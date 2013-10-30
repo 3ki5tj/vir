@@ -304,8 +304,8 @@ INLINE dgmapl_t *dgmapl_open(int n, int k)
   t0 = clock();
   /* since DGMAPL_BAD is 0x8080, 0x808080, or 0x80808080, we can use this trick */
   memset(m->fbnr, 0x80, m->size * sizeof(m->fbnr[0]));
-  fprintf(stderr, "%4d: dgmapl memory set, %gs\n",
-      inode, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+  fprintf(stderr, "%4d: dgmapl init. time %gs, k %d\n",
+      inode, 1.*(clock() - t0)/CLOCKS_PER_SEC, k);
   return m;
 }
 
@@ -352,10 +352,7 @@ INLINE double dgmapl_fbnr_lookup0(dgmapl_t *m, const dg_t *g,
       {
         if (mapl[DG_N_] == NULL) {
 #endif /* _OPENMP */
-          clock_t t0 = clock();
           mapl[DG_N_] = dgmapl_open(DG_N_, 0);
-          fprintf(stderr, "%4d: initialized fb/nr-mapl for %d, k %d, time %gs\n",
-              inode, DG_N_, mapl[DG_N_]->k, 1.*(clock() - t0)/CLOCKS_PER_SEC);
 #ifdef _OPENMP
         }
       } /* omp critical */
@@ -367,16 +364,16 @@ INLINE double dgmapl_fbnr_lookup0(dgmapl_t *m, const dg_t *g,
   c = dgmapl_getchain(g, m->k, st);
   if (c != 0)
     dgmapl_geti2(ifbnr, m->fbnr[c]);
-  
+
   if (m->dostat) {
 #pragma omp critical
     {
       m->tot += 1;
-      m->misses += (c == 0);
-      m->hits += (c != 0 && ifbnr[0] != DGMAPL_BAD);
+      if (c == 0) m->misses += 1;
+      else if (ifbnr[0] != DGMAPL_BAD) m->hits += 1;
     }
   }
-  
+
   if (c == 0) { /* the lookup table is not applicable, do it directly */
     *nr = 0;
     fb = dg_hsfb_mixed0(g, nocsep, ned, degs);
@@ -408,7 +405,9 @@ INLINE double dgmapl_fbnr_lookup0(dgmapl_t *m, const dg_t *g,
   if (hasnew) {
 #ifdef DGMAPL_SIMPLEUPDATE
 #pragma omp critical
-    dgmapl_seti2(m->fbnr[c], ifbnr);
+    {
+      dgmapl_seti2(m->fbnr[c], ifbnr);
+    }
 #else
     /* full update, slower but more effective */
     /* save fb and nr for different ways of tracing the graph */
@@ -428,11 +427,12 @@ INLINE void dgmapl_printstat(const dgmapl_t *m, FILE *fp)
 
   for (i = 0; i < m->size; i++) {
     dgmapl_geti2(ifbnr, m->fbnr[i]);
-    if (ifbnr[0] != DGMAPL_BAD || ifbnr[1] != DGMAPL_BAD) 
+    if (ifbnr[0] != DGMAPL_BAD || ifbnr[1] != DGMAPL_BAD)
       cnt++;
   }
-  fprintf(fp, "%4d: hits %5.2f%%, misses %g%%, cnt %g\n",
-      inode, 100.*m->hits/m->tot, 100.*m->misses/m->tot, 1.*cnt);
+  fprintf(fp, "%4d: hits %.0f/%.0f = %5.2f%%, misses %.0f/%.0f = %g%%, cnt %g\n",
+      inode, m->hits, m->tot, 100.*m->hits/m->tot,
+      m->misses, m->tot, 100.*m->misses/m->tot, 1.*cnt);
 }
 
 

@@ -55,25 +55,69 @@ INLINE dg_t *dg_mintop(dg_t *g)
 
 
 
+/* check if a graph is biconnected under the assumption that
+ * only vertices in avs can be articulation points */
+INLINE int dg_biconnectedavs(const dg_t *g, code_t avs)
+{
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
+  code_t b;
+
+  for (b = 1; b & DG_MASKN_; b <<= 1)
+    if ( (b & avs) && !dg_connectedvs(g, DG_MASKN_ ^ b) )
+        return 0;
+  return 1;
+}
+
+
+
+#if 0 /* same as the above but slightly slower version */
+INLINE int dg_biconnectedavsb(const dg_t *g, code_t avs)
+{
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
+  code_t b;
+
+  for (; avs; avs ^= b) /* `b' is the first nonzero bit */
+    if ( !dg_connectedvs(g, DG_MASKN_ ^ (b = avs & (-avs))) )
+      return 0;
+  return 1;
+}
+#endif
+
+
+
 /* recursively find the star content
  * starting from the edge (i, j + 1) */
 INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
 {
-  int n = g->n;
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
+  code_t avs, avsi;
   double sc = 0;
 
-  if (++j >= n) j = (++i) + 1;
-  /* loop over pairs */
-  for (; i < n - 1; j = (++i) + 1) {
+  /* find the pair after (i, j) with i < j */
+  if (++j >= DG_N_) j = (++i) + 1;
+  /* loop over the first vertex i */
+  for (; i < DG_N_ - 1; j = (++i) + 1) {
     /* if the degree <= 2, removing an edge connecting i
      * makes the biconnectivity impossible */
     if (dg_deg(g, i) <= 2) continue;
-    for (; j < n; j++) {
+    avsi = DG_MASKN_ ^ MKBIT(i);
+    /* loop over the second vertex j */
+    for (; j < DG_N_; j++) {
       /* try to remove the edge i-j */
       if (!dg_linked(g, i, j) || dg_deg(g, j) <= 2)
         continue;
       DG_UNLINK(g, i, j);
-      if ( dg_biconnected(g) ) {
+      /* It is certain that neither i or j is an aritculation points (*)
+       * we will only test the connectivity of g without other vertices
+       * Prove (*):
+       * Since `g' with (i, j) is biconnected, g\{i} is connected
+       * so g'\{i} where g' is g \ {(i, j)} is also connected,
+       * hence i is not an articulation point of g'  */
+      avs = avsi ^ MKBIT(j);
+      if ( dg_biconnectedavs(g, avs) ) {
         sc += sgn /* add the diagram without (i, j) */
             + dg_rhsc_recur(g, -sgn, i, j); /* diagrams without (i, j) */
       }
@@ -182,7 +226,7 @@ INLINE double dg_rhsc_directlow(const dg_t *g)
   /* first find the minimal set of vertices that
    * contain the wiggly lines */
   g0 = dg_clone(g);
-#ifndef N /* mintop is disable for fixed diagrams */
+#ifndef N /* mintop is disabled for fixed-size graphs */
   dg_mintop(g0);
 #endif
   sc = 1 + dg_rhsc_recur(g0, -1, 0, 0);

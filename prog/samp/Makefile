@@ -58,7 +58,7 @@ sync2::
 
 clean:
 	rm -rf $(bins) $(bins_d) $(bins_mp) $(bins_mpi) *~ a.out gmon.out \
-	  *.his MTSEED bin obj r[0-9][0-9][0-9]hs
+	  *.his MTSEED bin obj r[0-9][0-9][0-9][a-z]*
 
 usb:
 	$(MAKE) -C ../.. $@

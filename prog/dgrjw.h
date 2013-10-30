@@ -38,7 +38,7 @@ typedef int64_t fb_t;
 
 /* for a configuration, compute sum of all diagrams
   `c' is the connectivity matrix, `vs' is the vertex set */
-INLINE int dg_hsfqrjwlow(const code_t *c, code_t vs)
+INLINE int dg_hsfq_rjwlow(const code_t *c, code_t vs)
 {
   code_t w, b;
 
@@ -54,35 +54,58 @@ INLINE int dg_hsfqrjwlow(const code_t *c, code_t vs)
 
 
 
+#define DGRJW_INC(ms1, ms2) { code_t nms2_, lbit_, hbits_; \
+  nms2_ = (code_t) (-(ms2)); /* -ms2 and ms2 share bits higher than the lowest bit of ms2 */ \
+  lbit_ = (ms2) & nms2_; /* the & yields the lowest bit lowbit_ */ \
+  hbits_ = (ms2) ^ nms2_; /* the collections of bits higher than lbit_ */ \
+  (ms1) &= hbits_; /* this wipes out bits lower or equal to lbit_ */ \
+  (ms1) |= lbit_;  /* this add the lowest bit */ }
+
+/* here is an alternative versions, which is slower */
+#define DGRJW_INCa(ms1, ms2) { code_t lbit_; \
+    lbit_ = (ms2) & (-ms2); /* find the lowest empty bit (first unused variable vertex) */ \
+    (ms1) ^= lbit_; /* add this bit */ \
+    (ms1) &= ~(b - 1); /* clear all lower bits */ }
+
+/* below is another alternative version, which is even slower */
+#define DGRJW_INCb(ms1, ms2) { int i = BITFIRSTNZ(ms2); \
+  ms1 >>= i; /* clear the lower bits by shifting i bits */ \
+  ms1 ^= 1; /* add the lowest bit, `^' can be replaced by `+' or `|' with little difference */ \
+  ms1 <<= i; /* shift back */ }
+
+
+
 /* for a configuration, compute the sum of connected diagrams by
  * Wheatley's recursion formula
  * `c' is the connectivity matrix,  `vs' is the vertex set */
-INLINE fb_t dg_hsfcrjwlow(const code_t *c, code_t vs,
+INLINE fb_t dg_hsfc_rjwlow(const code_t *c, code_t vs,
     fb_t * RESTRICT fcarr, fb_t * RESTRICT fqarr)
 {
   fb_t fc, fc1, fq2;
-  code_t ms, ms1, vs1, vs2, s, b, b1;
+  code_t ms1, ms2, b1;
 
   b1 = vs & (-vs);
   if ( (vs ^ b1) == 0 ) return 1; /* only one vertex */
   if ( FBINVALID(fc = fqarr[vs]) )
-    fqarr[vs] = fc = dg_hsfqrjwlow(c, vs); /* start with fq */
-  ms = vs ^ b1; /* the set of vertices (except the lowest vertex) */
-  /* loop over subsets of vs, stops when vs == vs1 */
-  for (ms1 = 0; ms1 ^ ms;) {
-    vs1 = ms1 | b1; /* add vertex 1 to the set */
-    vs2 = vs1 ^ vs; /* the complement set */
-    if ( FBINVALID(fq2 = fqarr[vs2]) )
-      fqarr[vs2] = fq2 = dg_hsfqrjwlow(c, vs2); /* fq of the complement set */
+    fqarr[vs] = fc = dg_hsfq_rjwlow(c, vs); /* start with fq */
+  vs ^= b1; /* remove vertex b1 from vs, vs = vs - {b1} */
+  /* before the above statement, `vs' is the set of all vertices
+   * since `b1' is fixed, after excluding `b1' in the statement,
+   * `vs' is the set of *variable* vertices
+   * `ms1' is the subset of variable vertices
+   * `ms2' is the complement set of variable vertices */
+  /* loop over subsets ms1 of vs, stops when the complement set ms2 == 0 */
+  for (ms1 = 0; (ms2 = ms1 ^ vs) != 0; ) {
+    if ( FBINVALID(fq2 = fqarr[ms2]) )
+      fqarr[ms2] = fq2 = dg_hsfq_rjwlow(c, ms2); /* fq of the complement set */
     if (fq2 != 0) {
+      code_t vs1 = ms1 | b1; /* vs1 = ms1 + {b1} */
       if ( FBINVALID(fc1 = fcarr[vs1]) )
-        fcarr[vs1] = fc1 = dg_hsfcrjwlow(c, vs1, fcarr, fqarr); /* recursion */
+        fcarr[vs1] = fc1 = dg_hsfc_rjwlow(c, vs1, fcarr, fqarr); /* recursion */
       fc -= fc1 * fq2;
     }
     /* update the subset `ms1' */
-    s = ms ^ ms1; /* find the set of empty bits (unused vertices) */
-    b = s & (-s); /* find the lowest empty bit (first unused vertex) */
-    ms1 = (ms1 | b) & ~(b - 1); /* set this bit, and clear all lower bits */
+    DGRJW_INC(ms1, ms2);
   }
   return fc;
 }
@@ -92,7 +115,7 @@ INLINE fb_t dg_hsfcrjwlow(const code_t *c, code_t vs,
 #if 0
 /* compute the sum of connected diagrams by Wheatley's method
  * stand-alone driver */
-INLINE fb_t dg_hsfcrjw(const dg_t *g)
+INLINE fb_t dg_hsfc_rjw(const dg_t *g)
 {
   static int nmax;
   static fb_t *fcarr, *fqarr;
@@ -109,9 +132,9 @@ INLINE fb_t dg_hsfcrjw(const dg_t *g)
     xrenew(fcarr, 1u << (nmax + 1));
     fqarr = fcarr + (1u << nmax);
   }
-  for (i = 0; (unsigned) i < (1u << (DG_N_ + 1)); i++)
-    fcarr[i] = FBDIRTY;
-  return dg_hsfcrjwlow(g->c, DG_MASKN_, fcarr, fqarr);
+  for (i = 0; (unsigned) i < (1u << DG_N_); i++) fcarr[i] = FBDIRTY;
+  for (i = 0; (unsigned) i < (1u << DG_N_); i++) fqarr[i] = FBDIRTY;
+  return dg_hsfc_rjwlow(g->c, DG_MASKN_, fcarr, fqarr);
 }
 #endif
 
@@ -128,28 +151,32 @@ INLINE fb_t dg_hsfa_rjwlow(const code_t *c, int n, int v, code_t vs,
 INLINE fb_t dg_hsfb_rjwlow(const code_t *c, int n, int v, code_t vs,
     fb_t * RESTRICT faarr, fb_t * RESTRICT fbarr)
 {
-  int id, i;
-  fb_t fb;
-  code_t r, b, bv = MKBIT(v);
+  int i;
+  fb_t fb, fa;
+  code_t r, b, bv = MKBIT(v), id;
 
   if ((i = bitcount(vs)) <= 1) {
     return 1;
   } else if (i == 2) {
-    return (c[ bitfirst(vs) ] & vs) ? -1 : 0;
+    return (c[ BITFIRSTNZ(vs) ] & vs) ? -1 : 0;
   }
 
   /* start with the sum of connected diagrams, the first 2^n numbers of
    * fbarr and faarr are used for saving fcarr and fqarr, respectively */
-  if ( FBINVALID(fbarr[vs]) )
-    fbarr[vs] = dg_hsfcrjwlow(c, vs, fbarr, faarr);
-  fb = fbarr[vs];
+  if ( FBINVALID(fb = fbarr[vs]) ) {
+    fb = dg_hsfc_rjwlow(c, vs, fbarr, faarr);
+    fbarr[vs] = fb;
+  }
   /* remove diagrams with the lowest articulation points at i < v */
   for (r = vs & (bv - 1); r; r ^= b) {
-    i = bitfirstlow(r, &b);
-    id = ((i + 1) << DG_N_) + vs; /* (i + 1) * 2^n + vs */
-    if ( FBINVALID(faarr[id]) )
-      faarr[id] = dg_hsfa_rjwlow(c, DG_N_, i, vs, faarr, fbarr);
-    fbarr[id] = (fb -= faarr[id]);
+    BITFIRSTLOW(i, r, b);
+    id = ((i + 1) << DG_N_) | vs; /* (i + 1) * 2^n + vs
+                                   * `|' is equivalent to `+' */
+    if ( FBINVALID(fa = faarr[id]) ) {
+      fa = dg_hsfa_rjwlow(c, DG_N_, i, vs, faarr, fbarr);
+      faarr[id] = fa;
+    }
+    fbarr[id] = (fb -= fa);
   }
   return fb;
 }
@@ -161,35 +188,45 @@ INLINE fb_t dg_hsfb_rjwlow(const code_t *c, int n, int v, code_t vs,
 INLINE fb_t dg_hsfa_rjwlow(const code_t *c, int n, int v, code_t vs,
     fb_t * RESTRICT faarr, fb_t * RESTRICT fbarr)
 {
-  fb_t fa = 0;
-  code_t ms, ms1, vs1, vs2, s, b, bv = MKBIT(v), b1, id1, id2;
+  fb_t fa = 0, fb, fa2, fb2;
+  code_t ms1, ms2, vs1, bv = MKBIT(v), b1, b1v, id0, id;
 
   b1 = vs & (-vs); /* lowest vertex */
   if ( b1 == bv ) { /* if vertex 1 coincide with `v', find the next lowest */
-    b1 = vs ^ bv; /* remove the bit */
+    b1 = vs ^ bv; /* remove `bv' from the vertex set */
     b1 = b1 & (-b1);
   }
-  ms = vs ^ (b1 ^ bv); /* remove vertices 1 and `v' from the iteration */
-  if ( ms == 0 ) return 0; /* no articulated diagram with only two vertices */
+  b1v = b1 ^ bv;
+  vs ^= b1v; /* remove the fixed vertices `b1' and `bv' from `vs' */
+  /* `vs' is the set of *variable* vertices from now on */
+  if ( vs == 0 ) return 0; /* no articulated diagram with only two vertices */
+  id0 = ((code_t) (v + 1) << DG_N_); /* (v + 1) * 2^n */
+  /* `id0' is the offset for vertex v */
   /* loop over subsets of vs, stops when vs == vs1 */
-  for (ms1 = 0; ms1 ^ ms;) {
-    vs1 = ms1 | (b1 | bv);
-    id1 = ((v + 1) << DG_N_) + vs1;
-    if ( FBINVALID(fbarr[id1]) )
-      fbarr[id1] = dg_hsfb_rjwlow(c, DG_N_, v + 1, vs1, faarr, fbarr);
-    if ( fbarr[id1] != 0 ) {
-      vs2 = (vs1 ^ vs) | bv; /* complement set of vs */
-      id2 = ((v + 1) << DG_N_) + vs2;
-      if ( FBINVALID(fbarr[id2]) )
-        fbarr[id2] = dg_hsfb_rjwlow(c, DG_N_, v + 1, vs2, faarr, fbarr);
-      if ( FBINVALID(faarr[id2]) )
-        faarr[id2] = dg_hsfa_rjwlow(c, DG_N_, v, vs2, faarr, fbarr);
-      fa += fbarr[id1] * (fbarr[id2] + faarr[id2]);
+  for (ms1 = 0; (ms2 = (ms1 ^ vs)) != 0; ) {
+    vs1 = ms1 | b1v; /* add the two fixed vertices */
+    id = id0 | vs1; /* `|' is equivalent to + */
+    if ( FBINVALID(fb = fbarr[id]) ) { /* compute fb if necessary */
+      fb = dg_hsfb_rjwlow(c, DG_N_, v + 1, vs1, faarr, fbarr);
+      fbarr[id] = fb;
+    }
+    if ( fb != 0 ) {
+      code_t vs2 = ms2 | bv; /* unused variable vertices + the articulation point `bv'
+                              * `|' is equivalent to `+' here */
+      id = id0 | vs2; /* `|' is equivalent to + */
+      fb2 = fbarr[id];
+      if ( FBINVALID(fb2 = fbarr[id]) ) {
+        fb2 = dg_hsfb_rjwlow(c, DG_N_, v + 1, vs2, faarr, fbarr);
+        fbarr[id] = fb2; /* save the fb value */
+      }
+      if ( FBINVALID(fa2 = faarr[id]) ) {
+        fa2 = dg_hsfa_rjwlow(c, DG_N_, v, vs2, faarr, fbarr);
+        faarr[id] = fa2; /* save the fa value */
+      }
+      fa += fb * (fb2 + fa2);
     }
     /* update the subset `ms1' */
-    s = ms ^ ms1; /* find the set of empty bits (unused vertices) */
-    b = s & (-s); /* find the lowest empty bit (first unused vertex) */
-    ms1 = (ms1 | b) & ~(b - 1); /* set this bit, and clear all lower bits */
+    DGRJW_INC(ms1, ms2);
   }
   return fa;
 }

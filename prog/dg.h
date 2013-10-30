@@ -96,7 +96,7 @@ typedef struct {
 
 #if CODEBITS == 32
 
-code_t bitsmask_[CODEBITS + 1] = {0, 
+code_t bitsmask_[CODEBITS + 1] = {0,
         0x1,        0x3,        0x7,        0xf,
        0x1f,       0x3f,       0x7f,       0xff,
       0x1ff,      0x3ff,      0x7ff,      0xfff,
@@ -106,7 +106,7 @@ code_t bitsmask_[CODEBITS + 1] = {0,
   0x1ffffff,  0x3ffffff,  0x7ffffff,  0xfffffff,
  0x1fffffff, 0x3fffffff, 0x7fffffff, 0xffffffff};
 
-code_t bit1_[CODEBITS + 1] = { 
+code_t bit1_[CODEBITS + 1] = {
         0x1,        0x2,        0x4,        0x8,
        0x10,       0x20,       0x40,       0x80,
       0x100,      0x200,      0x400,      0x800,
@@ -136,37 +136,19 @@ code_t bitsmask_[CODEBITS + 1] = {0,
   0x1ffffffffffffffull,  0x3ffffffffffffffull,  0x7ffffffffffffffull,  0xfffffffffffffffull,
  0x1fffffffffffffffull, 0x3fffffffffffffffull, 0x7fffffffffffffffull, 0xffffffffffffffffull};
 
-code_t bit1_[CODEBITS + 1] = {
-                0x1ull,                0x2ull,                0x4ull,                0x8ull,
-               0x10ull,               0x20ull,               0x40ull,               0x80ull,
-              0x100ull,              0x200ull,              0x400ull,              0x800ull,
-             0x1000ull,             0x2000ull,             0x4000ull,             0x8000ull,
-            0x10000ull,            0x20000ull,            0x40000ull,            0x80000ull,
-           0x100000ull,           0x200000ull,           0x400000ull,           0x800000ull,
-          0x1000000ull,          0x2000000ull,          0x4000000ull,          0x8000000ull,
-         0x10000000ull,         0x20000000ull,         0x40000000ull,         0x80000000ull,
-        0x100000000ull,        0x200000000ull,        0x400000000ull,        0x800000000ull,
-       0x1000000000ull,       0x2000000000ull,       0x4000000000ull,       0x8000000000ull,
-      0x10000000000ull,      0x20000000000ull,      0x40000000000ull,      0x80000000000ull,
-     0x100000000000ull,     0x200000000000ull,     0x400000000000ull,     0x800000000000ull,
-    0x1000000000000ull,    0x2000000000000ull,    0x4000000000000ull,    0x8000000000000ull,
-   0x10000000000000ull,   0x20000000000000ull,   0x40000000000000ull,   0x80000000000000ull,
-  0x100000000000000ull,  0x200000000000000ull,  0x400000000000000ull,  0x800000000000000ull,
- 0x1000000000000000ull, 0x2000000000000000ull, 0x4000000000000000ull, 0x8000000000000000ull};
 #endif
 
 
-#if 1
 
 /* make the ith bit */
-#define MKBIT(n) bit1_[n]
-/* make a mask with the lowest (n + 1) bits being 1s */
+#define MKBIT(n) (((code_t) 1u) << (code_t) (n))
+
+#if 1
+/* make a mask with the lowest n bits being 1s */
 #define mkbitsmask(n) bitsmask_[n]
 
 #else
 
-/* make the ith bit */
-#define MKBIT(n) (((code_t) 1u) << (code_t) (n))
 /* make a mask with the lowest n bits being 1 */
 INLINE code_t mkbitsmask(int n)
 {
@@ -189,7 +171,16 @@ INLINE int bitcount(code_t x)
   static const unsigned char bits[256] = { B6(0), B6(1), B6(1), B6(2) };
   unsigned char *p = (unsigned char *) &x;
 
-#if CODEBITS == 32
+  /* NOTE: these shortcuts assume that the lowest bits of an integers,
+   * which represent first vertices, go to the first bytes,
+   * which may be false! */
+#if defined(N) && (N <= 8)
+  return bits[p[0]];
+#elif defined(N) && (N <= 16)
+  return bits[p[0]] + bits[p[1]];
+#elif defined(N) && (N <= 24)
+  return bits[p[0]] + bits[p[1]] + bits[p[2]];
+#elif CODEBITS == 32
   return bits[p[0]] + bits[p[1]] + bits[p[2]] + bits[p[3]];
 #elif CODEBITS == 64
   return bits[p[0]] + bits[p[1]] + bits[p[2]] + bits[p[3]]
@@ -282,6 +273,20 @@ INLINE int bitfirstlow(code_t x, code_t *b)
 
 
 
+#if defined(__INTEL_COMPILER) && (CODEBITS == 32)
+
+/* directly map to the intrinsic function
+ * use it only when you are sure x != 0 */
+#define BITFIRSTNZ(x)  _bit_scan_forward(x)
+
+#define BITFIRST(id, x) id = (x) ? _bit_scan_forward(x) : 0;
+
+#define bitfirst(x) ((x) ? _bit_scan_forward(x) : 0)
+
+#else /* defined(__INTEL_COMPILER) && (CODEBITS == 32) */
+
+#define BITFIRSTNZ(x) bitfirst(x)
+
 #define BITFIRST(id, x) { code_t b_; BITFIRSTLOW(id, x, b_); }
 
 /* index of nonzero bit */
@@ -291,7 +296,7 @@ INLINE int bitfirst(code_t x)
   return bitfirstlow(x, &b);
 }
 
-
+#endif /* defined(__INTEL_COMPILER) && (CODEBITS == 32) */
 
 /* ********************** BITFIRST ENDS ****************************** */
 
@@ -608,20 +613,15 @@ INLINE void dg_print0(const dg_t *g, const char *nm)
 /* check if the subdiagram of the vertex set `vs' is connected */
 INLINE int dg_connectedvs(const dg_t *g, code_t vs)
 {
-  code_t stack = vs & (-vs), b;
+  code_t stack = vs & (-vs), bk; /* add the first vertex into the stack */
+  int k;
 
-  //printf("testing g->n %d, vs %#x, stack %#x\n", g->n, (unsigned) vs, (unsigned) stack);
   while (stack) {
-    int k = bitfirstlow(stack, &b); /* first vertex (1-bit) in the stack */
-    //printf("b %#x, %d\n", (unsigned) (stack & (-stack)), BRUIJNID32_((uint32_t)b));
-    vs ^= b; /* remove the vertex (1-bit) from the to-do list */
-    //printf("k %d, vs %#x, b %#x ck %#x\n", k, (unsigned) vs, (unsigned) stack, (unsigned) b, (unsigned) g->c[k]);
-#ifdef DBG
-    die_if (k < 0 || k >= g->n, "bad k %d, n %d, stack %#" PRIx64 ", b %#" PRIx64 "\n", k, g->n, stack, b);
-#endif
-    stack = (stack | g->c[k]) & vs; /* update the stack */
-    //printf("X %d, vs %#x, b %#x ck %#x\n", k, (unsigned) vs, (unsigned) stack, (unsigned) b, (unsigned) g->c[k]);
-    if ((stack ^ vs) == 0) return 1;
+    BITFIRSTLOW(k, stack, bk); /* first vertex (1-bit) in the stack */
+    vs ^= bk; /* remove the vertex `k' from the to-do list `vs' */
+    stack = (stack | g->c[k]) & vs; /* add neighbors of `k', limit to the to-do list */
+    if (stack == vs) /* all rest vertices are connected to the tree */
+      return 1;
   }
   return 0;
 }
@@ -632,22 +632,25 @@ INLINE int dg_connectedvs(const dg_t *g, code_t vs)
  * we do not use lookup table by default */
 INLINE int dg_biconnected(const dg_t *g)
 {
-  int i;
   DG_DEFN_(g);
   DG_DEFMASKN_();
+  code_t b;
 
+#if !defined(N) || N <= 2
   if (DG_N_ > 2) {
-    for (i = 0; i < DG_N_; i++) {
-      code_t vs = DG_MASKN_ ^ MKBIT(i);
-      if ( !dg_connectedvs(g, vs) )
+#endif /* !defined(N) || N <= 2 */
+    for (b = 1; b & DG_MASKN_; b <<= 1) {
+      if ( !dg_connectedvs(g, b ^ DG_MASKN_) )
         return 0;
     }
     return 1;
+#if !defined(N) || N <= 2
   } else if (DG_N_ == 2) {
     return (int) ((g->c[0] >> 1) & 1u);
   } else /* if (n < 2) */ {
     return 1;
   }
+#endif /* !defined(N) || N <= 2 */
 }
 
 

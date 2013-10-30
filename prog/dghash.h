@@ -11,11 +11,16 @@
 #ifdef DGHASH_EXISTS
 
 
+/* although set code bits to 64 would possible make hash function faster
+ * it might make Wheatley's method slow, esp on a 32-bit machine
+ * the disadvantage outweights the advantage */
+/*
 #ifndef CODEBITS
 #if defined(N) && (N >= 9)
 #define CODEBITS 64
 #endif
 #endif
+*/
 
 #include "dg.h"
 #include "dgaut.h"
@@ -343,7 +348,7 @@ INLINE void dghash_printstat(const dghash_t *h, FILE *fp)
     smb /= nz;
     sm2b = (sm2b / nz) - smb * smb;
   }
-  fprintf(fp, "dghash: ");
+  fprintf(fp, "%4d: dghash: ", inode);
   if (h->dostat) fprintf(fp, "hits %5.2f%%, ", 100.*h->hits/h->tot);
   fprintf(fp, "cnt %.0f, used %" PRIu64 "/%" PRIu64 " (%5.2f%%), "
       "av. %.3f(%.3f), nzav. %.2f(%.2f), %d-%d, mem. %.2fM (pack %5.2f%%)\n",

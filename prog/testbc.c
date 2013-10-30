@@ -119,8 +119,10 @@ static void speed_biconnected(int n, int nsteps,
     t0 = clock();
     if (method == 's')
       sum += dg_biconnected_std(g);
+#ifdef DGMAP_EXISTS
     else if (method == 'l')
       sum += dg_biconnected_lookup(g);
+#endif
     else
       sum += dg_biconnected(g);
     tsum += clock() - t0;
@@ -195,8 +197,8 @@ int main(int argc, char **argv)
     {8, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}, {0, 2}, {0, 3}, {1, 4}}, 1, 1},
     {-1, {{0, 0}}, 1, 1},
   };
-  int n = DG_NMAX, nsteps = 1000000;
-  int n1 = 9, nsteps1 = 100000000, method = 0, nedmax = 100000;
+  int n = DG_NMAX, nsteps = 100000;
+  int n1 = 9, nsteps1 = 10000000, method = 0, nedmax = 100000;
 
 #ifndef N
   cmpref(3, ref3);
@@ -217,7 +219,9 @@ int main(int argc, char **argv)
   if (argc > 6) nedmax = atoi(argv[6]);
   printf("speed test: n %d, nsteps %d, method %c, nedmax %d\n",
       n1, nsteps1, method, nedmax);
+  /* 0.66mcs on T60 */
   speed_connected(n1, nsteps1);
+  /* 1.01mcs on T60 */
   speed_biconnected(n1, nsteps1, method, nedmax);
   return 0;
 }

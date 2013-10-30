@@ -44,19 +44,15 @@ int nthreads = 1;
 unsigned rngseed = 0;
 
 int mapl_on = -1;
-#ifdef DGMAPL_EXISTS
 int mapl_kdepth = 0; /* number of links to search in the larger lookup table */
 int mapl_stat = 0;
-#endif
 
 
 int hash_on = -1; /* 1: on, 0: off, -1: default */
-#ifdef DGHASH_EXISTS
 int hash_bits = 0;
 unsigned hash_blksz = 0;
 double hash_memmax = 0;
 int hash_stat = 0;
-#endif
 
 
 /* handle arguments */
@@ -83,20 +79,18 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--nthr", "%d", &nthreads, "number of threads");
   argopt_add(ao, "--rng", "%u", &rngseed, "set the RNG seed offset");
 
+  /* we allow options for mapl and hash, even if they are unavailable */
   argopt_add(ao, "--mapl-mode",   "%d", &mapl_on,      "turn on/off the larger lookup table");
-#ifdef DGMAPL_EXISTS
   argopt_add(ao, "-k",            "%d", &mapl_kdepth,  "number of links to search in the larger lookup table");
   argopt_add(ao, "--mapl-kdepth", "%d", &mapl_kdepth,  "number of links to search in the larger lookup table");
   argopt_add(ao, "--mapl-stat",   "%b", &mapl_stat,    "obtain large look up table statistics");
-#endif
 
   argopt_add(ao, "--hash-mode",   "%d",   &hash_on,     "turn on/off the hash table (default: -1)");
-#ifdef DGHASH_EXISTS
   argopt_add(ao, "--hash-bits",   "%d",   &hash_bits,   "number of bits in the hash table");
   argopt_add(ao, "--hash-blksz",  "%u",   &hash_blksz,  "number of entries to allocate in each hash table list");
   argopt_add(ao, "--hash-memmax", "%lf",  &hash_memmax, "maximal memory for the hash table");
   argopt_add(ao, "--hash-stat",   "%b",   &hash_stat,   "compute statistics");
-#endif
+
   argopt_parse(ao, argc, argv);
 
   /* decide whether to use lookup table or not */
@@ -105,9 +99,16 @@ static void doargs(int argc, char **argv)
 
   /* decide if we should use the larger lookup table */
 #ifdef DGMAPL_EXISTS
-  if (mapl_on != 0) { /* default or explicitedly turned on */
+  if (mapl_on < 0) { /* default */
+    if (hash_on > 0) mapl_on = 0;
+    else mapl_on = (n <= DGMAPL_NMAX);
+  } else if (mapl_on > 0) { /* explicitly turned */
     mapl_on = (n <= DGMAPL_NMAX);
   }
+  /* the hash table (at leat at n <= 9) is generally not as efficient
+   * as the larger lookup table, because we have to compute
+   * the canonical label */
+  if (mapl_on) hash_on = 0;
 #else
   mapl_on = 0;
 #endif
@@ -116,11 +117,6 @@ static void doargs(int argc, char **argv)
 #ifdef DGHASH_EXISTS
   if (hash_on != 0) {
     hash_on = 1; /* turn on the hash table generally */
-    /* the hash table (at leat at n <= 9) is generally not as efficient
-     * as the larger lookup table, because we have to compute
-     * the canonical label */
-    if (mapl_on > 0) /* allow the larger lookup table */
-      hash_on = 0;
     if (D > 15 && n <= 64) /* TODO: improve this */
       hash_on = 0;
   }
@@ -408,21 +404,27 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   static dghash_t *hash = NULL;
 #endif
 
-#pragma omp critical
-  {
 #ifdef DGMAPL_EXISTS
-    if ( mapl_on ) {
+  if ( mapl_on ) {
+#pragma omp critical
+    if ( mapl == NULL ) {
       mapl = dgmapl_open(n, mapl_kdepth);
       mapl->dostat = mapl_stat;
     }
+    //printf("%4d: mapl %p\n", inode, mapl);
+  }
 #endif
+
 #ifdef DGHASH_EXISTS
-    if ( hash_on ) {
+  if ( hash_on ) {
+#pragma omp critical
+    if ( hash == NULL ) {
       hash = dghash_open(n, hash_bits, hash_blksz, (size_t) (hash_memmax + .5));
       hash->dostat = hash_stat;
     }
-#endif
+    //printf("%4d: hash %p\n", inode, hash);
   }
+#endif
 
   av0_clear(&nrsm);
   av0_clear(&fbsm);
@@ -491,13 +493,13 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
          * but it does not detect clique separators */
         if (dg_fbnr_spec0(g, &fb, &nr, &ned, degs) != 0) {
 #ifdef DGMAPL_EXISTS
-          if ( DG_N_ <= DGMAPL_NMAX && !hash_on ) { /* use the larger lookup table */
+          if ( mapl_on && mapl != NULL ) { /* use the larger lookup table */
             fb = dgmapl_fbnr_lookup0(mapl, g, &nr, 0, &ned, degs);
           } else
 #endif /* DGMAPL_EXISTS */
           {
 #ifdef DGHASH_EXISTS
-            if (hash != NULL) {
+            if ( hash_on && hash != NULL) {
               fb = dghash_fbnr_lookup0(hash, g, &nr, 0, &ned, degs);
             } else
 #endif

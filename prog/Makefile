@@ -21,7 +21,7 @@ sync:
 	rsync -avzL *.[ch] cz1@129.109.88.204:lwork/vir
 
 clean:
-	rm -rf $(bins) $(bins_d) *~ a.out *.his MTSEED bin obj
+	rm -rf $(bins) $(bins_d) *~ a.out *.his MTSEED bin obj r[0-9][0-9][0-9]hs
 
 usb:
 	$(MAKE) -C .. $@
