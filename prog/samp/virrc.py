@@ -195,6 +195,7 @@ def huntmr(d, n, root = "."):
     # try to use virsum because it produces error estimates
     import virsum
     virsum.verbose = verbose
+    virsum.rmbad = True
     (x, err) = virsum.dodir(None, n, sum3 = 1)
     if x == None: return None, None, None, None
     else: return x[1], err[1], x[2], err[2]

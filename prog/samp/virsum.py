@@ -21,7 +21,8 @@ from math import *
 
 
 verbose = 1 # verbose level
-
+rmbad = 0 # detect and remove bad data that significantly deviate from the average
+mulsig = 3 # multiple of standard deviation for the above exclusion
 
 
 def errarr(arr):
@@ -43,6 +44,30 @@ def errarr(arr):
     smx2 = max(smx2 / m - avx * avx, 0)
     err[i] = sqrt(smx2 / (m - 1))
   return err
+
+
+
+def varanalysis(arr, fns = None, name = "", nsig = 3, nave = 0, verbose = True):
+  ''' variance analysis: list large deviation data directories '''
+  n = len(arr)
+  ave = 1. * sum(arr) / n
+  var = sum([x*x for x in arr]) / n - ave * ave
+  sig = sqrt(var)
+  badls = []
+  threshold = max(fabs(ave) * nave, nsig * sig)
+  for i in range(n):
+    if fabs(arr[i] - ave) > threshold:
+      badls += [i,]
+  if len(badls) and verbose:
+    if fns:
+      w = max([len(fn) for fn in fns]) + 4
+    else:
+      w = 10
+      fns = [ "data%d" % i for i in range(n) ]
+    for i in badls:
+      print "%simbalance: %-*s %+10.3e, %+10.3e/%7.1e (ave/sig)" % (
+          name + " ", w, fns[i], arr[i], ave, sig)
+  return ave, sig, badls
 
 
 
@@ -125,6 +150,8 @@ class INT:
       intgls[i] = INT(fn)
       intgls[i].recompute() # compute individual vir
       if i > 0: intg.absorb(intgls[i])
+
+    # compute the global data
     intg.recompute()
 
     # compute errors
@@ -190,6 +217,7 @@ class MR:
 
   def __init__(me, fn, fnBring = None, use3 = 0):
     s = open(fn).readlines()
+    me.fn = fn
     me.initmr(s[0])
     me.adddata(s[1])
     me.loadBring(fnBring)
@@ -211,7 +239,8 @@ class MR:
       return
     me.Bring = fabs( float(bs[ me.n ]) )
     if not GC.once:
-      print "loaded n %d, D %d from %s, %s" % (me.n, me.D, fn, me.Bring)
+      if verbose:
+        print "loaded n %d, D %d from %s, %s" % (me.n, me.D, fn, me.Bring)
       GC.once = 1
 
 
@@ -224,7 +253,7 @@ class MR:
     if me.tag == 'M':
       me.Z = [1, float(arr[4]), float(arr[5])]
     me.fbsm = [[0,0], [0,0], [0,0]]
-    me.nzsm = [0,0]
+    me.nzsm = [0,0]  # only for me.tag == 'M'
     me.nrsm = [0,0]
     me.tacc = [[0,0], [0,0]]
     me.evir = None
@@ -246,19 +275,8 @@ class MR:
 
 
 
-  def absorb(a, b):
-    ''' a += b '''
-    for i in range(3):
-      xinc(a.fbsm[i], b.fbsm[i])
-    xinc(a.nzsm, b.nzsm)
-    xinc(a.nrsm, b.nrsm)
-    for i in range(2):
-      xinc(a.tacc, b.tacc)
-
-
-
   def recompute(me):
-    ''' recompute Zr '''
+    ''' recompute virial '''
     me.nr = me.nrsm[1] / me.nrsm[0]
     rv = -me.Bring / me.nr;
     me.fb0 = me.fbsm[0][1] / me.fbsm[0][0]
@@ -276,6 +294,43 @@ class MR:
         me.vir = [me.fb0 * rv, me.fb0, me.nr]
       else:
         me.vir = [me.fb0 * rv]
+
+
+
+  def clear(me):
+    ''' me = 0 '''
+    me.fbsum = [[0, 0],] * 3
+    me.nzsm = [0, 0]
+    me.nrsm = [0, 0]
+    me.tacc = [[0, 0],] * 2
+
+
+
+  def absorb(a, b):
+    ''' a += b '''
+    for i in range(3):
+      xinc(a.fbsm[i], b.fbsm[i])
+    xinc(a.nzsm, b.nzsm)
+    xinc(a.nrsm, b.nrsm)
+    for i in range(2):
+      xinc(a.tacc, b.tacc)
+
+
+
+  def aggregate(mr, ls):
+    ''' mr = sum(ls) '''
+    mr.clear()
+    for mr1 in ls:
+      mr.absorb(mr1) # mr += mr1
+    
+    mr.recompute() # on all data
+
+    # compute errors
+    m = len(ls)
+    virls = [None] * m
+    for i in range(m): # loop over copies
+      virls[i] = ls[i].vir
+    mr.evir = errarr( virls )
 
 
 
@@ -313,9 +368,10 @@ class MR:
       if me.evir:
         s += "%9.2e " % (me.evir[0])
       if verbose:
-        print "saved mr file %s, tot %g" % (fn, me.fbsm[0][0])
-        print "D %d, n %d, %+.6e (%.1e) " % (me.D, me.n,
-            me.vir[0], me.evir[0])
+        print "D %d, n %d, %+.6e (%.1e), " % (me.D, me.n,
+            me.vir[0], me.evir[0]),
+        print "saved mr file %s, tot %g (%7.1e/%7.1e)" % (
+            fn, me.fbsm[0][0], me.have, me.hsig)
     s += "\n"
     open(fn, "w").write(info + s)
 
@@ -333,15 +389,36 @@ class MR:
       fn = fnls[i]
       mrls[i] = MR(fn, use3 = use3) # read data in fn
       mrls[i].recompute() # compute individual vir
-      if i > 0: mr.absorb(mrls[i]) # mr += mrls[i]
-    mr.recompute() # on all data
+   
+    # histogram analysis
+    mr.have, mr.hsig, hisbad = varanalysis(
+        [li.nrsm[0] for li in mrls], [li.fn for li in mrls],
+        "histogram", 5.0, 0.1, verbose)
+    
+    excl = []
+    while 1:
+      fns = [li.fn for li in mrls]
+      # variance analysis 
+      mr.virave, mr.virsig, virbad = varanalysis(
+          [li.vir[0] for li in mrls], fns,
+          "virial", mulsig, 0.0, verbose)
 
-    # compute errors
-    virls = [None] * m
-    for i in range(m): # loop over copies
-      virls[i] = mrls[i].vir
-    mr.evir = errarr( virls )
-
+      if not rmbad: break
+      badls = virbad
+      if len(badls) >= len(mrls): # exclude everything
+        print "the list is so bad that I have to exclude everything!"
+        break
+      excl += [fns[i] for i in badls]
+      if len(badls) == 0: break
+      # exclude the bad items
+      m = len(mrls)
+      mrls = [mrls[i] for i in range(m) if not i in badls]
+    
+    # aggregate after the exclusion
+    if len(excl):
+      print "excluded %s" % excl
+    mr.aggregate(mrls)
+    
     fnout = fnbas + "a"
     mr.save(fnout)
     return (mr.vir, mr.evir)
@@ -381,7 +458,8 @@ class GC:
     for n in range(1, nmax + 1):
       me.Bring[n] = fabs(float(bs[n]))
     if not GC.once:
-      print "loaded %d values from %s" % (nmax, fn)
+      if verbose:
+        print "loaded %d values from %s" % (nmax, fn)
       GC.once = 1
 
 
@@ -979,9 +1057,11 @@ def usage():
   Without the input, the program will try search proper input dat files
 
   OPTIONS:
-   -s: scan over directories of different n
-   -n: grand aggregation for all folders with n
-   -d: input are directories to aggregate
+   -s:     scan over directories of different n
+   -x:     exclude data directories with large deviations from the average
+   -y[3]:  multiples of the standard deviation for the above exclusion
+   -n:     grand aggregation for all folders with n
+   -d:     input are directories to aggregate
   """
   exit(1)
 
@@ -990,13 +1070,14 @@ def usage():
 def doargs():
   ''' Handle common parameters from command line options '''
   try:
-    opts, args = getopt.gnu_getopt(sys.argv[1:], "sdn:",
-         ["scan", "dir", "order=", "help",])
+    opts, args = getopt.gnu_getopt(sys.argv[1:], "sdn:xy:",
+         ["scan", "dir", "rmbad", "order=", "help",])
   except getopt.GetoptError, err:
     # print help information and exit:
     print str(err) # will print something like "option -a not recognized"
     usage()
 
+  global rmbad, mulsig
   n = 0
   isdir = 0
 
@@ -1008,6 +1089,10 @@ def doargs():
     elif o in ("-n", "--order",):
       n = int(a)
       isdir = 1
+    elif o in ("-x", "--rmbad"):
+      rmbad = 1
+    elif o in ("-y",):
+      mulsig = float(a)
     elif o in ("-h", "--help",):
       usage()
 
