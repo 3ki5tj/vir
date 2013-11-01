@@ -5,7 +5,7 @@
 static void testspeed(int k, int n, int nsamp, int nedmax)
 {
   dg_t *g;
-  int t, ned, eql = 1, nequil = 1000, isamp, good = 0, tot = 0;
+  int t, ned, eql = 1, nequil = 1000, isamp = 0, good = 0, tot = 0;
   int err = 0, st[DGMAPL_NMAX + 1];
   clock_t t0;
   double tsum = 0, rnp = 0.1;

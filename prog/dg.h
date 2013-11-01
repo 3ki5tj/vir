@@ -197,8 +197,9 @@ INLINE int bitcount(code_t x)
   unsigned char *p = (unsigned char *) &x;
 
   /* NOTE: these shortcuts assume that the lowest bits of an integers,
-   * which represent first vertices, go to the first bytes,
-   * which may be false! */
+   * which represent first vertices, go to the first bytes, which may be false!
+   * These versions work for words of no more than N bits,
+   * not necessarily of exactly N bits */
 #if defined(N) && (N <= 8)
   return bits[p[0]];
 #elif defined(N) && (N <= 16)
@@ -263,7 +264,7 @@ const int bruijn32_[32] =
   { 0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
     31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9};
 
-#define BRUIJNID(b) bruijn32_[((b) * 0x077CB531) >> 27]
+#define BIT2ID(b) bruijn32_[((b) * 0x077CB531) >> 27]
 
 #elif (CODEBITS == 64) /* 64-bit */
 
@@ -273,7 +274,7 @@ const int bruijn64_[64] =
     63,  6, 12, 18, 24, 27, 33, 39, 16, 37, 45, 47, 30, 53, 49, 56,
     62, 11, 23, 32, 36, 44, 52, 55, 61, 22, 43, 51, 60, 42, 59, 58};
 
-#define BRUIJNID(b) bruijn64_[((b) * 0x218A392CD3D5DBFULL) >> 58]
+#define BIT2ID(b) bruijn64_[((b) * 0x218A392CD3D5DBFULL) >> 58]
 
 #endif /* CODEBITS == 64 */
 
@@ -282,7 +283,7 @@ const int bruijn64_[64] =
 /* macro version of bitfirstlow(); */
 #define BITFIRSTLOW(id, x, b) { \
   (b) = (x) & (-(x)); \
-  (id) = BRUIJNID(b); }
+  (id) = BIT2ID(b); }
 
 /* find the index of the lowest 1 bit
  * on return *b is the nonzero bit
@@ -293,7 +294,7 @@ const int bruijn64_[64] =
 INLINE int bitfirstlow(code_t x, code_t *b)
 {
   (*b) = x & (-x); /* such that only the lowest 1-bit survives */
-  return BRUIJNID(*b);
+  return BIT2ID(*b);
 }
 
 
@@ -383,6 +384,9 @@ INLINE dg_t *dg_remove1(dg_t *sg, dg_t *g, int i0)
 
 /* degree of vertex i */
 #define dg_deg(g, i) bitcount( (g)->c[i] )
+
+/* degree of vertex i with respect to a vertex set vs */
+#define dg_degvs(g, i, vs) bitcount( ((g)->c[i]) & vs )
 
 
 

@@ -6,7 +6,7 @@
 
 INLINE int dg_rndswitchedge(dg_t *g, int *ned, int nedmax, double rnp)
 {
-  int i, j, n = g->n, ipr, npr, acc;
+  int i = 0, j = 0, n = g->n, ipr, npr, acc;
 
   npr = n * (n - 1) / 2;
   /* randomly switch an edge */

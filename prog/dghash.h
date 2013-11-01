@@ -136,27 +136,42 @@ typedef struct {
   dgls_t *ls;
   size_t mem; /* total memory usage in bytes */
   size_t memmax; /* maximal memory usage in bytes */
+  int level;
   int dostat;
   double tot, hits; /* statistics */
 } dghash_t;
 
 
 
-INLINE dghash_t *dghash_open(int n, int bits, size_t blksz, size_t memmax)
+INLINE dghash_t *dghash_open(int n, int bits, size_t blksz, size_t memmax, int level)
 {
   /* default parameters */
-  static struct { int bits, blksz; } defp[] = {{1, 1},
-    {1, 1}, {1, 1}, {1, 1}, {3, 2}, {5, 2},
-    {6, 2}, {6, 4}, {10, 4}, {12, 4}, {18, 4},
+  static struct { int bits, blksz, level; } defp[] = {{1, 1, 0},
+    {1, 1, 0}, { 1, 1, 0}, { 1, 1, 0}, { 3, 2, 0}, { 6, 2,  0},
+    {8, 2, 0}, {10, 4, 0}, {14, 4, 1}, {20, 4, 1}, {24, 4, -1},
   };
   dghash_t *h;
   size_t i;
+  /* approximate hash table size (with low level of automorphism)
+   * D        N   level  size (Mb)
+   * 2        9     1       50M
+   * 3        9     1      126M
+   * >=4      9     1      160M
+   *
+   * 2       10     1      500M
+   * 3       10     1    >1300M
+   * 4       10     1    ~2000M 
+   *
+   * 3        9     4       29M
+   * 3       10     4      180M
+   * */
 
   /* for n > 10, we use 20 bit, which gives a relatively small hash table
    * this allows a more efficient use of limited memory, because all
    * hash table entries will be used */
   if (bits <= 0) bits = (n <= 10) ? defp[n].bits : 20;
   if (blksz == 0) blksz = (n <= 10) ? defp[n].blksz : 4;
+  if (level == -1) level = (n <= 10) ? defp[n].blksz : -1;
   if (memmax == 0) memmax = 0x40000000; /* 1GB */
 
   xnew(h, 1);
@@ -180,6 +195,7 @@ INLINE dghash_t *dghash_open(int n, int bits, size_t blksz, size_t memmax)
       fprintf(stderr, "dghash can save memory with predefined N (%d >> %d) or DGHASH_CWORDS (%d >> %d)\n",
           DG_NMAX, n, DGHASH_CWORDS, h->cwords);
   }
+  h->level = level;
   h->dostat = 0; /* turn off stat by default, the user can turn it on manually */
   h->tot = h->hits = 1e-30;
   return h;
@@ -201,16 +217,15 @@ INLINE void dghash_close(dghash_t *h)
 
 
 /* return the hash list id */
-INLINE code_t dghash_getid(const dg_t *g, code_t *c, int cwords, int hbits)
+INLINE code_t dghash_getid(const dg_t *g, code_t *c, int cwords, int hbits, int level)
 {
   code_t id;
   static dg_t *ng;
 #pragma omp threadprivate(ng)
 
-  if (ng == NULL) { /* allocate ng */
+  if (ng == NULL) /* allocate ng */
     ng = dg_open(DG_NMAX);
-  }
-  dg_canlabel(ng, g);
+  dg_getrep(ng, g, level);
   dg_encode(ng, c);
   DGHASH_GETID(id, c, DGHASH_CWORDS_, hbits);
   return id;
@@ -288,7 +303,8 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
       {
         if (hash[DG_N_] == NULL)
 #endif /* _OPENMP */
-          hash[DG_N_] = dghash_open(DG_N_, 0, 0, 0);
+          /* open a hash table with default settings */
+          hash[DG_N_] = dghash_open(DG_N_, 0, 0, 0, -1);
 #ifdef _OPENMP
       } /* omp critical */
 #endif /* _OPENMP */
@@ -296,7 +312,7 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
     h = hash[DG_N_];
   }
 
-  ls = h->ls + dghash_getid(g, c, h->cwords, h->bits);
+  ls = h->ls + dghash_getid(g, c, h->cwords, h->bits, h->level);
   pos = dgls_find(ls, c, h->cwords, &ipos);
   if (h->dostat) { /* accumulate statistics */
 #pragma omp critical
@@ -325,8 +341,9 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
 INLINE void dghash_printstat(dghash_t *h, FILE *fp)
 {
   size_t i, nz = 0;
-  int x, hmax = 0, hmin = 10000;
+  int x, hmax = 0, hmin = 10000, ip;
   double cnt = 0, cap = 0, sm = 0, sm2 = 0, smb = 0, sm2b = 0;
+  char sbuf[256], *p = sbuf;
 
   for (i = 0; i < h->lsn; i++) {
     x = h->ls[i].cnt;
@@ -348,19 +365,22 @@ INLINE void dghash_printstat(dghash_t *h, FILE *fp)
     smb /= nz;
     sm2b = (sm2b / nz) - smb * smb;
   }
-  fprintf(fp, "%4d: dghash: ", inode);
+  ip = sprintf(p, "%4d: dghash: ", inode);
+  p += ip;
   if (h->dostat) {
-    fprintf(fp, "hits %5.2f%%, ", 100.*h->hits/h->tot);
+    ip = sprintf(p, "hits %5.2f%%, ", 100.*h->hits/h->tot);
+    p += ip;
 #pragma omp critical
     { /* reset hits */
       h->hits = h->tot = 1e-30;
     }
   }
-  fprintf(fp, "cnt %.0f, used %" PRIu64 "/%" PRIu64 " (%5.2f%%), "
+  sprintf(p, "cnt %.0f, used %" PRIu64 "/%" PRIu64 " (%5.2f%%), "
       "av. %.3f(%.3f), nzav. %.2f(%.2f), %d-%d, mem. %.2fM (pack %5.2f%%)\n",
       cnt, (uint64_t) nz, (uint64_t) h->lsn, 100.*nz/h->lsn,
       sm, sqrt(sm2), smb, sqrt(sm2b), hmin, hmax,
       h->mem/(1024.*1024), 100*cnt/cap);
+  fputs(sbuf, fp);
 }
 
 #endif /* defined(DGHASH_EXISTS) */

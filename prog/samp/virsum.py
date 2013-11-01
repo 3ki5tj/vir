@@ -216,8 +216,11 @@ class MR:
   once = 0
 
   def __init__(me, fn, fnBring = None, use3 = 0):
-    s = open(fn).readlines()
     me.fn = fn
+    s = open(fn).readlines()
+    if len(s) <= 1:
+      print "file %s is corrupted, delete it!\n" % (fn)
+      raise Exception
     me.initmr(s[0])
     me.adddata(s[1])
     me.loadBring(fnBring)
@@ -322,7 +325,7 @@ class MR:
     mr.clear()
     for mr1 in ls:
       mr.absorb(mr1) # mr += mr1
-    
+
     mr.recompute() # on all data
 
     # compute errors
@@ -382,23 +385,27 @@ class MR:
     ''' sum over data in fnbas + fnls '''
     mr = MR(fnbas, use3 = use3) # create a class, read data in fnbas
     m = len(fnls) + 1
-    mrls = [None] * m
     fnls = [fnbas,] + fnls
+    mrls = []
     # sum over all file lists
     for i in range(m):
       fn = fnls[i]
-      mrls[i] = MR(fn, use3 = use3) # read data in fn
-      mrls[i].recompute() # compute individual vir
-   
+      try:
+        mr = MR(fn, use3 = use3) # read data in fn
+      except Exception:
+        continue
+      mr.recompute() # compute individual vir
+      mrls += [mr, ]
+
     # histogram analysis
     mr.have, mr.hsig, hisbad = varanalysis(
         [li.nrsm[0] for li in mrls], [li.fn for li in mrls],
         "histogram", 5.0, 0.1, verbose)
-    
+
     excl = []
     while 1:
       fns = [li.fn for li in mrls]
-      # variance analysis 
+      # variance analysis
       mr.virave, mr.virsig, virbad = varanalysis(
           [li.vir[0] for li in mrls], fns,
           "virial", mulsig, 0.0, verbose)
@@ -413,12 +420,12 @@ class MR:
       # exclude the bad items
       m = len(mrls)
       mrls = [mrls[i] for i in range(m) if not i in badls]
-    
+
     # aggregate after the exclusion
     if len(excl):
       print "excluded %s" % excl
     mr.aggregate(mrls)
-    
+
     fnout = fnbas + "a"
     mr.save(fnout)
     return (mr.vir, mr.evir)

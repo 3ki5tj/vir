@@ -50,6 +50,7 @@ int hash_on = -1; /* 1: on, 0: off, -1: default */
 int hash_bits = 0;
 unsigned hash_blksz = 0;
 double hash_memmax = 0;
+int auto_level = -1;
 
 int dostat = 0; /* applies to mapl and hash */
 
@@ -87,6 +88,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--hash-bits",   "%d",   &hash_bits,   "number of bits in the hash table");
   argopt_add(ao, "--hash-blksz",  "%u",   &hash_blksz,  "number of entries to allocate in each hash table list");
   argopt_add(ao, "--hash-memmax", "%lf",  &hash_memmax, "maximal memory for the hash table");
+  argopt_add(ao, "--auto-level",  "%d",   &auto_level,  "automorphism level, -1: canonical label, 0: no transformation, 1: degree sequence, 2 or 3: first automorphism in the searching tree");
 
   argopt_add(ao, "--stat",        "%b",   &dostat,      "compute statistics");
 
@@ -418,7 +420,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   if ( hash_on ) {
 #pragma omp critical
     if ( hash == NULL ) {
-      hash = dghash_open(n, hash_bits, hash_blksz, (size_t) (hash_memmax + .5));
+      hash = dghash_open(n, hash_bits, hash_blksz,
+          (size_t) (hash_memmax + .5), auto_level);
       hash->dostat = dostat;
     }
     //printf("%4d: hash %p\n", inode, hash);

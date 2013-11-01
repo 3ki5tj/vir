@@ -413,8 +413,8 @@ INLINE void initxring(rvn_t *x, int n)
     if (k_ == i) continue; \
     c0_ = dg_linked(ng, i, k_); \
     c1_ = (rvn_dist2(xi, (x)[k_]) < 1); \
-    if (c0_ == c1_) continue; \
-    if (c1_) { DG_LINK(ng, i, k_); } \
+    if ( c0_ == c1_ ) continue; \
+    if ( c1_ ) { DG_LINK(ng, i, k_); } \
     else { DG_UNLINK(ng, i, k_); } \
     (gdirty) = 1; \
   } }
@@ -654,7 +654,7 @@ INLINE int verepl(rvn_t *x, rvn_t xi, dg_t *g, dg_t *ng, int *gdirty)
     c0 = dg_linked(ng, i, k);
     c1 = (rvn_dist2(xi, x[k]) < 1);
     if (c0 == c1) continue;
-    if (c1) { DG_LINK(ng, i, k); }
+    if ( c1 ) { DG_LINK(ng, i, k); }
     else  { DG_UNLINK(ng, i, k); }
     *gdirty = 1;
   }

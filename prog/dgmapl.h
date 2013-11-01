@@ -23,6 +23,7 @@
 #endif /* CODEBITS */
 #endif /* DGMAPL_NMAX >= 10 */
 
+/* including dgring.h also implicitly include dgrjw.h and dgsc.h, etc. */
 #include "dgring.h"
 
 
@@ -422,25 +423,30 @@ INLINE double dgmapl_fbnr_lookup0(dgmapl_t *m, const dg_t *g,
 
 INLINE void dgmapl_printstat(dgmapl_t *m, FILE *fp)
 {
-  size_t i, cnt = 0;
+  size_t i, cnt = 0, ip;
   dgmapl_int_t ifbnr[2];
+  char sbuf[256], *p = sbuf;
 
   for (i = 0; i < m->size; i++) {
     dgmapl_geti2(ifbnr, m->fbnr[i]);
     if (ifbnr[0] != DGMAPL_BAD || ifbnr[1] != DGMAPL_BAD)
       cnt++;
   }
-  fprintf(fp, "%4d: cnt %g, ", inode, 1.*cnt);
+  ip = sprintf(p, "%4d: cnt %g, ", inode, 1.*cnt);
+  p += ip;
   if (m->dostat) {
-    fprintf(fp, "hits %.0f/%.0f = %5.2f%%, misses %.0f/%.0f = %g%%, ",
+    ip = sprintf(p, "hits %.0f/%.0f = %5.2f%%, misses %.0f/%.0f = %g%%, ",
         m->hits, m->tot, 100.*m->hits/m->tot,
         m->misses, m->tot, 100.*m->misses/m->tot);
+    p += ip;
 #pragma omp critical
     { /* refresh hits */
       m->hits = m->misses = m->tot = 1e-30;
     }
   }
-  fprintf(fp, "\n");
+  /* use sprintf() and fputs() to reduce the number of file writting operations */
+  sprintf(p, "\n");
+  fputs(sbuf, fp);
 }
 
 
