@@ -22,7 +22,7 @@ static void testperm(int n)
 int main(void)
 {
   dg_t *g;
-  code_t c[2];
+  dgword_t c[2];
 
 #ifdef __INTEL_COMPILER
   {

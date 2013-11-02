@@ -122,12 +122,12 @@ INLINE double dg_nring_direct(const dg_t *g)
   DG_DEFN_(g);
   DG_DEFMASKN_();
   int st[DG_NMAX], top, sttop, root = 0;
-  code_t unused, c, b, croot, ccp;
+  dgword_t unused, c, b, croot, ccp;
   double cnt = 0;
 
   if (DG_N_ <= 2) {
     if (DG_N_ <= 1) return 1;
-    else return (g->c[1] & 0x1);
+    else return (double) (g->c[1] & 0x1);
   }
   st[0] = root;
   st[1] = 0;
@@ -139,7 +139,7 @@ INLINE double dg_nring_direct(const dg_t *g)
   sttop = st[top];
 
   while (1) {
-    code_t ccp0 = ccp; /* backup ccp in case pushing failed */
+    dgword_t ccp0 = ccp; /* backup ccp in case pushing failed */
     /* construct a set of vertices that satisfy
      * 1. in ccp: unused && connected to st[top-1]
      * 2. indices > sttop */

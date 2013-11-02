@@ -18,11 +18,11 @@
 INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
 {
   int i, j, k, v = 0, w, z, l;
-  code_t numbered, reached, bv, bw, bz, r;
+  dgword_t numbered, reached, bv, bw, bz, r;
   DG_DEFN_(g);
   DG_DEFMASKN_();
   int l2[DG_NMAX]; /* the label l times 2 */
-  code_t reach[DG_NMAX]; /* reach[label] gives a set of vertices */
+  dgword_t reach[DG_NMAX]; /* reach[label] gives a set of vertices */
   int cnt[DG_NMAX * 2];
 
   if (f) dg_copy(f, g);
@@ -116,12 +116,12 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
  * ``Decomposition by clique separators'' Robert E. Tarjan,
  * Discrete Mathematics 55 (1985) 221-232 */
 INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
-    const int *a, code_t * RESTRICT cl, int stop1)
+    const int *a, dgword_t * RESTRICT cl, int stop1)
 {
   int v, w, i, ncl = 0;
   DG_DEFN_(g);
   DG_DEFMASKN_();
-  code_t cb, c, bw, r, unvisited = DG_MASKN_;
+  dgword_t cb, c, bw, r, unvisited = DG_MASKN_;
 
   for (i = 0; i < DG_N_; i++) {
     v = a[i];
@@ -154,14 +154,14 @@ INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
 
 
 /* test if a graph has a clique separator */
-INLINE code_t dg_cliquesep(const dg_t *g)
+INLINE dgword_t dg_cliquesep(const dg_t *g)
 {
   static dg_t *fs[DG_NMAX + 1];
   static int a[DG_NMAX]; /* a[k] is the kth vertex */
 #pragma omp threadprivate(fs, a)
   dg_t *f; /* fill-in graph */
   DG_DEFN_(g);
-  code_t cl;
+  dgword_t cl;
 
   if (fs[DG_N_] == NULL) fs[DG_N_] = dg_open(DG_N_);
   f = fs[DG_N_];
@@ -179,7 +179,7 @@ INLINE code_t dg_cliquesep(const dg_t *g)
 /* number of nodes in the clique-separator decomposition */
 #define dg_ncsep(g) dg_decompcsep(g, NULL)
 
-INLINE int dg_decompcsep(const dg_t *g, code_t * RESTRICT cl)
+INLINE int dg_decompcsep(const dg_t *g, dgword_t * RESTRICT cl)
 {
   static dg_t *fs[DG_NMAX + 1];
   static int a[DG_NMAX]; /* a[k] is the kth vertex */
@@ -201,7 +201,7 @@ INLINE int dg_decompcsep(const dg_t *g, code_t * RESTRICT cl)
 
 #ifdef DGMAP_EXISTS
 /* compute the number of nodes the clique-separator decomposition */
-INLINE int dg_ncsep_lookuplow(const dg_t *g, code_t c)
+INLINE int dg_ncsep_lookuplow(const dg_t *g, dgword_t c)
 {
   static char *ncl[DGMAP_NMAX + 1];
 #pragma omp threadprivate(ncl)
@@ -227,7 +227,7 @@ INLINE int dg_ncsep_lookuplow(const dg_t *g, code_t c)
 /* compute the number of nodes the clique-separator decomposition */
 INLINE int dg_ncsep_lookup(const dg_t *g)
 {
-  code_t code;
+  dgword_t code;
 
   die_if (g->n > DGMAP_NMAX, "n %d too large\n", g->n);
   dg_encode(g, &code);

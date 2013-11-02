@@ -50,56 +50,64 @@ int inode = MASTER, nnodes = 1;
 #define DG_GN_(g) ((g)->n)
 #define DG_DEFN_(g) int n = (g)->n;
 #define DG_MASKN_ maskn
-#define DG_DEFMASKN_() code_t maskn = MKBITSMASK(n);
+#define DG_DEFMASKN_() dgword_t maskn = MKBITSMASK(n);
 #endif
 
 
-#ifndef CODEBITS
+
+/* DG_WORDBITS used to be called CODEBITS */
+#if !defined(DG_WORDBITS) && defined(CODEBITS)
+#define DG_WORDBITS CODEBITS
+#endif
+
+
+
+#ifndef DG_WORDBITS
 #ifdef NMAX
-#define CODEBITS ((NMAX + 31)/32*32)
+#define DG_WORDBITS ((NMAX + 31)/32*32)
 #else
 /* Note:
- * #define CODEBITS (sizeof(code_t) * 8)
+ * #define DG_WORDBITS (sizeof(dgword_t) * 8)
  * doesn't work, because the compiler cannot compute sizeof() in time
  * */
-#define CODEBITS 32
+#define DG_WORDBITS 32
 #endif /* defined NMAX */
-#endif /* defined CODEBITS */
+#endif /* defined DG_WORDBITS */
 
 
 
-#if CODEBITS == 32
-typedef uint32_t code_t;
-typedef int32_t scode_t;
-#elif CODEBITS == 64
-typedef uint64_t code_t;
-typedef int64_t scode_t;
+#if DG_WORDBITS == 32
+typedef uint32_t dgword_t;
+typedef int32_t sdgword_t;
+#elif DG_WORDBITS == 64
+typedef uint64_t dgword_t;
+typedef int64_t sdgword_t;
 #else
-#error "bad CODEBITS definition"
+#error "bad DG_WORDBITS definition"
 #endif
 
 
 
-/* we only support a graph with at most CODEBITS vertices */
+/* we only support a graph with at most DG_WORDBITS vertices */
 #ifdef N
 #define DG_NMAX N /* we know the size */
 #else
-#define DG_NMAX CODEBITS
+#define DG_NMAX DG_WORDBITS
 #endif
 
 
 
 typedef struct {
   int n;
-  code_t *c; /* the jth bit of c[i] is 1 if the vertices i and j are adjacent */
+  dgword_t *c; /* the jth bit of c[i] is 1 if the vertices i and j are adjacent */
 } dg_t;
 
 
 
-#if CODEBITS == 32
+#if DG_WORDBITS == 32
 
 /* these masks can be generated from the helper python script mask.py */
-code_t bitsmask_[CODEBITS + 1] = {0,
+dgword_t bitsmask_[DG_WORDBITS + 1] = {0,
         0x1,        0x3,        0x7,        0xf,
        0x1f,       0x3f,       0x7f,       0xff,
       0x1ff,      0x3ff,      0x7ff,      0xfff,
@@ -109,7 +117,7 @@ code_t bitsmask_[CODEBITS + 1] = {0,
   0x1ffffff,  0x3ffffff,  0x7ffffff,  0xfffffff,
  0x1fffffff, 0x3fffffff, 0x7fffffff, 0xffffffff};
 
-code_t invbitsmask_[CODEBITS + 1] = {0xffffffff,
+dgword_t invbitsmask_[DG_WORDBITS + 1] = {0xffffffff,
  0xfffffffe, 0xfffffffc, 0xfffffff8, 0xfffffff0,
  0xffffffe0, 0xffffffc0, 0xffffff80, 0xffffff00,
  0xfffffe00, 0xfffffc00, 0xfffff800, 0xfffff000,
@@ -119,9 +127,9 @@ code_t invbitsmask_[CODEBITS + 1] = {0xffffffff,
  0xfe000000, 0xfc000000, 0xf8000000, 0xf0000000,
  0xe0000000, 0xc0000000, 0x80000000,        0x0};
 
-#elif CODEBITS == 64
+#elif DG_WORDBITS == 64
 
-code_t bitsmask_[CODEBITS + 1] = {0,
+dgword_t bitsmask_[DG_WORDBITS + 1] = {0,
                 0x1ull,                0x3ull,                0x7ull,                0xfull,
                0x1full,               0x3full,               0x7full,               0xffull,
               0x1ffull,              0x3ffull,              0x7ffull,              0xfffull,
@@ -139,7 +147,7 @@ code_t bitsmask_[CODEBITS + 1] = {0,
   0x1ffffffffffffffull,  0x3ffffffffffffffull,  0x7ffffffffffffffull,  0xfffffffffffffffull,
  0x1fffffffffffffffull, 0x3fffffffffffffffull, 0x7fffffffffffffffull, 0xffffffffffffffffull};
 
-code_t invbitsmask_[CODEBITS + 1] = {0xffffffffffffffffull,
+dgword_t invbitsmask_[DG_WORDBITS + 1] = {0xffffffffffffffffull,
  0xfffffffffffffffeull, 0xfffffffffffffffcull, 0xfffffffffffffff8ull, 0xfffffffffffffff0ull,
  0xffffffffffffffe0ull, 0xffffffffffffffc0ull, 0xffffffffffffff80ull, 0xffffffffffffff00ull,
  0xfffffffffffffe00ull, 0xfffffffffffffc00ull, 0xfffffffffffff800ull, 0xfffffffffffff000ull,
@@ -162,7 +170,7 @@ code_t invbitsmask_[CODEBITS + 1] = {0xffffffffffffffffull,
 
 
 /* make the ith bit */
-#define MKBIT(n) (((code_t) 1u) << (code_t) (n))
+#define MKBIT(n) (((dgword_t) 1u) << (dgword_t) (n))
 
 #if 1
 /* make a mask with the lowest n bits being 1s, other bits being 0s */
@@ -175,17 +183,17 @@ code_t invbitsmask_[CODEBITS + 1] = {0xffffffffffffffffull,
 #else
 
 /* make a mask with the lowest n bits being 1 */
-INLINE code_t mkbitsmask(int n)
+INLINE dgword_t mkbitsmask(int n)
 {
-  if (n == CODEBITS) return (code_t) (-1);
-  else return MKBIT(n) - (code_t) 1;
+  if (n == DG_WORDBITS) return (dgword_t) (-1);
+  else return MKBIT(n) - (dgword_t) 1;
 }
 #endif
 
 
 /* count the number of 1 bits in x
  * http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetTable */
-INLINE int bitcount(code_t x)
+INLINE int bitcount(dgword_t x)
 {
 /* if the lowest two bits of x are zeros, and x has n nonzero bits,
  * then x, x+1, x+2, x+3 have respectivly n, n+1, n+1, n+2 nonzero bits */
@@ -206,9 +214,9 @@ INLINE int bitcount(code_t x)
   return bits[p[0]] + bits[p[1]];
 #elif defined(N) && (N <= 24)
   return bits[p[0]] + bits[p[1]] + bits[p[2]];
-#elif CODEBITS == 32
+#elif DG_WORDBITS == 32
   return bits[p[0]] + bits[p[1]] + bits[p[2]] + bits[p[3]];
-#elif CODEBITS == 64
+#elif DG_WORDBITS == 64
   return bits[p[0]] + bits[p[1]] + bits[p[2]] + bits[p[3]]
        + bits[p[4]] + bits[p[5]] + bits[p[6]] + bits[p[7]];
 #endif
@@ -217,7 +225,7 @@ INLINE int bitcount(code_t x)
 
 
 /* invert the lowest k bits */
-INLINE code_t bitinvert(code_t x, int k)
+INLINE dgword_t bitinvert(dgword_t x, int k)
 {
   return x ^ ~(~0u << k);
 }
@@ -225,17 +233,17 @@ INLINE code_t bitinvert(code_t x, int k)
 
 
 /* reverse bits */
-INLINE code_t bitreverse(code_t x)
+INLINE dgword_t bitreverse(dgword_t x)
 {
   static const unsigned char bitrev[256] = {
     #define R2(n)     n,     n + 2*64,     n + 1*64,     n + 3*64
     #define R4(n) R2(n), R2(n + 2*16), R2(n + 1*16), R2(n + 3*16)
     #define R6(n) R4(n), R4(n + 2*4 ), R4(n + 1*4 ), R4(n + 3*4 )
     R6(0), R6(2), R6(1), R6(3) };
-  code_t c;
+  dgword_t c;
   unsigned char *p = (unsigned char *) &x;
   unsigned char *q = (unsigned char *) &c;
-#if (CODEBITS == 32)
+#if (DG_WORDBITS == 32)
   q[3] = bitrev[p[0]];
   q[2] = bitrev[p[1]];
   q[1] = bitrev[p[2]];
@@ -259,14 +267,14 @@ INLINE code_t bitreverse(code_t x)
 
 
 
-#if (CODEBITS == 32)
+#if (DG_WORDBITS == 32)
 const int bruijn32_[32] =
   { 0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
     31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9};
 
 #define BIT2ID(b) bruijn32_[((b) * 0x077CB531) >> 27]
 
-#elif (CODEBITS == 64) /* 64-bit */
+#elif (DG_WORDBITS == 64) /* 64-bit */
 
 const int bruijn64_[64] =
   {  0,  1,  2,  7,  3, 13,  8, 19,  4, 25, 14, 28,  9, 34, 20, 40,
@@ -276,7 +284,7 @@ const int bruijn64_[64] =
 
 #define BIT2ID(b) bruijn64_[((b) * 0x218A392CD3D5DBFULL) >> 58]
 
-#endif /* CODEBITS == 64 */
+#endif /* DG_WORDBITS == 64 */
 
 
 
@@ -291,7 +299,7 @@ const int bruijn64_[64] =
  * ``Using de Bruijn Sequences to Index 1 in a Computer Word''
  * by Charles E. Leiserson, Harald Prokof, and Keith H. Randall.
  * http://supertech.csail.mit.edu/papers/debruijn.pdf */
-INLINE int bitfirstlow(code_t x, code_t *b)
+INLINE int bitfirstlow(dgword_t x, dgword_t *b)
 {
   (*b) = x & (-x); /* such that only the lowest 1-bit survives */
   return BIT2ID(*b);
@@ -299,7 +307,7 @@ INLINE int bitfirstlow(code_t x, code_t *b)
 
 
 
-#if defined(__INTEL_COMPILER) && (CODEBITS == 32)
+#if defined(__INTEL_COMPILER) && (DG_WORDBITS == 32)
 
 /* directly map to the intrinsic function
  * use it only when you are sure x != 0 */
@@ -309,20 +317,20 @@ INLINE int bitfirstlow(code_t x, code_t *b)
 
 #define bitfirst(x) ((x) ? _bit_scan_forward(x) : 0)
 
-#else /* defined(__INTEL_COMPILER) && (CODEBITS == 32) */
+#else /* defined(__INTEL_COMPILER) && (DG_WORDBITS == 32) */
 
 #define BITFIRSTNZ(x) bitfirst(x)
 
-#define BITFIRST(id, x) { code_t b_; BITFIRSTLOW(id, x, b_); }
+#define BITFIRST(id, x) { dgword_t b_; BITFIRSTLOW(id, x, b_); }
 
 /* index of nonzero bit */
-INLINE int bitfirst(code_t x)
+INLINE int bitfirst(dgword_t x)
 {
-  code_t b;
+  dgword_t b;
   return bitfirstlow(x, &b);
 }
 
-#endif /* defined(__INTEL_COMPILER) && (CODEBITS == 32) */
+#endif /* defined(__INTEL_COMPILER) && (DG_WORDBITS == 32) */
 
 /* ********************** BITFIRST ENDS ****************************** */
 
@@ -365,7 +373,7 @@ INLINE void dg_unlink(dg_t *g, int i, int j)
 INLINE dg_t *dg_remove1(dg_t *sg, dg_t *g, int i0)
 {
   int i, is = 0, n = g->n;
-  code_t maskl, maskh;
+  dgword_t maskl, maskh;
 
 #ifdef N
   die_if(n - 1 != N, "dg_remove1 cannot be used n %d with fixed N\n", n);
@@ -435,7 +443,7 @@ INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
 {
   int i, j, k, ne, ipr, rr;
   DG_DEFN_(g);
-  code_t c, b;
+  dgword_t c, b;
   static int cnt[DG_NMAX];
 #pragma omp threadprivate(cnt)
 
@@ -503,20 +511,20 @@ INLINE dg_t *dg_complement(dg_t *h, dg_t *g)
 
 
 /* code the connectivity */
-INLINE code_t *dg_encode(const dg_t *g, code_t *code)
+INLINE dgword_t *dg_encode(const dg_t *g, dgword_t *code)
 {
   int i, ib = 0;
   DG_DEFN_(g);
-  code_t *c = code, ci;
+  dgword_t *c = code, ci;
 
   for (*c = 0, i = 0; i < DG_N_ - 1; i++) {
     *c |= ((ci = g->c[i]) >> (i + 1)) << ib;
     ib += DG_N_ - 1 - i;
-#if !defined(N) || (N*(N-1)/2 > CODEBITS)
+#if !defined(N) || (N*(N-1)/2 > DG_WORDBITS)
     /* avoid the following step, if the number of edges
-     * can be always contained in a single code_t */
-    if (ib >= CODEBITS) {
-      ib -= CODEBITS;
+     * can be always contained in a single dgword_t */
+    if (ib >= DG_WORDBITS) {
+      ib -= DG_WORDBITS;
       *(++c) = ci >> (DG_N_ - ib);
     }
 #endif
@@ -527,11 +535,11 @@ INLINE code_t *dg_encode(const dg_t *g, code_t *code)
 
 
 /* code the connectivity */
-INLINE dg_t *dg_decode(dg_t *g, code_t *code)
+INLINE dg_t *dg_decode(dg_t *g, dgword_t *code)
 {
   int i, j, ib = 0;
   DG_DEFN_(g);
-  code_t *c = code;
+  dgword_t *c = code;
 
   dg_empty(g);
   for (i = 0; i < DG_N_ - 1; i++) {
@@ -539,10 +547,10 @@ INLINE dg_t *dg_decode(dg_t *g, code_t *code)
       if ((*c >> ib) & 1u)
         DG_LINK(g, i, j);
       ++ib;
-#if !defined(N) || (N*(N-1)/2 > CODEBITS)
+#if !defined(N) || (N*(N-1)/2 > DG_WORDBITS)
       /* avoid the following step, if the number of edges
-       * can be always contained in a single code_t */
-      if (ib == CODEBITS) {
+       * can be always contained in a single dgword_t */
+      if (ib == DG_WORDBITS) {
         ib = 0;
         c++;
       }
@@ -603,14 +611,14 @@ INLINE dg_t *dg_clone(const dg_t *b)
 
 
 
-INLINE scode_t dg_cmp(const dg_t *a, const dg_t *b)
+INLINE sdgword_t dg_cmp(const dg_t *a, const dg_t *b)
 {
   int i;
   DG_DEFN_(a);
-  scode_t df;
+  sdgword_t df;
 
   for (i = 0; i < DG_N_; i++)
-    if ((df = (scode_t) (a->c[i] - b->c[i])) != 0)
+    if ((df = (sdgword_t) (a->c[i] - b->c[i])) != 0)
       return df;
   return 0;
 }
@@ -642,10 +650,10 @@ INLINE void dg_print0(const dg_t *g, const char *nm)
 /* check if a diagram is connected */
 #define dg_connected(g) dg_connectedvs((g), MKBITSMASK(DG_GN_(g)))
 
-/* check if the subdiagram of the vertex set `vs' is connected */
-INLINE int dg_connectedvs(const dg_t *g, code_t vs)
+/* check if the subgraph of the vertex set `vs' is connected */
+INLINE int dg_connectedvs(const dg_t *g, dgword_t vs)
 {
-  code_t stack = vs & (-vs), bk; /* add the first vertex into the stack */
+  dgword_t stack = vs & (-vs), bk; /* add the first vertex into the stack */
   int k;
 
   while (stack) {
@@ -666,7 +674,7 @@ INLINE int dg_biconnected(const dg_t *g)
 {
   DG_DEFN_(g);
   DG_DEFMASKN_();
-  code_t b;
+  dgword_t b;
 
 #if !defined(N) || N <= 2
   if (DG_N_ > 2) {
@@ -678,7 +686,7 @@ INLINE int dg_biconnected(const dg_t *g)
     return 1;
 #if !defined(N) || N <= 2
   } else if (DG_N_ == 2) {
-    return (int) ((g->c[0] >> 1) & 1u);
+    return (int) (g->c[1] & 1u);
   } else /* if (n < 2) */ {
     return 1;
   }
@@ -688,9 +696,9 @@ INLINE int dg_biconnected(const dg_t *g)
 
 
 /* check if a sub-diagram is biconnected  */
-INLINE int dg_biconnectedvs(const dg_t *g, code_t vs)
+INLINE int dg_biconnectedvs(const dg_t *g, dgword_t vs)
 {
-  code_t b, todo;
+  dgword_t b, todo;
 
   for (todo = vs; todo; todo ^= b) {
     b = todo & (-todo); /* first vertex (1-bit) of the todo list */
@@ -779,7 +787,7 @@ typedef struct {
   int ng; /* number of unique diagrams */
   unqid_t *map; /* map a diagram to the unique diagram
                    `short' works for n <= 8 */
-  code_t *first; /* index of the first unique diagram */
+  dgword_t *first; /* index of the first unique diagram */
 } dgmap_t;
 
 
@@ -833,7 +841,7 @@ INLINE int dgmap_getperm(int n, int **pp)
 /* compute initial diagram map */
 INLINE int dgmap_init(dgmap_t *m, int n)
 {
-  code_t c, c1, ng, *masks, *ms;
+  dgword_t c, c1, ng, *masks, *ms;
   int ipm, npm, *pm, i, j, ipr, npr, sz, gid;
   clock_t t0;
 
@@ -917,7 +925,7 @@ INLINE int dgmap_init(dgmap_t *m, int n)
 
 
 /* retrieve the diagram id */
-INLINE unqid_t dg_getmapidx(const dg_t *g, code_t *c)
+INLINE unqid_t dg_getmapidx(const dg_t *g, dgword_t *c)
 {
   DG_DEFN_(g);
 
@@ -931,7 +939,7 @@ INLINE unqid_t dg_getmapidx(const dg_t *g, code_t *c)
 /*  retrieve the diagram id */
 INLINE unqid_t dg_getmapid(const dg_t *g)
 {
-  code_t c;
+  dgword_t c;
   return dg_getmapidx(g, &c);
 }
 
@@ -972,7 +980,7 @@ INLINE int dg_biconnected_lookuplow(int n, unqid_t id)
     dgmap_init(m, DG_N_);
     xnew(bc[DG_N_], m->ng);
     for (k = 0; k < m->ng; k++) {
-      code_t c = m->first[k];
+      dgword_t c = m->first[k];
       dg_decode(g1, &c);
       bc[DG_N_][k] = dg_biconnected(g1);
     }

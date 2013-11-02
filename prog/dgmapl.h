@@ -18,9 +18,9 @@
 #ifdef DGMAPL_EXISTS
 
 #if DGMAPL_NMAX >= 10
-#ifndef CODEBITS
-#define CODEBITS 64 /* for the table key is over 2^32 */
-#endif /* CODEBITS */
+#ifndef DG_WORDBITS
+#define DG_WORDBITS 64 /* for the table key is over 2^32 */
+#endif /* DG_WORDBITS */
 #endif /* DGMAPL_NMAX >= 10 */
 
 /* including dgring.h also implicitly include dgrjw.h and dgsc.h, etc. */
@@ -103,11 +103,11 @@ INLINE void dgmapl_seti2(dgmapl_fb_t * RESTRICT x, dgmapl_int_t * RESTRICT i)
 
 
 /* encode a graph according to the permuation `st' */
-INLINE code_t dgmapl_encode(const dg_t *g, int k, int *st)
+INLINE dgword_t dgmapl_encode(const dg_t *g, int k, int *st)
 {
   int i, j, jmax;
   DG_DEFN_(g);
-  code_t c, ci, pb;
+  dgword_t c, ci, pb;
 
   for (pb = 1, c = 0, i = 2; i < DG_N_; i++) {
     jmax = (i <= k) ? (i - 1) : i;
@@ -123,12 +123,12 @@ INLINE code_t dgmapl_encode(const dg_t *g, int k, int *st)
 
 /* find a chain of k links
  * set `ring' to 1 to find a closed ring */
-INLINE code_t dgmapl_getchain(const dg_t *g, int k, int *st)
+INLINE dgword_t dgmapl_getchain(const dg_t *g, int k, int *st)
 {
   int err = 1, top, i;
   DG_DEFN_(g);
   DG_DEFMASKN_();
-  code_t vs, c, b, ms[DGMAPL_NMAX + 1];
+  dgword_t vs, c, b, ms[DGMAPL_NMAX + 1];
 
   top = 0;
   ms[top] = vs = DG_MASKN_;
@@ -173,9 +173,9 @@ INLINE int dgmapl_save2full(dgmapl_fb_t (* RESTRICT arr)[2],
   int cnt = 0, i;
   DG_DEFN_(g);
   DG_DEFMASKN_();
-  code_t vs, c, b, ci;
-  code_t ms[DGMAPL_NMAX + 1];
-  code_t ls[DGMAPL_LISTSIZE]; /* buffer to save updated values */
+  dgword_t vs, c, b, ci;
+  dgword_t ms[DGMAPL_NMAX + 1];
+  dgword_t ls[DGMAPL_LISTSIZE]; /* buffer to save updated values */
   int lscnt = 0, j;
   dgmapl_int_t iarr[2];
 
@@ -294,9 +294,9 @@ INLINE dgmapl_t *dgmapl_open(int n, int k)
   }
   m->k = k;
   m->size = (uint64_t) 1u << (n * (n - 1) / 2 - k);
-  die_if (n*(n-1)/2-k > (int) sizeof(code_t) * 8,
-      "n %d, k %d cannot be contained in %d bits, increase CODEBITS\n",
-      n, k, (int) sizeof(code_t));
+  die_if (n*(n-1)/2-k > (int) sizeof(dgword_t) * 8,
+      "n %d, k %d cannot be contained in %d bits, increase DG_WORDBITS\n",
+      n, k, (int) sizeof(dgword_t));
   xnew(m->fbnr, m->size);
   m->dostat = 0; /* disable stat by default, the user can turn it on manually */
   m->tot = m->misses = m->hits = 1e-30;
@@ -330,7 +330,7 @@ INLINE double dgmapl_fbnr_lookup0(dgmapl_t *m, const dg_t *g,
   static dgmapl_t *mapl[DGMAPL_NMAX + 1]; /* default maps are shared */
   static int st[DGMAPL_NMAX + 1];
 #pragma omp threadprivate(st)
-  code_t c;
+  dgword_t c;
   int hasnew;
   DG_DEFN_(g);
   dgmapl_int_t ifbnr[2];

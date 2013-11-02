@@ -542,7 +542,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       fb = fbarr[n];
       nr = 1;
     } else if (n <= nlookup) { /* lookup table */
-      code_t code;
+      dgword_t code;
       unqid_t uid;
       dgmap_t *m = dgmap_ + n;
       dg_encode(g, &code);
@@ -602,7 +602,7 @@ INLINE int getpair(int *pi, int *pj, const dg_t *g,
 {
   int i, j, npr = 0, id, n = g->n;
   static int pr[DG_NMAX*DG_NMAX];
-  code_t mask = MKBITSMASK(n);
+  dgword_t mask = MKBITSMASK(n);
 
   for (i = 0; i < n; i++) { /* the vertex to remove */
     if ( n > 2 && !dg_biconnectedvs(g, mask ^ MKBIT(i)) ) continue;

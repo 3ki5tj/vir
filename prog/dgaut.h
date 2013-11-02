@@ -6,7 +6,7 @@
 
 
 /* set parameteters for the program `nauty' (No AUTomorphism, Yes?) */
-#define WORDSIZE        CODEBITS
+#define WORDSIZE        DG_WORDBITS
 #define MAXN            DG_NMAX
 #define ONE_WORD_SETS 1 /* use one-word set when possible */
 #include "nau0s.h"
@@ -16,7 +16,7 @@
 /* canonical label */
 INLINE dg_t *dg_canlabel(dg_t *gout, const dg_t *gin)
 {
-  static code_t g0[DG_NMAX], gc[DG_NMAX];
+  static dgword_t g0[DG_NMAX], gc[DG_NMAX];
   static int lab[DG_NMAX], ptn[DG_NMAX], orbits[DG_NMAX];
   static DEFAULTOPTIONS_GRAPH(options);
   static statsblk stats;
@@ -39,7 +39,7 @@ INLINE dg_t *dg_canlabel(dg_t *gout, const dg_t *gin)
 typedef struct {
   int n; /* number of vertices */
   int nc; /* number of sets in the partition */
-  code_t cs[DG_NMAX]; /* cs[i] is the ith vertex set */
+  dgword_t cs[DG_NMAX]; /* cs[i] is the ith vertex set */
   int cnt[DG_NMAX]; /* cnt[i] is the number of vertices in set i */
 } dgpart_t; /* an ordered partition, a sequence of vertex sets */
 
@@ -62,7 +62,7 @@ INLINE void dgpart_unit(dgpart_t *part, int n)
 INLINE void dgpart_fprint(const dgpart_t *part, FILE *fp)
 {
   int ic, k;
-  code_t vs, b;
+  dgword_t vs, b;
 
   for (ic = 0; ic < part->nc; ic++) {
     for (vs = part->cs[ic]; vs; vs ^= b) {
@@ -81,7 +81,7 @@ INLINE void dgpart_fprint(const dgpart_t *part, FILE *fp)
 INLINE int dgpart_check(const dgpart_t *part, int equitable, const dg_t *g)
 {
   int ic, sz;
-  code_t all = 0, vs;
+  dgword_t all = 0, vs;
 
   for (ic = 0; ic < part->nc; ic++) {
     vs = part->cs[ic];
@@ -110,7 +110,7 @@ INLINE int dgpart_check(const dgpart_t *part, int equitable, const dg_t *g)
     /* loop over the shatterers */
     for (ic = 0; ic < part->nc; ic++) {
       int jc, deg0, deg, k, k0;
-      code_t vsi, vsj, b;
+      dgword_t vsi, vsj, b;
       vsi = part->cs[ic];
       /* loop over the shatterees */
       for (jc = 0; jc < part->nc; jc++) {
@@ -147,8 +147,8 @@ INLINE void dg_equipart(dgpart_t *part, const dg_t *g)
 {
   DG_DEFN_(g);
   int i, i0, imax, j, k, deg, ni;
-  code_t vsj, vsi, vs, b;
-  code_t vswdeg[DG_NMAX]; /* vswdeg[i] is the vertex set with degree i */
+  dgword_t vsj, vsi, vs, b;
+  dgword_t vswdeg[DG_NMAX]; /* vswdeg[i] is the vertex set with degree i */
 
   for (j = 0; j < part->nc; j++) { /* loop over shatterers */
     vsj = part->cs[j];
@@ -176,7 +176,7 @@ INLINE void dg_equipart(dgpart_t *part, const dg_t *g)
       if (ni == 1) { /* one-vertex cell, nothing to shatter */
         continue;
       } else {
-        code_t nzdegs, nz, bdeg;
+        dgword_t nzdegs, nz, bdeg;
         /* we use count sort to shatter vsi, that is,
          * we sort cells according to their degrees with respect to vsj
          * then each nonempty bags labeled by the degree gives the shatterer */
@@ -227,7 +227,7 @@ INLINE void dg_permequipart(int *perm, const dg_t *g, int recur)
   DG_DEFN_(g);
   dgpart_t part;
   int ic, k, i;
-  code_t vs, b;
+  dgword_t vs, b;
 
   /* initially set part as the unit partition */
   dgpart_unit(&part, DG_N_);
@@ -272,7 +272,7 @@ INLINE void dg_permdegseq(int *perm, const dg_t *g)
 {
   DG_DEFN_(g);
   int i, k, deg;
-  code_t cvs[DG_NMAX], vs, b;
+  dgword_t cvs[DG_NMAX], vs, b;
 #define DG_DEGMIN 0 /* can be 2 for biconnected graphs */
 
   for (i = DG_DEGMIN; i < DG_N_; i++) cvs[i] = 0;
@@ -295,7 +295,7 @@ INLINE void dg_permutate(dg_t * RESTRICT gout, const dg_t * RESTRICT gin, const 
 {
   DG_DEFN_(gin);
   int i, j;
-  code_t ci, ci_out;
+  dgword_t ci, ci_out;
 
   gout->n = DG_N_;
   dg_empty(gout); /* adding this appears to make the function faster? */
@@ -315,7 +315,7 @@ INLINE int dg_checkiso(const dg_t *a, const dg_t *b, const int *perm)
 {
   DG_DEFN_(b);
   int i, j;
-  code_t cai, cbi;
+  dgword_t cai, cbi;
 
   for (i = 0; i < DG_N_; i++)
     for (cai = a->c[perm[i]], cbi = b->c[i], j = 0; j < DG_N_; j++)

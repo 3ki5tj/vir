@@ -38,12 +38,12 @@ INLINE double dg_rhiter(int n, int n0, double sc)
 INLINE dg_t *dg_mintop(dg_t *g)
 {
   int i;
-  code_t mask = MKBITSMASK(g->n);
+  dgword_t mask = MKBITSMASK(g->n);
 
   /* remove fully-connected vertices until it is no longer biconnected */
   for (i = 0; i < g->n; i++) {
     /* construct a vertex set without i */
-    code_t vs = mask ^ MKBIT(i);
+    dgword_t vs = mask ^ MKBIT(i);
     /* see if removing a fully-connected vertex leaves
      * the diagram biconnected */
     if ( g->c[i] == vs && dg_biconnectedvs(g, vs) ) {
@@ -57,11 +57,11 @@ INLINE dg_t *dg_mintop(dg_t *g)
 
 /* check if a graph is biconnected under the assumption that
  * only vertices in avs can be articulation points */
-INLINE int dg_biconnectedavs(const dg_t *g, code_t avs)
+INLINE int dg_biconnectedavs(const dg_t *g, dgword_t avs)
 {
   DG_DEFN_(g);
   DG_DEFMASKN_();
-  code_t b;
+  dgword_t b;
 
   for (b = 1; b & DG_MASKN_; b <<= 1)
     if ( (b & avs) && !dg_connectedvs(g, DG_MASKN_ ^ b) )
@@ -72,11 +72,11 @@ INLINE int dg_biconnectedavs(const dg_t *g, code_t avs)
 
 
 #if 0 /* same as the above but slightly slower version */
-INLINE int dg_biconnectedavsb(const dg_t *g, code_t avs)
+INLINE int dg_biconnectedavsb(const dg_t *g, dgword_t avs)
 {
   DG_DEFN_(g);
   DG_DEFMASKN_();
-  code_t b;
+  dgword_t b;
 
   for (; avs; avs ^= b) /* `b' is the first nonzero bit */
     if ( !dg_connectedvs(g, DG_MASKN_ ^ (b = avs & (-avs))) )
@@ -93,7 +93,7 @@ INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
 {
   DG_DEFN_(g);
   DG_DEFMASKN_();
-  code_t avs, avsi;
+  dgword_t avs, avsi;
   double sc = 0;
 
   /* find the pair after (i, j) with i < j */
@@ -268,7 +268,7 @@ INLINE double dg_rhsc_lookup(const dg_t *g)
 #pragma omp threadprivate(sc)
   DG_DEFN_(g);
   dgmap_t *m = dgmap_ + DG_N_;
-  code_t c;
+  dgword_t c;
 
   if (DG_N_ <= 1) return 1;
 

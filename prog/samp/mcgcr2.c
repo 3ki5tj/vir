@@ -358,7 +358,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       fb = fbarr[n];
       nr = 1;
     } else if (n <= nlookup) { /* lookup table */
-      code_t code;
+      dgword_t code;
       unqid_t uid;
       dgmap_t *m = dgmap_ + n;
 

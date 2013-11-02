@@ -12,7 +12,7 @@
 static void bcstat(int nmax, double nsteps)
 {
   int i, j, n;
-  code_t vs;
+  dgword_t vs;
   rvn_t *v, u;
   double t, *cnt;
   dg_t *g;

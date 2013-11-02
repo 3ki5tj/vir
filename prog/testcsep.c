@@ -30,7 +30,7 @@ static void testrtl(void)
 static void testcsep(void)
 {
   dg_t *g;
-  code_t c, bw;
+  dgword_t c, bw;
   /* Fig 2. of Decomposition by clique separator,
    * R. E. Tarjan, Discrete Mathematics 55 (1985) 221-232 */
   int pair3[][2] = {{0, 1}, {0, 2}, {0, 3}, {0, 4}, {1, 2}, {1, 4},
@@ -130,14 +130,14 @@ static void verify_allzerofb(int n, int verbose)
 {
   dg_t *g = dg_open(n);
   int ncsep, cnt = 0, *visited;
-  code_t c, npr;
+  dgword_t c, npr;
   double fb;
   unqid_t uid;
 
   die_if(n > DGMAP_NMAX, "n %d is too large\n", n);
   dg_biconnected_lookup(g); /* initialize the lookup table */
   xnew(visited, dgmap_[n].ng); /* number of unique diagrams */
-  npr = (code_t) 1u << (n * (n - 1) / 2);
+  npr = (dgword_t) 1u << (n * (n - 1) / 2);
   for (c = 0; c < npr; c++) {
     dg_decode(g, &c);
     uid = dgmap_[n].map[c];
@@ -176,7 +176,7 @@ static void verify_zerofb(int n, int nsteps)
 {
   dg_t *g = dg_open(n);
   int t, i, j, cnt = 0;
-  code_t c;
+  dgword_t c;
   double fb;
 
   dg_full(g);

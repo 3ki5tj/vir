@@ -51,7 +51,7 @@ static void testequipart(void)
   dgpart_unit(&part, g->n);
   while (part.nc < g->n) {
     int ip;
-    code_t vs, b;
+    dgword_t vs, b;
 
     dg_equipart(&part, g);
     if (part.nc == g->n) break;

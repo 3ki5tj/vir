@@ -724,7 +724,7 @@ INLINE double rvn_voladd(rvn_t *x, int n, rvn_t xi)
 /* return if removing vertex i leaves the diagram biconnected */
 INLINE int dgmc_nremove(const dg_t *g, int n, int *i)
 {
-  code_t vs = MKBITSMASK(n);
+  dgword_t vs = MKBITSMASK(n);
   int j;
 
   *i = (int) (rnd0() * n);
@@ -789,7 +789,7 @@ INLINE int rvn_voladd_dock(rvn_t *x, int n, rvn_t xi, real rc)
 /* return if removing vertex i leaves the diagram biconnected */
 INLINE int dgmc_nremove_dock(const dg_t *g, rvn_t *x, int n, real rc)
 {
-  code_t vs = MKBITSMASK(n);
+  dgword_t vs = MKBITSMASK(n);
   int i, j, k;
 
   j = (int) (rnd0() * n * (n - 1));

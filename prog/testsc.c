@@ -63,7 +63,7 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
     /* compare with the RJW result */
     g2 = dg_open(g->n);
     for (ig = 0; ig < dgmap_[n].ng; ig++) {
-      code_t code = dgmap_[n].first[ig];
+      dgword_t code = dgmap_[n].first[ig];
       dg_decode(g2, &code);
       sc1 = dg_rhsc(g2);
       sc2 = dg_hsfb(g2);

@@ -3,6 +3,9 @@
 
 /* full hash table */
 
+
+/* hash table is pretty much universal,
+ * so we enable it whenever this file is included */ 
 #ifndef DGHASH_EXISTS
 #define DGHASH_EXISTS 1
 #endif
@@ -12,12 +15,12 @@
 
 
 /* although set code bits to 64 would possible make hash function faster
- * it might make Wheatley's method slow, esp on a 32-bit machine
+ * it might make Wheatley's method slow on a 32-bit machine
  * the disadvantage outweights the advantage */
 /*
-#ifndef CODEBITS
+#ifndef DG_WORDBITS
 #if defined(N) && (N >= 9)
-#define CODEBITS 64
+#define DG_WORDBITS 64
 #endif
 #endif
 */
@@ -31,13 +34,13 @@
 
 /* the number of words to save the code of a graph of vertices
  * the number of bits needed is n * (n - 1) / 2
- * divide this by sizeof(code_t) is DGHASH_CWORDS */
+ * divide this by sizeof(dgword_t) is DGHASH_CWORDS */
 #define DGHASH_CBITS  (DG_NMAX *(DG_NMAX - 1)/2)
-#define DGHASH_CWORDS ((DGHASH_CBITS + CODEBITS - 1)/CODEBITS)
+#define DGHASH_CWORDS ((DGHASH_CBITS + DG_WORDBITS - 1)/DG_WORDBITS)
 
 
 /* linear congruential generator */
-#if CODEBITS == 32
+#if DG_WORDBITS == 32
 #define DGHASH_LCG(c) ((c) * 314159265u + 1u)
 #else
 #define DGHASH_LCG(c) ((c) * 6364136223846793005ull + 1442695040888963407ull)
@@ -47,15 +50,15 @@
 /* we will use a random number generator to scramble to code */
 #if DGHASH_CWORDS == 1
   #define DGHASH_GETID(id, c, cnt, hbits) \
-    id = (DGHASH_LCG(c[0]) >> (CODEBITS - hbits))
+    id = (DGHASH_LCG(c[0]) >> (DG_WORDBITS - hbits))
 #elif DGHASH_CWORDS == 2
   #define DGHASH_GETID(id, c, cnt, hbits) \
-    id = DGHASH_LCG(DGHASH_LCG(c[0]) + c[1]) >> (CODEBITS - hbits)
+    id = DGHASH_LCG(DGHASH_LCG(c[0]) + c[1]) >> (DG_WORDBITS - hbits)
 #else
   #define DGHASH_GETID(id, c, cnt, hbits) { int k_; \
     for (id = DGHASH_LCG(c[0]), k_ = 1; k_ < cnt; k_++) \
       id = DGHASH_LCG(id + c[k_]); \
-    id >>= CODEBITS - hbits; }
+    id >>= DG_WORDBITS - hbits; }
 #endif /* DGHASH_CWORDS == 1 */
 
 /* map DGHASH_CWORDS_ to the macro if possible, or a variable otherwise */
@@ -82,7 +85,7 @@
 
 
 /* compare two scodes */
-INLINE int dgls_ccmp(const code_t *a, const code_t *b, int cwords)
+INLINE int dgls_ccmp(const dgword_t *a, const dgword_t *b, int cwords)
 {
 #if DGHASH_CWORDS == 1
   if (a[0] > b[0]) return 1;
@@ -117,7 +120,7 @@ INLINE int dgls_ccmp(const code_t *a, const code_t *b, int cwords)
 
 
 typedef struct {
-  code_t c[DGHASH_CWORDS];
+  dgword_t c[DGHASH_CWORDS];
   dgls_fb_t fb, nr;
 } dglsent_t;
 
@@ -128,16 +131,20 @@ typedef struct {
 } dgls_t;
 
 typedef struct {
-  int n;
+  int n; /* number of vertices in the graph */
   int bits; /* number of hash bits */
-  int cwords; /* number of code_t to save the connectivity matrix */
-  size_t blksz;
+  int cwords; /* number of dgword_t to save the connectivity matrix */
+  size_t blksz; /* number of items to allocate for each list */
   size_t lsn; /* number of lists */
-  dgls_t *ls;
+  dgls_t *ls; /* each ls[key], where key = 0..lsn-1, is a list of items
+                 under the same hash key */
   size_t mem; /* total memory usage in bytes */
   size_t memmax; /* maximal memory usage in bytes */
-  int level;
-  int dostat;
+  int level; /* automorphism level, see dgaut.h/dg_getrep() for details
+                0 means no tranformation to the graph
+                1 means to find a version compatible with the degree sequence
+                4 means to find the canonical label */
+  int dostat; /* collect the following data */
   double tot, hits; /* statistics */
 } dghash_t;
 
@@ -153,14 +160,19 @@ INLINE dghash_t *dghash_open(int n, int bits, size_t blksz, size_t memmax, int l
   dghash_t *h;
   size_t i;
   /* approximate hash table size (with low level of automorphism)
+   *
+   * level 1 uses most memory
+   *
    * D        N   level  size (Mb)
    * 2        9     1       50M
-   * 3        9     1      126M
+   * 3        9     1      260M
    * >=4      9     1      160M
    *
-   * 2       10     1      500M
-   * 3       10     1    >1300M
-   * 4       10     1    ~2000M 
+   * 2       10     1    ~2000M
+   * 3       10     1    ~6000M
+   * 4       10     1    ~7000M 
+   *
+   * level 4 uses least memory
    *
    * 3        9     4       29M
    * 3       10     4      180M
@@ -176,7 +188,7 @@ INLINE dghash_t *dghash_open(int n, int bits, size_t blksz, size_t memmax, int l
 
   xnew(h, 1);
   h->n = n;
-  h->cwords = (n * (n - 1) / 2 + CODEBITS - 1) / CODEBITS;
+  h->cwords = (n * (n - 1) / 2 + DG_WORDBITS - 1) / DG_WORDBITS;
   h->bits = bits;
   h->blksz = blksz;
   h->memmax = memmax;
@@ -217,9 +229,9 @@ INLINE void dghash_close(dghash_t *h)
 
 
 /* return the hash list id */
-INLINE code_t dghash_getid(const dg_t *g, code_t *c, int cwords, int hbits, int level)
+INLINE dgword_t dghash_getid(const dg_t *g, dgword_t *c, int cwords, int hbits, int level)
 {
-  code_t id;
+  dgword_t id;
   static dg_t *ng;
 #pragma omp threadprivate(ng)
 
@@ -232,9 +244,9 @@ INLINE code_t dghash_getid(const dg_t *g, code_t *c, int cwords, int hbits, int 
 }
 
 
-/* find the code_t *c in the list
+/* find the dgword_t *c in the list
  * if it fails, *pos returns the point for insertion */
-INLINE int dgls_find(dgls_t *ls, code_t *c, int cwords, int *pos)
+INLINE int dgls_find(dgls_t *ls, dgword_t *c, int cwords, int *pos)
 {
   int imin, imax, imid, cmp;
 
@@ -254,11 +266,13 @@ INLINE int dgls_find(dgls_t *ls, code_t *c, int cwords, int *pos)
 
 
 
-/* insert the new entry just before position ipos */
-INLINE int dgls_add(dgls_t *ls, int ipos, const code_t *c, int cwords,
+/* insert the new entry just before position `ipos' in the list `ls' */
+INLINE int dgls_add(dgls_t *ls, int ipos, const dgword_t *c, int cwords,
     double fb, double nr, size_t blksz, size_t *mem, size_t memmax)
 {
   dglsent_t *ent;
+
+  /* check if the list has enough memory */
   if (ls->cap == 0) {
     if (*mem > memmax) return -1;
     *mem += blksz * sizeof(dglsent_t);
@@ -281,13 +295,14 @@ INLINE int dgls_add(dgls_t *ls, int ipos, const code_t *c, int cwords,
 }
 
 
+
 #define dghash_fbnr_lookup(g, nr) \
   dghash_fbnr_lookup0(NULL, g, nr, 0, NULL, NULL)
 
 INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
     double *nr, int nocsep, int *ned, int *degs)
 {
-  static code_t c[DGHASH_CWORDS];
+  static dgword_t c[DGHASH_CWORDS];
 #pragma omp threadprivate(c)
   static dghash_t *hash[DG_NMAX + 1]; /* default hash, shared */
   DG_DEFN_(g);

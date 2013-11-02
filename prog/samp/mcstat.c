@@ -189,7 +189,7 @@ int main(int argc, char **argv)
 {
   doargs(argc, argv);
   printf("n %d, D %d, nsteps %g, amp %g, nstfb %d, code %d-bit\n",
-      n, D, (double) nsteps, mcamp, nstfb, (int) sizeof(code_t) * 8);
+      n, D, (double) nsteps, mcamp, nstfb, (int) sizeof(dgword_t) * 8);
   mcrun(n, nequil, nsteps, mcamp, nstfb);
   mtsave(NULL);
   return 0;

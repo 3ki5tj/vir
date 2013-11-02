@@ -67,3 +67,23 @@ arr = getarr(s, n)
 verify(n, magic, arr)
 print "0x%x %s" % (magic, arr)
 
+
+def mkbit2id(n, p):
+  arr = [-1]*p
+  for i in range(n):
+    b = 1 << i
+    rem = b % p
+    if arr[rem] >= 0:
+      print "bad collision %d vs %d" % (i, arr[rem])
+      raise Exception
+    arr[rem] = i
+    print "i %d, 2^i mod %d = %d" % (
+        i, p, rem)
+  return arr
+
+
+print mkbit2id(32, 37)
+
+print mkbit2id(64, 67)
+
+

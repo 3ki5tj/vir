@@ -24,18 +24,18 @@
 INLINE double dghash_dummy_lookup(const dg_t *g)
 {
   static dghash_t *hash;
-  static code_t c[DGHASH_CWORDS];
+  static dgword_t c[DGHASH_CWORDS];
 #pragma omp threadprivate(hash, c);
   DG_DEFN_(g);
-  int pos, ipos;
+  int pos, ipos, level = -1;
   dgls_t *ls;
 
   if (hash == NULL) {
-    hash = dghash_open(DG_N_, HASHBITS, BLKSZ, MEMMAX);
+    hash = dghash_open(DG_N_, HASHBITS, BLKSZ, MEMMAX, level);
     hash->dostat = 1; /* turn on statistics */
   }
 
-  ls = hash->ls + dghash_getid(g, c, hash->cwords, hash->bits);
+  ls = hash->ls + dghash_getid(g, c, hash->cwords, hash->bits, level);
   pos = dgls_find(ls, c, hash->cwords, &ipos);
   hash->tot += 1;
   hash->hits += (pos >= 0);

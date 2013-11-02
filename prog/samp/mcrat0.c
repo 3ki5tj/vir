@@ -11,8 +11,8 @@
 #include "dgmapl.h" /* larger lookup table */
 #include "dghash.h"
 /* dg.h, ..., dgring.h are included in dgmapl.h or dghash.h if they exist
- * the preferred CODEBITS are set there, if neither is available, we include
- * dgring.h directly */
+ * the preferred DG_WORDBITS are set there, if neither is available, we include
+ * dgring.h directly, which in turn includes dgsc.h, dgrjw.h, etc. */
 #include "dgring.h"
 #include "mcutil.h"
 
@@ -154,7 +154,7 @@ static void doargs(int argc, char **argv)
     printf("D %d, n %d, %g steps, amp %g, nstfb %d, %d-bit, "
       "%s, %s disp, Bring %g\n",
       D, n, 1.*nsteps, mcamp, nstfb,
-      (int) sizeof(code_t) * 8, lookup ? "lookup" : "direct",
+      (int) sizeof(dgword_t) * 8, lookup ? "lookup" : "direct",
       gdisp ? "Gaussian" : "uniform", Bring);
   } else { /* change file names for slave nodes */
     if (fnout) fnout = fnappend(fnout, inode);
@@ -260,7 +260,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   rvn_t x[DG_NMAX], nx[DG_NMAX], xi;
   int i, j, pid, it, acc;
   dg_t *g, *ng;
-  code_t code, ncode;
+  dgword_t code, ncode;
   double t, fb, nr;
   av0_t fbsm, nrsm, cacc, racc;
   unqid_t gmapid;

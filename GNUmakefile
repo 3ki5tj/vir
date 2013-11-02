@@ -8,6 +8,8 @@ $(prj)pack.zip::
 	  	prog/intg/*.c prog/intg/README prog/intg/Makefile \
 		prog/samp/*.c prog/samp/README prog/samp/Makefile \
 	  	prog/samp/*.py prog/samp/bak/*.c \
+		prog/java/*.java prog/java/*.html prog/java/Makefile \
+		prog/java/default* \
 		data/Bring.dat data/bcacc.txt \
 		deploy/stampede/* \
 		doc/README doc/Makefile \
