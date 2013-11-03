@@ -383,7 +383,12 @@ INLINE void initx(rvn_t *x, int n)
 INLINE void initxring(rvn_t *x, int n)
 {
   int i;
-  double a = 0.9/(2.*sin(M_PI/n));
+  double a;
+#pragma omp critical
+  { /* somehow this statement needs to be wrapped in an omp critial block
+     * to avoid an error for the Intel's thread checker inspxe-cl -collect ti3 */
+    a = 0.9/(2.*sin(M_PI/n));
+  }
 
   for (i = 0; i < n; i++) {
     rvn_zero(x[i]);

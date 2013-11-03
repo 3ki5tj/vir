@@ -6,8 +6,8 @@
 
 #include <time.h>
 #include <limits.h>
-#include "dg.h"
 #include "dgcsep.h"
+#include "dgutil.h"
 
 
 

@@ -1,5 +1,5 @@
 #include <time.h>
-#include "dg.h"
+#include "dgmap.h"
 
 
 typedef struct {

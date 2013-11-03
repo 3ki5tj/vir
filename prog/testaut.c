@@ -120,7 +120,7 @@ static void testspeed(int n, int nsamp, int nedmax)
       int kk;
       t0 = clock();
       for (kk = 0; kk < lscnt; kk++)
-        dg_getrep(ng, gls[kk], level);
+        dg_repiso(ng, gls[kk], level);
       tsum[level] += clock() - t0;
     }
     sum += lscnt;

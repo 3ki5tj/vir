@@ -27,11 +27,11 @@ INLINE double dghash_dummy_lookup(const dg_t *g)
   static dgword_t c[DGHASH_CWORDS];
 #pragma omp threadprivate(hash, c);
   DG_DEFN_(g);
-  int pos, ipos, level = -1;
+  int pos, ipos, level = -1, enumiso = 1;
   dgls_t *ls;
 
   if (hash == NULL) {
-    hash = dghash_open(DG_N_, HASHBITS, BLKSZ, MEMMAX, level);
+    hash = dghash_open(DG_N_, HASHBITS, BLKSZ, MEMMAX, level, enumiso, 0);
     hash->dostat = 1; /* turn on statistics */
   }
 

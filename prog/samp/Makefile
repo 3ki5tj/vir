@@ -20,7 +20,8 @@ MPICC = mpicc -DMPI -Wall -Wextra -O3 -march=native
 MPILM =
 
 
-deps = dg.h dgmapl.h dgcsep.h dgrjw.h dgsc.h dgring.h dgaut.h dghash.h zcom.h Makefile mcutil.h
+deps = dg.h dgmap.h dgmapl.h dgutil.h dgcsep.h dgrjw.h dgsc.h dgring.h dgaut.h dghash.h \
+       zcom.h Makefile mcutil.h
 bins = mcrat0 mcrat1 mcgc2 mcgcr2
 bins_d = $(patsubst %, %_d, $(bins))
 bins_mp = $(patsubst %, %_mp, $(bins))

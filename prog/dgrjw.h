@@ -2,7 +2,6 @@
 #define DGRJW_H__
 /* compute the overall weight of a configuration
  * by the method of Richard J. Wheatley, PRL 110, 200601 (2013) */
-#include "dg.h"
 #include "dgcsep.h"
 #include "dgsc.h"
 #include <time.h>

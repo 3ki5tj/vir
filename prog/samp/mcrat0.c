@@ -51,6 +51,8 @@ int hash_bits = 0;
 unsigned hash_blksz = 0;
 double hash_memmax = 0;
 int auto_level = -1;
+int hash_isoenum = -1;
+int hash_isomax = 0; /* default value */
 
 int dostat = 0; /* applies to mapl and hash */
 
@@ -89,6 +91,8 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--hash-blksz",  "%u",   &hash_blksz,  "number of entries to allocate in each hash table list");
   argopt_add(ao, "--hash-memmax", "%lf",  &hash_memmax, "maximal memory for the hash table");
   argopt_add(ao, "--auto-level",  "%d",   &auto_level,  "automorphism level, -1: canonical label, 0: no transformation, 1: degree sequence, 2 or 3: first automorphism in the searching tree");
+  argopt_add(ao, "--hash-isoenum","%d",   &hash_isoenum,"enumerate isomorphic graphs after a new graph is found, 1: yes, 0: no, -1: default");
+  argopt_add(ao, "--hash-isomax", "%d",   &hash_isomax, "maximal number of items to used in the above enumeration");
 
   argopt_add(ao, "--stat",        "%b",   &dostat,      "compute statistics");
 
@@ -179,7 +183,7 @@ static int save(const char *fn, double vir,
     const av0_t *fbsm, const av0_t *nrsm)
 {
   FILE *fp;
-  char fndef[64];
+  char fndef[64] = "";
 
   mkfndef(fn, fndef, D, n, inode);
   xfopen(fp, fn, "w", return -1);
@@ -197,7 +201,7 @@ static int save(const char *fn, double vir,
 static int load(const char *fn, av0_t *fbsm, av0_t *nrsm)
 {
   FILE *fp;
-  char fndef[64];
+  char fndef[64] = "";
   char s[512];
   int d = 0, n1 = 0;
 
@@ -420,8 +424,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   if ( hash_on ) {
 #pragma omp critical
     if ( hash == NULL ) {
-      hash = dghash_open(n, hash_bits, hash_blksz,
-          (size_t) (hash_memmax + .5), auto_level);
+      hash = dghash_open(n, hash_bits, hash_blksz, (size_t) (hash_memmax + .5),
+          auto_level, hash_isoenum, hash_isomax);
       hash->dostat = dostat;
     }
     //printf("%4d: hash %p\n", inode, hash);

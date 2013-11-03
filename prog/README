@@ -7,14 +7,18 @@ Basic routines of manipulating diagrams (graphs)
 Files
 ------
 dg.h        basic diagram
+dgmap.h     basic lookup table for n <= 8
+dgutil.h    nonessential utility routines
 dgcsep.h    clique separator
 dgcs.h      Ree-Hoover star content, which can be used to compute
             the total weight of a configuration of a hard-sphere system
 dgrjw.h     the total weight of a configuration of a hard-sphere system
             alternative algorithm by R. J. Wheatley
             consider #define RJW32 1 on a 32-bit machine
-dgdb.h      database
-dgque.h     short history list
+dgring.h    ring content
+dgmapl.h    larger lookup table for n = 9, 10
+dgaut.h     automorphism (used by dghash.h)
+dghash.h    hash table
 
 
 Utility programs
@@ -24,3 +28,10 @@ bcstat.c    compute the probability of making a biconnected diagram
 
 testrjw.c   test the speed
 
+
+
+
+Dead files
+------------
+dgdb.h      database
+dgque.h     short history list

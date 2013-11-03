@@ -97,13 +97,6 @@ typedef int64_t sdgword_t;
 
 
 
-typedef struct {
-  int n;
-  dgword_t *c; /* the jth bit of c[i] is 1 if the vertices i and j are adjacent */
-} dg_t;
-
-
-
 #if DG_WORDBITS == 32
 
 /* these masks can be generated from the helper python script mask.py */
@@ -337,228 +330,11 @@ INLINE int bitfirst(dgword_t x)
 
 
 
-/* return if the edge between i and j are connected */
-#define dg_linked(g, i, j) ( ( (g)->c[i] >> (j) ) & 1u )
 
-
-
-/* add an edge between i and j */
-#define DG_LINK(g, i, j) { \
-  (g)->c[i] |= MKBIT(j); \
-  (g)->c[j] |= MKBIT(i); }
-
-/* safer function version */
-INLINE void dg_link(dg_t *g, int i, int j)
-{
-  DG_LINK(g, i, j);
-}
-
-
-
-/* remove an edge between i and j */
-#define DG_UNLINK(g, i, j) { \
-  (g)->c[i] &= ~MKBIT(j); \
-  (g)->c[j] &= ~MKBIT(i); }
-
-/* safer function version */
-INLINE void dg_unlink(dg_t *g, int i, int j)
-{
-  DG_UNLINK(g, i, j);
-}
-
-
-
-/* construct `sg' by removing vertex `i0' from `g'
- * `sg' and `g' can be the same */
-INLINE dg_t *dg_remove1(dg_t *sg, dg_t *g, int i0)
-{
-  int i, is = 0, n = g->n;
-  dgword_t maskl, maskh;
-
-#ifdef N
-  die_if(n - 1 != N, "dg_remove1 cannot be used n %d with fixed N\n", n);
-#endif
-  maskl = MKBITSMASK(i0);
-  maskh = ~maskl;
-  for (i = 0; i < n; i++) {
-    if (i0 == i) continue;
-    sg->c[is++] = (g->c[i] & maskl) | ((g->c[i] >> 1) & maskh);
-  }
-  sg->n = n - 1;
-  return sg;
-}
-
-
-
-/* degree of vertex i */
-#define dg_deg(g, i) bitcount( (g)->c[i] )
-
-/* degree of vertex i with respect to a vertex set vs */
-#define dg_degvs(g, i, vs) bitcount( ((g)->c[i]) & vs )
-
-
-
-/* get the degree sequence, return the number of edges */
-INLINE int dg_degs(const dg_t *g, int *degs)
-{
-  int i, sum = 0;
-  DG_DEFN_(g);
-
-  for (i = 0; i < DG_N_; i++)
-    sum += ( degs[i] = dg_deg(g, i) );
-  return sum / 2;
-}
-
-
-
-/* count sort the degree sequence, TO BE TESTED */
-INLINE void dg_csortdegs(int n, int *degs)
-{
-  int i, j, k = 0;
-  static int cnt[DG_NMAX] = {0};
-#pragma omp threadprivate(cnt)
-
-  for (i = 0; i < DG_N_; i++) cnt[ degs[i] ]++;
-  for (i = DG_N_ - 1; i >= 0; i--)
-    for (j = 0; j < cnt[i]; j++) degs[k++] = i;
-}
-
-
-
-/* count the number of edges */
-INLINE int dg_nedges(const dg_t *g)
-{
-  int i, ne;
-  DG_DEFN_(g);
-
-  for (ne = i = 0; i < DG_N_; i++)
-    ne += bitcount(g->c[i]);
-  return ne / 2; /* divided by 2 for double-counting */
-}
-
-
-
-/* choose a random edge, return the number of edges */
-INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
-{
-  int i, j, k, ne, ipr, rr;
-  DG_DEFN_(g);
-  dgword_t c, b;
-  static int cnt[DG_NMAX];
-#pragma omp threadprivate(cnt)
-
-  *i0 = *i1 = 0; /* in case no edge exists */
-  for (ne = 0, i = 1; i < DG_N_; i++)
-    ne += cnt[i] = bitcount(g->c[i] & MKBITSMASK(i));
-  rr = (int) (rnd0() * 2 * ne);
-  ipr = rr / 2;
-  /* we will go through pairs such 0 <= j < i < N */
-  for (i = 1; i < DG_N_; ipr -= cnt[i], i++) {
-    if (ipr < cnt[i]) { /* found it */
-      c = g->c[i] & MKBITSMASK(i);
-      for (k = -1, j = 0; j <= ipr; j++, c ^= b) {
-        BITFIRSTLOW(k, c, b);
-      }
-      die_if (k < 0, "i %d, k %d\n", i, k);
-      if (rr % 2) { *i0 = i, *i1 = k; }
-      else { *i0 = k, *i1 = i; }
-      break;
-    }
-  }
-  return ne;
-}
-
-
-
-/* remove all edges */
-INLINE void dg_empty(dg_t *g)
-{
-  int i;
-  DG_DEFN_(g);
-
-  for (i = 0; i < DG_N_; i++)
-    g->c[i] = 0;
-}
-
-
-
-/* a fully connected diagram */
-INLINE void dg_full(dg_t *g)
-{
-  int i;
-  DG_DEFN_(g);
-  DG_DEFMASKN_();
-
-  for (i = 0;  i < DG_N_; i++)
-    /* all bits, except the ith, are 1s */
-    g->c[i] = DG_MASKN_ ^ MKBIT(i);
-}
-
-
-
-/* the complement diagram of h: link <---> g: unlink */
-INLINE dg_t *dg_complement(dg_t *h, dg_t *g)
-{
-  int i;
-  DG_DEFN_(g);
-  DG_DEFMASKN_();
-
-  for (i = 0; i < DG_N_; i++)
-    h->c[i] = DG_MASKN_ ^ (g->c[i] | MKBIT(i));
-  return h;
-}
-
-
-
-/* code the connectivity */
-INLINE dgword_t *dg_encode(const dg_t *g, dgword_t *code)
-{
-  int i, ib = 0;
-  DG_DEFN_(g);
-  dgword_t *c = code, ci;
-
-  for (*c = 0, i = 0; i < DG_N_ - 1; i++) {
-    *c |= ((ci = g->c[i]) >> (i + 1)) << ib;
-    ib += DG_N_ - 1 - i;
-#if !defined(N) || (N*(N-1)/2 > DG_WORDBITS)
-    /* avoid the following step, if the number of edges
-     * can be always contained in a single dgword_t */
-    if (ib >= DG_WORDBITS) {
-      ib -= DG_WORDBITS;
-      *(++c) = ci >> (DG_N_ - ib);
-    }
-#endif
-  }
-  return code;
-}
-
-
-
-/* code the connectivity */
-INLINE dg_t *dg_decode(dg_t *g, dgword_t *code)
-{
-  int i, j, ib = 0;
-  DG_DEFN_(g);
-  dgword_t *c = code;
-
-  dg_empty(g);
-  for (i = 0; i < DG_N_ - 1; i++) {
-    for (j = i + 1; j < DG_N_; j++) {
-      if ((*c >> ib) & 1u)
-        DG_LINK(g, i, j);
-      ++ib;
-#if !defined(N) || (N*(N-1)/2 > DG_WORDBITS)
-      /* avoid the following step, if the number of edges
-       * can be always contained in a single dgword_t */
-      if (ib == DG_WORDBITS) {
-        ib = 0;
-        c++;
-      }
-#endif
-    }
-  }
-  return g;
-}
+typedef struct {
+  int n;
+  dgword_t *c; /* the jth bit of c[i] is 1 if the vertices i and j are adjacent */
+} dg_t;
 
 
 
@@ -625,24 +401,144 @@ INLINE sdgword_t dg_cmp(const dg_t *a, const dg_t *b)
 
 
 
-#define dg_print(g) dg_print0(g, NULL)
+/* return if the edge between i and j are connected */
+#define dg_linked(g, i, j) ( ( (g)->c[i] >> (j) ) & 1u )
 
-INLINE void dg_print0(const dg_t *g, const char *nm)
+
+
+/* add an edge between i and j */
+#define DG_LINK(g, i, j) { \
+  (g)->c[i] |= MKBIT(j); \
+  (g)->c[j] |= MKBIT(i); }
+
+/* safer function version */
+INLINE void dg_link(dg_t *g, int i, int j)
+{
+  DG_LINK(g, i, j);
+}
+
+
+
+/* remove an edge between i and j */
+#define DG_UNLINK(g, i, j) { \
+  (g)->c[i] &= ~MKBIT(j); \
+  (g)->c[j] &= ~MKBIT(i); }
+
+/* safer function version */
+INLINE void dg_unlink(dg_t *g, int i, int j)
+{
+  DG_UNLINK(g, i, j);
+}
+
+
+
+/* remove all edges */
+INLINE void dg_empty(dg_t *g)
+{
+  int i;
+  DG_DEFN_(g);
+
+  for (i = 0; i < DG_N_; i++)
+    g->c[i] = 0;
+}
+
+
+
+/* a fully connected diagram */
+INLINE void dg_full(dg_t *g)
+{
+  int i;
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
+
+  for (i = 0;  i < DG_N_; i++)
+    /* all bits, except the ith, are 1s */
+    g->c[i] = DG_MASKN_ ^ MKBIT(i);
+}
+
+
+
+/* the complement diagram of h: link <---> g: unlink */
+INLINE dg_t *dg_complement(dg_t *h, dg_t *g)
+{
+  int i;
+  DG_DEFN_(g);
+  DG_DEFMASKN_();
+
+  for (i = 0; i < DG_N_; i++)
+    h->c[i] = DG_MASKN_ ^ (g->c[i] | MKBIT(i));
+  return h;
+}
+
+
+
+#define dg_print0(g, nm)  dg_fprint0(g, stdout, nm)
+#define dg_print(g)       dg_print0(g, NULL)
+
+INLINE void dg_fprint0(const dg_t *g, FILE *fp, const char *nm)
 {
   int i, j;
   DG_DEFN_(g);
 
-  printf("%-4s", nm ? nm : "");
+  fprintf(fp, "%-4s", nm ? nm : "");
   for (i = 0; i < DG_N_; i++)
-    printf(" %2d", i);
-  printf("\n");
+    fprintf(fp, " %2d", i);
+  fprintf(fp, "\n");
 
   for (i = 0; i < DG_N_; i++) {
-    printf("%2d: ", i);
+    fprintf(fp, "%2d: ", i);
     for (j = 0; j < DG_N_; j++)
-      printf("  %c", dg_linked(g, i, j) ? '*' : ' ');
-    printf("\n");
+      fprintf(fp, "  %c", dg_linked(g, i, j) ? '*' : ' ');
+    fprintf(fp, "\n");
   }
+}
+
+
+
+/* degree of vertex i */
+#define dg_deg(g, i) bitcount( (g)->c[i] )
+
+/* degree of vertex i with respect to a vertex set vs */
+#define dg_degvs(g, i, vs) bitcount( ((g)->c[i]) & vs )
+
+
+
+/* get the degree sequence, return the number of edges */
+INLINE int dg_degs(const dg_t *g, int *degs)
+{
+  int i, sum = 0;
+  DG_DEFN_(g);
+
+  for (i = 0; i < DG_N_; i++)
+    sum += ( degs[i] = dg_deg(g, i) );
+  return sum / 2;
+}
+
+
+
+/* count sort the degree sequence, TO BE TESTED */
+INLINE void dg_csortdegs(int n, int *degs)
+{
+  int i, j, k = 0;
+  static int cnt[DG_NMAX] = {0};
+#pragma omp threadprivate(cnt)
+
+  for (i = 0; i < DG_N_; i++) cnt[ degs[i] ]++;
+  for (i = DG_N_ - 1; i >= 0; i--)
+    for (j = 0; j < cnt[i]; j++) degs[k++] = i;
+}
+
+
+
+/* count the number of edges */
+INLINE int dg_nedges(const dg_t *g)
+{
+  int i, ne;
+  DG_DEFN_(g);
+
+  for (ne = i = 0; i < DG_N_; i++)
+    ne += bitcount(g->c[i]);
+  return ne / 2; /* divided by 2 for double-counting */
 }
 
 
@@ -764,231 +660,173 @@ INLINE int dg_biconnected_std(const dg_t *g)
 }
 
 
-/* diagram map for n <= DGMAP_NMAX */
-#ifndef DGMAP_NMAX
-#define DGMAP_NMAX 8
-#endif
 
-#if !defined(N) || N <= DGMAP_NMAX
-  #ifndef DGMAP_EXISTS
-  #define DGMAP_EXISTS 1
-  #endif
-#else
-  #ifdef DGMAP_EXISTS
-  #undef DGMAP_EXISTS
-  #endif
-#endif
-
-
-#ifdef DGMAP_EXISTS
-typedef short unqid_t;
-
-typedef struct {
-  int ng; /* number of unique diagrams */
-  unqid_t *map; /* map a diagram to the unique diagram
-                   `short' works for n <= 8 */
-  dgword_t *first; /* index of the first unique diagram */
-} dgmap_t;
-
-
-
-dgmap_t dgmap_[DGMAP_NMAX + 1];
-
-
-
-/* compute all permutations of n */
-INLINE int dgmap_getperm(int n, int **pp)
+/* code the connectivity */
+INLINE dgword_t *dg_encode(const dg_t *g, dgword_t *code)
 {
-  int np, npp, ipp, i, top;
-  static int st[DGMAP_NMAX + 2], used[DGMAP_NMAX + 2];
-#pragma omp threadprivate(st, used)
+  int i, ib = 0;
+  DG_DEFN_(g);
+  dgword_t *c = code, ci;
 
-  for (np = 1, i = 1; i <= n; i++) np *= i;
-  npp = np * n;
-  xnew(*pp, npp);
-  /* add all permutations of the diagram */
-  for (i = 0; i < n; i++) {
-    st[i] = -1;
-    used[i] = 0;
-  }
-  for (ipp = 0, top = 0; ; ) {
-    if (top >= n) {
-      /* found an index permutation, build the graph */
-      die_if (ipp >= npp, "ipp %d >= npp %d, n %d\n", ipp, npp, n);
-      for (i = 0; i < n; i++) {
-        die_if (st[i] < 0 || st[i] >= n, "bad %d/%d %d\n", i, n, st[i]);
-        (*pp)[ipp++] = st[i];
-      }
-    } else {
-      for (i = st[top]; ++i < n; )
-        if ( !used[i] ) break;
-      if (i < n) {
-        used[i] = 1;
-        st[top] = i;
-        st[++top] = -1; /* clear the next level */
-        continue;
-      }
+  for (*c = 0, i = 0; i < DG_N_ - 1; i++) {
+    *c |= ((ci = g->c[i]) >> (i + 1)) << ib;
+    ib += DG_N_ - 1 - i;
+#if !defined(N) || (N*(N-1)/2 > DG_WORDBITS)
+    /* avoid the following step, if the number of edges
+     * can be always contained in a single dgword_t */
+    if (ib >= DG_WORDBITS) {
+      ib -= DG_WORDBITS;
+      *(++c) = ci >> (DG_N_ - ib);
     }
-    /* exhausted this level */
-    if (--top < 0) break;
-    used[ st[top] ] = 0;
+#endif
   }
-  return np;
+  return code;
 }
 
 
 
-/* compute initial diagram map */
-INLINE int dgmap_init(dgmap_t *m, int n)
+/* code the connectivity */
+INLINE dg_t *dg_decode(dg_t *g, dgword_t *code)
 {
-  dgword_t c, c1, ng, *masks, *ms;
-  int ipm, npm, *pm, i, j, ipr, npr, sz, gid;
-  clock_t t0;
+  int i, j, ib = 0;
+  DG_DEFN_(g);
+  dgword_t *c = code;
 
-  die_if (n > DGMAP_NMAX || n <= 0, "bad n %d\n", n);
-  /* if any thread sees `m->ng > 0' it is already initialized */
-  if (m->ng > 0) return 0; /* already initialized */
-
-#ifdef _OPENMP
-#pragma omp critical
-  {
-    /* the `if' clause is necessary, it avoids multiple threads
-     * doing the initialization.  Suppose multiple threads reach here
-     * and see m->ng == 0, the first thread enters the block and
-     * does the initialization while the others wait.  Then, when the
-     * second thread enters the block, it can skip the steps only
-     * if it see that `m->ng' has been initialized */
-    if (m->ng <= 0) {
-#endif /* _OPENMP */
-      t0 = clock();
-      if (n >= 8) fprintf(stderr, "%4d: n %d: initializing the diagram map\n", inode, n);
-
-      npr = n * (n - 1) / 2;
-      ng = (int)( 1u << npr );
-      xnew(m->map, ng);
-      fprintf(stderr, "%4d: dgmap allocated %gMB for n %d\n",
-          inode, ng * sizeof(m->map[0]) / (1024.*1024), n);
-      for (c = 0; c < ng; c++) m->map[c] = -1;
-      xnew(m->first, sz = 1024);
-
-      if (n == 1) {
-        m->map[0] = 0;
-        m->first[0] = 0;
-        goto END;
+  dg_empty(g);
+  for (i = 0; i < DG_N_ - 1; i++) {
+    for (j = i + 1; j < DG_N_; j++) {
+      if ((*c >> ib) & 1u)
+        DG_LINK(g, i, j);
+      ++ib;
+#if !defined(N) || (N*(N-1)/2 > DG_WORDBITS)
+      /* avoid the following step, if the number of edges
+       * can be always contained in a single dgword_t */
+      if (ib == DG_WORDBITS) {
+        ib = 0;
+        c++;
       }
+#endif
+    }
+  }
+  return g;
+}
 
-      /* compute all permutations */
-      npm = dgmap_getperm(DG_N_, &pm);
-      /* for each permutation compute the mask of each particle pair */
-      xnew(masks, npm * npr);
-      for (ipm = 0; ipm < npm; ipm++)
-        for (ipr = 0, i = 0; i < DG_N_ - 1; i++)
-          for (j = i + 1; j < DG_N_; j++, ipr++)
-            masks[ipm * npr + ipr] /* code bit of the pair (i, j) */
-              = MKBIT( getpairindex(
-                    pm[ipm*DG_N_ + i], pm[ipm*DG_N_ + j], DG_N_
-                    ) );
-      free(pm);
 
-      /* loop over all diagrams */
-      for (gid = 0, c = 0; c < ng; c++) {
-        if (m->map[c] >= 0) continue;
-        if (gid >= sz) xrenew(m->first, sz += 1024);
-        m->first[gid] = c;
-        /* add all permutations of the diagram */
-        for (ms = masks, ipm = 0; ipm < npm; ipm++) {
-          /* `c1' is the code of the permutated diagram `c' */
-          for (c1 = 0, ipr = 0; ipr < npr; ipr++, ms++)
-            if ((c >> ipr) & 1u) c1 |= *ms;
-          if (m->map[c1] < 0) {
-            m->map[c1] = (unqid_t) gid;
-          } else die_if (m->map[c1] != gid,
-            "%4d: error: corruption code: %#x %#x, graph %d, %d\n",
-            inode, c, c1, m->map[c1], gid);
-        }
-        gid++;
-      }
-      free(masks);
-      fprintf(stderr, "%4d: n %d, initialized, %d unique diagrams, %gs\n",
-         inode, DG_N_, gid, 1.*(clock() - t0)/CLOCKS_PER_SEC);
-      /* we set m->ng now, for everything is properly set now */
-      m->ng = gid;
-  END:
-      ;
-#ifdef _OPENMP
-    } /* m->ng <= 0 */
-  } /* omp critical */
-#endif /* _OPENMP */
+
+/* compare two words of length 1 */
+INLINE int dgword_cmp1(const dgword_t *a, const dgword_t *b)
+{
+  if (a[0] > b[0]) return 1;
+  else if (a[0] < b[0]) return -1;
   return 0;
 }
 
 
 
-/* retrieve the diagram id */
-INLINE unqid_t dg_getmapidx(const dg_t *g, dgword_t *c)
+/* compare two words of length 2 */
+INLINE int dgword_cmp2(const dgword_t *a, const dgword_t *b)
 {
-  DG_DEFN_(g);
-
-  dgmap_init(&dgmap_[DG_N_], DG_N_);
-  dg_encode(g, c);
-  return dgmap_[DG_N_].map[*c];
+  if (a[0] > b[0]) return 1;
+  else if (a[0] < b[0]) return -1;
+  return 0;
 }
 
 
 
-/*  retrieve the diagram id */
-INLINE unqid_t dg_getmapid(const dg_t *g)
+/* compare two words of length n */
+INLINE int dgword_cmp(const dgword_t *a, const dgword_t *b, int n)
 {
-  dgword_t c;
-  return dg_getmapidx(g, &c);
-}
-
-
-
-/* done */
-INLINE void dgmap_done(void)
-{
-  int i;
-
-  for (i = 1; i <= DGMAP_NMAX; i++) {
-    dgmap_t *m = dgmap_ + i;
-    if (m->map) free(m->map);
-    if (m->first) free(m->first);
-    m->ng = 0;
+  int k;
+  for (k = n - 1; k >= 0; k--) {
+    if (a[k] > b[k]) return 1;
+    else if (a[k] < b[k]) return -1;
   }
+  return 0;
 }
 
 
 
-/* the macro is slower than the direct version (due to dg_getmapid()) */
-#define dg_biconnected_lookup(g) dg_biconnected_lookuplow(DG_GN_(g), dg_getmapid(g))
-
-/* check if a diagram is biconnected (lookup version)
- * use it only if `id' is known, otherwise it is slower */
-INLINE int dg_biconnected_lookuplow(int n, unqid_t id)
+/* check if two words are equal */
+INLINE int dgword_eq1(const dgword_t *a, const dgword_t *b)
 {
-  /* biconnectivity of unique diagrams */
-  static int *bc[DGMAP_NMAX + 1] = {NULL};
-#pragma omp threadprivate(bc)
+  return (a[0] == b[0]);
+}
 
-  if (bc[DG_N_] == NULL) {
-    /* initialize the look-up table */
-    dg_t *g1 = dg_open(DG_N_);
-    dgmap_t *m = dgmap_ + DG_N_;
-    int k;
 
-    dgmap_init(m, DG_N_);
-    xnew(bc[DG_N_], m->ng);
-    for (k = 0; k < m->ng; k++) {
-      dgword_t c = m->first[k];
-      dg_decode(g1, &c);
-      bc[DG_N_][k] = dg_biconnected(g1);
+
+/* check if two 2-words are equal */
+INLINE int dgword_eq2(const dgword_t *a, const dgword_t *b)
+{
+  return (a[0] == b[0]) && (a[1] == b[1]);
+}
+
+
+
+/* check if two n-words are equal */
+INLINE int dgword_eq(const dgword_t *a, const dgword_t *b, int n)
+{
+  int k;
+  for (k = 0; k < n; k++)
+    if (a[k] != b[k]) return 0;
+  return 1;
+}
+
+
+
+INLINE dgword_t *dgword_cpy(dgword_t *a, const dgword_t *b, int n)
+{
+  int k;
+
+  for (k = 0; k < n; k++)
+    a[k] = b[k];
+  return a;
+}
+
+
+
+/* signed and unsigned comparison, and copy */
+#if defined(N) && (N*(N-1)/2 <= DG_WORDBITS)
+  #define dgcode_cmp(a, b, n) dgword_cmp1(a, b)
+  #define dgcode_eq(a, b, n)  dgword_eq1(a, b)
+  #define DGCODE_CPY(a, b, n) a[0] = b[0]
+#elif defined(N) && (N*(N-1)/2 <= DG_WORDBITS * 2)
+  #define dgcode_cmp(a, b, n) dgword_cmp2(a, b)
+  #define dgcode_eq(a, b, n)  dgword_eq2(a, b)
+  #define DGCODE_CPY(a, b, n) { a[0] = b[0]; a[1] = b[1]; }
+#else
+  #define dgcode_cmp(a, b, n) dgword_cmp(a, b, n)
+  #define dgcode_eq(a, b, n)  dgword_eq(a, b, n)
+  #define DGCODE_CPY(a, b, n) dgword_cpy(a, b, n)
+#endif
+
+
+#define dg_strset1(c) dg_sprintset(NULL, &(c), 1)
+#define dg_sprintset1(s, c) dg_sprintset(s, &(c), 1)
+
+INLINE char *dg_sprintset(char *s, const dgword_t *c, int nc)
+{
+  int ip, ic, k;
+  char *p;
+  dgword_t vs, b;
+
+  /* allocate a string buffer if the input is empty */
+  if (s == NULL && (s = malloc(nc * DG_WORDBITS * 20)) == NULL)
+    return NULL;
+  s[0] = '\0';
+  p = s;
+  for (ic = 0; ic < nc; ic++) {
+    for (vs = c[ic]; vs; vs ^= b) {
+      BITFIRSTLOW(k, vs, b);
+      ip = sprintf(p, "%d ", DG_WORDBITS * ic + k);
+      p += ip;
     }
-    dg_close(g1);
   }
-  return bc[ DG_N_ ][ id ];
+  if (p != s) /* remove the trailing space, if something has been written */
+    p[-1] = '\0';
+  return s;
 }
-#endif /* defined(DGMAP_EXISTS) */
+
+
 
 #endif /* DG_H__ */
 
