@@ -75,6 +75,10 @@ int inode = MASTER, nnodes = 1;
 #endif /* defined DG_WORDBITS */
 
 
+#if defined(N) && N > DG_WORDBITS
+#error only support N to DG_WORDBITS
+#endif
+
 
 #if DG_WORDBITS == 32
 typedef uint32_t dgword_t;
@@ -335,6 +339,15 @@ typedef struct {
   int n;
   dgword_t *c; /* the jth bit of c[i] is 1 if the vertices i and j are adjacent */
 } dg_t;
+
+
+
+/* define a stock diagram object, with g->c declared by values `g_c' */
+#define DG_MKSTOCK_(g, storeclass) \
+  storeclass dgword_t g##_c[DG_NMAX]; \
+  storeclass dg_t g[1] = {{ DG_NMAX, g##_c}};
+
+#define DG_MKSTATICSTOCK(g) DG_MKSTOCK_(g, static)
 
 
 

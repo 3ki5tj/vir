@@ -934,7 +934,7 @@ def getlserr(ls, n):
     if q > 1 and verbose: # print the break down
       for i in range(q):
         # id, dir, weight, x, err
-        print "%2d %-20s %5.2f%% %+20.10e %9.2e" % (
+        print "%2d %-30s %5.2f%% %+20.10e %9.2e" % (
             i + 1, ls[i][2], 100*pow(1./ls[i][1][j], 2)/suminvvar,
             ls[i][0][j], ls[i][1][j])
     avx = sumx / sumw

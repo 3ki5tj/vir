@@ -226,14 +226,14 @@ ipo:
 Hash table
 ~~~~~~~~~~~~~~~~~~~~~
 Note for simulations with "level 1", the starred(*) versions have --hash-isoenum turned on by default
+Note also that some version without --stat runs faster
 
 D = 2, n = 9, -1 1e8 -0 1e6 -w 1, vir = 0.0362202
 T60:  single thread (level 9):  2m37s/2m38s                 icc -DD=2 -DN=9 -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=9
       single thread (level 1):  2m05s/2m04s                 icc -DD=2 -DN=9 -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
      *single thread (level 1):  1m16s/1m16s                 icc -DD=2 -DN=9 -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
-      2-thread (level 9):       4m00s/7m37s                 icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 --hash-mode=1 --stat --auto-level=9
-      2-thread (level 1):       2m10s/4m10s                 icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 --hash-mode=1 --stat --auto-level=1
-     *2-thread (level 1):       1m42s/3m12s                 icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 --hash-mode=1 --stat --auto-level=1
+      2-thread (level 9):       3m42s/7m05s                 icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 --hash-mode=1 --auto-level=9
+     *2-thread (level 1):       1m20s/2m34s                 icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 --hash-mode=1 --auto-level=1
 
 D = 2, n = 9, -1 1e9 -0 1e6 -w 1, vir = 0.0362202
 ipo:  single thread (level 9):  12m00s/12m00s               icc -DD=2 -DN=9 -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=9
@@ -244,9 +244,9 @@ ipo:  single thread (level 9):  12m00s/12m00s               icc -DD=2 -DN=9 -O2 
       2-thread (level 3, 2e9):  18m40s/37m16s               icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --stat --auto-level=3
       2-thread (level 2, 2e9):  17m31s/35m00s               icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --stat --auto-level=2
       2-thread (level 1):        7m07s/14m12s               icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
-     *2-thread (level 1):        6m17s/12m34s               icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
+     *2-thread (level 1):        6m32s/13m2s                icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
       2-thread (level 1, 2e9):  13m07s/26m08s               icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
-     *2-thread (level 1, 2e9):  12m50s/25m37s               icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
+     *2-thread (level 1, 2e9):  12m45s/25m23s               icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
       2-thread (level 1, 4e9):  26m23s/52m28s               icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 4e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
                                 24m27s/48m43s               icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 4e9 -0 1e6 --hash-mode=1 --auto-level=1
      *4-thread (level 1):        6m39s/26m27s               icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=4 ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
@@ -257,14 +257,14 @@ In conclusion, in D = 2, n = 9, with auto_level = 1, hash_isoenum = 1,
 
 D = 3, n = 9, -1 1e8 -0 1e6 -w 1, vir = 1.310e-3
 T60
-     *2-thread (level 1):        1m53s/ 3m39s               icc -DD=3 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
+     *2-thread (level 1):        1m27s/ 2m49s               icc -DD=3 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e8 -0 1e6 --hash-mode=1 --auto-level=1
 
 D = 3, n = 9, -1 1e9 -0 1e6 -w 1, vir = 1.310e-3
 ipo:
       2-thread (level 9):       12m50s/25m35s               icc -DD=3 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=9
       2-thread (level 9, 2e9):  25m24s/50m40s               icc -DD=3 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --stat --auto-level=9
       2-thread (level 1):        8m06s/16m12s               icc -DD=3 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
-     *2-thread (level 1):        6m27s/12m50s               icc -DD=3 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
+     *2-thread (level 1):        6m20s/12m37s               icc -DD=3 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
       2-thread (level 1, 2e9):  15m07s/30m12s               icc -DD=3 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --hash-bits=20 --stat --auto-level=1
       2-thread (level 1, 4e9):  29m56s/59m42s               icc -DD=3 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 4e9 -0 1e6 --hash-mode=1 --hash-bits=20 --auto-level=1
 
@@ -276,6 +276,7 @@ D = 4, n = 9, -1 2e9 -0 1e6 -w 1, vir =
 ipo:
       2-thread (level 9):       22m29s/44m57s               icc -DD=4 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --hash-bits=20 --stat --auto-level=9
       2-thread (level 1):       14m48s/29m34s               icc -DD=4 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --hash-bits=20 --stat --auto-level=1
+      2-thread (level 1, 1e9):   5m55s/11m47s               icc -DD=4 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --hash-bits=24 --stat --auto-level=1
 
 D = 5, n = 9, -1 2e9 -0 1e6 -w 1, vir =
 ipo:
@@ -286,28 +287,28 @@ ipo:
 
 D = 2, n = 10, -1 1e8 -0 1e6 -w 1, vir = 0.019953
 T60:
-      single thread (level 9):  5m50s/5m42s                 icc -DD=2 -DN=10 -O2 -march=native -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1
-     *2-thread (level 1):       5m03s/9m33s                 icc -DD=2 -DN=10 -O2 -march=native -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1 --stat --auto-level=1
+      single thread (level 9):  5m50s/5m42s                 icc -DD=2 -DN=10 -openmp -O2 -march=native -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1
+     *2-thread (level 1):       5m03s/9m33s                 icc -DD=2 -DN=10 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1 --auto-level=1
 
 D = 2, n = 10, -1 1e9 -0 1e6 -w 1, vir = 0.019953
 ipo:  single thread (level 9):  15m30s/15m30s               icc -DD=2 -DN=10 -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e9 -0 1e6 --hash-mode=1
       2-thread (level 9):       18m00s/36m00s               icc -DD=2 -DN=10 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=9
       2-thread (level 9, 2e9):  36m07s/72m06s               icc -DD=2 -DN=10 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --stat --auto-level=9
       2-thread (level 1):       18m18s/36m34s               icc -DD=2 -DN=10 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
-     *2-thread (level 1):        9m54s/19m46s               icc -DD=2 -DN=10 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1 --hash-memmax=1e10
-      2-thread (level 1, 2e9):  30m51s/61m38s               icc -DD=2 -DN=10 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
-      2-thread (level 1,1e10):  129m7s/240m                 icc -DD=2 -DN=10 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e10 -0 1e6 --hash-mode=1 --hash-bits=24 --auto-level=1
+     *2-thread (level 1):        9m58s/19m46s               icc -DD=2 -DN=10 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1 --hash-memmax=1e10
 
 D = 3, n = 10, -1 2e9 -0 1e6 -w 1, vir
 ipo:
-      2-thread (level 9):       31m06s/62m07s               icc -DD=3 -DN=10 -O2 -ipo -openmp mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --stat --auto-level=9 --hash-bits=22
-      2-thread (level 1):       43m55s/87m82s               icc -DD=3 -DN=10 -O2 -ipo -openmp mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --stat --auto-level=1 --hash-bits=22 --hash-memmax=6e9
-     *2-thread (level 1, 1e9):  14m19s/28m28s               icc -DD=3 -DN=10 -O2 -ipo -openmp mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1 --hash-bits=24 --hash-memmax=6e9
-      2-thread (level 1,1e10): 152m42s/304m57s              icc -DD=3 -DN=10 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 1e10 -0 1e6 --hash-mode=1 --hash-bits=24 --auto-level=1
+      2-thread (level 9):       29m07s/58m11s               icc -DD=3 -DN=10 -O2 -ipo -openmp mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --auto-level=9 --hash-bits=23
+     *2-thread (level 1, 2e9):  20m20s/40m11s               icc -DD=3 -DN=10 -O2 -ipo -openmp mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --auto-level=1 --hash-bits=25 --hash-memmax=14e9
 
-D = 4, n = 10, -1 2e9 -0 1e6 -w 1, vir
+
+D = 4, n = 10, -1 1e9 -0 1e6 -w 1, vir
 ipo:
-      2-thread (level 1):       42m07s/84m07s               icc -DD=3 -DN=10 -O2 -ipo -openmp mcrat0.c && rm -f mr* && time OMP_NUM_THREADS=2 ./a.out -1 2e9 -0 1e6 --hash-mode=1 --stat --auto-level=1 --hash-bits=24 --hash-memmax=6e9
+      2-thread (level 9):       14m41s/29m18s               icc -DD=4 -DN=10 -O2 -ipo -openmp mcrat0.c && rm mr* -f && time OMP_NUM_THREADS=2 ./a.out -1 1e9 --hash-mode=1 --auto-level=9 --hash-memmax=6e9  --hash-bits=23 --hash-initls=1
+     *2-thread (level 1):       17m25s/34m47s               icc -DD=4 -DN=10 -O2 -ipo -openmp mcrat0.c && rm mr* -f && time OMP_NUM_THREADS=2 ./a.out -1 1e9 --hash-mode=1 --auto-level=1 --hash-memmax=6e9  --hash-bits=26 --hash-initls=1
+     *2-thread (level 1):       12m34s/24m33s               icc -DD=4 -DN=10 -O2 -ipo -openmp mcrat0.c && rm mr* -f && time OMP_NUM_THREADS=2 ./a.out -1 2e9 --hash-mode=1 --auto-level=1 --hash-memmax=14e9 --hash-bits=26 --hash-initls=1
+Note the memory limit in the second run.
 
 
 

@@ -362,6 +362,7 @@ INLINE int loadBring(int d, int nmin, int nmax, double *B, const char *fn)
     n = 0;
   }
   fclose(fp);
+  ssdel(s);
   fprintf(stderr, "loaded %d Bring entries from %s\n", n - 1, fn);
   return n - 1;
 }
@@ -840,6 +841,26 @@ INLINE char *fnappend(char *fn, int i)
   sprintf(s, "%s%d", fn, i);
   return s;
 }
+
+
+#ifdef DGHASH_EXISTS
+  #define DGHASH_FREEMEMORIES() \
+    if (dghash_isocodes_ != NULL) { \
+      free(dghash_isocodes_); \
+      dghash_isocodes_ = NULL; \
+      dghash_isocap_ = 0; } \
+    if (dgaut_perms_ != NULL) { \
+      free(dgaut_perms_); \
+      dgaut_perms_ = NULL; \
+      dgaut_nperms_ = 0; }
+#else
+  #define DGHASH_FREEMEMORIES()
+#endif
+
+/* free memories */
+#define DG_FREEMEMORIES() { \
+    dg_hsfb_rjw(NULL); dg_cliquesep(NULL); dg_decompcsep(NULL, NULL); \
+    DGHASH_FREEMEMORIES(); }
 
 
 

@@ -1295,6 +1295,7 @@ int main(int argc, char **argv)
 
     mcgcr(nmin, nmax, mtiers, nsteps, mcamp, neql, nequil, nstsave);
 
+    DG_FREEMEMORIES();
 #ifdef _OPENMP
   }
 #endif

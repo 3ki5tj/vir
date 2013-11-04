@@ -3,11 +3,12 @@
 #include "dg.h"
 
 
-/* diagram map for n <= DGMAP_NMAX */
+/* the regular lookup table for n <= DGMAP_NMAX */
 #ifndef DGMAP_NMAX
 #define DGMAP_NMAX 8
 #endif
 
+/* enable the regular lookup table if N is not fixed or it is small enough */
 #if !defined(N) || N <= DGMAP_NMAX
   #ifndef DGMAP_EXISTS
   #define DGMAP_EXISTS 1

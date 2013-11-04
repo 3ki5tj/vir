@@ -247,6 +247,13 @@ INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
   DG_DEFMASKN_();
   size_t size;
 
+  if (g == NULL && faarr != NULL) { /* if a NULL pointer is passed, free memories */
+    free(faarr);
+    faarr = fbarr = NULL;
+    fprintf(stderr, "%4d: dgrjw fee memory, n %d\n", inode, nmax);
+    return 0;
+  }
+
   /* the memory requirement is 2^(n + 1) * (n + 1) * sizeof(dgrjw_fb_t) */
   if (fbarr == NULL) {
     /* even if we know N, we still use dynamic allocation

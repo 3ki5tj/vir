@@ -14,6 +14,10 @@
 #define BLKSZ 0
 #endif
 
+#ifndef BLKMEM
+#define BLKMEM 0
+#endif
+
 #ifndef MEMMAX
 #define MEMMAX 0x40000000
 #endif
@@ -25,27 +29,31 @@ INLINE double dghash_dummy_lookup(const dg_t *g)
 {
   static dghash_t *hash;
   static dgword_t c[DGHASH_CWORDS];
-#pragma omp threadprivate(hash, c);
+  DG_MKSTATICSTOCK(ng);
   DG_DEFN_(g);
-  int pos, ipos, level = -1, enumiso = 1;
-  dgls_t *ls;
+  int pos, level = -1, enumiso = 1;
+  dgword_t hashid;
+  dgls_t *ls, *ls1;
 
   if (hash == NULL) {
-    hash = dghash_open(DG_N_, HASHBITS, BLKSZ, MEMMAX, level, enumiso, 0);
+    hash = dghash_open(DG_N_, HASHBITS, BLKSZ, BLKMEM, MEMMAX, level, enumiso, 0);
     hash->dostat = 1; /* turn on statistics */
   }
 
-  ls = hash->ls + dghash_getid(g, c, hash->cwords, hash->bits, level);
-  pos = dgls_find(ls, c, hash->cwords, &ipos);
+  /* find the representative graph of according to the automorphism level */
+  dg_repiso(ng, g, hash->level);
+  dg_encode(ng, c);
+  DGHASH_GETID(hashid, c, DGHASH_CWORDS_(hash->cwords), hash->bits);
+  ls = hash->ls + hashid;
+  ls1 = dgls_find(ls, c, hash->cwords, &pos);
   hash->tot += 1;
-  hash->hits += (pos >= 0);
+  hash->hits += (ls1 != NULL);
   if (fmod(hash->tot, 1000000) < 0.1)
     dghash_printstat(hash, stderr);
-  if (pos >= 0) { /* entry exists */
-    return ls->arr[pos].fb;
+  if (ls1 != NULL) { /* entry exists */
+    return ls1->arr[pos].fb;
   }
-  dgls_add(ls, ipos, c, hash->cwords, 1.0, 1.0,
-      hash->blksz, &hash->mem, hash->memmax);
+  dgls_add(ls, c, 1.0, 1.0, hash);
   return 1;
 }
 

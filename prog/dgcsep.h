@@ -163,6 +163,13 @@ INLINE dgword_t dg_cliquesep(const dg_t *g)
   DG_DEFN_(g);
   dgword_t cl;
 
+  if (g == NULL) { /* signal to free memories */
+    int i;
+    for (i = 0; i <= DG_NMAX; i++)
+      if (fs[i] != NULL) { dg_close(fs[i]); fs[i] = NULL; }
+    return 0;
+  }
+
   if (fs[DG_N_] == NULL) fs[DG_N_] = dg_open(DG_N_);
   f = fs[DG_N_];
 
@@ -186,6 +193,13 @@ INLINE int dg_decompcsep(const dg_t *g, dgword_t * RESTRICT cl)
 #pragma omp threadprivate(fs, a)
   dg_t *f;
   DG_DEFN_(g);
+
+  if (g == NULL) { /* signal to free memories */
+    int i;
+    for (i = 0; i <= DG_NMAX; i++)
+      if (fs[i] != NULL) { dg_close(fs[i]); fs[i] = NULL; }
+    return 0;
+  }
 
   if (fs[DG_N_] == NULL) fs[DG_N_] = dg_open(DG_N_);
   f = fs[DG_N_];

@@ -49,7 +49,12 @@ int mapl_kdepth = 0; /* number of links to search in the larger lookup table */
 int hash_on = -1; /* 1: on, 0: off, -1: default */
 int hash_bits = 0;
 unsigned hash_blksz = 0;
+int hash_blkmem = 0;
 double hash_memmax = 0;
+int hash_initls = 0; /* TODO: currently turn off initls by default mainly for compatibility
+                      * Turning on initls improves the performance of memory allocation
+                      * but this assumes the hash_bits and other parameters are set properly
+                      * So it is safer to turn it off by default */
 int auto_level = -1;
 int hash_isoenum = -1;
 int hash_isomax = 0; /* default value */
@@ -86,10 +91,12 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-k",            "%d", &mapl_kdepth,  "number of links to search in the larger lookup table");
   argopt_add(ao, "--mapl-kdepth", "%d", &mapl_kdepth,  "number of links to search in the larger lookup table");
 
-  argopt_add(ao, "--hash-mode",   "%d",   &hash_on,     "turn on/off the hash table (default: -1)");
-  argopt_add(ao, "--hash-bits",   "%d",   &hash_bits,   "number of bits in the hash table");
-  argopt_add(ao, "--hash-blksz",  "%u",   &hash_blksz,  "number of entries to allocate in each hash table list");
+  argopt_add(ao, "--hash-mode",   "%d",   &hash_on,     "turn on/off the hash table (default: -1), see the comment of dghash_open() for detailed explanation of the hash table");
+  argopt_add(ao, "--hash-bits",   "%d",   &hash_bits,   "number of bits in the key of the hash table");
+  argopt_add(ao, "--hash-blksz",  "%u",   &hash_blksz,  "number of items in a link of a hash list (bucket)");
+  argopt_add(ao, "--hash-blkmem", "%d",   &hash_blkmem, "number of list links to cache each time (pass to the pooled memory allocator blkmem_new() to avoid memory fragmentation), 0: default");
   argopt_add(ao, "--hash-memmax", "%lf",  &hash_memmax, "maximal memory for the hash table");
+  argopt_add(ao, "--hash-initls", "%d",   &hash_initls, "initially allocate lists");
   argopt_add(ao, "--auto-level",  "%d",   &auto_level,  "automorphism level, -1: canonical label, 0: no transformation, 1: degree sequence, 2 or 3: first automorphism in the searching tree");
   argopt_add(ao, "--hash-isoenum","%d",   &hash_isoenum,"enumerate isomorphic graphs after a new graph is found, 1: yes, 0: no, -1: default");
   argopt_add(ao, "--hash-isomax", "%d",   &hash_isomax, "maximal number of items to used in the above enumeration");
@@ -104,11 +111,16 @@ static void doargs(int argc, char **argv)
 
   /* decide if we should use the larger lookup table */
 #ifdef DGMAPL_EXISTS
+  /* we prefer the larger lookup table mapl to the hash table
+   * due to its simplicity
+   * 1. if neither mapl or hash is set, and mapl is applicable, use mapl
+   * 2. if both mapl and hash are set, use mapl */
   if (mapl_on < 0) { /* default */
     if (hash_on > 0) mapl_on = 0;
     else mapl_on = (n <= DGMAPL_NMAX);
   } else if (mapl_on > 0) { /* explicitly turned */
     mapl_on = (n <= DGMAPL_NMAX);
+    hash_on = 0;
   }
   /* the hash table (at leat at n <= 9) is generally not as efficient
    * as the larger lookup table, because we have to compute
@@ -256,6 +268,15 @@ static void report(const av0_t *fbsm, const av0_t *nrsm,
 
 
 
+#ifdef CHECK
+  /* define the interval of checking */
+  #ifndef NSTCHECK
+  #define NSTCHECK 1
+  #endif /* !defined(NSTCHECK) */
+#endif /* defined(CHECK) */
+
+
+
 #ifdef DGMAP_EXISTS
 /* compute a virial coefficient with a lookup table */
 static void mcrat_lookup(int n, double nequil, double nsteps,
@@ -277,8 +298,6 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   av0_clear(&racc);
   if (!bsim0) /* try to load previous data */
     load(fnout, &fbsm, &nrsm);
-  /* scramble the random number generator */
-  mtscramble(inode * 2038074743u + nnodes * time(NULL) + rngseed);
 
   g = dg_open(n);
   ng = dg_open(n);
@@ -357,7 +376,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
 #ifdef CHECK
       /* verify if fb has been correctly computed */
-      {
+      if (fmod(t, NSTCHECK) < 0.1) {
         double fb1, nr1;
         dg_decode(g, &code);
         fb1 = dg_hsfb(g);
@@ -424,7 +443,14 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   if ( hash_on ) {
 #pragma omp critical
     if ( hash == NULL ) {
-      hash = dghash_open(n, hash_bits, hash_blksz, (size_t) (hash_memmax + .5),
+      size_t memmax;
+      /* since hash_memmax is a double, we need to do the conversion properly */
+      if (hash_memmax >= (double) ((size_t) (-1) - .5))
+        memmax = (size_t) (-1);
+      else
+        memmax = (size_t) (hash_memmax + .5);
+      hash = dghash_open(n, hash_bits,
+          hash_blksz, hash_blkmem, memmax, hash_initls,
           auto_level, hash_isoenum, hash_isomax);
       hash->dostat = dostat;
     }
@@ -438,8 +464,6 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   av0_clear(&racc);
   if (!bsim0) /* try to load previous data */
     load(fnout, &fbsm, &nrsm);
-  /* scramble the random number generator */
-  mtscramble(inode * 2038074743u + nnodes * time(NULL) + rngseed);
 
   ng = dg_open(n);
   g = dg_open(n);
@@ -460,7 +484,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
 #ifdef CHECK
-    {
+    if (fmod(t, NSTCHECK) < 0.1) {
       double fb1 = dg_hsfb(g), nr1 = dg_nring(g);
       if ( hasfb && (fabs(fb - fb1) > 1e-3 || fabs(nr - nr1) > 1e-3) ) {
         printf("%d: PRE1 t %g, hasfb %d, fb %g (%g)\n",
@@ -523,27 +547,30 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     }
 
 #ifdef CHECK
-    /* check if fb has been correctly computed */
-    if (hasfb) {
-      double fb1 = dg_hsfb(g), nr1 = dg_nring(g);
-      if (fabs(fb - fb1) > 1e-3 || fabs(nr - nr1) > 1e-3) {
-        printf("%d: t %g, acc %d, fb %g (%g), nr %g (%g)\n",
-            inode, t, acc, fb, fb1, nr, nr1);
-        dg_print(g);
-        exit(1);
+    if (fmod(t, NSTCHECK) < 0.1) {
+      /* check if fb and nr have been correctly computed */
+      if (hasfb) {
+        double fb1 = dg_hsfb(g), nr1 = dg_nring(g);
+        if (fabs(fb - fb1) > 1e-3 || fabs(nr - nr1) > 1e-3) {
+          printf("%d: t %g, acc %d, fb %g (%g), nr %g (%g)\n",
+              inode, t, acc, fb, fb1, nr, nr1);
+          dg_print(g);
+          exit(1);
+        }
       }
-    }
-    if (acc && gdirty) {
-      int degs1[DG_NMAX], ned1 = dg_degs(g, degs1);
-      int err = (ned1 != ned);
-      for (i = 0; i < DG_N_; i++)
-        if (degs1[i] != degs[i]) err++;
-      if (err) {
-        printf("%d: t %g, ned %d vs %d", inode, t, ned, ned1);
+      /* check if degree sequence is correct */
+      if (acc && gdirty) {
+        int degs1[DG_NMAX], ned1 = dg_degs(g, degs1);
+        int err = (ned1 != ned);
         for (i = 0; i < DG_N_; i++)
-          printf("%d: %d vs %d\n", i, degs[i], degs1[i]);
-        dg_print(g);
-        exit(1);
+          if (degs1[i] != degs[i]) err++;
+        if (err) {
+          printf("%d: t %g, ned %d vs %d", inode, t, ned, ned1);
+          for (i = 0; i < DG_N_; i++)
+            printf("%d: %d vs %d\n", i, degs[i], degs1[i]);
+          dg_print(g);
+          exit(1);
+        }
       }
     }
 #endif
@@ -566,6 +593,16 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   }
   dg_close(g);
   dg_close(ng);
+
+#pragma omp barrier
+#ifdef DGMAPL_EXISTS
+  if (mapl != NULL && inode == MASTER)
+    dgmapl_close(mapl);
+#endif
+#ifdef DGHASH_EXISTS
+  if (hash != NULL && inode == MASTER)
+    dghash_close(hash);
+#endif
 }
 
 
@@ -580,7 +617,7 @@ int main(int argc, char **argv)
   doargs(argc, argv);
 
 #ifdef CHECK
-  fprintf(stderr, "checking code is enabled\n");
+  fprintf(stderr, "checking code is enabled, interval %d\n", NSTCHECK);
 #endif
 
 #ifdef _OPENMP
@@ -600,14 +637,20 @@ int main(int argc, char **argv)
   {
     inode = omp_get_thread_num();
 #endif
+    /* scramble the random number generator */
+    mtscramble(inode * 2038074743u + nnodes * time(NULL) + rngseed);
 
 #ifdef DGMAP_EXISTS
     if (lookup) {
       mcrat_lookup(n, nequil, nsteps, mcamp, gdisp, nstcom);
     } else
 #endif /* defined(DGMAP_EXISTS) */
+    {
       mcrat_direct(n, nequil, nsteps, mcamp, gdisp, nstfb, nstcom);
+    }
 
+    DG_FREEMEMORIES();
+    mtclosedef();
 #ifdef _OPENMP
   }
 #endif

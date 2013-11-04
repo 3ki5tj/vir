@@ -333,7 +333,7 @@ INLINE double dgmapl_fbnr_lookup0(dgmapl_t *m, const dg_t *g,
   dgword_t c;
   int hasnew;
   DG_DEFN_(g);
-  dgmapl_int_t ifbnr[2];
+  dgmapl_int_t ifbnr[2] = {0, 0};
   double fb;
 
   die_if (DG_N_ <= 0 || DG_N_ > DGMAPL_NMAX, "bad n %d\n", DG_N_);
