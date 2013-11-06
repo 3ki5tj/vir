@@ -156,28 +156,21 @@ INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
 /* test if a graph has a clique separator */
 INLINE dgword_t dg_cliquesep(const dg_t *g)
 {
-  static dg_t *fs[DG_NMAX + 1];
+  static dgword_t fs_c[DG_NMAX];
+  static dg_t fs[1] = {0, NULL}; /* stock fill-in graph */
   static int a[DG_NMAX]; /* a[k] is the kth vertex */
-#pragma omp threadprivate(fs, a)
-  dg_t *f; /* fill-in graph */
+#pragma omp threadprivate(fs_c, fs, a)
   DG_DEFN_(g);
   dgword_t cl;
 
-  if (g == NULL) { /* signal to free memories */
-    int i;
-    for (i = 0; i <= DG_NMAX; i++)
-      if (fs[i] != NULL) { dg_close(fs[i]); fs[i] = NULL; }
-    return 0;
-  }
-
-  if (fs[DG_N_] == NULL) fs[DG_N_] = dg_open(DG_N_);
-  f = fs[DG_N_];
+  fs->n = DG_N_;
+  fs->c = fs_c;
 
   /* 1. find a minimal ordering and its fill-in */
-  dg_minimalorder(g, f, a);
+  dg_minimalorder(g, fs, a);
 
   /* 2. clique decomposition (stop after the first clique) */
-  if ( dg_decompcliqueseplow(g, f, a, &cl, 1) ) return cl;
+  if ( dg_decompcliqueseplow(g, fs, a, &cl, 1) ) return cl;
   else return 0;
 }
 
@@ -188,54 +181,62 @@ INLINE dgword_t dg_cliquesep(const dg_t *g)
 
 INLINE int dg_decompcsep(const dg_t *g, dgword_t * RESTRICT cl)
 {
-  static dg_t *fs[DG_NMAX + 1];
+  static dgword_t fs_c[DG_NMAX];
+  static dg_t fs[1] = {0, NULL}; /* stock fill-in graph */
   static int a[DG_NMAX]; /* a[k] is the kth vertex */
-#pragma omp threadprivate(fs, a)
-  dg_t *f;
+#pragma omp threadprivate(fs_c, fs, a)
   DG_DEFN_(g);
 
-  if (g == NULL) { /* signal to free memories */
-    int i;
-    for (i = 0; i <= DG_NMAX; i++)
-      if (fs[i] != NULL) { dg_close(fs[i]); fs[i] = NULL; }
-    return 0;
-  }
-
-  if (fs[DG_N_] == NULL) fs[DG_N_] = dg_open(DG_N_);
-  f = fs[DG_N_];
+  fs->n = DG_N_;
+  fs->c = fs_c;
 
   /* 1. find a minimal ordering and its fill-in */
-  dg_minimalorder(g, f, a);
+  dg_minimalorder(g, fs, a);
 
   /* 2. clique decomposition */
-  return dg_decompcliqueseplow(g, f, a, cl, 0);
+  return dg_decompcliqueseplow(g, fs, a, cl, 0);
 }
 
 
 
 #ifdef DGMAP_EXISTS
+
+/* this array is shared due to its large size */
+static char *dgcsep_ncl_[DGMAP_NMAX + 1];
+
+
 /* compute the number of nodes the clique-separator decomposition */
 INLINE int dg_ncsep_lookuplow(const dg_t *g, dgword_t c)
 {
-  static char *ncl[DGMAP_NMAX + 1];
-#pragma omp threadprivate(ncl)
   int ncs;
   DG_DEFN_(g);
 
   /* initialize the lookup table */
-  if (ncl[DG_N_] == NULL) {
-    int ipr, npr = 1u << (DG_N_ * (DG_N_ - 1) / 2);
-    xnew(ncl[DG_N_], npr);
-    for (ipr = 0; ipr < npr; ipr++) ncl[DG_N_][ipr] = (char) (-1);
+  if (dgcsep_ncl_[DG_N_] == NULL) {
+#pragma omp critical
+    {
+      /* we test the pointer again because another thread
+       * might have allocated the space now */
+      if (dgcsep_ncl_[DG_N_] == NULL) {
+        int ipr, npr = 1u << (DG_N_ * (DG_N_ - 1) / 2);
+        xnew(dgcsep_ncl_[DG_N_], npr);
+        for (ipr = 0; ipr < npr; ipr++)
+          dgcsep_ncl_[DG_N_][ipr] = (char) (-1);
+      }
+    }
   }
 
-  ncs = ncl[DG_N_][c];
+  ncs = dgcsep_ncl_[DG_N_][c];
   if (ncs < 0) {
     ncs = dg_ncsep(g);
-    ncl[DG_N_][c] = (char) ncs; /* save the value */
+#pragma omp critical
+    {
+      dgcsep_ncl_[DG_N_][c] = (char) ncs; /* save the value */
+    }
   }
   return ncs;
 }
+
 
 
 /* compute the number of nodes the clique-separator decomposition */
@@ -249,5 +250,24 @@ INLINE int dg_ncsep_lookup(const dg_t *g)
 }
 #endif /* defined(DGMAP_EXISTS) */
 
-#endif
+
+
+INLINE void dgcsep_free(void)
+{
+#ifdef DGMAP_EXISTS
+#pragma omp critical
+  {
+    int i;
+    for (i = 0; i <= DGMAP_NMAX; i++)
+      if (dgcsep_ncl_[i] != NULL) {
+        free(dgcsep_ncl_[i]);
+        dgcsep_ncl_[i] = NULL;
+      }
+  }
+#endif /* defined(DGMAP_EXISTS) */
+}
+
+
+
+#endif /* DGCSEP_H__ */
 

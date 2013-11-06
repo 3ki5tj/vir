@@ -4,7 +4,12 @@
 #include "dg.h"
 
 
-INLINE int dg_rndswitchedge(dg_t *g, int *ned, int nedmax, double rnp)
+
+#define dg_rndswitchedge(g, ned, nedmax, rnp) \
+  dg_rndswitchedge0(g, ned, 0, 1, nedmax, rnp)
+
+INLINE int dg_rndswitchedge0(dg_t *g, int *ned,
+    int nedmin, double rnm, int nedmax, double rnp)
 {
   int i = 0, j = 0, n = g->n, ipr, npr, acc;
 
@@ -15,9 +20,11 @@ INLINE int dg_rndswitchedge(dg_t *g, int *ned, int nedmax, double rnp)
   if (dg_linked(g, i, j)) { /* unlink (i, j) */
     dg_unlink(g, i, j);
     acc = dg_biconnected(g);
+    if ( acc && *ned <= nedmin )
+      acc = (rnd0() < rnm);
     if ( acc ) {
       (*ned)--;
-    } else {
+    } else { /* link back the edge */
       dg_link(g, i, j);
     }
   } else { /* link (i, j) */
@@ -44,7 +51,7 @@ INLINE void dg_linkpairs(dg_t *g, int pair[][2])
 
 
 
-/* adjust the rate of increasing edges */
+/* adjust the rate of adding edges */
 INLINE void adjustrnp(int ned, int nedmax, int t, int nstadj,
     int *good, int *tot, double *rnp)
 {
@@ -54,6 +61,21 @@ INLINE void adjustrnp(int ned, int nedmax, int t, int nstadj,
     *rnp *= 0.5;
     printf("adjusting rnp to %g, ned %d, good %g%%\n",
         *rnp, ned, 100.*(*good)/(*tot));
+    *good = *tot = 0;
+  }
+}
+
+
+/* adjust the rate of removing edges */
+INLINE void adjustrnm(int ned, int nedmin, int t, int nstadj,
+    int *good, int *tot, double *rnm)
+{
+  *good += (ned >= nedmin);
+  *tot += 1;
+  if (t % nstadj == 0 && 1. * (*good) / (*tot) < 0.5) { /* adjust rnp */
+    *rnm *= 0.5;
+    printf("adjusting rnm to %g, ned %d, good %g%%\n",
+        *rnm, ned, 100.*(*good)/(*tot));
     *good = *tot = 0;
   }
 }

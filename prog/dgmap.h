@@ -77,7 +77,6 @@ INLINE int dgmap_getperm(int n, int **pp)
 }
 
 
-
 /* compute initial diagram map */
 INLINE int dgmap_init(dgmap_t *m, int n)
 {
@@ -164,6 +163,20 @@ INLINE int dgmap_init(dgmap_t *m, int n)
 
 
 
+/* reset a dgmap_t, but don't free the point */
+INLINE void dgmap_done(dgmap_t *m)
+{
+  if (m->ng > 0) {
+    free(m->map);
+    m->map = NULL;
+    free(m->first);
+    m->first = NULL;
+    m->ng = 0;
+  }
+}
+
+
+
 /* retrieve the diagram id */
 INLINE unqid_t dg_getmapidx(const dg_t *g, dgword_t *c)
 {
@@ -185,50 +198,59 @@ INLINE unqid_t dg_getmapid(const dg_t *g)
 
 
 
-/* done */
-INLINE void dgmap_done(void)
-{
-  int i;
-
-  for (i = 1; i <= DGMAP_NMAX; i++) {
-    dgmap_t *m = dgmap_ + i;
-    if (m->map) free(m->map);
-    if (m->first) free(m->first);
-    m->ng = 0;
-  }
-}
-
-
-
 /* the macro is slower than the direct version (due to dg_getmapid()) */
 #define dg_biconnected_lookup(g) dg_biconnected_lookuplow(DG_GN_(g), dg_getmapid(g))
+
+/* biconnectivity of unique diagrams
+ * unique diagrams are few enough to allow private memories */
+static int *dgmap_bc_[DGMAP_NMAX + 1] = {NULL};
+#pragma omp threadprivate(dgmap_bc_)
+
 
 /* check if a diagram is biconnected (lookup version)
  * use it only if `id' is known, otherwise it is slower */
 INLINE int dg_biconnected_lookuplow(int n, unqid_t id)
 {
-  /* biconnectivity of unique diagrams */
-  static int *bc[DGMAP_NMAX + 1] = {NULL};
-#pragma omp threadprivate(bc)
-
-  if (bc[DG_N_] == NULL) {
+  if (dgmap_bc_[DG_N_] == NULL) {
     /* initialize the look-up table */
     dg_t *g1 = dg_open(DG_N_);
     dgmap_t *m = dgmap_ + DG_N_;
     int k;
 
     dgmap_init(m, DG_N_);
-    xnew(bc[DG_N_], m->ng);
+    xnew(dgmap_bc_[DG_N_], m->ng);
     for (k = 0; k < m->ng; k++) {
       dgword_t c = m->first[k];
       dg_decode(g1, &c);
-      bc[DG_N_][k] = dg_biconnected(g1);
+      dgmap_bc_[DG_N_][k] = dg_biconnected(g1);
     }
     dg_close(g1);
   }
-  return bc[ DG_N_ ][ id ];
+  return dgmap_bc_[ DG_N_ ][ id ];
 }
 #endif /* defined(DGMAP_EXISTS) */
+
+
+
+/* free all stock pointers */
+INLINE void dgmap_free(void)
+{
+#ifdef DGMAP_EXISTS
+  int k;
+
+#pragma omp critical
+  {
+    for (k = 0; k <= DGMAP_NMAX; k++)
+      dgmap_done(&dgmap_[k]);
+  }
+
+  /* dgmap_bc_[] is private */
+  for (k = 0; k <= DGMAP_NMAX; k++)
+    if (dgmap_bc_[k] != NULL)
+      free(dgmap_bc_[k]);
+#endif /* defined(DGMAP_EXISTS) */
+}
+
 
 #endif /* DGMAP_H__ */
 

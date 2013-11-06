@@ -10,6 +10,10 @@
 #define DGHASH_EXISTS 1
 #endif
 
+#ifndef DGHASH_NMAX
+#define DGHASH_NMAX DG_NMAX
+#endif
+
 
 #ifdef DGHASH_EXISTS
 
@@ -38,7 +42,7 @@
 /* the number of words to save the code of a graph of vertices
  * the number of bits needed is n * (n - 1) / 2
  * divide this by sizeof(dgword_t) is DGHASH_CWORDS */
-#define DGHASH_CBITS  (DG_NMAX *(DG_NMAX - 1)/2)
+#define DGHASH_CBITS  (DGHASH_NMAX *(DGHASH_NMAX - 1)/2)
 #define DGHASH_CWORDS ((DGHASH_CBITS + DG_WORDBITS - 1)/DG_WORDBITS)
 
 
@@ -87,22 +91,34 @@
 
 
 
-#if defined(N) && (N <= 13)
-  /* this saves some storage space */
+/* the maximal fb is (n - 2)!, and the maximal nr is n!/(2 n) > (n - 2)!
+ * a 32-bit signed integer can hold a number up to 2.1e9
+ * a 32-bit unsigned integer can hold a number up to 4.2e9
+ * the cutoff N is 14 because 13!/(2*13) = 2.4e8, 14!/(2*14) = 3.1e9
+ * using 32-bit integers can save memory */
+#if defined(N) && (N <= 14)
   typedef int32_t dgls_fb_t;
+  typedef uint32_t dgls_nr_t;
   /* convert double to integer and save */
   #define DGLS_SAVEFB(a, b) \
     (a) = (dgls_fb_t) (((b) < 0 ? ((b) - .5) : ((b) + .5)))
+  #define DGLS_SAVENR(a, b) \
+    (a) = (dgls_nr_t) ((b) + .5)
 #else
   typedef double dgls_fb_t;
+  typedef double dgls_nr_t;
   #define DGLS_SAVEFB(a, b) (a) = (b)
+  #define DGLS_SAVENR(a, b) (a) = (b)
 #endif
 
 
 
 typedef struct {
   dgword_t c[DGHASH_CWORDS];
-  dgls_fb_t fb, nr;
+  dgls_fb_t fb;
+#ifndef DG_NORING
+  dgls_nr_t nr;
+#endif
 } dgitem_t;
 
 typedef struct tagdgls_t {
@@ -269,7 +285,7 @@ INLINE dghash_t *dghash_open(int n, int bits,
       n*(n - 1)/2, h->cwords, (int) sizeof(dgitem_t), level, isoenum, isomax);
   if (h->cwords * 2 < DGHASH_CWORDS)
     fprintf(stderr, "dghash can save memory with predefined N (%d >> %d) or DGHASH_CWORDS (%d >> %d)\n",
-        DG_NMAX, n, DGHASH_CWORDS, h->cwords);
+        DGHASH_NMAX, n, DGHASH_CWORDS, h->cwords);
 
   h->dostat = 1;
 #ifdef _OPENMP
@@ -366,7 +382,9 @@ INLINE int dgls_add(dgls_t *ls, const dgword_t *c,
   item = ls->arr + lscnt;
   DGCODE_CPY(item->c, c, h->cwords);
   DGLS_SAVEFB(item->fb, fb);
-  DGLS_SAVEFB(item->nr, nr);
+#ifndef DG_NORING
+  DGLS_SAVENR(item->nr, nr);
+#endif
   ls->cnt = lscnt + 1;
 #pragma omp flush
   return 0;
@@ -417,15 +435,16 @@ INLINE int dghash_enumiso(dghash_t *h, const dg_t *g,
 #define dghash_fbnr_lookup(g, nr) \
   dghash_fbnr_lookup0(NULL, g, nr, 0, NULL, NULL)
 
+static dghash_t *dghash_[DGHASH_NMAX + 1]; /* default hash, shared */
+
 INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
     double *nr, int nocsep, int *ned, int *degs)
 {
   static dgword_t c[DGHASH_CWORDS];
   static dgword_t ng_c[DG_NMAX];
-  static dg_t ng[1] = {DG_NMAX, NULL}; /* a stock graph */
+  static dg_t ng[1] = {DGHASH_NMAX, NULL}; /* a stock graph */
 #pragma omp threadprivate(c, ng_c, ng)
 
-  static dghash_t *hash[DG_NMAX + 1]; /* default hash, shared */
   DG_DEFN_(g);
   int pos;
   dgword_t hashid;
@@ -433,20 +452,20 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
   double fb = 0;
 
   if (h == NULL) { /* initialize the stock hash table */
-    die_if (DG_N_ > DG_NMAX, "n %d is too large %d\n", DG_N_, DG_NMAX);
-    if (hash[DG_N_] == NULL) {
+    die_if (DG_N_ > DGHASH_NMAX, "n %d is too large %d\n", DG_N_, DGHASH_NMAX);
+    if (dghash_[DG_N_] == NULL) {
 #ifdef _OPENMP
 #pragma omp critical
       {
-        if (hash[DG_N_] == NULL)
+        if (dghash_[DG_N_] == NULL)
 #endif /* _OPENMP */
           /* open a hash table with default settings */
-          hash[DG_N_] = dghash_open(DG_N_, 0, 0, 0, 0, -1, -1, -1, 0);
+          dghash_[DG_N_] = dghash_open(DG_N_, 0, 0, 0, 0, -1, -1, -1, 0);
 #ifdef _OPENMP
       } /* omp critical */
 #endif /* _OPENMP */
     }
-    h = hash[DG_N_];
+    h = dghash_[DG_N_];
   }
 
   /* find the representative graph of according to the automorphism level */
@@ -458,7 +477,11 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
 //#pragma omp flush /* flush to get the recent view */
   ls1 = dgls_find(ls, c, h->cwords, &pos);
   if (ls1 != NULL) { /* entry exists */
+#ifndef DG_NORING
     *nr = ls1->arr[pos].nr;
+#else
+    *nr = 0;
+#endif
     fb  = ls1->arr[pos].fb;
   }
   if (h->dostat) { /* accumulate data for statistics */
@@ -470,7 +493,11 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
   }
   if (ls1 != NULL) return fb;
   fb = dg_hsfb_mixed0(g, nocsep, ned, degs);
+#ifndef DG_NORING
   *nr = dg_nring_mixed0(g, ned, degs);
+#else
+  *nr = 0;
+#endif
   if (h->isoenum) {
     /* omp critical region will be limited in dghash_enum() */
     dghash_enumiso(h, g, fb, *nr, ng);
@@ -541,7 +568,41 @@ INLINE void dghash_printstat(dghash_t *h, FILE *fp)
   fputs(sbuf, fp);
 }
 
+
+
 #endif /* defined(DGHASH_EXISTS) */
+
+
+
+/* clean up stock objects */
+INLINE void dghash_free(void)
+{
+#ifdef DGHASH_EXISTS
+  int k;
+
+#pragma omp critical
+  {
+    for (k = 0; k <= DGHASH_NMAX; k++)
+      if (dghash_[k] != NULL) {
+        dghash_close(dghash_[k]);
+        dghash_[k] = NULL;
+      }
+  }
+
+  if (dghash_isocodes_ != NULL) {
+    free(dghash_isocodes_);
+    dghash_isocodes_ = NULL;
+    dghash_isocap_ = 0;
+  }
+  if (dgaut_perms_ != NULL) {
+    free(dgaut_perms_);
+    dgaut_perms_ = NULL;
+    dgaut_nperms_ = 0;
+  }
+#endif /* defined(DGHASH_EXISTS) */
+}
+
+
 
 #endif /* DGHASH_H__ */
 

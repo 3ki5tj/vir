@@ -843,24 +843,26 @@ INLINE char *fnappend(char *fn, int i)
 }
 
 
+
+#ifdef DGMAPL_EXISTS
+  #define DGMAPL_FREEMEMORIES() dgmapl_free()
+#else
+  #define DGMAPL_FREEMEMORIES()
+#endif
+
 #ifdef DGHASH_EXISTS
-  #define DGHASH_FREEMEMORIES() \
-    if (dghash_isocodes_ != NULL) { \
-      free(dghash_isocodes_); \
-      dghash_isocodes_ = NULL; \
-      dghash_isocap_ = 0; } \
-    if (dgaut_perms_ != NULL) { \
-      free(dgaut_perms_); \
-      dgaut_perms_ = NULL; \
-      dgaut_nperms_ = 0; }
+  #define DGHASH_FREEMEMORIES() dghash_free()
 #else
   #define DGHASH_FREEMEMORIES()
 #endif
 
 /* free memories */
 #define DG_FREEMEMORIES() { \
-    dg_hsfb_rjw(NULL); dg_cliquesep(NULL); dg_decompcsep(NULL, NULL); \
-    DGHASH_FREEMEMORIES(); }
+    dgrjw_free(); \
+    dgring_free(); \
+    DGMAPL_FREEMEMORIES(); \
+    DGHASH_FREEMEMORIES(); \
+    dgmap_free(); }
 
 
 

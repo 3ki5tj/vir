@@ -196,9 +196,9 @@ def huntmr(d, n, root = "."):
     import virsum
     virsum.verbose = verbose
     virsum.rmbad = True
-    (x, err) = virsum.dodir(None, n, sum3 = 1)
+    (x, err, tot) = virsum.dodirs(None, n, sum3 = 1)
     if x == None: return None, None, None, None
-    else: return x[1], err[1], x[2], err[2]
+    else: return x[1], err[1], x[2], err[2], tot
   except ImportError:
     print "cannot import virsum.py, use the default method"
     pat = re.compile(r"mrD%dn%d.dat[0-9]+" % (d, n))
@@ -217,7 +217,7 @@ def huntmr(d, n, root = "."):
       nrsum += float(arr[3]) * float(arr[2])
     fb = fbsum/fbcnt
     nr = nrsum/nrcnt
-    return fb, 1, nr, 1
+    return fb, 1, nr, 1, fbcnt
 
 
 
@@ -228,9 +228,10 @@ def huntrc(d, nmin, nmax):
   fberr = []
   fbnrarr = []
   fbnrerr = []
+  totarr = []
   src = ""
   while 1:
-    fb, errfb, nr, errnr = huntmr(d, n)
+    fb, errfb, nr, errnr, tot = huntmr(d, n)
     if fb == None: break
     narr += [n,]
     fbarr += [fb,]
@@ -241,8 +242,9 @@ def huntrc(d, nmin, nmax):
     else:
       fberr += [errfb,]
       fbnrerr += [errfb/nr,]
-    line = "%4d %+22.14e %9.2e %22.14e %9.2e\n" % (
-        n, fb, errfb, nr, errnr)
+    totarr += [tot,]
+    line = "%4d %+22.14e %9.2e %22.14e %9.2e %20.0f\n" % (
+        n, fb, errfb, nr, errnr, tot)
     src += line
     print line,
     if verbose: raw_input("press Enter to continue")

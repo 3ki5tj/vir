@@ -40,6 +40,8 @@ int bsim0 = 0;
 double Bring = 1; /* to be loaded from file */
 char *fnBring = NULL;
 
+double Zn = 0; /* partition function */
+
 int nthreads = 1;
 unsigned rngseed = 0;
 
@@ -60,6 +62,7 @@ int hash_isoenum = -1;
 int hash_isomax = 0; /* default value */
 
 int dostat = 0; /* applies to mapl and hash */
+
 
 
 /* handle arguments */
@@ -83,6 +86,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-B", "%b", &bsim0, "discard data in previous simulations");
   argopt_add(ao, "-V", "%lf", &Bring, "value of the ring integral");
   argopt_add(ao, "-I", NULL, &fnBring, "name of the virial series file");
+  argopt_add(ao, "-Z", "%lf", &Zn, "partition function");
   argopt_add(ao, "--nthr", "%d", &nthreads, "number of threads");
   argopt_add(ao, "--rng", "%u", &rngseed, "set the RNG seed offset");
 
@@ -104,6 +108,36 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--stat",        "%b",   &dostat,      "compute statistics");
 
   argopt_parse(ao, argc, argv);
+
+#ifdef N
+  die_if (n != N, "n %d mismatches the predefined N %d\n", n, N);
+#endif
+
+#ifdef DG_NORING
+  {
+    /* since the partition function route is most useful in low dimensions
+     * we only supple a few low dimensional values
+     * The precisions of the partition functions are around 0.1%
+     * and are to be improved */
+#if D == 2
+    double ZnD[21] = {1,
+      1.00000000000000e+00, 1.00000000000000e+01, 5.86503328433656e-01, 8.30205380703296e-01,
+      1.55981765896367e+00, 3.75971228859679e+00, 1.11638668246839e+01, 3.95725775601891e+01,
+      1.63777978739903e+02, 7.78279225552566e+02, 4.18450257577216e+03, 2.51846162296513e+04,
+      1.68060245024787e+05, 1.23337260474706e+06, 9.88458266544393e+06, 8.59813692716628e+07,
+      8.07852604693128e+08, 8.14593636576008e+09, 8.78601417586518e+10, 1.00910485968936e+12};
+    if (Zn <= 0 && n <= 20) Zn = ZnD[n];
+#elif D == 3
+    double ZnD[17] = {1,
+      1.00000000000000e+00, 1.00000000000000e+01, 4.68750000000000e-01, 6.54702583392843e-01,
+      1.31905118848001e+00, 3.52472193428843e+00, 1.18909031166355e+01, 4.87677287598462e+01,
+      2.36526482367360e+02, 1.32828862203858e+03, 8.49523320362203e+03, 6.10359623679183e+04,
+      4.87272763924805e+05, 4.28326659587978e+06, 4.11237697337525e+07, 4.28332146700151e+08};
+    if (Zn <= 0 && n <= 16) Zn = ZnD[n];
+#endif /* D == 3 */
+    die_if (Zn <= 0, "must supply a valid value for the partition function %g\n", Zn);
+  }
+#endif /* !defined(DG_NORING) */
 
   /* decide whether to use lookup table or not */
   if (lookup < 0)
@@ -199,7 +233,7 @@ static int save(const char *fn, double vir,
 
   mkfndef(fn, fndef, D, n, inode);
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "#0 %d %d V0\n", D, n);
+  fprintf(fp, "#0 %d %d V1 %20.14e %20.14e\n", D, n, Bring, Zn);
   fprintf(fp, "%16.0f %+17.14f %16.0f %+18.14f %+20.14e\n",
       fbsm->s, av0_getave(fbsm), nrsm->s, av0_getave(nrsm), vir);
   fclose(fp);
@@ -236,7 +270,12 @@ static int load(const char *fn, av0_t *fbsm, av0_t *nrsm)
     fprintf(stderr, "%s: corrupted\n", fn);
   }
   fbsm->sx *= fbsm->s;
+#ifndef DG_NORING
   nrsm->sx *= nrsm->s;
+#else /* clear the ring data for safe */
+  av0_clear(nrsm);
+#endif /* !defined(DG_NORING) */
+
   fclose(fp);
   printf("loaded from %s: sum %g\n", fn, fbsm->s);
   return 0;
@@ -249,16 +288,28 @@ static void report(const av0_t *fbsm, const av0_t *nrsm,
     const av0_t *cacc, const av0_t *racc,
     double t, int gmapid, const int *neval)
 {
-  double vir, fb, nr = av0_getave(nrsm), rv = 1;
+  double vir, fb, nr, rv = 1;
 
   fb = av0_getave(fbsm);
+#ifndef DG_NORING /* estimate the virial coefficient from the ring integral */
+  nr = av0_getave(nrsm);
   if (nr > 0) rv = Bring / nr;
+  vir = -fb * rv;
+#else /* estimate the virial coefficient from the partition function */
+  nr = 0;
+  {
+    int k;
+    for (rv = 1., k = 2; k <= n; k++)
+      rv *= 2./k;
+  }
+  rv *= Zn * (n - 1.);
+#endif /* !defined(DG_NORING) */
   vir = -fb * rv;
   /* print readable result */
   printf("%d: D %d, n %d, t %g, vir %+.6e fb %+.7f nr %.6f ",
       inode, D, n, t, vir, fb, nr);
-  printf("cacc %.3f, racc %.6f, ",
-      av0_getave(cacc), av0_getave(racc));
+  printf("cacc %.3f, racc %.6f, rv %g, ",
+      av0_getave(cacc), av0_getave(racc), rv);
   if (gmapid >= 0) printf("%d ", (int) gmapid);
   if (neval) printf("%d ", *neval);
   printf("\n");
@@ -286,7 +337,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   int i, j, pid, it, acc;
   dg_t *g, *ng;
   dgword_t code, ncode;
-  double t, fb, nr;
+  double t, fb, nr = 0;
   av0_t fbsm, nrsm, cacc, racc;
   unqid_t gmapid;
 
@@ -317,7 +368,9 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   dg_encode(g, &code); /* initialize the code */
   gmapid = dgmap_[DG_N_].map[code];
   fb = dg_hsfb_lookuplow(DG_N_, gmapid);
+#ifndef DG_NORING
   nr = dg_nring_lookuplow(DG_N_, gmapid);
+#endif /* !defined(DG_NORING) */
 
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
@@ -331,7 +384,9 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
       if ( acc ) {
         dg_encode(g, &code);
         fb = dg_hsfb_lookup(g);
+#ifndef DG_NORING
         nr = dg_nring_lookup(g);
+#endif /* !defined(DG_NORING) */
       }
       av0_add(&racc, acc);
     } else {
@@ -367,7 +422,9 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
           rvn_copy(x[i], xi);
           code = ncode;
           fb = dg_hsfb_lookuplow(DG_N_, gmapid);
+#ifndef DG_NORING
           nr = dg_nring_lookuplow(DG_N_, gmapid);
+#endif /* !defined(DG_NORING) */
         }
       }
 
@@ -377,22 +434,31 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 #ifdef CHECK
       /* verify if fb has been correctly computed */
       if (fmod(t, NSTCHECK) < 0.1) {
-        double fb1, nr1;
+        double fb1;
         dg_decode(g, &code);
         fb1 = dg_hsfb(g);
-        nr1 = dg_nring(g);
-        if (fabs(fb - fb1) > 1e-3 || fabs(nr - nr1) > 1e-3) {
-          printf("%d: t %g, fb %g vs %g, nr %g vs %g\n",
-              inode, t, fb, fb1, nr, nr1);
+        if (fabs(fb - fb1) > 1e-3) {
+          printf("%d: t %g, fb %g vs %g\n", inode, t, fb, fb1);
           dg_print(g);
           exit(1);
         }
+#ifndef DG_NORING
+        double nr1;
+        nr1 = dg_nring(g);
+        if (fabs(nr - nr1) > 1e-3) {
+          printf("%d: t %g, nr %g vs %g\n", inode, t, nr, nr1);
+          dg_print(g);
+          exit(1);
+        }
+#endif /* !defined(DG_NORING) */
       }
-#endif
+#endif /* defined(CHECK */
     }
 
-    av0_add(&nrsm, nr);
     av0_add(&fbsm, fb);
+#ifndef DG_NORING
+    av0_add(&nrsm, nr);
+#endif /* !defined(DG_NORING) */
 
     if (it % nstcom == 0) rvn_rmcom(x, DG_N_);
 
@@ -416,7 +482,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   rvn_t x[DG_NMAX], xi;
   int i, it, acc, hasfb, gdirty = 0, neval = 0;
   int ned = 0, degs[DG_NMAX];
-  double t, fb, nr;
+  double t, fb, nr = 0;
   dg_t *g, *ng;
   av0_t fbsm, nrsm, cacc, racc;
 
@@ -478,22 +544,31 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   die_if (!dg_biconnected(g),
       "%d, initial diagram not biconnected D %d\n", inode, D);
   fb = dg_hsfb_mixed(g);
+#ifndef DG_NORING
   nr = dg_nring_mixed(g);
+#endif /* !defined(DG_NORING) */
   hasfb = 1;
 
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
 #ifdef CHECK
-    if (fmod(t, NSTCHECK) < 0.1) {
-      double fb1 = dg_hsfb(g), nr1 = dg_nring(g);
-      if ( hasfb && (fabs(fb - fb1) > 1e-3 || fabs(nr - nr1) > 1e-3) ) {
-        printf("%d: PRE1 t %g, hasfb %d, fb %g (%g)\n",
-            inode, t, hasfb, fb, fb1);
+    if (fmod(t, NSTCHECK) < 0.1 && hasfb) {
+      double fb1 = dg_hsfb(g);
+      if ( fabs(fb - fb1) > 1e-3 ) {
+        printf("%d: PRE1 t %g, fb %g (%g)\n", inode, t, fb, fb1);
         dg_print(g);
         exit(1);
       }
+#ifndef DG_NORING
+      double nr1 = dg_nring(g);
+      if ( fabs(nr - nr1) > 1e-3 ) {
+        printf("%d: PRE1 t %g, nr %g (%g)\n", inode, t, nr, nr1);
+        dg_print(g);
+        exit(1);
+      }
+#endif /* !defined(DG_NORING) */
     }
-#endif
+#endif /* defined(CHECK) */
 
     if (ratcr > 0 && (ratcr >= 1 || rnd0() < ratcr)) {
       /* displace one particle attached to an edge */
@@ -526,16 +601,18 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
           if ( mapl_on && mapl != NULL ) { /* use the larger lookup table */
             fb = dgmapl_fbnr_lookup0(mapl, g, &nr, 0, &ned, degs);
           } else
-#endif /* DGMAPL_EXISTS */
+#endif /* defined(DGMAPL_EXISTS) */
           {
 #ifdef DGHASH_EXISTS
             if ( hash_on && hash != NULL) {
               fb = dghash_fbnr_lookup0(hash, g, &nr, 0, &ned, degs);
             } else
-#endif
+#endif /* defined(DGHASH_EXISTS) */
             {
               fb = dg_hsfb_mixed0(g, 0, &ned, degs);
+#ifndef DG_NORING
               nr = dg_nring_mixed0(g, &ned, degs);
+#endif /* !defined(DG_NORING) */
               neval++;
             }
           }
@@ -543,20 +620,29 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         hasfb = 1;
       }
       av0_add(&fbsm, fb);
+#ifndef DG_NORING
       av0_add(&nrsm, nr);
+#endif
     }
 
 #ifdef CHECK
     if (fmod(t, NSTCHECK) < 0.1) {
       /* check if fb and nr have been correctly computed */
       if (hasfb) {
-        double fb1 = dg_hsfb(g), nr1 = dg_nring(g);
-        if (fabs(fb - fb1) > 1e-3 || fabs(nr - nr1) > 1e-3) {
-          printf("%d: t %g, acc %d, fb %g (%g), nr %g (%g)\n",
-              inode, t, acc, fb, fb1, nr, nr1);
+        double fb1 = dg_hsfb(g);
+        if (fabs(fb - fb1) > 1e-3) {
+          printf("%d: t %g, acc %d, fb %g (%g)\n", inode, t, acc, fb, fb1);
           dg_print(g);
           exit(1);
         }
+#ifndef DG_NORING
+        double nr1 = dg_nring(g);
+        if (fabs(nr - nr1) > 1e-3) {
+          printf("%d: t %g, acc %d, nr %g (%g)\n", inode, t, acc, nr, nr1);
+          dg_print(g);
+          exit(1);
+        }
+#endif /* !defined(DG_NORING) */
       }
       /* check if degree sequence is correct */
       if (acc && gdirty) {
@@ -573,7 +659,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         }
       }
     }
-#endif
+#endif /* defined(CHECK) */
 
     if (it % nstcom == 0)
       rvn_rmcom(x, DG_N_); /* remove the origin to the center of mass */

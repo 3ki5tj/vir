@@ -23,6 +23,8 @@ from math import *
 verbose = 1 # verbose level
 rmbad = 0 # detect and remove bad data that significantly deviate from the average
 mulsig = 3 # multiple of standard deviation for the above exclusion
+usetot = 0 # use the total to weight different simulations
+
 
 
 def errarr(arr):
@@ -52,6 +54,7 @@ def varanalysis(arr, fns = None, name = "", nsig = 3, nave = 0, verbose = True):
   n = len(arr)
   ave = 1. * sum(arr) / n
   var = sum([x*x for x in arr]) / n - ave * ave
+  if var < 0: var = 0
   sig = sqrt(var)
   badls = []
   threshold = max(fabs(ave) * nave, nsig * sig)
@@ -71,18 +74,20 @@ def varanalysis(arr, fns = None, name = "", nsig = 3, nave = 0, verbose = True):
 
 
 
+
+
 class INT:
   ''' a class for combining data from hsrh.c '''
   once = 0
 
   def __init__(me, fn):
     s = open(fn).readlines()
-    me.initint(s[0])
-    me.adddata(s[1:])
+    me.initdata(s[0])
+    me.loaddata(s[1:])
 
 
 
-  def initint(me, s):
+  def initdata(me, s):
     arr = s.split()
     me.tag = arr[0][1:].strip()
     me.D = int(arr[1])
@@ -95,7 +100,8 @@ class INT:
     me.evir = 0
 
 
-  def adddata(me, s):
+
+  def loaddata(me, s):
     me.tot = float(s[0])
     for i in range(me.m):
       x = s[i + 1].split()
@@ -136,7 +142,6 @@ class INT:
 
 
 
-
   @staticmethod
   def sumdat(fnbas, fnls):
     ''' sum over data in fnbas + fnls '''
@@ -162,8 +167,11 @@ class INT:
 
     fnout = fnbas + "a"
     intg.save(fnout)
-    print "saving %s, vir %.8e, %+9.2e" % (fnout, intg.vir, intg.evir)
-    return [intg.vir,], [intg.evir,]
+    print "saving %s, vir %.8e, %+9.2e, tot %g" % (
+        fnout, intg.vir, intg.evir, intg.tot)
+    return ([intg.vir,], [intg.evir,], intg.tot)
+
+
 
 
 
@@ -211,6 +219,8 @@ def findBring():
 
 
 
+
+
 class MR:
   ''' a class for combining data from mcrat.c '''
   once = 0
@@ -221,8 +231,8 @@ class MR:
     if len(s) <= 1:
       print "file %s is corrupted, delete it!\n" % (fn)
       raise Exception
-    me.initmr(s[0])
-    me.adddata(s[1])
+    me.initdata(s[0])
+    me.loaddata(s[1])
     me.loadBring(fnBring)
     me.use3 = use3
 
@@ -248,24 +258,51 @@ class MR:
 
 
 
-  def initmr(me, s):
+  def loadZn(me):
+    ''' override the partition function if possible '''
+    # the precision of the data below is about 1%
+    ZnD2 = [1, 
+      1.00000000000000e+00, 1.00000000000000e+01, 5.86503328433656e-01, 8.30205380703296e-01,
+      1.55981765896367e+00, 3.75971228859679e+00, 1.11638668246839e+01, 3.95725775601891e+01,
+      1.63777978739903e+02, 7.78279225552566e+02, 4.18450257577216e+03, 2.51846162296513e+04,
+      1.68060245024787e+05, 1.23337260474706e+06, 9.88458266544393e+06, 8.59813692716628e+07,
+      8.07852604693128e+08, 8.14593636576008e+09, 8.78601417586518e+10, 1.00910485968936e+12]
+    ZnD3 = [1,
+      1.00000000000000e+00, 1.00000000000000e+01, 4.68750000000000e-01, 6.54702583392843e-01,
+      1.31905118848001e+00, 3.52472193428843e+00, 1.18909031166355e+01, 4.87677287598462e+01,
+      2.36526482367360e+02, 1.32828862203858e+03, 8.49523320362203e+03, 6.10359623679183e+04,
+      4.87272763924805e+05, 4.28326659587978e+06, 4.11237697337525e+07, 4.28332146700151e+08]
+    if me.D == 2:
+      if me.n < len(ZnD2): me.Zn = ZnD2[me.n]
+    elif me.D == 3:
+      if me.n < len(ZnD3): me.Zn = ZnD3[me.n]
+
+
+
+  def initdata(me, s):
     arr = s.split()
     me.tag = arr[0][1:].strip()
     me.D = int(arr[1])
     me.n = int(arr[2])
+    me.version = int(arr[3][1:])
     if me.tag == 'M':
       me.Z = [1, float(arr[4]), float(arr[5])]
+    elif me.version >= 1:
+      me.Zn = float(arr[5])
+      me.loadZn() # override Zn if possible
     me.fbsm = [[0,0], [0,0], [0,0]]
     me.nzsm = [0,0]  # only for me.tag == 'M'
     me.nrsm = [0,0]
     me.tacc = [[0,0], [0,0]]
     me.evir = None
+    me.tot = 0
 
 
 
-  def adddata(me, s):
+  def loaddata(me, s):
     x = s.strip().split()
     me.fbsm[0] = toarr((x[0], x[1]))
+    me.tot = me.fbsm[0][0]
     if me.tag == 'M':
       me.fbsm[1] = toarr((x[2], x[3]))
       me.fbsm[2] = toarr((x[4], x[5]))
@@ -280,8 +317,15 @@ class MR:
 
   def recompute(me):
     ''' recompute virial '''
-    me.nr = me.nrsm[1] / me.nrsm[0]
-    rv = -me.Bring / me.nr;
+    if me.version >= 1:
+      rv = 1. - me.n
+      for k in range(2, me.n + 1):
+        rv *= 2./k
+      rv *= me.Zn
+      me.nr = 0
+    else:
+      me.nr = me.nrsm[1] / me.nrsm[0]
+      rv = -me.Bring / me.nr;
     me.fb0 = me.fbsm[0][1] / me.fbsm[0][0]
     if me.tag == 'M': # original mcrat.c
       me.nz = me.nzsm[1] / me.nzsm[0]
@@ -306,6 +350,7 @@ class MR:
     me.nzsm = [0, 0]
     me.nrsm = [0, 0]
     me.tacc = [[0, 0],] * 2
+    me.tot = 0
 
 
 
@@ -317,6 +362,7 @@ class MR:
     xinc(a.nrsm, b.nrsm)
     for i in range(2):
       xinc(a.tacc, b.tacc)
+    a.tot += b.tot
 
 
 
@@ -362,7 +408,10 @@ class MR:
         print "D %d, n %d, %+.6e (%.1e) %+.6e (%.1e) %+.6e (%.1e) " % (me.D, me.n,
             me.vir[0], me.evir[0], me.vir[1], me.evir[1], me.vir[2], me.evir[2])
     else: # output of mcrat0
-      info = "#0 %d %d V0\n" % (me.D, me.n)
+      if me.version >= 1:
+        info = "#0 %d %d V1 %20.14e %20.14e\n" % (me.D, me.n, me.Bring, me.Zn)
+      else:
+        info = "#0 %d %d V0\n" % (me.D, me.n)
       s += "%16.0f %+17.14f " % (
             me.fbsm[0][0], me.fbsm[0][1] / me.fbsm[0][0])
       s += "%16.0f %+18.14f " % (
@@ -374,7 +423,7 @@ class MR:
         print "D %d, n %d, %+.6e (%.1e), " % (me.D, me.n,
             me.vir[0], me.evir[0]),
         print "saved mr file %s, tot %g (%7.1e/%7.1e)" % (
-            fn, me.fbsm[0][0], me.have, me.hsig)
+            fn, me.tot, me.have, me.hsig)
     s += "\n"
     open(fn, "w").write(info + s)
 
@@ -398,8 +447,9 @@ class MR:
       mrls += [mr, ]
 
     # histogram analysis
+    totls = [li.tot for li in mrls]
     mr.have, mr.hsig, hisbad = varanalysis(
-        [li.nrsm[0] for li in mrls], [li.fn for li in mrls],
+        totls, [li.fn for li in mrls],
         "histogram", 5.0, 0.1, verbose)
 
     excl = []
@@ -428,7 +478,8 @@ class MR:
 
     fnout = fnbas + "a"
     mr.save(fnout)
-    return (mr.vir, mr.evir)
+    return (mr.vir, mr.evir, mr.tot)
+
 
 
 
@@ -441,10 +492,10 @@ class GC:
     s = open(fn).readlines()
     if s[0][1] in ('R', 'S'):
       me.initZrr(s[0])
-      me.adddataZrr(s[1:])
+      me.loadZrr(s[1:])
     elif s[0][1] == 'H':
       me.initZrh(s[0])
-      me.adddataZrh(s[1:])
+      me.loadZrh(s[1:])
     me.loadBring(fnBring)
 
 
@@ -470,6 +521,26 @@ class GC:
       GC.once = 1
 
 
+  def clear(a):
+    ''' a = 0 '''
+    for i in range(a.nens):
+      # accumulate data
+      a.hist[i] = 0
+      a.nup[i] = [1e-20, 0]
+      a.ndown[i] = [1e-20, 0]
+      if a.tag == 'H':
+        a.ngpr[i] = [1e-20, 0]
+        n = i
+      else:
+        n = a.n[i]
+      if a.tag == 'H' or a.tp[i] == 0:
+        a.ring[n] = [1e-20, 0]
+        a.nedg[n] = [1e-20, 0]
+        a.ncsp[n] = [1e-20, 0]
+        a.fbsm[n] = [1e-20, 0, 0]
+    a.tot = 0
+
+
 
   def absorb(a, b):
     ''' a += b '''
@@ -488,6 +559,7 @@ class GC:
         xinc(a.nedg[n], b.nedg[n])
         xinc(a.ncsp[n], b.ncsp[n])
         xinc(a.fbsm[n], b.fbsm[n])
+    a.tot += b.tot
 
 
 
@@ -520,6 +592,7 @@ class GC:
     me.rc = [0] * cnt
     me.Z = [1] * cnt
     me.hist = [0] * cnt
+    me.tot = 0
     me.nup = [[1e-20, 0],] * cnt
     me.ndown = [[1e-20, 0],] * cnt
     me.ngpr = [[1e-20, 0],] * cnt
@@ -536,8 +609,9 @@ class GC:
 
 
 
-  def adddataZrh(me, s):
+  def loadZrh(me, s):
     ''' absorb data in me '''
+    me.tot = 0
     for ln in s:
       # parse the lines
       x = ln.strip().split()
@@ -549,6 +623,7 @@ class GC:
       me.rc[i] = float(x[4])
       # accumulate data
       me.hist[i] = float(x[5])
+      me.tot += me.hist[i]
       me.nup[i] = toarr((x[6], x[8]))
       me.ndown[i] = toarr((x[7], x[9]))
       me.ngpr[i] = toarr((x[10], x[11]))
@@ -613,7 +688,6 @@ class GC:
   def saveZrh(me, fn, alt = False):
     ''' return a string of the compact Zrh file '''
     s = [""] * (me.nmax + 1)
-    me.tot = 0
     (Zr, rc) = (me.Zr, me.rc)
     if alt:
       (Zr, rc) = (me.Zr1, me.rc1)
@@ -644,7 +718,6 @@ class GC:
         s[n] += "%9.2e %9.2e %9.2e " % (
             me.eB[n], me.eZZ[n], me.eZn[n])
       s[n] = s[n].rstrip() + "\n"
-      me.tot += me.hist[n]
     s[0] = "#%s %d %d V%d %d 1 %s\n" % (me.tag, me.D,
         me.nmax, me.ver, me.nmin, me.nedxmax)
     open(fn, "w").writelines(s)
@@ -673,6 +746,7 @@ class GC:
     me.sr = [0] * me.nens
     me.Z = [1] * me.nens
     me.hist = [0] * me.nens
+    me.tot = 0
     me.nup = [[1e-20, 0],] * me.nens
     me.ndown = [[1e-20, 0],] * me.nens
     cnt = me.nmax + 1
@@ -688,8 +762,9 @@ class GC:
 
 
 
-  def adddataZrr(me, s):
-    ''' absorb data in me '''
+  def loadZrr(me, s):
+    ''' load data to me '''
+    me.tot = 0
     for ln in s:
       # parse the lines
       x = ln.strip().split()
@@ -703,6 +778,7 @@ class GC:
       me.sr[i] = float(x[6])
       # accumulate data
       me.hist[i] = float(x[7])
+      me.tot += me.hist[i]
       me.nup[i] = toarr((x[8], x[10]))
       me.ndown[i] = toarr((x[9], x[11]))
       if me.tp[i] == 0:
@@ -776,7 +852,6 @@ class GC:
     (Zr, rc, sr) = (me.Zr, me.rc, me.sr)
     if alt: # alternative buffer
       (Zr, rc, sr) = (me.Zr1, me.rc1, me.sr1)
-    me.tot = 0
     for i in range(1, me.nens):
       n = me.n[i]
       tp = me.tp[i]
@@ -804,7 +879,6 @@ class GC:
           s[i] += "%9.2e %9.2e %9.2e " % (
               me.eB[n], me.eZZ[n], me.eZn[n])
       s[i] = s[i].rstrip() + "\n"
-      me.tot += me.hist[i]
     s[0] = ' '.join(me.info) + '\n'
     open(fn, "w").writelines(s)
     if verbose:
@@ -815,7 +889,6 @@ class GC:
   def saveZr(me, fn):
     ''' return a string of the compact Zr file '''
     s = [""] * (me.nmax + 1)
-    me.tot = 0
     for i in range(1, me.nens):
       tp = me.tp[i]
       if tp != 0: continue
@@ -843,7 +916,6 @@ class GC:
         s[n] += "%9.2e %9.2e %9.2e " % (
             me.eB[n], me.eZZ[n], me.eZn[n])
       s[n] = s[n].rstrip() + "\n"
-      me.tot += me.hist[i]
     s[0] = "# %d %d V3 %d 1 %s\n" % (
         me.D, me.nmax, me.nmin, me.nedxmax)
     open(fn, "w").writelines(s)
@@ -894,7 +966,8 @@ class GC:
     else:
       gc.saveZrh(fnout)
       gc.saveZrh("refine.data", True)
-    return gc.B2, gc.eB2
+    return gc.B2, gc.eB2, gc.tot
+
 
 
 
@@ -913,32 +986,47 @@ def niceprint(x, err, n = 0, i = 0):
 
 
 
-def getlserr(ls, n):
-  q = len(ls)
-  if q <= 0: return
-  m = len(ls[0][0])
+def getlserr(ls, n, usetot = 0):
+  ''' combine data from different simulations 
+      `usetot': use total instead of the inverse variance as the relative weight '''
+  ns = len(ls)
+  if ns <= 0: return
+  nq = len(ls[0][0]) # number of quantities
   if verbose:
-    print "list has %s items, each with %d quantities" % (q, m)
+    print "list has %s simulations, each with %d quantities" % (ns, nq)
   avls = []
   errls = []
-  for j in range(m): # loop over quantities
+  for j in range(nq): # loop over quantities, usually just one quanity
     suminvvar = 0
     sumx = 0
     sumw = 1e-100
-    for i in range(q): # loop over copies
-      invsig = 1./ls[i][1][j]
-      invvar = invsig * invsig # inverse variance
-      suminvvar += invvar
-      sumw += invvar
-      sumx += ls[i][0][j] * invvar
-    if q > 1 and verbose: # print the break down
-      for i in range(q):
+    sumvar = 0
+    # ls[i][0][j] is the average
+    # ls[i][1][j] is the standard deviation
+    # ls[i][2] is the total
+    wt = [0] * ns
+    for i in range(ns): # loop over copies
+      if usetot:
+        wt[i] = ls[i][2]
+        sumvar += (ls[i][1][j] * wt[i])**2
+      else:
+        invsig = 1./ls[i][1][j]
+        invvar = invsig * invsig # inverse variance
+        wt[i] = invvar
+        suminvvar += invvar
+      sumw += wt[i]
+      sumx += ls[i][0][j] * wt[i]
+    if ns > 1 and verbose: # print the break down
+      for i in range(ns):
         # id, dir, weight, x, err
-        print "%2d %-30s %5.2f%% %+20.10e %9.2e" % (
-            i + 1, ls[i][2], 100*pow(1./ls[i][1][j], 2)/suminvvar,
-            ls[i][0][j], ls[i][1][j])
+        print "%2d %-30s %5.2f%% %+20.10e %9.2e %16.0f" % (
+            i + 1, ls[i][3], 100.*wt[i]/sumw,
+            ls[i][0][j], ls[i][1][j], ls[i][2])
     avx = sumx / sumw
-    err = 1./sqrt(suminvvar)
+    if usetot:
+      err = sqrt(sumvar) / sumw
+    else:
+      err = 1./sqrt(suminvvar)
     niceprint(avx, err, n, j)
     avls += [avx,]
     errls += [err,]
@@ -959,7 +1047,7 @@ def guessdirs(n):
 
 
 
-def dodir(dirs, n, sum3 = 0):
+def dodirs(dirs, n, sum3 = 0, usetot = 0):
   if dirs == None or len(dirs) == 0:
     dirs = guessdirs(n)
     if dirs == None:
@@ -967,22 +1055,22 @@ def dodir(dirs, n, sum3 = 0):
   ls = []
   i = 0
   for d in dirs:
-    (x, err) = aggregate(None, d, sum3 = sum3)
+    (x, err, tot) = aggregate(None, d, sum3 = sum3)
     if x:
-      ls += [(x, err, d),]
+      ls += [(x, err, tot, d),]
       i += 1
       if verbose:
-        print "Directory %d: %s, %s (%s)\n" % (i, d, x, err)
-  return getlserr(ls, n)
+        print "Directory %d: %s, %s (%s), tot %s\n" % (i, d, x, err, tot)
+  return getlserr(ls, n, usetot)
 
 
 
-def scandirs(fns):
-  ''' scan over directories '''
+def scanorders(fns, usetot = 0):
+  ''' scan over orders '''
   n = 4
   ls = []
   while 1:
-    x, err = dodir(None, n)
+    x, err = dodirs(None, n, usetot = usetot)
     if x == None: break
     ls += [(n, x, err)]
     n += 1
@@ -1035,21 +1123,21 @@ def aggregate(fninp, dir = None, sum3 = 0):
     if verbose:
       print "cannot find a .dat file under %s" % dir
     if dir: os.chdir(dir0)
-    return None, None
+    return None, None, None
   elif not os.path.exists(fnbas):
     if verbose:
       print "cannot find %s, dir %s %s" % (fnbas, dir, dir0)
     if dir: os.chdir(dir0)
-    return None, None
+    return None, None, None
   fnls = getslaves(fnbas)
   if fnbas.startswith("Z"):
-    (x, err) = GC.sumdat(fnbas, fnls)
+    (x, err, tot) = GC.sumdat(fnbas, fnls)
   elif fnbas.startswith("mr"):
-    (x, err) = MR.sumdat(fnbas, fnls, sum3)
+    (x, err, tot) = MR.sumdat(fnbas, fnls, sum3)
   else:
-    (x, err) = INT.sumdat(fnbas, fnls)
+    (x, err, tot) = INT.sumdat(fnbas, fnls)
   if dir: os.chdir(dir0)
-  return x, err
+  return x, err, tot
 
 
 
@@ -1069,6 +1157,8 @@ def usage():
    -y[3]:  multiples of the standard deviation for the above exclusion
    -n:     grand aggregation for all folders with n
    -d:     input are directories to aggregate
+   -t:     use the total instead of the inverse variance to weight individual
+           simulations during the above aggregation
   """
   exit(1)
 
@@ -1077,14 +1167,14 @@ def usage():
 def doargs():
   ''' Handle common parameters from command line options '''
   try:
-    opts, args = getopt.gnu_getopt(sys.argv[1:], "sdn:xy:",
-         ["scan", "dir", "rmbad", "order=", "help",])
+    opts, args = getopt.gnu_getopt(sys.argv[1:], "sdtn:xy:",
+         ["scan", "dir", "rmbad", "totwt", "order=", "help",])
   except getopt.GetoptError, err:
     # print help information and exit:
     print str(err) # will print something like "option -a not recognized"
     usage()
 
-  global rmbad, mulsig
+  global rmbad, mulsig, usetot
   n = 0
   isdir = 0
 
@@ -1096,6 +1186,8 @@ def doargs():
     elif o in ("-n", "--order",):
       n = int(a)
       isdir = 1
+    elif o in ("-t", "--totwt"):
+      usetot = 1
     elif o in ("-x", "--rmbad"):
       rmbad = 1
     elif o in ("-y",):
@@ -1114,10 +1206,10 @@ def doargs():
 if __name__ == "__main__":
   isdir, fns, n = doargs()
 
-  if isdir < 0: # scan directories
-    scandirs(fns)
+  if isdir < 0: # scan different orders
+    scanorders(fns, usetot)
   elif isdir > 0: # multiple directory mode
-    dodir(fns, n)
+    dodirs(fns, n, usetot = usetot)
   else: # under a single directory
     if len(fns):
       for fn in fns: aggregate(fn)
