@@ -47,15 +47,18 @@ sync::
 	rsync -avL *.[ch] cz1@129.109.88.204:lwork/vir
 	rsync -avL *.py cz1@129.109.88.204:lwork/vir
 	rsync -avL *.ma cz1@129.109.88.204:lwork/vir
+	rsync -avL Z.dat cz1@129.109.88.204:lwork/vir
 	rsync -avL *.[ch] oo1@stampede.tacc.utexas.edu:work/vir
 	rsync -avL *.py oo1@stampede.tacc.utexas.edu:work/vir
 	rsync -avL Bring.dat oo1@stampede.tacc.utexas.edu:work/vir
+	rsync -avL Z.dat oo1@stampede.tacc.utexas.edu:work/vir
 
 # files are kraken are automatically on keeneland
 sync2::
 	rsync -e gsissh -avL *.[ch] kraken-gsi.nics.xsede.org:work/vir
 	rsync -e gsissh -avL *.py kraken-gsi.nics.xsede.org:work/vir
 	rsync -e gsissh -avL Bring.dat kraken-gsi.nics.xsede.org:work/vir
+	rsync -e gsissh -avL Z.dat kraken-gsi.nics.xsede.org:work/vir
 
 clean:
 	rm -rf $(bins) $(bins_d) $(bins_mp) $(bins_mpi) *~ a.out gmon.out \

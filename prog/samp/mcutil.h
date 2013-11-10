@@ -319,6 +319,54 @@ INLINE double getZrat(int d, int n, const char *fn)
 
 
 
+/* load the compiled partition functions from the file "Z.dat"
+ * return 0 if failed */
+INLINE double loadZ(int d, int n, const char *fn)
+{
+  char *s = NULL, *p;
+  FILE *fp;
+  int i, j, dim = -1, next = 0;
+  size_t sz;
+  double x = 0;
+
+  if (fn == NULL) {
+    fn = "Z.dat";
+    if ( !fexists(fn) ) { /* try the parent directory */
+      fn = "../Z.dat";
+      if ( !fexists(fn) ) {
+        fn = "../../Z.dat";
+        if ( !fexists(fn) ) {
+          fn = "../../../Z.dat";
+        }
+      }
+    }
+  }
+  xfopen(fp, fn, "r", return -1);
+  /* lines are very long, so we use ssfgets() */
+  for (i = 1; ssfgets(s, &sz, fp); i++)
+    if (1 == sscanf(s, "%d%n", &dim, &next) && dim == d)
+      break;
+  if (dim == d) { /* load virial coefficients */
+    p = s + next;
+    for (j = 1; j <= n; j++) {
+      if (1 != sscanf(p, "%lf%n", &x, &next))
+        break;
+      p += next;
+    }
+    if (j <= n) x = 0;
+  } else {
+    fprintf(stderr, "error in reading line %d from %s\n%s", i, fn, s);
+  }
+  fclose(fp);
+  ssdel(s);
+  fprintf(stderr, "loaded partition function %g for D %d, n %d from %s\n",
+      x, d, n, fn);
+  return x;
+}
+
+
+
+
 /* load the contributions of the virial coefficients
  * of the d-dimensional hard-sphere system from file
  * return the last n loaded
@@ -336,8 +384,12 @@ INLINE int loadBring(int d, int nmin, int nmax, double *B, const char *fn)
     fn = "Bring.dat";
     if ( !fexists(fn) ) { /* try the parent directory */
       fn = "../Bring.dat";
-      if ( !fexists(fn) )
+      if ( !fexists(fn) ) {
         fn = "../../Bring.dat";
+        if ( !fexists(fn) ) {
+          fn = "../../../Bring.dat";
+        }
+      }
     }
   }
   xfopen(fp, fn, "r", return -1);

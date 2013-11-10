@@ -202,10 +202,10 @@ def getver(sver):
 
 
 
-def findBring():
-  ''' find Bring.dat '''
+def findfile(fn):
+  ''' find fn '''
   # current directory
-  fn = fn0 = "Bring.dat"
+  fn0 = fn
   if os.path.exists(fn): return fn
   # parent directory
   fn = os.path.join(os.pardir, fn0)
@@ -214,10 +214,20 @@ def findBring():
   d = os.path.split(os.path.realpath(__file__))[0]
   fn = os.path.join(d, fn0)
   if os.path.exists(fn): return fn
-  print "Error: cannot load Bring data, src dir %s, %s" % (d, __file__)
+  print "Error: cannot find %s, src dir %s, %s" % (fn, d, __file__)
   return None
 
 
+
+def findBring():
+  ''' find Bring.dat '''
+  return findfile("Bring.dat")
+
+
+
+def findZn():
+  ''' find Z.dat '''
+  return findfile("Z.dat")
 
 
 
@@ -229,7 +239,7 @@ class MR:
     me.fn = fn
     s = open(fn).readlines()
     if len(s) <= 1:
-      print "file %s is corrupted, delete it!\n" % (fn)
+      print "file %s is corrupted, delete it!\n" % os.path.realpath(fn)
       raise Exception
     me.initdata(s[0])
     me.loaddata(s[1])
@@ -241,6 +251,9 @@ class MR:
   def loadBring(me, fn):
     ''' load virial coefficients from Bring.dat '''
     if not fn: fn = findBring()
+    if not fn:
+      print "cannot find Bring.dat"
+      return
 
     ls = open(fn).readlines()
     for s in ls:
@@ -257,25 +270,23 @@ class MR:
       GC.once = 1
 
 
-
-  def loadZn(me):
+  Znsrc = None
+  def loadZn(me, fn = None):
     ''' override the partition function if possible '''
     # the precision of the data below is about 1%
-    ZnD2 = [1, 
-      1.00000000000000e+00, 1.00000000000000e+01, 5.86503328433656e-01, 8.30205380703296e-01,
-      1.55981765896367e+00, 3.75971228859679e+00, 1.11638668246839e+01, 3.95725775601891e+01,
-      1.63777978739903e+02, 7.78279225552566e+02, 4.18450257577216e+03, 2.51846162296513e+04,
-      1.68060245024787e+05, 1.23337260474706e+06, 9.88458266544393e+06, 8.59813692716628e+07,
-      8.07852604693128e+08, 8.14593636576008e+09, 8.78601417586518e+10, 1.00910485968936e+12]
-    ZnD3 = [1,
-      1.00000000000000e+00, 1.00000000000000e+01, 4.68750000000000e-01, 6.54702583392843e-01,
-      1.31905118848001e+00, 3.52472193428843e+00, 1.18909031166355e+01, 4.87677287598462e+01,
-      2.36526482367360e+02, 1.32828862203858e+03, 8.49523320362203e+03, 6.10359623679183e+04,
-      4.87272763924805e+05, 4.28326659587978e+06, 4.11237697337525e+07, 4.28332146700151e+08]
-    if me.D == 2:
-      if me.n < len(ZnD2): me.Zn = ZnD2[me.n]
-    elif me.D == 3:
-      if me.n < len(ZnD3): me.Zn = ZnD3[me.n]
+    if MR.Znsrc == None:
+      if not fn: fn = findZn()
+      if not fn:
+        print "cannot find Zn.dat"
+        return
+      MR.Znsrc = open(fn).readlines()
+    for s in MR.Znsrc:
+      bs = s.split()
+      if int(bs[0]) == me.D and len(bs) > me.n:
+        me.Zn = float(bs[ me.n ])
+        break
+    else:
+      print "%s: no data for %d" % (fn, me.D, me.n)
 
 
 
@@ -317,7 +328,7 @@ class MR:
 
   def recompute(me):
     ''' recompute virial '''
-    if me.version >= 1:
+    if me.version >= 1 and me.Zn != 0:
       rv = 1. - me.n
       for k in range(2, me.n + 1):
         rv *= 2./k
@@ -987,7 +998,7 @@ def niceprint(x, err, n = 0, i = 0):
 
 
 def getlserr(ls, n, usetot = 0):
-  ''' combine data from different simulations 
+  ''' combine data from different simulations
       `usetot': use total instead of the inverse variance as the relative weight '''
   ns = len(ls)
   if ns <= 0: return

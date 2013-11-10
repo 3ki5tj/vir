@@ -113,30 +113,10 @@ static void doargs(int argc, char **argv)
   die_if (n != N, "n %d mismatches the predefined N %d\n", n, N);
 #endif
 
+  /* load the partition function */
+  if (Zn <= 0) Zn = loadZ(D, n, NULL);
 #ifdef DG_NORING
-  {
-    /* since the partition function route is most useful in low dimensions
-     * we only supple a few low dimensional values
-     * The precisions of the partition functions are around 0.1%
-     * and are to be improved */
-#if D == 2
-    double ZnD[21] = {1,
-      1.00000000000000e+00, 1.00000000000000e+01, 5.86503328433656e-01, 8.30205380703296e-01,
-      1.55981765896367e+00, 3.75971228859679e+00, 1.11638668246839e+01, 3.95725775601891e+01,
-      1.63777978739903e+02, 7.78279225552566e+02, 4.18450257577216e+03, 2.51846162296513e+04,
-      1.68060245024787e+05, 1.23337260474706e+06, 9.88458266544393e+06, 8.59813692716628e+07,
-      8.07852604693128e+08, 8.14593636576008e+09, 8.78601417586518e+10, 1.00910485968936e+12};
-    if (Zn <= 0 && n <= 20) Zn = ZnD[n];
-#elif D == 3
-    double ZnD[17] = {1,
-      1.00000000000000e+00, 1.00000000000000e+01, 4.68750000000000e-01, 6.54702583392843e-01,
-      1.31905118848001e+00, 3.52472193428843e+00, 1.18909031166355e+01, 4.87677287598462e+01,
-      2.36526482367360e+02, 1.32828862203858e+03, 8.49523320362203e+03, 6.10359623679183e+04,
-      4.87272763924805e+05, 4.28326659587978e+06, 4.11237697337525e+07, 4.28332146700151e+08};
-    if (Zn <= 0 && n <= 16) Zn = ZnD[n];
-#endif /* D == 3 */
-    die_if (Zn <= 0, "must supply a valid value for the partition function %g\n", Zn);
-  }
+  die_if (Zn <= 0, "must supply a valid value for the partition function %g\n", Zn);
 #endif /* !defined(DG_NORING) */
 
   /* decide whether to use lookup table or not */
@@ -267,7 +247,11 @@ static int load(const char *fn, av0_t *fbsm, av0_t *nrsm)
   }
   if ( 4 != sscanf(s, "%lf%lf%lf%lf",
         &fbsm->s, &fbsm->sx, &nrsm->s, &nrsm->sx) ) {
+    av0_clear(fbsm);
+    av0_clear(nrsm);
     fprintf(stderr, "%s: corrupted\n", fn);
+    fclose(fp);
+    return -1;
   }
   fbsm->sx *= fbsm->s;
 #ifndef DG_NORING
@@ -297,6 +281,8 @@ static void report(const av0_t *fbsm, const av0_t *nrsm,
   vir = -fb * rv;
 #else /* estimate the virial coefficient from the partition function */
   nr = 0;
+  /* Bn = Zn <fb> * (1 - n)/ n !
+   * Bn/B2^(n-1) = 2^(n-1) Zn/Z2^(n-1) */
   {
     int k;
     for (rv = 1., k = 2; k <= n; k++)
@@ -337,7 +323,10 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   int i, j, pid, it, acc;
   dg_t *g, *ng;
   dgword_t code, ncode;
-  double t, fb, nr = 0;
+  double t, fb;
+#ifndef DG_NORING
+  double nr = 0;
+#endif
   av0_t fbsm, nrsm, cacc, racc;
   unqid_t gmapid;
 
@@ -643,20 +632,6 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
           exit(1);
         }
 #endif /* !defined(DG_NORING) */
-      }
-      /* check if degree sequence is correct */
-      if (acc && gdirty) {
-        int degs1[DG_NMAX], ned1 = dg_degs(g, degs1);
-        int err = (ned1 != ned);
-        for (i = 0; i < DG_N_; i++)
-          if (degs1[i] != degs[i]) err++;
-        if (err) {
-          printf("%d: t %g, ned %d vs %d", inode, t, ned, ned1);
-          for (i = 0; i < DG_N_; i++)
-            printf("%d: %d vs %d\n", i, degs[i], degs1[i]);
-          dg_print(g);
-          exit(1);
-        }
       }
     }
 #endif /* defined(CHECK) */
