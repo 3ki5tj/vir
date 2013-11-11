@@ -112,7 +112,7 @@ INLINE void dgmapl_seti2(dgmapl_fb_t * RESTRICT x, dgmapl_int_t * RESTRICT i)
 INLINE dgword_t dgmapl_encode(const dg_t *g, int k, int *st)
 {
   int i, j, jmax;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   dgword_t c, ci, pb;
 
   for (pb = 1, c = 0, i = 2; i < DG_N_; i++) {
@@ -132,8 +132,8 @@ INLINE dgword_t dgmapl_encode(const dg_t *g, int k, int *st)
 INLINE dgword_t dgmapl_getchain(const dg_t *g, int k, int *st)
 {
   int err = 1, top, i;
-  DG_DEFN_(g);
-  DG_DEFMASKN_();
+  DG_DEFN_(g)
+  DG_DEFMASKN_()
   dgword_t vs, c, b, ms[DGMAPL_NMAX + 1];
 
   top = 0;
@@ -182,8 +182,8 @@ INLINE int dgmapl_save2full(
 {
 #define DGMAPL_LISTSIZE 200
   int cnt = 0, i;
-  DG_DEFN_(g);
-  DG_DEFMASKN_();
+  DG_DEFN_(g)
+  DG_DEFMASKN_()
   dgword_t vs, c, b, ci;
   dgword_t ms[DGMAPL_NMAX + 1];
   dgword_t ls[DGMAPL_LISTSIZE]; /* buffer to save updated values */
@@ -315,7 +315,9 @@ INLINE dgmapl_t *dgmapl_open(int n, int k)
     if (n == 9 && sizeof(long) > 4) k = 7;
   }
   m->k = k;
-  m->size = (uint64_t) 1u << (n * (n - 1) / 2 - k);
+  die_if (n >= 10 && sizeof(size_t) <= 4,
+      "size_t %d is not large enough\n", (int) sizeof(size_t));
+  m->size = (size_t) 1u << (n * (n - 1) / 2 - k);
   die_if (n*(n-1)/2-k > (int) sizeof(dgword_t) * 8,
       "n %d, k %d cannot be contained in %d bits, increase DG_WORDBITS\n",
       n, k, (int) sizeof(dgword_t));
@@ -355,7 +357,7 @@ INLINE double dgmapl_fbnr_lookup0(dgmapl_t *m, const dg_t *g,
 #pragma omp threadprivate(st)
   dgword_t c;
   int hasnew;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   dgmapl_int_t ifbnr[2] = {0, 0};
   double fb;
 

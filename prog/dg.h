@@ -13,6 +13,13 @@
   /* ignore all openmp pragmas */
   #pragma GCC diagnostic ignored "-Wunknown-pragmas"
   #pragma GCC diagonstic ignored "-Wunused-parameter"
+#elif defined(_MSC_VER)
+  /* 4068: unknown pragma
+     4146: unary minus operator applied to unsigned type */
+  #pragma warning(disable : 4068 4146)
+#elif defined(__BORLANDC__)
+  /* 8041: negating unsigned value */
+  #pragma warn -8041
 #endif
 
 
@@ -36,24 +43,6 @@ int inode = MASTER, nnodes = 1;
 #include <time.h>
 
 
-/* if the user defined a fixed N, fixed length loops can be used
- * but all diagrams must be of size n
- * otherwise we define DG_N_ as n, whatever it is */
-#ifdef  N
-#define DG_N_ N
-#define DG_GN_(g) N
-#define DG_DEFN_(g)
-#define DG_MASKN_ MKBITSMASK(N)
-#define DG_DEFMASKN_()
-#else
-#define DG_N_ n
-#define DG_GN_(g) ((g)->n)
-#define DG_DEFN_(g) int n = (g)->n;
-#define DG_MASKN_ maskn
-#define DG_DEFMASKN_() dgword_t maskn = MKBITSMASK(n);
-#endif
-
-
 
 /* DG_WORDBITS used to be called CODEBITS */
 #if !defined(DG_WORDBITS) && defined(CODEBITS)
@@ -75,9 +64,12 @@ int inode = MASTER, nnodes = 1;
 #endif /* defined DG_WORDBITS */
 
 
+
+/* we only support a graph with at most DG_WORDBITS vertices */
 #if defined(N) && N > DG_WORDBITS
 #error only support N to DG_WORDBITS
 #endif
+
 
 
 #if DG_WORDBITS == 32
@@ -92,11 +84,29 @@ typedef int64_t sdgword_t;
 
 
 
-/* we only support a graph with at most DG_WORDBITS vertices */
 #ifdef N
 #define DG_NMAX N /* we know the size */
 #else
 #define DG_NMAX DG_WORDBITS
+#endif
+
+
+
+/* if the user defined a fixed N, fixed length loops can be used
+ * but all diagrams must be of size n
+ * otherwise we define DG_N_ as n, whatever it is */
+#ifdef  N
+#define DG_N_ N
+#define DG_GN_(g) N
+#define DG_DEFN_(g)
+#define DG_MASKN_ MKBITSMASK(N)
+#define DG_DEFMASKN_()
+#else
+#define DG_N_ n
+#define DG_GN_(g) ((g)->n)
+#define DG_DEFN_(g) int n = (g)->n;
+#define DG_MASKN_ maskn
+#define DG_DEFMASKN_() dgword_t maskn = MKBITSMASK(n);
 #endif
 
 
@@ -127,40 +137,40 @@ dgword_t invbitsmask_[DG_WORDBITS + 1] = {0xffffffff,
 #elif DG_WORDBITS == 64
 
 dgword_t bitsmask_[DG_WORDBITS + 1] = {0,
-                0x1ull,                0x3ull,                0x7ull,                0xfull,
-               0x1full,               0x3full,               0x7full,               0xffull,
-              0x1ffull,              0x3ffull,              0x7ffull,              0xfffull,
-             0x1fffull,             0x3fffull,             0x7fffull,             0xffffull,
-            0x1ffffull,            0x3ffffull,            0x7ffffull,            0xfffffull,
-           0x1fffffull,           0x3fffffull,           0x7fffffull,           0xffffffull,
-          0x1ffffffull,          0x3ffffffull,          0x7ffffffull,          0xfffffffull,
-         0x1fffffffull,         0x3fffffffull,         0x7fffffffull,         0xffffffffull,
-        0x1ffffffffull,        0x3ffffffffull,        0x7ffffffffull,        0xfffffffffull,
-       0x1fffffffffull,       0x3fffffffffull,       0x7fffffffffull,       0xffffffffffull,
-      0x1ffffffffffull,      0x3ffffffffffull,      0x7ffffffffffull,      0xfffffffffffull,
-     0x1fffffffffffull,     0x3fffffffffffull,     0x7fffffffffffull,     0xffffffffffffull,
-    0x1ffffffffffffull,    0x3ffffffffffffull,    0x7ffffffffffffull,    0xfffffffffffffull,
-   0x1fffffffffffffull,   0x3fffffffffffffull,   0x7fffffffffffffull,   0xffffffffffffffull,
-  0x1ffffffffffffffull,  0x3ffffffffffffffull,  0x7ffffffffffffffull,  0xfffffffffffffffull,
- 0x1fffffffffffffffull, 0x3fffffffffffffffull, 0x7fffffffffffffffull, 0xffffffffffffffffull};
+ CU64(0x0000000000000001), CU64(0x0000000000000003), CU64(0x0000000000000007), CU64(0x000000000000000f),
+ CU64(0x000000000000001f), CU64(0x000000000000003f), CU64(0x000000000000007f), CU64(0x00000000000000ff),
+ CU64(0x00000000000001ff), CU64(0x00000000000003ff), CU64(0x00000000000007ff), CU64(0x0000000000000fff),
+ CU64(0x0000000000001fff), CU64(0x0000000000003fff), CU64(0x0000000000007fff), CU64(0x000000000000ffff),
+ CU64(0x000000000001ffff), CU64(0x000000000003ffff), CU64(0x000000000007ffff), CU64(0x00000000000fffff),
+ CU64(0x00000000001fffff), CU64(0x00000000003fffff), CU64(0x00000000007fffff), CU64(0x0000000000ffffff),
+ CU64(0x0000000001ffffff), CU64(0x0000000003ffffff), CU64(0x0000000007ffffff), CU64(0x000000000fffffff),
+ CU64(0x000000001fffffff), CU64(0x000000003fffffff), CU64(0x000000007fffffff), CU64(0x00000000ffffffff),
+ CU64(0x00000001ffffffff), CU64(0x00000003ffffffff), CU64(0x00000007ffffffff), CU64(0x0000000fffffffff),
+ CU64(0x0000001fffffffff), CU64(0x0000003fffffffff), CU64(0x0000007fffffffff), CU64(0x000000ffffffffff),
+ CU64(0x000001ffffffffff), CU64(0x000003ffffffffff), CU64(0x000007ffffffffff), CU64(0x00000fffffffffff),
+ CU64(0x00001fffffffffff), CU64(0x00003fffffffffff), CU64(0x00007fffffffffff), CU64(0x0000ffffffffffff),
+ CU64(0x0001ffffffffffff), CU64(0x0003ffffffffffff), CU64(0x0007ffffffffffff), CU64(0x000fffffffffffff),
+ CU64(0x001fffffffffffff), CU64(0x003fffffffffffff), CU64(0x007fffffffffffff), CU64(0x00ffffffffffffff),
+ CU64(0x01ffffffffffffff), CU64(0x03ffffffffffffff), CU64(0x07ffffffffffffff), CU64(0x0fffffffffffffff),
+ CU64(0x1fffffffffffffff), CU64(0x3fffffffffffffff), CU64(0x7fffffffffffffff), CU64(0xffffffffffffffff)};
 
-dgword_t invbitsmask_[DG_WORDBITS + 1] = {0xffffffffffffffffull,
- 0xfffffffffffffffeull, 0xfffffffffffffffcull, 0xfffffffffffffff8ull, 0xfffffffffffffff0ull,
- 0xffffffffffffffe0ull, 0xffffffffffffffc0ull, 0xffffffffffffff80ull, 0xffffffffffffff00ull,
- 0xfffffffffffffe00ull, 0xfffffffffffffc00ull, 0xfffffffffffff800ull, 0xfffffffffffff000ull,
- 0xffffffffffffe000ull, 0xffffffffffffc000ull, 0xffffffffffff8000ull, 0xffffffffffff0000ull,
- 0xfffffffffffe0000ull, 0xfffffffffffc0000ull, 0xfffffffffff80000ull, 0xfffffffffff00000ull,
- 0xffffffffffe00000ull, 0xffffffffffc00000ull, 0xffffffffff800000ull, 0xffffffffff000000ull,
- 0xfffffffffe000000ull, 0xfffffffffc000000ull, 0xfffffffff8000000ull, 0xfffffffff0000000ull,
- 0xffffffffe0000000ull, 0xffffffffc0000000ull, 0xffffffff80000000ull, 0xffffffff00000000ull,
- 0xfffffffe00000000ull, 0xfffffffc00000000ull, 0xfffffff800000000ull, 0xfffffff000000000ull,
- 0xffffffe000000000ull, 0xffffffc000000000ull, 0xffffff8000000000ull, 0xffffff0000000000ull,
- 0xfffffe0000000000ull, 0xfffffc0000000000ull, 0xfffff80000000000ull, 0xfffff00000000000ull,
- 0xffffe00000000000ull, 0xffffc00000000000ull, 0xffff800000000000ull, 0xffff000000000000ull,
- 0xfffe000000000000ull, 0xfffc000000000000ull, 0xfff8000000000000ull, 0xfff0000000000000ull,
- 0xffe0000000000000ull, 0xffc0000000000000ull, 0xff80000000000000ull, 0xff00000000000000ull,
- 0xfe00000000000000ull, 0xfc00000000000000ull, 0xf800000000000000ull, 0xf000000000000000ull,
- 0xe000000000000000ull, 0xc000000000000000ull, 0x8000000000000000ull,                0x0ull};
+dgword_t invbitsmask_[DG_WORDBITS + 1] = {CU64(0xffffffffffffffff),
+ CU64(0xfffffffffffffffe), CU64(0xfffffffffffffffc), CU64(0xfffffffffffffff8), CU64(0xfffffffffffffff0),
+ CU64(0xffffffffffffffe0), CU64(0xffffffffffffffc0), CU64(0xffffffffffffff80), CU64(0xffffffffffffff00),
+ CU64(0xfffffffffffffe00), CU64(0xfffffffffffffc00), CU64(0xfffffffffffff800), CU64(0xfffffffffffff000),
+ CU64(0xffffffffffffe000), CU64(0xffffffffffffc000), CU64(0xffffffffffff8000), CU64(0xffffffffffff0000),
+ CU64(0xfffffffffffe0000), CU64(0xfffffffffffc0000), CU64(0xfffffffffff80000), CU64(0xfffffffffff00000),
+ CU64(0xffffffffffe00000), CU64(0xffffffffffc00000), CU64(0xffffffffff800000), CU64(0xffffffffff000000),
+ CU64(0xfffffffffe000000), CU64(0xfffffffffc000000), CU64(0xfffffffff8000000), CU64(0xfffffffff0000000),
+ CU64(0xffffffffe0000000), CU64(0xffffffffc0000000), CU64(0xffffffff80000000), CU64(0xffffffff00000000),
+ CU64(0xfffffffe00000000), CU64(0xfffffffc00000000), CU64(0xfffffff800000000), CU64(0xfffffff000000000),
+ CU64(0xffffffe000000000), CU64(0xffffffc000000000), CU64(0xffffff8000000000), CU64(0xffffff0000000000),
+ CU64(0xfffffe0000000000), CU64(0xfffffc0000000000), CU64(0xfffff80000000000), CU64(0xfffff00000000000),
+ CU64(0xffffe00000000000), CU64(0xffffc00000000000), CU64(0xffff800000000000), CU64(0xffff000000000000),
+ CU64(0xfffe000000000000), CU64(0xfffc000000000000), CU64(0xfff8000000000000), CU64(0xfff0000000000000),
+ CU64(0xffe0000000000000), CU64(0xffc0000000000000), CU64(0xff80000000000000), CU64(0xff00000000000000),
+ CU64(0xfe00000000000000), CU64(0xfc00000000000000), CU64(0xf800000000000000), CU64(0xf000000000000000),
+ CU64(0xe000000000000000), CU64(0xc000000000000000), CU64(0x8000000000000000), CU64(0x0000000000000000)};
 
 #endif
 
@@ -279,7 +289,7 @@ const int bruijn64_[64] =
     63,  6, 12, 18, 24, 27, 33, 39, 16, 37, 45, 47, 30, 53, 49, 56,
     62, 11, 23, 32, 36, 44, 52, 55, 61, 22, 43, 51, 60, 42, 59, 58};
 
-#define BIT2ID(b) bruijn64_[((b) * 0x218A392CD3D5DBFULL) >> 58]
+#define BIT2ID(b) bruijn64_[((b) * CU64(0x218A392CD3D5DBF)) >> 58]
 
 #endif /* DG_WORDBITS == 64 */
 
@@ -383,7 +393,7 @@ INLINE void dg_close(dg_t *g)
 INLINE dg_t *dg_copy(dg_t *a, const dg_t *b)
 {
   int i;
-  DG_DEFN_(b);
+  DG_DEFN_(b)
 
   for (i = 0; i < DG_N_; i++)
     a->c[i] = b->c[i];
@@ -400,22 +410,8 @@ INLINE dg_t *dg_clone(const dg_t *b)
 
 
 
-INLINE sdgword_t dg_cmp(const dg_t *a, const dg_t *b)
-{
-  int i;
-  DG_DEFN_(a);
-  sdgword_t df;
-
-  for (i = 0; i < DG_N_; i++)
-    if ((df = (sdgword_t) (a->c[i] - b->c[i])) != 0)
-      return df;
-  return 0;
-}
-
-
-
 /* return if the edge between i and j are connected */
-#define dg_linked(g, i, j) ( ( (g)->c[i] >> (j) ) & 1u )
+#define dg_linked(g, i, j) (int) ( ( (g)->c[i] >> (j) ) & 1u )
 
 
 
@@ -449,7 +445,7 @@ INLINE void dg_unlink(dg_t *g, int i, int j)
 INLINE void dg_empty(dg_t *g)
 {
   int i;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
 
   for (i = 0; i < DG_N_; i++)
     g->c[i] = 0;
@@ -461,8 +457,8 @@ INLINE void dg_empty(dg_t *g)
 INLINE void dg_full(dg_t *g)
 {
   int i;
-  DG_DEFN_(g);
-  DG_DEFMASKN_();
+  DG_DEFN_(g)
+  DG_DEFMASKN_()
 
   for (i = 0;  i < DG_N_; i++)
     /* all bits, except the ith, are 1s */
@@ -475,7 +471,7 @@ INLINE void dg_full(dg_t *g)
 INLINE dg_t *dg_complement(dg_t *h, dg_t *g)
 {
   int i;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   DG_DEFMASKN_();
 
   for (i = 0; i < DG_N_; i++)
@@ -491,7 +487,7 @@ INLINE dg_t *dg_complement(dg_t *h, dg_t *g)
 INLINE void dg_fprint0(const dg_t *g, FILE *fp, const char *nm)
 {
   int i, j;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
 
   fprintf(fp, "%-4s", nm ? nm : "");
   for (i = 0; i < DG_N_; i++)
@@ -520,7 +516,7 @@ INLINE void dg_fprint0(const dg_t *g, FILE *fp, const char *nm)
 INLINE int dg_degs(const dg_t *g, int *degs)
 {
   int i, sum = 0;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
 
   for (i = 0; i < DG_N_; i++)
     sum += ( degs[i] = dg_deg(g, i) );
@@ -547,7 +543,7 @@ INLINE void dg_csortdegs(int n, int *degs)
 INLINE int dg_nedges(const dg_t *g)
 {
   int i, ne;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
 
   for (ne = i = 0; i < DG_N_; i++)
     ne += bitcount(g->c[i]);
@@ -581,8 +577,8 @@ INLINE int dg_connectedvs(const dg_t *g, dgword_t vs)
  * we do not use lookup table by default */
 INLINE int dg_biconnected(const dg_t *g)
 {
-  DG_DEFN_(g);
-  DG_DEFMASKN_();
+  DG_DEFN_(g)
+  DG_DEFMASKN_()
   dgword_t b;
 
 #if !defined(N) || N <= 2
@@ -625,7 +621,7 @@ INLINE int dg_biconnectedvs(const dg_t *g, dgword_t vs)
 INLINE int dg_biconnected_std(const dg_t *g)
 {
   int i0, v, par, id, root = 0;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   static int stack[DG_NMAX + 1], parent[DG_NMAX], dfn[DG_NMAX], low[DG_NMAX];
 #pragma omp threadprivate(stack, parent, dfn, low)
 
@@ -678,7 +674,7 @@ INLINE int dg_biconnected_std(const dg_t *g)
 INLINE dgword_t *dg_encode(const dg_t *g, dgword_t *code)
 {
   int i, ib = 0;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   dgword_t *c = code, ci;
 
   for (*c = 0, i = 0; i < DG_N_ - 1; i++) {
@@ -702,7 +698,7 @@ INLINE dgword_t *dg_encode(const dg_t *g, dgword_t *code)
 INLINE dg_t *dg_decode(dg_t *g, dgword_t *code)
 {
   int i, j, ib = 0;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   dgword_t *c = code;
 
   dg_empty(g);

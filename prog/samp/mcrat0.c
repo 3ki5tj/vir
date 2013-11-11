@@ -60,6 +60,7 @@ int hash_initls = 0; /* TODO: currently turn off initls by default mainly for co
 int auto_level = -1;
 int hash_isoenum = -1;
 int hash_isomax = 0; /* default value */
+int hash_nocsep = 0; /* test clique separators before passing it to the hash table */
 
 int dostat = 0; /* applies to mapl and hash */
 
@@ -104,6 +105,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--auto-level",  "%d",   &auto_level,  "automorphism level, -1: canonical label, 0: no transformation, 1: degree sequence, 2 or 3: first automorphism in the searching tree");
   argopt_add(ao, "--hash-isoenum","%d",   &hash_isoenum,"enumerate isomorphic graphs after a new graph is found, 1: yes, 0: no, -1: default");
   argopt_add(ao, "--hash-isomax", "%d",   &hash_isomax, "maximal number of items to used in the above enumeration");
+  argopt_add(ao, "--hash-nocsep", "%b",   &hash_nocsep, "only pass graphs with no clique separator to the hash table");
 
   argopt_add(ao, "--stat",        "%b",   &dostat,      "compute statistics");
 
@@ -153,6 +155,12 @@ static void doargs(int argc, char **argv)
   }
 #else
   hash_on = 0;
+#endif
+
+#ifndef DG_NORING
+  if (hash_nocsep) {
+    fprintf(stderr, "hash-nocsep has little benefit without defining DG_NORING\n");
+  }
 #endif
 
   /* interval of computing fb */
@@ -463,6 +471,31 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
 
 
+#ifdef DGHASH_EXISTS
+/* conditionally use the hash table to compute fb and nr */
+INLINE double hashgetfbnr(dghash_t *hash, const dg_t *g, double *nr, int *ned, int *degs)
+{
+#ifdef DG_NORING
+  int nocsep = 0;
+
+  if ( hash_nocsep ) { /* check if there is a clique separator */
+    if ( dg_cliquesep(g) ) { /* there is a clique separator */
+      *nr = 0;
+      return 0;
+    } else { /* there is no clique separator */
+      nocsep = 1;
+    }
+  }
+  return dghash_fbnr_lookup0(hash, g, nr, nocsep, ned, degs);
+#else /* !defined(DG_NORING) */
+  /* if both fb and nr are needed, call dghash_fbnr_lookup0() directly */
+  return dghash_fbnr_lookup0(hash, g, nr, 0, ned, degs);
+#endif /* defined(DG_NORING) */
+}
+#endif /* defined(DGHASH_EXISTS) */
+
+
+
 /* compute a virial coefficient by the ratio method
  * direct version without lookup table */
 INLINE void mcrat_direct(int n, double nequil, double nsteps,
@@ -594,7 +627,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
           {
 #ifdef DGHASH_EXISTS
             if ( hash_on && hash != NULL) {
-              fb = dghash_fbnr_lookup0(hash, g, &nr, 0, &ned, degs);
+              fb = hashgetfbnr(hash, g, &nr, &ned, degs);
             } else
 #endif /* defined(DGHASH_EXISTS) */
             {

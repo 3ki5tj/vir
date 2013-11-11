@@ -50,7 +50,7 @@
 #if DG_WORDBITS == 32
 #define DGHASH_LCG(c) ((c) * 314159265u + 1u)
 #else
-#define DGHASH_LCG(c) ((c) * 6364136223846793005ull + 1442695040888963407ull)
+#define DGHASH_LCG(c) ((c) * CU64(6364136223846793005) + CU64(1442695040888963407))
 #endif
 
 
@@ -187,15 +187,15 @@ INLINE dghash_t *dghash_open(int n, int bits,
   /* generally blksz should be large enough to avoid too many linked lists */
   /* default parameters for level 1 */
   static struct { int bits, blksz; } defp1[] = {
-    {20, 8}, /* default setting for n > 10 */
+    {26, 4}, /* default setting for n > 10 */
     { 1, 1}, { 1, 1}, { 1, 1}, { 3, 2}, { 6, 2},
     {10, 4}, {14, 4}, {20, 4}, {24, 4}, {26, 4},
   };
   /* default parameters for level 4 */
   static struct { int bits, blksz; } defp4[] = {
-    {20, 8}, /* default setting for n > 10 */
+    {24, 4}, /* default setting for n > 10 */
     { 1, 1}, { 1, 1}, { 1, 1}, { 3, 2}, { 6, 2},
-    { 8, 2}, {10, 4}, {14, 4}, {22, 4}, {23, 4},
+    { 8, 2}, {10, 4}, {14, 4}, {22, 4}, {24, 4},
   };
   dghash_t *h;
   size_t i;
@@ -363,7 +363,7 @@ INLINE int dgls_add(dgls_t *ls, const dgword_t *c,
     //lscnt = 0; /* to be incremented below */
   } else {
     /* check if we have exhausted the capacity of this list */
-    if (lscnt == h->blksz) {
+    if ((size_t) lscnt == h->blksz) {
       if (h->mem > h->memmax) return -1;
       h->mem += h->blksz * sizeof(ls->arr[0]) + sizeof(*ls);
       //xnew(ls->next, 1);
@@ -442,10 +442,10 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
 {
   static dgword_t c[DGHASH_CWORDS];
   static dgword_t ng_c[DG_NMAX];
-  static dg_t ng[1] = {DGHASH_NMAX, NULL}; /* a stock graph */
+  static dg_t ng[1] = {{DGHASH_NMAX, NULL}}; /* a stock graph */
 #pragma omp threadprivate(c, ng_c, ng)
 
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   int pos;
   dgword_t hashid;
   dgls_t *ls, *ls1;

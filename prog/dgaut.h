@@ -22,7 +22,7 @@ INLINE dg_t *dg_canlabel(dg_t *gout, const dg_t *gin)
   static statsblk stats;
 #pragma omp threadprivate(g0, gc, lab, ptn, orbits, options, stats)
   int i;
-  DG_DEFN_(gin);
+  DG_DEFN_(gin)
 
   /* nauty uses the highest bit for the first index */
   for (i = 0; i < DG_N_; i++) g0[i] = bitreverse(gin->c[i]);
@@ -145,7 +145,7 @@ INLINE int dgpart_check(const dgpart_t *part, int equitable, const dg_t *g)
  * for any vk and vl in Vi, deg(vk, Vj) == deg(vk, Vi) */
 INLINE void dg_equipart(dgpart_t *part, const dg_t *g)
 {
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   int i, i0, imax, j, k, deg, ni;
   dgword_t vsj, vsi, vs, b;
   dgword_t vswdeg[DG_NMAX]; /* vswdeg[i] is the vertex set with degree i */
@@ -262,7 +262,7 @@ INLINE int dg_checkperm(const int *perm, int n)
  * the speed of using recur or not is very similar, recommended */
 INLINE void dg_permequipart(int *perm, const dg_t *g, int recur)
 {
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   dgpart_t part;
   int ic, k, i;
   dgword_t vs, b;
@@ -308,7 +308,7 @@ INLINE void dg_permequipart(int *perm, const dg_t *g, int recur)
 /* get a permutation compatible with the degree sequence */
 INLINE void dg_permdegseq(int *perm, const dg_t *g)
 {
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   int i, k, deg;
   dgword_t cvs[DG_NMAX], vs, b;
 #define DG_DEGMIN 0 /* can be 2 for biconnected graphs */
@@ -331,7 +331,7 @@ INLINE void dg_permdegseq(int *perm, const dg_t *g)
 /* get a partition in which each cell contains all vertices of the same degree */
 INLINE void dg_partdegseq(dgpart_t *part, const dg_t *g)
 {
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   int i, deg, ic;
   dgword_t cvs[DG_NMAX], vs, b;
 #define DG_DEGMIN 0 /* can be 2 for biconnected graphs */
@@ -357,7 +357,7 @@ INLINE void dg_partdegseq(dgpart_t *part, const dg_t *g)
 /* rearrange vertices in `gin' according to the permuation `perm' */
 INLINE dg_t *dg_permutate(dg_t * RESTRICT gout, const dg_t * RESTRICT gin, const int *perm)
 {
-  DG_DEFN_(gin);
+  DG_DEFN_(gin)
   int i, j;
   dgword_t ci, ci_out;
 
@@ -377,7 +377,7 @@ INLINE dg_t *dg_permutate(dg_t * RESTRICT gout, const dg_t * RESTRICT gin, const
 /* check if a is a vertex permutation of b */
 INLINE int dg_checkiso(const dg_t *a, const dg_t *b, const int *perm)
 {
-  DG_DEFN_(b);
+  DG_DEFN_(b)
   int i, j;
   dgword_t cai, cbi;
 
@@ -411,7 +411,7 @@ INLINE dg_t *dg_repiso(dg_t *gout, const dg_t *gin, int level)
   int perm[DG_NMAX + 1];
 
   if (level == 0) {
-    DG_DEFN_(gin);
+    DG_DEFN_(gin)
     gout->n = DG_N_;
     return dg_copy(gout, gin);
   }

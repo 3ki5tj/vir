@@ -144,7 +144,7 @@ class INT:
 
   @staticmethod
   def sumdat(fnbas, fnls):
-    ''' sum over data in fnbas + fnls '''
+    ''' sum over data in fnbas + fnls for int*.dat '''
     intg = INT(fnbas)
     nls = len(fnls) + 1
     intgls = [None] * nls
@@ -286,7 +286,8 @@ class MR:
         me.Zn = float(bs[ me.n ])
         break
     else:
-      print "%s: no data for %d" % (fn, me.D, me.n)
+      pass
+      #print "%s: no data for D %d, n %d" % (fn, me.D, me.n)
 
 
 
@@ -378,7 +379,7 @@ class MR:
 
 
   def aggregate(mr, ls):
-    ''' mr = sum(ls) '''
+    ''' mr = sum(ls) for int* '''
     mr.clear()
     for mr1 in ls:
       mr.absorb(mr1) # mr += mr1
@@ -442,7 +443,7 @@ class MR:
 
   @staticmethod
   def sumdat(fnbas, fnls, use3 = 0):
-    ''' sum over data in fnbas + fnls '''
+    ''' sum over data in fnbas + fnls for mr*.dat '''
     mr = MR(fnbas, use3 = use3) # create a class, read data in fnbas
     m = len(fnls) + 1
     fnls = [fnbas,] + fnls
@@ -982,7 +983,7 @@ class GC:
 
 
 
-def niceprint(x, err, n = 0, i = 0):
+def niceprint(x, err, n = 0, i = 0, strtot = ""):
   ''' print the number with error aligned on the second line '''
   ox = floor(log10(fabs(x)))
   oy = floor(log10(err))
@@ -992,14 +993,15 @@ def niceprint(x, err, n = 0, i = 0):
     padding = int(ox - oy - .5)
   if padding <= 0: padding -= 1
   if verbose:
-    print "%4d/%4d: %+20.10e\n" % (n, i, x) + " " * (
+    print "%4d/%4d: %+20.10e   %s\n" % (n, i, x, strtot) + " " * (
         padding + 15) + "%9.2e" % (err)
 
 
 
 def getlserr(ls, n, usetot = 0):
   ''' combine data from different simulations
-      `usetot': use total instead of the inverse variance as the relative weight '''
+      `usetot': use total instead of the inverse variance
+                as the relative weight '''
   ns = len(ls)
   if ns <= 0: return
   nq = len(ls[0][0]) # number of quantities
@@ -1007,6 +1009,8 @@ def getlserr(ls, n, usetot = 0):
     print "list has %s simulations, each with %d quantities" % (ns, nq)
   avls = []
   errls = []
+  # dictionary of totals
+  totdic = {}
   for j in range(nq): # loop over quantities, usually just one quanity
     suminvvar = 0
     sumx = 0
@@ -1017,6 +1021,24 @@ def getlserr(ls, n, usetot = 0):
     # ls[i][2] is the total
     wt = [0] * ns
     for i in range(ns): # loop over copies
+      # guess nstfb
+      if "w10" in ls[i][3]:
+        nstfb = 10
+      elif "w20" in ls[i][3]:
+        nstfb = 20
+      elif "w50" in ls[i][3]:
+        nstfb = 50
+      elif "w5" in ls[i][3]:
+        nstfb = 5
+      elif "w2" in ls[i][3]:
+        nstfb = 2
+      else:
+        nstfb = 1
+      # update the total
+      if nstfb in totdic:
+        totdic[nstfb] += ls[i][2]
+      else:
+        totdic[nstfb] = ls[i][2]
       if usetot:
         wt[i] = ls[i][2]
         sumvar += (ls[i][1][j] * wt[i])**2
@@ -1038,10 +1060,13 @@ def getlserr(ls, n, usetot = 0):
       err = sqrt(sumvar) / sumw
     else:
       err = 1./sqrt(suminvvar)
-    niceprint(avx, err, n, j)
+    strtot = "total: "
+    for nstfb in totdic:
+      strtot += "%.2e(%d), " % (totdic[nstfb], nstfb)
+    niceprint(avx, err, n, j, strtot)
     avls += [avx,]
     errls += [err,]
-  return avls, errls
+  return avls, errls, strtot.strip()
 
 
 
@@ -1062,12 +1087,13 @@ def dodirs(dirs, n, sum3 = 0, usetot = 0):
   if dirs == None or len(dirs) == 0:
     dirs = guessdirs(n)
     if dirs == None:
-      return None, None
+      return None, None, None
   ls = []
   i = 0
   for d in dirs:
     (x, err, tot) = aggregate(None, d, sum3 = sum3)
     if x:
+      # average, standard deviation, total, directory
       ls += [(x, err, tot, d),]
       i += 1
       if verbose:
@@ -1081,13 +1107,13 @@ def scanorders(fns, usetot = 0):
   n = 4
   ls = []
   while 1:
-    x, err = dodirs(None, n, usetot = usetot)
+    x, err, strtot = dodirs(None, n, usetot = usetot)
     if x == None: break
-    ls += [(n, x, err)]
+    ls += [(n, x, err, strtot)]
     n += 1
-  for n, x, err in ls:
+  for n, x, err, strtot in ls:
     for i in range(len(x)):
-      niceprint(x[i], err[i], n, i)
+      niceprint(x[i], err[i], n, i, strtot)
   return ls
 
 

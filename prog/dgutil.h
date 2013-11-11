@@ -9,7 +9,7 @@
 INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
 {
   int i, j, k, ne, ipr, rr;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   dgword_t c, b;
   static int cnt[DG_NMAX];
 #pragma omp threadprivate(cnt)

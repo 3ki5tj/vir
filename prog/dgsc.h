@@ -59,8 +59,8 @@ INLINE dg_t *dg_mintop(dg_t *g)
  * only vertices in avs can be articulation points */
 INLINE int dg_biconnectedavs(const dg_t *g, dgword_t avs)
 {
-  DG_DEFN_(g);
-  DG_DEFMASKN_();
+  DG_DEFN_(g)
+  DG_DEFMASKN_()
   dgword_t b;
 
   for (b = 1; b & DG_MASKN_; b <<= 1)
@@ -74,8 +74,8 @@ INLINE int dg_biconnectedavs(const dg_t *g, dgword_t avs)
 #if 0 /* same as the above but slightly slower version */
 INLINE int dg_biconnectedavsb(const dg_t *g, dgword_t avs)
 {
-  DG_DEFN_(g);
-  DG_DEFMASKN_();
+  DG_DEFN_(g)
+  DG_DEFMASKN_()
   dgword_t b;
 
   for (; avs; avs ^= b) /* `b' is the first nonzero bit */
@@ -91,8 +91,8 @@ INLINE int dg_biconnectedavsb(const dg_t *g, dgword_t avs)
  * starting from the edge (i, j + 1) */
 INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
 {
-  DG_DEFN_(g);
-  DG_DEFMASKN_();
+  DG_DEFN_(g)
+  DG_DEFMASKN_()
   dgword_t avs, avsi;
   double sc = 0;
 
@@ -266,7 +266,7 @@ INLINE double dg_rhsc_lookup(const dg_t *g)
 {
   static double *sc[DGMAP_NMAX + 1];
 #pragma omp threadprivate(sc)
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   dgmap_t *m = dgmap_ + DG_N_;
   dgword_t c;
 

@@ -10,7 +10,7 @@ INLINE double dg_nring_spec0(const dg_t *g,
     int *ned, int *degs, int *err)
 {
   int i, j, ned0, ned1;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   double x;
   static int ldegs[DG_NMAX]; /* local buffer of the degree sequence */
 #pragma omp threadprivate(ldegs)
@@ -61,7 +61,7 @@ INLINE int dg_fbnr_spec0(const dg_t *g, double *fb, double *nr,
     int *ned, int *degs)
 {
   int i, j, ned0, ned1;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   double x;
   static int ldegs[DG_NMAX]; /* local buffer of the degree sequence */
 #pragma omp threadprivate(ldegs)
@@ -119,15 +119,15 @@ INLINE int dg_fbnr_spec0(const dg_t *g, double *fb, double *nr,
 /* return the number of ring subgraphs */
 INLINE double dg_nring_direct(const dg_t *g)
 {
-  DG_DEFN_(g);
-  DG_DEFMASKN_();
+  DG_DEFN_(g)
+  DG_DEFMASKN_()
   int st[DG_NMAX], top, sttop, root = 0;
   dgword_t unused, c, b, croot, ccp;
   double cnt = 0;
 
   if (DG_N_ <= 2) {
     if (DG_N_ <= 1) return 1;
-    else return (double) (g->c[1] & 0x1);
+    else return (double) (int) (g->c[1] & 0x1);
   }
   st[0] = root;
   st[1] = 0;

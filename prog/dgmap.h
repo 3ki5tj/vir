@@ -106,7 +106,7 @@ INLINE int dgmap_init(dgmap_t *m, int n)
       ng = (int)( 1u << npr );
       xnew(m->map, ng);
       fprintf(stderr, "%4d: dgmap allocated %gMB for n %d\n",
-          inode, ng * sizeof(m->map[0]) / (1024.*1024), n);
+          inode, (sdgword_t) ng * sizeof(m->map[0]) / (1024.*1024), n);
       for (c = 0; c < ng; c++) m->map[c] = -1;
       xnew(m->first, sz = 1024);
 
@@ -180,7 +180,7 @@ INLINE void dgmap_done(dgmap_t *m)
 /* retrieve the diagram id */
 INLINE unqid_t dg_getmapidx(const dg_t *g, dgword_t *c)
 {
-  DG_DEFN_(g);
+  DG_DEFN_(g)
 
   dgmap_init(&dgmap_[DG_N_], DG_N_);
   dg_encode(g, c);

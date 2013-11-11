@@ -2,6 +2,7 @@
 #include "dgmap.h"
 
 
+
 typedef struct {
   int npr; /* number of wiggly lines */
   int id[64][2]; /* vertex pairs in wiggly lines */
@@ -37,25 +38,39 @@ static void cmpref(int n, edges_t *ref)
 
 
 
-static void speed_connected(int n, int nsteps)
+#define LISTSIZE 1000
+
+static void speed_connected(int n, int nsamp)
 {
   dg_t *g = dg_open(n);
   clock_t t0;
-  int t, npr = n*(n-1)/2, i = 0, j = 1, sum = 0;
+  int t, npr = n*(n-1)/2, i = 0, j = 1, isamp = 0, sum = 0;
   double tsum = 0;
+  dg_t *gls[LISTSIZE] = {NULL};
+  int lscnt = 0, kk;
 
+  for (t = 0; t < LISTSIZE; t++)
+    gls[t] = dg_open(n);
   dg_full(g);
-  for (t = 0; t < nsteps; t++) {
+  for (t = 0; ; t++) {
     parsepairindex((int) (npr *rnd0()), n, &i, &j);
     if (dg_linked(g, i, j)) dg_unlink(g, i, j);
     else dg_link(g, i, j);
+    dg_copy(gls[lscnt], g);
+    lscnt++;
+    if (t % LISTSIZE != 0) continue;
+
     t0 = clock();
-    sum += dg_connected(g);
+    for (kk = 0; kk < lscnt; kk++)
+      sum += dg_connected(gls[kk]);
     tsum += clock() - t0;
+    isamp += lscnt;
+    lscnt = 0;
+    if (isamp >= nsamp) break;
   }
   tsum /= CLOCKS_PER_SEC;
   printf("connected, n %d: time used: %gs/%d = %gmcs\n",
-      n, tsum, nsteps, tsum/nsteps*1e6);
+      n, tsum, nsamp, tsum/nsamp*1e6);
   dg_close(g);
 }
 
@@ -86,21 +101,25 @@ static void verify_biconnected(int n, int nsteps)
 
 
 
-static void speed_biconnected(int n, int nsteps,
+static void speed_biconnected(int n, int nsamp,
     int method, int nedmax)
 {
   dg_t *g = dg_open(n);
   clock_t t0;
-  int t, npr = n*(n-1)/2, i = 0, j = 1, sum = 0, ned = 0;
+  int t, npr = n*(n-1)/2, i = 0, j = 1, isamp = 0, sum = 0, ned = 0;
   double tsum = 0;
+  dg_t *gls[LISTSIZE] = {NULL};
+  int lscnt = 0, kk;
 
   die_if (method == 'l' && n > DGMAP_NMAX,
     "n %d cannot use the lookup method\n", n);
 
+  for (t = 0; t < LISTSIZE; t++)
+    gls[t] = dg_open(n);
   dg_empty(g);
   for (i = 0; i < n; i++) dg_link(g, i, (i+1)%n);
   ned = dg_nedges(g);
-  for (t = 0; t < nsteps; t++) {
+  for (t = 0; ; t++) {
     parsepairindex((int) (npr *rnd0()), n, &i, &j);
 #ifdef TESTRING /* test ring-like conformations */
     if ( !dg_linked(g, i, j) ) {
@@ -116,15 +135,23 @@ static void speed_biconnected(int n, int nsteps,
       ned++;
     }
 #endif
+    dg_copy(gls[lscnt], g);
+    lscnt++;
+    if (t % LISTSIZE != 0) continue;
+
     t0 = clock();
-    if (method == 's')
-      sum += dg_biconnected_std(g);
+    for (kk = 0; kk < lscnt; kk++) {
+      if (method == 's')
+        sum += dg_biconnected_std(gls[kk]);
 #ifdef DGMAP_EXISTS
-    else if (method == 'l')
-      sum += dg_biconnected_lookup(g);
+      else if (method == 'l')
+        sum += dg_biconnected_lookup(gls[kk]);
 #endif
-    else
-      sum += dg_biconnected(g);
+      else
+        sum += dg_biconnected(gls[kk]);
+    }
+    isamp += lscnt;
+    lscnt = 0;
     tsum += clock() - t0;
 #ifdef TESTRING
     if (ned > n) {
@@ -132,10 +159,11 @@ static void speed_biconnected(int n, int nsteps,
       ned--;
     }
 #endif
+    if (isamp >= nsamp) break;
   }
   tsum /= CLOCKS_PER_SEC;
   printf("biconnected, n %d: time used: %gs/%d = %gmcs, av %g\n",
-      n, tsum, nsteps, tsum / nsteps * 1e6, 1. * sum / nsteps);
+      n, tsum, nsamp, tsum / nsamp * 1e6, 1. * sum / nsamp);
   dg_close(g);
 }
 
@@ -198,7 +226,7 @@ int main(int argc, char **argv)
     {-1, {{0, 0}}, 1, 1},
   };
   int n = DG_NMAX, nsteps = 100000;
-  int n1 = 9, nsteps1 = 10000000, method = 0, nedmax = 100000;
+  int n1 = 9, nsteps1 = 100000000, method = 0, nedmax = 100000;
 
 #ifndef N
   cmpref(3, ref3);
@@ -208,8 +236,8 @@ int main(int argc, char **argv)
   n = n1 = N;
 #endif
 
-  if (argc > 1) n = atoi(argv[1]);
-  if (argc > 2) nsteps = atoi(argv[2]);
+  if (argc > 1) n1 = n = atoi(argv[1]);
+  if (argc > 2) nsteps1 = nsteps = atoi(argv[2]);
   printf("verification: n %d, nsteps %d\n", n, nsteps);
   verify_biconnected(n, nsteps);
 
@@ -219,9 +247,9 @@ int main(int argc, char **argv)
   if (argc > 6) nedmax = atoi(argv[6]);
   printf("speed test: n %d, nsteps %d, method %c, nedmax %d\n",
       n1, nsteps1, method, nedmax);
-  /* 0.66mcs on T60 */
+  /* 0.0mcs on T60 */
   speed_connected(n1, nsteps1);
-  /* 1.01mcs on T60 */
+  /* 0.26mcs on T60 */
   speed_biconnected(n1, nsteps1, method, nedmax);
   return 0;
 }

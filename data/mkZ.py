@@ -34,7 +34,7 @@ def loadZ(fn):
 
 def mkZ(fnout):
   ''' compile the partition functions at different dimensions '''
-  lines = []
+  src = ""
   for dim in range(2, 1000):
     Zf = glob.glob("ZrD%sr[1-9]n*.dat" % dim)
     if len(Zf) == 0:
@@ -44,8 +44,14 @@ def mkZ(fnout):
     s = loadZ(Zf)
     if s == None: break
     print "absorbing %s" % Zf
-    lines += [s,]
-  open(fnout, "w").writelines(lines)
+    src += s
+  if os.path.exists(fnout):
+    src0 = open(fnout).read()
+    if src0 == src:
+      print "no need to update %s\n" % fnout
+      return
+  print "updating %s\n" % fnout
+  open(fnout, "w").write(src)
 
 
 

@@ -23,6 +23,8 @@
   #define DGRJW_FBINVALID(c) ((c) == DGRJW_FBDIRTY)
 
 #elif !defined(RJWDBL) && (!defined(N) || N <= 22) /* 64-bit RJW */
+  /* this is the default branch for with N > 22
+   * there is usually a memory problem */
 
   typedef int64_t dgrjw_fb_t;
   /* for n <= 22, max |fb(n)| = 20! = 2.4e18 < |DGRJW_FBDIRTY| */
@@ -34,7 +36,7 @@
   #ifndef RJWNMAX
   #define RJWNMAX 22
   #endif /* !defined(RJWNMAX) */
-  #define DGRJW_FBDIRTY ((dgrjw_fb_t) 0x8080808080808080ull) /* -9187201950435737472 */
+  #define DGRJW_FBDIRTY ((dgrjw_fb_t) CU64(0x8080808080808080)) /* -9187201950435737472 */
   #define DGRJW_FBINVALID(c) ((c) == DGRJW_FBDIRTY)
 
 #else /* double RJW */
@@ -141,8 +143,8 @@ INLINE dgrjw_fb_t dg_hsfc_rjw(const dg_t *g)
   static int nmax;
   static dgrjw_fb_t *fcarr, *fqarr;
   int i;
-  DG_DEFN_(g);
-  DG_DEFMASKN_();
+  DG_DEFN_(g)
+  DG_DEFMASKN_()
 
   if (fcarr == NULL) {
     nmax = DG_N_;
@@ -267,8 +269,8 @@ static dgrjw_fb_t *dgrjw_faarr_, *dgrjw_fbarr_;
 INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
 {
 
-  DG_DEFN_(g);
-  DG_DEFMASKN_();
+  DG_DEFN_(g)
+  DG_DEFMASKN_()
   size_t size;
 
   /* the memory requirement is 2^(n + 1) * (n + 1) * sizeof(dgrjw_fb_t) */
@@ -322,7 +324,7 @@ INLINE double dg_hsfb_mixed0(const dg_t *g,
     int nocsep, int *ned, int *degs)
 {
   int err, nedges = -1;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   double sc;
 
   if ( ned == NULL ) ned = &nedges;

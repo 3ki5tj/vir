@@ -89,7 +89,7 @@ static void testspeed(int n, int nsamp, int nedmax)
     "canonical label          "};
 #define LISTSIZE 1000
   dg_t *gls[LISTSIZE] = {NULL};
-  int lscnt = 0;
+  int lscnt = 0, kk;
 
   printf("speed test for n %d, nsamp %d, nedmax %d\n",
       n, nsamp, nedmax);
@@ -109,7 +109,7 @@ static void testspeed(int n, int nsamp, int nedmax)
       continue;
     }
     if ( ned <= nedmax ) {
-      die_if(lscnt >= LISTSIZE, "lscnt %d, t %d\n", lscnt, t);
+      die_if (lscnt >= LISTSIZE, "lscnt %d, t %d\n", lscnt, t);
       dg_copy(gls[lscnt], g);
       lscnt++;
     }
@@ -117,7 +117,6 @@ static void testspeed(int n, int nsamp, int nedmax)
     if (t % LISTSIZE != 0) continue;
 
     for (level = 0; level <= 4; level++) {
-      int kk;
       t0 = clock();
       for (kk = 0; kk < lscnt; kk++)
         dg_repiso(ng, gls[kk], level);
@@ -144,7 +143,7 @@ static void testspeed(int n, int nsamp, int nedmax)
 
 int main(int argc, char **argv)
 {
-  int n = 12, nsamp = 1000000, nedmax = 1000000;
+  int n = 12, nsamp = 10000000, nedmax = 1000000;
 
 #ifdef N
   n = N;
@@ -157,6 +156,14 @@ int main(int argc, char **argv)
   if (argc >= 3) nsamp = atoi(argv[2]);
   if (argc >= 4) nedmax = atoi(argv[3]);
 
+  /* Timing on T60 with the default setting
+   *                          general n   -DN=12
+   * copy                       0.02mcs   0.01mcs
+   * degree sequence            0.8mcs    0.26mcs
+   * equitable partition        1.7mcs    1.0mcs
+   * deep equitable partition   1.6mcs    1.1mcs
+   * canonical label            2.4mcs    2.4mcs
+   * */
   testspeed(n, nsamp, nedmax);
 
   return 0;

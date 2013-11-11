@@ -19,8 +19,8 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
 {
   int i, j, k, v = 0, w, z, l;
   dgword_t numbered, reached, bv, bw, bz, r;
-  DG_DEFN_(g);
-  DG_DEFMASKN_();
+  DG_DEFN_(g)
+  DG_DEFMASKN_()
   int l2[DG_NMAX]; /* the label l times 2 */
   dgword_t reach[DG_NMAX]; /* reach[label] gives a set of vertices */
   int cnt[DG_NMAX * 2];
@@ -119,8 +119,8 @@ INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
     const int *a, dgword_t * RESTRICT cl, int stop1)
 {
   int v, w, i, ncl = 0;
-  DG_DEFN_(g);
-  DG_DEFMASKN_();
+  DG_DEFN_(g)
+  DG_DEFMASKN_()
   dgword_t cb, c, bw, r, unvisited = DG_MASKN_;
 
   for (i = 0; i < DG_N_; i++) {
@@ -157,11 +157,11 @@ INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
 INLINE dgword_t dg_cliquesep(const dg_t *g)
 {
   static dgword_t fs_c[DG_NMAX];
-  static dg_t fs[1] = {0, NULL}; /* stock fill-in graph */
+  static dg_t fs[1] = {{0, NULL}}; /* stock fill-in graph */
   static int a[DG_NMAX]; /* a[k] is the kth vertex */
 #pragma omp threadprivate(fs_c, fs, a)
-  DG_DEFN_(g);
-  dgword_t cl;
+  DG_DEFN_(g)
+  dgword_t cl = 0;
 
   fs->n = DG_N_;
   fs->c = fs_c;
@@ -182,10 +182,10 @@ INLINE dgword_t dg_cliquesep(const dg_t *g)
 INLINE int dg_decompcsep(const dg_t *g, dgword_t * RESTRICT cl)
 {
   static dgword_t fs_c[DG_NMAX];
-  static dg_t fs[1] = {0, NULL}; /* stock fill-in graph */
+  static dg_t fs[1] = {{0, NULL}}; /* stock fill-in graph */
   static int a[DG_NMAX]; /* a[k] is the kth vertex */
 #pragma omp threadprivate(fs_c, fs, a)
-  DG_DEFN_(g);
+  DG_DEFN_(g)
 
   fs->n = DG_N_;
   fs->c = fs_c;
@@ -209,7 +209,7 @@ static char *dgcsep_ncl_[DGMAP_NMAX + 1];
 INLINE int dg_ncsep_lookuplow(const dg_t *g, dgword_t c)
 {
   int ncs;
-  DG_DEFN_(g);
+  DG_DEFN_(g)
 
   /* initialize the lookup table */
   if (dgcsep_ncl_[DG_N_] == NULL) {

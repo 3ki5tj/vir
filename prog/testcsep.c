@@ -90,11 +90,17 @@ static void speed_cliquesep(int n, int nsamp, int nedmax)
   int t, ned, eql = 1, nequil = 1000, isamp = 0, good = 0, tot = 0;
   double tsum = 0, sum = 0;
   double rnp = 0.1; /* rate for moves increasing edges */
+#define LISTSIZE 1000
+  dg_t *gls[LISTSIZE] = {NULL};
+  int lscnt = 0, kk;
 
   printf("speed test for n %d, nsamp %d, nedmax %d\n",
       n, nsamp, nedmax);
+  for (t = 0; t < LISTSIZE; t++)
+    gls[t] = dg_open(n);
   dg_full(g);
   ned = dg_nedges(g);
+
   for (t = 1; ; t++) {
     /* randomly switch an edge */
     dg_rndswitchedge(g, &ned, nedmax, rnp);
@@ -102,17 +108,25 @@ static void speed_cliquesep(int n, int nsamp, int nedmax)
     if (eql && t >= nequil) {
       t = 0;
       eql = 0; /* stop equilibration */
+      lscnt = 0;
       continue;
     }
 
-    if (t % 10 != 0) continue; /* avoid successive correlation */
+    if ( ned <= nedmax ) {
+      die_if (lscnt >= LISTSIZE, "lscnt %d, t %d\n", lscnt, t);
+      dg_copy(gls[lscnt], g);
+      lscnt++;
+    }
     adjustrnp(ned, nedmax, t, 1000000, &good, &tot, &rnp);
-    if ( ned > nedmax ) continue;
+    if (t % LISTSIZE != 0) continue;
 
     t0 = clock();
-    sum += (dg_cliquesep(g) == 0);
+    for (kk = 0; kk < lscnt; kk++)
+      sum += (dg_cliquesep(gls[kk]) == 0);
     tsum += clock() - t0;
-    if (++isamp >= nsamp) break;
+    isamp += lscnt;
+    lscnt = 0;
+    if (isamp >= nsamp) break;
   }
   tsum /= CLOCKS_PER_SEC;
   printf("dg_cliquesep: n %d; sum %g; time used: %gs/%d = %gmcs\n",
@@ -212,7 +226,7 @@ static void verify_zerofb(int n, int nsteps)
 
 int main(int argc, char **argv)
 {
-  int n = 9, nsteps = 1000000, nedmax = 1000;
+  int n = 9, nsteps = 10000000, nedmax = 1000;
 #ifdef N
   n = N;
 #endif
@@ -223,7 +237,12 @@ int main(int argc, char **argv)
   if (argc >= 2) n = atoi(argv[1]);
   if (argc >= 3) nsteps = atoi(argv[2]);
   if (argc >= 4) nedmax = atoi(argv[3]);
-  /* T60 3mcs default setting */
+  /* timing on T60 with the default setting
+   * n   generic    with -DN=n
+   * 9    2.1mcs      1.8mcs
+   * 12   3.5mcs      3.3mcs
+   * 16   6.0mcs      5.6mcs
+   * */
   speed_cliquesep(n, nsteps, nedmax);
 
 #ifdef VERIFY

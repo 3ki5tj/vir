@@ -1,5 +1,5 @@
 # debugging
-CC = gcc -O0 -Wall -Wunused -Wextra -g
+CC = gcc -O0 -g -Wall -Wunused -Wextra -Wno-unknown-pragmas
 LM = -lm
 
 # optimized compiling
@@ -16,12 +16,12 @@ MPCC = $(CX) -openmp
 MPLM =
 
 # MPI compiling
-MPICC = mpicc -DMPI -Wall -Wextra -O3 -march=native
+MPICC = mpicc -DMPI -Wall -Wextra -O3 -march=native -Wno-unknown-pragmas
 MPILM =
 
 
 deps = dg.h dgmap.h dgmapl.h dgutil.h dgcsep.h dgrjw.h dgsc.h dgring.h dgaut.h dghash.h \
-       zcom.h Makefile mcutil.h
+       nau0s.h zcom.h Makefile mcutil.h
 bins = mcrat0 mcrat1 mcgc2 mcgcr2
 bins_d = $(patsubst %, %_d, $(bins))
 bins_mp = $(patsubst %, %_mp, $(bins))

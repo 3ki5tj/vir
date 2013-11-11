@@ -9,12 +9,6 @@ def bitsmask(n):
 def printbitsmask(nmax, inv = 0):
   n = 1
   mask = bitsmask(nmax)
-  if nmax == 32:
-    surfix = ""
-    width = 11
-  else:
-    surfix = "ull"
-    width = 19
   for i in range(nmax / 4):
     ii = i * 4
     line = ""
@@ -22,8 +16,11 @@ def printbitsmask(nmax, inv = 0):
       ij = ii + j + 1
       x = bitsmask(ij)
       if inv: x = x ^ mask
-      sval = "0x%x" % x
-      line += "%*s%s," % (width, sval, surfix)
+      if nmax == 32:
+        sval = "0x%08x" % x
+      else:
+        sval = "CU64(" + ("0x%016x" % x) + ")"
+      line += " " + sval + ","
     print line
   print ""
 
