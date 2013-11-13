@@ -45,7 +45,7 @@ static void testcsep(void)
   dg_unlink(g, 0, 2);
   dg_print(g);
   printf("case 1: clique separator (should be 1, 3): ");
-  for (c = dg_cliquesep(g); c; c ^= bw)
+  for (c = dg_csep(g); c; c ^= bw)
     printf("%d ", bitfirstlow(c, &bw));
   printf("\n\n");
   dg_close(g);
@@ -57,7 +57,7 @@ static void testcsep(void)
   dg_unlink(g, 3, 4);
   dg_print(g);
   printf("case 2: clique separator (should be none): ");
-  for (c = dg_cliquesep(g); c; c ^= bw)
+  for (c = dg_csep(g); c; c ^= bw)
     printf("%d ", bitfirstlow(c, &bw));
   printf("\n\n");
   dg_close(g);
@@ -66,7 +66,7 @@ static void testcsep(void)
   dg_linkpairs(g, pair3);
   dg_print(g);
   printf("case 3: clique separator (0, 4) or (0, 2, 4): ");
-  for (c = dg_cliquesep(g); c; c ^= bw)
+  for (c = dg_csep(g); c; c ^= bw)
     printf("%d ", bitfirstlow(c, &bw));
   printf("\n\n");
   dg_close(g);
@@ -75,7 +75,7 @@ static void testcsep(void)
   dg_linkpairs(g, pair4);
   dg_print(g);
   printf("case 4: clique separator: ");
-  for (c = dg_cliquesep(g); c; c ^= bw)
+  for (c = dg_csep(g); c; c ^= bw)
     printf("%d ", bitfirstlow(c, &bw));
   printf("\n\n");
   dg_close(g);
@@ -88,7 +88,7 @@ static void speed_cliquesep(int n, int nsamp, int nedmax)
   dg_t *g = dg_open(n);
   clock_t t0;
   int t, ned, eql = 1, nequil = 1000, isamp = 0, good = 0, tot = 0;
-  double tsum = 0, sum = 0;
+  double tsum[2] = {0, 0}, sum[2] = {0, 0};
   double rnp = 0.1; /* rate for moves increasing edges */
 #define LISTSIZE 1000
   dg_t *gls[LISTSIZE] = {NULL};
@@ -122,15 +122,25 @@ static void speed_cliquesep(int n, int nsamp, int nedmax)
 
     t0 = clock();
     for (kk = 0; kk < lscnt; kk++)
-      sum += (dg_cliquesep(gls[kk]) == 0);
-    tsum += clock() - t0;
+      sum[0] += (dg_cliquesep(gls[kk]) == 0);
+    tsum[0] += clock() - t0;
+    
+    t0 = clock();
+    for (kk = 0; kk < lscnt; kk++)
+      sum[1] += (dg_csep(gls[kk]) == 0);
+    tsum[1] += clock() - t0;
+    
     isamp += lscnt;
     lscnt = 0;
     if (isamp >= nsamp) break;
   }
-  tsum /= CLOCKS_PER_SEC;
-  printf("dg_cliquesep: n %d; sum %g; time used: %gs/%d = %gmcs\n",
-      n, sum/nsamp, tsum, nsamp, tsum/nsamp*1e6);
+  tsum[0] /= CLOCKS_PER_SEC;
+  tsum[1] /= CLOCKS_PER_SEC;
+  printf("dg_cliquesep()/dg_csep(): n %d; sum %g/%g; "
+      "time used: %gs/%d = %gmcs, %gs/%d = %gmcs\n",
+      n, sum[0]/nsamp, sum[1]/nsamp,
+      tsum[0], nsamp, tsum[0]/nsamp*1e6,
+      tsum[1], nsamp, tsum[1]/nsamp*1e6);
   dg_close(g);
 }
 
@@ -207,7 +217,7 @@ static void verify_zerofb(int n, int nsteps)
     if (t % 10 != 0) continue;
     /* test if a graph with a clique separator necessarily
      * implies that fb is 0 */
-    if ((c = dg_cliquesep(g)) != 0) {
+    if ((c = dg_csep(g)) != 0) {
       if (fabs(fb = dg_hsfb_mixed(g)) > 0.1) {
         fprintf(stderr, "n %d, fb %g, c %#x\n",
             n, fb, (unsigned) c);

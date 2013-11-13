@@ -369,7 +369,7 @@ INLINE double dg_hsfb_lookuplow(int n, unqid_t id)
     for (cnt = 0, k = 0; k < m->ng; k++) {
       dg_decode(g, &m->first[k]);
       if ( dg_biconnected(g) ) {
-        dgmap_fb_[DG_N_][k] = (double) (dg_cliquesep(g) ? 0 : dg_hsfb_rjw(g));
+        dgmap_fb_[DG_N_][k] = (double) (dg_csep(g) ? 0 : dg_hsfb_rjw(g));
         cnt++;
         nz += (fabs(dgmap_fb_[DG_N_][k]) > .5);
       } else dgmap_fb_[DG_N_][k] = 0;

@@ -19,7 +19,7 @@ INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
     ne += cnt[i] = bitcount(g->c[i] & MKBITSMASK(i));
   rr = (int) (rnd0() * 2 * ne);
   ipr = rr / 2;
-  /* we will go through pairs such 0 <= j < i < N */
+  /* go through pairs such that 0 <= j < i < N */
   for (i = 1; i < DG_N_; ipr -= cnt[i], i++) {
     if (ipr < cnt[i]) { /* found it */
       c = g->c[i] & MKBITSMASK(i);
@@ -27,6 +27,7 @@ INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
         BITFIRSTLOW(k, c, b);
       }
       die_if (k < 0, "i %d, k %d\n", i, k);
+      /* (*i0, *i1) or (*i1, *i0) */
       if (rr % 2) { *i0 = i, *i1 = k; }
       else { *i0 = k, *i1 = i; }
       break;

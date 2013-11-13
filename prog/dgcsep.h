@@ -199,6 +199,40 @@ INLINE int dg_decompcsep(const dg_t *g, dgword_t * RESTRICT cl)
 
 
 
+/* find clique separator of two vertices */
+INLINE dgword_t dg_csep2(const dg_t *g)
+{
+  int i;
+  DG_DEFN_(g)
+  DG_DEFMASKN_()
+  dgword_t c, b, bi, maski;
+
+  for (i = 1; i < DG_N_; i++) {
+    bi = MKBIT(i);
+    maski = DG_MASKN_ ^ bi;
+    c = g->c[i] & MKBITSMASK(i);
+    for (; c; c ^= b) {
+      b = c & (-c);
+      if ( !dg_connectedvs(g, maski ^ b) )
+        return bi ^ b;
+    }
+  }
+  return 0;
+}
+
+
+
+/* test if a graph has a clique separator
+ * optimized version of dg_cliquesep(g) */
+INLINE dgword_t dg_csep(const dg_t *g)
+{
+  dgword_t cc;
+
+  return ((cc = dg_csep2(g)) != 0) ? cc : dg_cliquesep(g);
+}
+
+
+
 #ifdef DGMAP_EXISTS
 
 /* this array is shared due to its large size */

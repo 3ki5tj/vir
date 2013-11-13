@@ -205,7 +205,7 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
   if (testcsep) {
     /* if nocsep, we know for sure there is no clique separator
      * then the hard calculation must be done */
-    *err = (nocsep || !dg_cliquesep(g));
+    *err = (nocsep || !dg_csep(g));
   } else { /* if we don't want to test clique separator */
     *err = 1; /* simply show failure */
   }

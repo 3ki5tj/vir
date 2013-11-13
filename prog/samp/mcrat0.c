@@ -479,7 +479,7 @@ INLINE double hashgetfbnr(dghash_t *hash, const dg_t *g, double *nr, int *ned, i
   int nocsep = 0;
 
   if ( hash_nocsep ) { /* check if there is a clique separator */
-    if ( dg_cliquesep(g) ) { /* there is a clique separator */
+    if ( dg_csep(g) ) { /* there is a clique separator */
       *nr = 0;
       return 0;
     } else { /* there is no clique separator */
