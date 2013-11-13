@@ -190,10 +190,10 @@ static void doargs(int argc, char **argv)
   if (inode == MASTER) {
     argopt_dump(ao);
     printf("D %d, n %d, %g steps, amp %g, nstfb %d, %d-bit, "
-      "%s, %s disp, Bring %g\n",
+      "%s, %s disp, Bring %g, Z %g\n",
       D, n, 1.*nsteps, mcamp, nstfb,
       (int) sizeof(dgword_t) * 8, lookup ? "lookup" : "direct",
-      gdisp ? "Gaussian" : "uniform", Bring);
+      gdisp ? "Gaussian" : "uniform", Bring, Zn);
   } else { /* change file names for slave nodes */
     if (fnout) fnout = fnappend(fnout, inode);
   }

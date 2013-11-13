@@ -23,7 +23,6 @@ from math import *
 verbose = 1 # verbose level
 rmbad = 0 # detect and remove bad data that significantly deviate from the average
 mulsig = 3 # multiple of standard deviation for the above exclusion
-usetot = 0 # use the total to weight different simulations
 
 
 
@@ -998,75 +997,84 @@ def niceprint(x, err, n = 0, i = 0, strtot = ""):
 
 
 
+def getnstfb(d):
+  ''' guess the interval of computing the star and ring contents
+      from the name of the directory d '''
+  m = re.search("w([0-9]*)", d)
+  if m == None: return 1
+  return int( m.group(1) )
+
+
+
 def getlserr(ls, n, usetot = 0):
   ''' combine data from different simulations
       `usetot': use total instead of the inverse variance
-                as the relative weight '''
-  ns = len(ls)
-  if ns <= 0: return
+                as the relative weight
+      return average, error, total, strtot
+  '''
+  nsim = len(ls) # number of simulations
+  if nsim <= 0: return None, None, None, None
+
   nq = len(ls[0][0]) # number of quantities
   if verbose:
-    print "list has %s simulations, each with %d quantities" % (ns, nq)
+    print "list has %s simulations, each with %d quantities" % (nsim, nq)
+
+  # construct a dictionary of totals of different nstfb
+  totdic = {}
+  tot = 0
+  for sim in range(nsim): # loop over simulations
+    # guess nstfb
+    nstfb = getnstfb(ls[sim][3])
+    # update the total
+    if nstfb in totdic:
+      totdic[nstfb] += ls[sim][2]
+    else:
+      totdic[nstfb] = ls[sim][2]
+    tot += ls[sim][2]
+
+  # construct a string of totals
+  strtot = "total: "
+  for nstfb in totdic:
+    strtot += "%.1e(%d), " % (totdic[nstfb], nstfb)
+  strtot = strtot.strip()
+
   avls = []
   errls = []
-  # dictionary of totals
-  totdic = {}
-  for j in range(nq): # loop over quantities, usually just one quanity
+  for q in range(nq): # loop over quantities, usually just one quanity
     suminvvar = 0
     sumx = 0
     sumw = 1e-100
     sumvar = 0
-    # ls[i][0][j] is the average
-    # ls[i][1][j] is the standard deviation
-    # ls[i][2] is the total
-    wt = [0] * ns
-    for i in range(ns): # loop over copies
-      # guess nstfb
-      if "w10" in ls[i][3]:
-        nstfb = 10
-      elif "w20" in ls[i][3]:
-        nstfb = 20
-      elif "w50" in ls[i][3]:
-        nstfb = 50
-      elif "w5" in ls[i][3]:
-        nstfb = 5
-      elif "w2" in ls[i][3]:
-        nstfb = 2
-      else:
-        nstfb = 1
-      # update the total
-      if nstfb in totdic:
-        totdic[nstfb] += ls[i][2]
-      else:
-        totdic[nstfb] = ls[i][2]
+    # ls[sim][0][q] is the average
+    # ls[sim][1][q] is the standard deviation
+    # ls[sim][2] is the total
+    wt = [0] * nsim
+    for sim in range(nsim): # loop over simulations
       if usetot:
-        wt[i] = ls[i][2]
-        sumvar += (ls[i][1][j] * wt[i])**2
+        wt[sim] = ls[sim][2]
+        sumvar += (ls[sim][1][q] * wt[sim])**2
       else:
-        invsig = 1./ls[i][1][j]
+        invsig = 1./ls[sim][1][q]
         invvar = invsig * invsig # inverse variance
-        wt[i] = invvar
+        wt[sim] = invvar
         suminvvar += invvar
-      sumw += wt[i]
-      sumx += ls[i][0][j] * wt[i]
-    if ns > 1 and verbose: # print the break down
-      for i in range(ns):
+      sumw += wt[sim]
+      sumx += ls[sim][0][q] * wt[sim]
+    if nsim > 1 and verbose: # print the break down
+      for sim in range(nsim):
         # id, dir, weight, x, err
         print "%2d %-30s %5.2f%% %+20.10e %9.2e %16.0f" % (
-            i + 1, ls[i][3], 100.*wt[i]/sumw,
-            ls[i][0][j], ls[i][1][j], ls[i][2])
+            sim + 1, ls[sim][3], 100.*wt[sim]/sumw,
+            ls[sim][0][q], ls[sim][1][q], ls[sim][2])
     avx = sumx / sumw
     if usetot:
       err = sqrt(sumvar) / sumw
     else:
       err = 1./sqrt(suminvvar)
-    strtot = "total: "
-    for nstfb in totdic:
-      strtot += "%.2e(%d), " % (totdic[nstfb], nstfb)
-    niceprint(avx, err, n, j, strtot)
+    niceprint(avx, err, n, q, strtot)
     avls += [avx,]
     errls += [err,]
-  return avls, errls, strtot.strip()
+  return avls, errls, tot, strtot
 
 
 
@@ -1083,31 +1091,54 @@ def guessdirs(n):
 
 
 
-def dodirs(dirs, n, sum3 = 0, usetot = 0):
+def dodirs(dirs, n, sum3 = 0):
+  ''' handle data for the same order '''
   if dirs == None or len(dirs) == 0:
     dirs = guessdirs(n)
     if dirs == None:
-      return None, None, None
-  ls = []
+      return None, None, None, None
+  # dictionary of list with different nstfb
+  dicls = {}
   i = 0
   for d in dirs:
+    # nstfb
+    nstfb = getnstfb(d)
+    if nstfb in dicls: ls = dicls[nstfb]
+    else: ls = []
     (x, err, tot) = aggregate(None, d, sum3 = sum3)
     if x:
-      # average, standard deviation, total, directory
+      # average (array), standard deviation(array), total, directory, name
       ls += [(x, err, tot, d),]
       i += 1
       if verbose:
         print "Directory %d: %s, %s (%s), tot %s\n" % (i, d, x, err, tot)
-  return getlserr(ls, n, usetot)
+    dicls[nstfb] = ls
+
+  ''' 1. we first aggregate directories with the same nstfb
+         with the total being the weights
+      2. we then combine data with different nstfb '''
+  newls = []
+  strtot = ""
+  for nstfb in dicls:
+    ls = dicls[nstfb]
+    # combine data directories with the same nstfb
+    av, err, tot, strtot = getlserr(ls, n, usetot = 1)
+    if av == None: continue;
+    newls += [ (av, err, tot, "w" + str(nstfb)), ]
+  # combine data with different nstfb
+  return getlserr(newls, n, usetot = 0)
 
 
 
-def scanorders(fns, usetot = 0):
+def scanorders(fns):
   ''' scan over orders '''
   n = 4
   ls = []
   while 1:
-    x, err, strtot = dodirs(None, n, usetot = usetot)
+    ret = dodirs(None, n)
+    #print ret
+    #raw_input()
+    x, err, tot, strtot = ret[0], ret[1], ret[2], ret[3]
     if x == None: break
     ls += [(n, x, err, strtot)]
     n += 1
@@ -1204,14 +1235,14 @@ def usage():
 def doargs():
   ''' Handle common parameters from command line options '''
   try:
-    opts, args = getopt.gnu_getopt(sys.argv[1:], "sdtn:xy:",
-         ["scan", "dir", "rmbad", "totwt", "order=", "help",])
+    opts, args = getopt.gnu_getopt(sys.argv[1:], "sdn:xy:",
+         ["scan", "dir", "rmbad", "order=", "help",])
   except getopt.GetoptError, err:
     # print help information and exit:
     print str(err) # will print something like "option -a not recognized"
     usage()
 
-  global rmbad, mulsig, usetot
+  global rmbad, mulsig
   n = 0
   isdir = 0
 
@@ -1223,8 +1254,6 @@ def doargs():
     elif o in ("-n", "--order",):
       n = int(a)
       isdir = 1
-    elif o in ("-t", "--totwt"):
-      usetot = 1
     elif o in ("-x", "--rmbad"):
       rmbad = 1
     elif o in ("-y",):
@@ -1244,9 +1273,9 @@ if __name__ == "__main__":
   isdir, fns, n = doargs()
 
   if isdir < 0: # scan different orders
-    scanorders(fns, usetot)
+    scanorders(fns)
   elif isdir > 0: # multiple directory mode
-    dodirs(fns, n, usetot = usetot)
+    dodirs(fns, n)
   else: # under a single directory
     if len(fns):
       for fn in fns: aggregate(fn)

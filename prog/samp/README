@@ -52,6 +52,9 @@ mcgcr2.v1.c very few differences
 
 mcrat0L.c   a variant of mcrat0.c for the larger lookup table (dgmapl.h)
 
+mcrat1.c    a variant of mcrat0.c, simpler coding
+
+mcrat0ed.c  a variant of mcrat0.c that uses tempering on the number of edges
 
 
 Monte Carlo sampling

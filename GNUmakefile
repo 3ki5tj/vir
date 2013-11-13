@@ -10,7 +10,8 @@ $(prj)pack.zip::
 	  	prog/samp/*.py prog/samp/bak/*.c \
 		prog/java/*.java prog/java/*.html prog/java/Makefile \
 		prog/java/default* \
-		data/Bring.dat data/bcacc.txt \
+		data/Bring.dat data/Z.dat data/*.py \
+		data/bcacc.txt \
 		deploy/stampede/* \
 		doc/README doc/Makefile \
 		doc/vir.enl \

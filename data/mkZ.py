@@ -13,7 +13,7 @@ import re, os, sys, glob
 def loadZ(fn):
   ''' load the partition function '''
   lines = open(fn).readlines()
-  info = lines[0][1:].split()
+  info = lines[0].split()[1:]
   dim = int(info[0])
   nmax = int(info[1])
   version = info[2]
@@ -22,7 +22,8 @@ def loadZ(fn):
   else: # old version 0 data
     return None
   s = "%s\t" % dim
-  for i in range(1, nmax + 1):
+  lcnt = min(nmax + 1, len(lines))
+  for i in range(1, lcnt):
     ss = lines[i].split()
     n = ss[0]
     Zn = ss[2]
@@ -36,15 +37,17 @@ def mkZ(fnout):
   ''' compile the partition functions at different dimensions '''
   src = ""
   for dim in range(2, 1000):
-    Zf = glob.glob("ZrD%sr[1-9]n*.dat" % dim)
+    Zf = glob.glob("ZrD%sr[1-9]n*.dat*" % dim)
     if len(Zf) == 0:
       Zf = glob.glob("ZrD%sn*.dat" % dim)
-      if len(Zf) == 0: break
+      if len(Zf) == 0: continue
     Zf = Zf[0]
     s = loadZ(Zf)
-    if s == None: break
+    if s == None: continue
     print "absorbing %s" % Zf
     src += s
+
+  # write the output fnout 
   if os.path.exists(fnout):
     src0 = open(fnout).read()
     if src0 == src:

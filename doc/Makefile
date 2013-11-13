@@ -2,7 +2,7 @@ prj=vir
 
 figs=bcacc.pdf vir64.pdf ergo.png reprg.png
 
-$(prj)doc.pdf: $(prj)doc.tex  $(prj)text.pdf Makefile $(figs)
+$(prj)doc.pdf: $(prj)doc.tex $(prj)text.pdf $(prj)supp.pdf Makefile $(figs)
 	pdflatex $<
 
 clean:

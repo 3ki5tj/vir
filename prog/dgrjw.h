@@ -176,7 +176,8 @@ INLINE dgrjw_fb_t dg_hsfb_rjwlow(const dgword_t *c, int n, int v, dgword_t vs,
 {
   int i;
   dgrjw_fb_t fb, fa;
-  dgword_t r, b, bv = MKBIT(v), id;
+  dgword_t r, b, bv = MKBIT(v);
+  size_t id;
 
   if ((i = bitcount(vs)) <= 1) {
     return 1;
@@ -193,8 +194,8 @@ INLINE dgrjw_fb_t dg_hsfb_rjwlow(const dgword_t *c, int n, int v, dgword_t vs,
   /* remove diagrams with the lowest articulation points at i < v */
   for (r = vs & (bv - 1); r; r ^= b) {
     BITFIRSTLOW(i, r, b);
-    id = ((i + 1) << DG_N_) | vs; /* (i + 1) * 2^n + vs
-                                   * `|' is equivalent to `+' */
+    /* (i + 1) * 2^n + vs, `|' is equivalent to `+' */
+    id = ((size_t) (i + 1) << DG_N_) | vs; 
     if ( DGRJW_FBINVALID(fa = faarr[id]) ) {
       fa = dg_hsfa_rjwlow(c, DG_N_, i, vs, faarr, fbarr);
       faarr[id] = fa;
@@ -212,7 +213,8 @@ INLINE dgrjw_fb_t dg_hsfa_rjwlow(const dgword_t *c, int n, int v, dgword_t vs,
     dgrjw_fb_t * RESTRICT faarr, dgrjw_fb_t * RESTRICT fbarr)
 {
   dgrjw_fb_t fa = 0, fb, fa2, fb2;
-  dgword_t ms1, ms2, vs1, bv = MKBIT(v), b1, b1v, id0, id;
+  dgword_t ms1, ms2, vs1, bv = MKBIT(v), b1, b1v;
+  size_t id0, id;
 
   b1 = vs & (-vs); /* lowest vertex */
   if ( b1 == bv ) { /* if vertex 1 coincide with `v', find the next lowest */
@@ -223,7 +225,7 @@ INLINE dgrjw_fb_t dg_hsfa_rjwlow(const dgword_t *c, int n, int v, dgword_t vs,
   vs ^= b1v; /* remove the fixed vertices `b1' and `bv' from `vs' */
   /* `vs' is the set of *variable* vertices from now on */
   if ( vs == 0 ) return 0; /* no articulated diagram with only two vertices */
-  id0 = ((dgword_t) (v + 1) << DG_N_); /* (v + 1) * 2^n */
+  id0 = ((size_t) (v + 1) << DG_N_); /* (v + 1) * 2^n */
   /* `id0' is the offset for vertex v */
   /* loop over subsets of vs, stops when vs == vs1 */
   for (ms1 = 0; (ms2 = (ms1 ^ vs)) != 0; ) {

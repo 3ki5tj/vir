@@ -1,0 +1,26 @@
+Data folders descriptions
+==========================
+
+The directory data/stampede contains data collected
+for the Metropolis algorithm and the grand ensemble.
+
+
+Metropolis algorithm
+---------------------
+Independent simulations of different dimensions are collected in
+  different subdirectories.
+For example, all three dimensional simulations are collected under 
+  the directory D3.
+
+
+Grand ensemble simulations
+---------------------------
+Algorithm G1 were not used
+An algorithm G2 directory is like D25n64
+An algorithm G3 directory is like D70r4n64,
+  here the number `4' following the letter `r' means that
+  there are four intermediate ensembles between two n's.
+
+Directory with the suffix Z are devoted for the partition functions,
+  and no star or ring content was computed.
+

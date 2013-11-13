@@ -51,6 +51,12 @@ int inode = MASTER, nnodes = 1;
 
 
 
+#ifdef N
+#define NMAX N
+#endif
+
+
+
 #ifndef DG_WORDBITS
 #ifdef NMAX
 #define DG_WORDBITS ((NMAX + 31)/32*32)
