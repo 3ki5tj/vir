@@ -229,14 +229,17 @@ ipo:
 Hash table
 ~~~~~~~~~~~~~~~~~~~~~
 Note for simulations with "level 1", the starred(*) versions have --hash-isoenum turned on by default
+Note for simulations with "#", the program is compiled with DG_NORING, and --hash-nocsep is turned on.
 Note also that some version without --stat runs faster
 
 D = 2, n = 9, -1 1e8 -0 1e6 -w 1, vir = 0.0362202
-T60:  single thread (level 9):  2m37s/2m38s                 icc -DD=2 -DN=9 -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=9
-      single thread (level 1):  2m05s/2m04s                 icc -DD=2 -DN=9 -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
-     *single thread (level 1):  1m16s/1m16s                 icc -DD=2 -DN=9 -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=1
+T60:  single thread (level 9):  2m37s/2m38s                 icc -DD=2 -DN=9 -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1 --stat --auto-level=9
+      single thread (level 1):  2m05s/2m04s                 icc -DD=2 -DN=9 -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1 --stat --auto-level=1
+     *single thread (level 1):  1m24s/1m22s,                icc -DD=2 -DN=9 -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1 --stat --auto-level=1 --hash-initls=1 --hash-bits=22
+    #*single thread (level 1):  1m14s/1m13s                 icc -DD=2 -DN=9 -O2 -ipo -DDG_NORING=1 mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1 --stat --auto-level=1 --hash-nocsep --hash-initls=1 --hash-bits=22
       2-thread (level 9):       3m42s/7m05s                 icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 --hash-mode=1 --auto-level=9
-     *2-thread (level 1):       1m20s/2m34s                 icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 --hash-mode=1 --auto-level=1
+     *2-thread (level 1):       1m33s/2m41s                 icc -DD=2 -DN=9 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 --hash-mode=1 --auto-level=1 --hash-bits=22
+    #*2-thread (level 1):       1m27s/2m38s                 icc -DD=2 -DN=9 -openmp -O2 -ipo -DDG_NORING=1 mcrat0.c && rm -f mr* && time ./a.out -1 1e8 --hash-mode=1 --auto-level=1 --hash-bits=22
 
 D = 2, n = 9, -1 1e9 -0 1e6 -w 1, vir = 0.0362202
 ipo:  single thread (level 9):  12m00s/12m00s               icc -DD=2 -DN=9 -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e9 -0 1e6 --hash-mode=1 --stat --auto-level=9

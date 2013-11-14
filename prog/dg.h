@@ -408,14 +408,6 @@ INLINE dg_t *dg_copy(dg_t *a, const dg_t *b)
 
 
 
-INLINE dg_t *dg_clone(const dg_t *b)
-{
-  dg_t *a = dg_open(b->n);
-  return dg_copy(a, b);
-}
-
-
-
 /* return if the edge between i and j are connected */
 #define dg_linked(g, i, j) (int) ( ( (g)->c[i] >> (j) ) & 1u )
 

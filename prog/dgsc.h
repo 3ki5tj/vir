@@ -93,7 +93,7 @@ INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
 {
   DG_DEFN_(g)
   DG_DEFMASKN_()
-  dgword_t avs, avsi;
+  dgword_t avs, avsi, bi, bj;
   double sc = 0;
 
   /* find the pair after (i, j) with i < j */
@@ -103,25 +103,30 @@ INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
     /* if the degree <= 2, removing an edge connecting i
      * makes the biconnectivity impossible */
     if (dg_deg(g, i) <= 2) continue;
-    avsi = DG_MASKN_ ^ MKBIT(i);
+    bi = MKBIT(i);
+    avsi = DG_MASKN_ ^ bi;
     /* loop over the second vertex j */
     for (; j < DG_N_; j++) {
       /* try to remove the edge i-j */
-      if (!dg_linked(g, i, j) || dg_deg(g, j) <= 2)
+      if (!(g->c[j] & bi) || dg_deg(g, j) <= 2)
         continue;
-      DG_UNLINK(g, i, j);
+      g->c[j] &= ~bi;
+      bj = MKBIT(j);
+      g->c[i] &= ~bj;
       /* It is certain that neither i or j is an aritculation points (*)
        * we will only test the connectivity of g without other vertices
        * Prove (*):
        * Since `g' with (i, j) is biconnected, g\{i} is connected
        * so g'\{i} where g' is g \ {(i, j)} is also connected,
        * hence i is not an articulation point of g'  */
-      avs = avsi ^ MKBIT(j);
+      avs = avsi ^ bj;
       if ( dg_biconnectedavs(g, avs) ) {
         sc += sgn /* add the diagram without (i, j) */
             + dg_rhsc_recur(g, -sgn, i, j); /* diagrams without (i, j) */
       }
-      DG_LINK(g, i, j); /* link back, find subdiagrams with (i, j) */
+      /* link back, find subdiagrams with (i, j) */
+      g->c[i] |= bj;
+      g->c[j] |= bi;
     }
   }
   return sc;
@@ -221,18 +226,21 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
 INLINE double dg_rhsc_directlow(const dg_t *g)
 {
   double sc;
-  dg_t *g0 = NULL;
+  static dgword_t g0_c[DG_NMAX];
+  static dg_t g0[1] = {{0, NULL}};
+#pragma omp threadprivate(g0_c, g0)
 
   /* first find the minimal set of vertices that
    * contain the wiggly lines */
-  g0 = dg_clone(g);
+  g0->n = g->n;
+  g0->c = g0_c;
+  dg_copy(g0, g);
 #ifndef N /* mintop is disabled for fixed-size graphs */
   dg_mintop(g0);
 #endif
   sc = 1 + dg_rhsc_recur(g0, -1, 0, 0);
   /* use the Ree-Hoover formula to go from n0 to n */
   sc = dg_rhiter(g->n, g0->n, sc);
-  dg_close(g0);
   return sc;
 }
 

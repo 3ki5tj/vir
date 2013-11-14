@@ -83,10 +83,14 @@ class VirSamp {
     mctot += 1;
     if ( ng.biconnected() ) {
       mcacc += 1;
+      g.copy(ng);
     } else { /* recover */
       for (k = 0; k < D; k++)
         x[i][k] = xi[k];
     }
+    double sc = g.getRHSCDirect();
+    double fb = g.SC2FB(sc, g.nedges);
+    star.add(fb); 
   }
 
   /** remove the center of mass motion */
@@ -131,19 +135,25 @@ class VirSamp {
 class Diagram {
   public static final int nvmax = 62; /* maximal number of vertices */
   int n;
-  long c[];
+  long c[], RHSC_c[];
+  int degs[];
+  int nedges;
 
   /** construct a graph */
   Diagram(int nv) {
     if (nv > nvmax) nv = nvmax;
     n = nv;
-    c = new long[n];
+    c = new long [n];
+    RHSC_c = new long [n];
+    degs = new int [n];
+    nedges = 0;
   }
 
   /** construct from D-dimensional coordinates */
   Diagram(int nv, int dim, double r[][]) {
     this(nv);
     fromCoordinates(dim, r);
+    getDegrees();
   }
 
   /** update the graph form D-dimensional coordinates */
@@ -163,6 +173,11 @@ class Diagram {
     }
   }
 
+  /** check if two vertices i and j are linked */
+  boolean isLinked(int i, int j) {
+    return ((c[i] >> j) & 1L) != 0;
+  }
+
   /** link two vertices i and j */
   void link(int i, int j) {
     c[i] |= 1L << j;
@@ -173,6 +188,13 @@ class Diagram {
   void unlink(int i, int j) {
     c[i] &= ~(1L << j);
     c[j] &= ~(1L << i);
+  }
+
+  /** copy from src */
+  void copy(Diagram src) {
+    n = src.n;
+    for (int i = 0; i < n; i ++)
+      c[i] = src.c[i];
   }
 
   /** remove all edges in the graph */
@@ -210,19 +232,143 @@ class Diagram {
   }
 
   /** check if the graph is biconnected */
-  boolean biconnected() {
-    if (n > 2) {
-      long mask = mkbitsmask(n);
+  boolean biconnectedLow(int nn, long cc[]) {
+    if (nn > 2) {
+      long mask = mkbitsmask(nn);
       for (long b = 1; (b & mask) != 0; b <<= 1)
         if ( !connectedvs(mask ^ b) )
           return false;
       return true;
-    } else if (n == 2) {
-      return ((c[1] & 0x1l) != 0) ? true : false;
+    } else if (nn == 2) {
+      return ((cc[1] & 0x1l) != 0) ? true : false;
     } else return true;
   }
 
-  /* below are bit operations */
+  /** check if the graph is biconnected */
+  boolean biconnected() {
+    return biconnectedLow(n, c);
+  }
+
+  /** degree of vertex i */
+  int getDegree(int i) {
+    return bitcount(c[i]);
+  }
+
+  /** degrees of all vertices */
+  int getDegrees() {
+    nedges = 0;
+    for (int i = 0; i < n; i++) {
+      degs[i] = bitcount(c[i]);
+      nedges += degs[i];
+    }
+    nedges /= 2;
+    return nedges;
+  }
+
+  int RHSCSpec0Err;
+
+  /** special Ree-Hoover star content */
+  double getRHSCSpec0() {
+    RHSCSpec0Err = 0;
+    getDegrees();
+
+    if (nedges == n) {
+      return 1;
+    } else if (nedges == n + 1) {
+      int i, j;
+      for (i = 0; i < n; i++)
+        if (degs[i] == 3) break;
+      for (j = i + 1; j < n; j++)
+        if (degs[j] == 3) break;
+      if ( j < n && !isLinked(i, j) )
+        return 1;
+      else
+        return 0;
+    }
+    RHSCSpec0Err = 1; /* there is an error */
+    return 0;
+  }
+
+  /** recursively compute Ree-Hoover star content
+   *  starting from the edge (i, j) */
+  double getRHSCRecur(long cc[], int sgn, int i, int j) {
+    long maskn = mkbitsmask(n), avsi, avs, bi, bj;
+    double sc = 0;
+
+    if (++j >= n) j = (++i) + 1;
+    for (; i < n - 1; j = (++i) + 1) {
+      if (bitcount( cc[i] ) <= 2) continue;
+      bi = mkbit(i);
+      avsi = maskn ^ bi;
+      for (; j < n; j++) {
+        /* try to remove the edge i-j */
+        if ( (cc[j] & bi) == 0 || bitcount(cc[j]) <= 2 )
+          continue;
+        /* unlink i and j */
+        cc[i] &= ~bi;
+        bj = mkbit(j);
+        cc[j] &= ~bj;
+        avs = avsi ^ bj;
+        if ( biconnectedLow(n, cc) ) {
+          sc += sgn + getRHSCRecur(cc, -sgn, i, j);
+        }
+        /* link back i and j */
+        cc[i] |= bi;
+        cc[j] |= bj;
+      }
+    }
+    return sc;
+  }
+
+  /** compute Ree-Hoover star content directly */
+  double getRHSCDirectLow() {
+    for (int i = 0; i < n; i++)
+      RHSC_c[i] = c[i];
+    return 1 + getRHSCRecur(RHSC_c, -1, 0, 0);
+  }
+
+  /** compute Ree-Hoover star content directly */
+  double getRHSCDirect() {
+    double sc = getRHSCSpec0();
+    if (RHSCSpec0Err == 0) return sc;
+    else return getRHSCDirectLow();
+  }
+
+  /** convert star content to sum of clusters */
+  double SC2FB(double sc, int ned) {
+    return sc * (1 - ned % 2);
+  }
+
+  /** convert sum of clusters to star content */
+  double FB2SC(double fb, int ned) {
+    return fb * (1 - ned % 2);
+  }
+
+  int RingSpec0Err;
+
+  /** special Ree-Hoover star content */
+  double getRingSpec0() {
+    RingSpec0Err = 0;
+    getDegrees();
+
+    if (nedges == n) {
+      return 1;
+    } else if (nedges == n + 1) {
+      int i, j;
+      for (i = 0; i < n; i++)
+        if (degs[i] == 3) break;
+      for (j = i + 1; j < n; j++)
+        if (degs[j] == 3) break;
+      if ( j < n && !isLinked(i, j) )
+        return 1;
+      else
+        return 0;
+    }
+    RingSpec0Err = 1; /* there is an error */
+    return 0;
+  }
+
+  /** below are bit operations */
 
   /** return a long integer with only ith lowest bit being 1 */
   long mkbit(int i) {
@@ -268,6 +414,7 @@ class Diagram {
     3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
     4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8 };
 
+  /* count the number of one-bits in x */
   int bitcount(long x) {
     return bytecount[(int) (x         & 0xffl)] +
            bytecount[(int) ((x >>  8) & 0xffl)] +
@@ -277,6 +424,8 @@ class Diagram {
            bytecount[(int) ((x >> 40) & 0xffl)] +
            bytecount[(int) ((x >> 48) & 0xffl)];
   }
+
+
 }
 
 
@@ -313,7 +462,7 @@ public class VirSampApp extends JApplet implements ActionListener
 {
   VirSamp mc = new VirSamp(3, 7);
   int delay = 100;
-  int speed = 1000; // mc steps per frame
+  int speed = 10; // mc steps per frame
   Timer timer;
 
   MyCanvas canvas; // 3D drawing here
