@@ -1,0 +1,2 @@
+rsync -e gsissh -avz --exclude="*.tmp*" --exclude="ZrD*" --exclude="*~" --exclude=".*.swp" \
+  czhang@kraken-gsi.nics.xsede.org:/lustre/scratch/czhang/vir/* .

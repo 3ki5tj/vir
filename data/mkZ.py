@@ -37,7 +37,7 @@ def mkZ(fnout):
   ''' compile the partition functions at different dimensions '''
   src = ""
   for dim in range(2, 1000):
-    Zf = glob.glob("ZrD%sr[1-9]n*.dat*" % dim)
+    Zf = glob.glob("ZrD%sr[1-9]n*.data" % dim)
     if len(Zf) == 0:
       Zf = glob.glob("ZrD%sn*.dat" % dim)
       if len(Zf) == 0: continue

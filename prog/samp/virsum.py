@@ -349,6 +349,7 @@ class MR:
       me.vir = [me.fb0 * rv, me.fb1 * rv, me.fb2 * rv]
     else: # mcrat0.c
       if me.use3:
+        # vir, fb, nr
         me.vir = [me.fb0 * rv, me.fb0, me.nr]
       else:
         me.vir = [me.fb0 * rv]
@@ -444,18 +445,16 @@ class MR:
   def sumdat(fnbas, fnls, use3 = 0):
     ''' sum over data in fnbas + fnls for mr*.dat '''
     mr = MR(fnbas, use3 = use3) # create a class, read data in fnbas
+    mr.clear()
     m = len(fnls) + 1
     fnls = [fnbas,] + fnls
     mrls = []
     # sum over all file lists
     for i in range(m):
       fn = fnls[i]
-      try:
-        mr = MR(fn, use3 = use3) # read data in fn
-      except Exception:
-        continue
-      mr.recompute() # compute individual vir
-      mrls += [mr, ]
+      mr1 = MR(fn, use3 = use3) # read data in fn
+      mr1.recompute() # compute individual vir
+      mrls += [mr1, ]
 
     # histogram analysis
     totls = [li.tot for li in mrls]
@@ -1050,6 +1049,8 @@ def getlserr(ls, n, usetot = 0):
     # ls[sim][2] is the total
     wt = [0] * nsim
     for sim in range(nsim): # loop over simulations
+      if ls[sim][0][q] == 0: # missing e.g. the ring content
+        continue
       if usetot:
         wt[sim] = ls[sim][2]
         sumvar += (ls[sim][1][q] * wt[sim])**2
@@ -1062,6 +1063,8 @@ def getlserr(ls, n, usetot = 0):
       sumx += ls[sim][0][q] * wt[sim]
     if nsim > 1 and verbose: # print the break down
       for sim in range(nsim):
+        if ls[sim][0][q] == 0: # missing e.g. the ring content
+          continue
         # id, dir, weight, x, err
         print "%2d %-30s %5.2f%% %+20.10e %9.2e %16.0f" % (
             sim + 1, ls[sim][3], 100.*wt[sim]/sumw,
@@ -1071,7 +1074,11 @@ def getlserr(ls, n, usetot = 0):
       err = sqrt(sumvar) / sumw
     else:
       err = 1./sqrt(suminvvar)
-    niceprint(avx, err, n, q, strtot)
+    if avx == 0 and err == 0:
+      #print "skip: ave %s, err %s, n %d" % (avx, err, n)
+      pass
+    else:
+      niceprint(avx, err, n, q, strtot)
     avls += [avx,]
     errls += [err,]
   return avls, errls, tot, strtot

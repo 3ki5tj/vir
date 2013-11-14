@@ -136,6 +136,10 @@ def getrcZr(fn):
   if isZrh: width = 23
 
   lines = open(fn).readlines()[1:]
+  if nmin >= len(lines) - 3:
+    print "only %d lines, bad nmin %d, nmax %d" % (
+        len(lines), nmin, nmax)
+    raise Exception
   lines = lines[nmin - 1: nmax]
   n = len(lines)
   # parse each line
@@ -195,9 +199,8 @@ def huntmr(d, n, root = "."):
     # try to use virsum because it produces error estimates
     import virsum
     virsum.verbose = verbose
-    virsum.rmbad = True
-    (x, err, tot) = virsum.dodirs(None, n, sum3 = 1)
-    if x == None: return None, None, None, None
+    (x, err, tot, strtot) = virsum.dodirs(None, n, sum3 = 1)
+    if x == None: return None, None, None, None, None
     else: return x[1], err[1], x[2], err[2], tot
   except ImportError:
     print "cannot import virsum.py, use the default method"
@@ -229,7 +232,8 @@ def huntrc(d, nmin, nmax):
   fbnrarr = []
   fbnrerr = []
   totarr = []
-  src = ""
+  # information line of the output file
+  src = "#  n         <fb>              e(fb)           <nr>             e(nr)             tot\n"
   while 1:
     fb, errfb, nr, errnr, tot = huntmr(d, n)
     if fb == None: break
@@ -312,6 +316,12 @@ def doargs():
       verbose += 1
     elif o in ("-h", "--help",):
       usage()
+
+  # check if to turn on the hunting mode
+  if hunt == 0:
+    curdir = os.getcwd()
+    if re.search(r"D[0-9]+$", curdir):
+      hunt = 1
 
   if hunt: # hunting mode
     if dim == 0: # guess the dimension

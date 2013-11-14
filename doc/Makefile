@@ -6,7 +6,7 @@ $(prj)doc.pdf: $(prj)doc.tex $(prj)text.pdf $(prj)supp.pdf Makefile $(figs)
 	pdflatex $<
 
 clean:
-	rm -rf $(prj).log *.aux *~
+	rm -rf $(prj).log $(prj)doc.pdf *.aux *~
 
 $(prj)doc.zip: $(prj)doc.pdf $(prj)text.doc $(prj)supp.doc $(prj).enl $(prj).Data $(figs) README
 	zip -r $@ $^
