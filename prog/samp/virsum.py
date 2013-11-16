@@ -1104,15 +1104,16 @@ def dodirs(dirs, n, sum3 = 0):
     dirs = guessdirs(n)
     if dirs == None:
       return None, None, None, None
-  # dictionary of list with different nstfb
+  # dictionary of list with different nstfb,
+  # the interval of computing the star and ring contents
   dicls = {}
   i = 0
   for d in dirs:
-    # nstfb
+    # get nstfb from the directory name
     nstfb = getnstfb(d)
     if nstfb in dicls: ls = dicls[nstfb]
     else: ls = []
-    (x, err, tot) = aggregate(None, d, sum3 = sum3)
+    (x, err, tot) = sumdat_wrapper(None, d, sum3 = sum3)
     if x:
       # average (array), standard deviation(array), total, directory, name
       ls += [(x, err, tot, d),]
@@ -1189,12 +1190,46 @@ def getslaves(fnbas):
 
 
 
-def aggregate(fninp, dir = None, sum3 = 0):
-  ''' aggregate data for fninp '''
+def checkdirfn(dir, fn):
+  ''' check if the directory name and file name fn represent
+      the same simulation '''
+  # check dimensions
+  mdir = re.search(r"D([0-9]+)", dir)
+  if mdir:
+    dird = int( mdir.group(1) )
+    mfn = re.search(r"D([0-9]+)", fn)
+    if mfn:
+      fnd = int( mfn.group(1) )
+      if dird != fnd:
+        print "file name %s (D = %d) incompatible with the dir name %s (D = %d)" % (
+            fn, fnd, dir, dird)
+        raise Exception
+
+  # check orders
+  mdir = re.search("n([0-9]+)", dir)
+  if mdir:
+    dirn = int( mdir.group(1) )
+    mfn = re.search("n([0-9]+)", fn)
+    if mfn:
+      fnn = int( mfn.group(1) )
+      if dirn != fnn:
+        print "file name %s (n = %d) incompatible with the dir name %s (n = %d)" % (
+            fn, fnn, dir, dirn)
+        raise Exception
+
+
+
+def sumdat_wrapper(fninp, dir = None, sum3 = 0):
+  ''' summarize data for fninp under a single directory '''
+
   dir0 = os.getcwd()
   if dir: os.chdir(dir)
+  # guess the basic file name if necessary
   fnbas = getfnbas(fninp)
-  if not fnbas:
+  if fnbas:
+    # check if the file name is compatible with directory name
+    checkdirfn(os.getcwd(), fnbas)
+  if not fnbas: # no basic file name
     if verbose:
       print "cannot find a .dat file under %s" % dir
     if dir: os.chdir(dir0)
@@ -1204,7 +1239,10 @@ def aggregate(fninp, dir = None, sum3 = 0):
       print "cannot find %s, dir %s %s" % (fnbas, dir, dir0)
     if dir: os.chdir(dir0)
     return None, None, None
+
+  # obtain slave files from the basic file
   fnls = getslaves(fnbas)
+
   if fnbas.startswith("Z"):
     (x, err, tot) = GC.sumdat(fnbas, fnls)
   elif fnbas.startswith("mr"):
@@ -1285,7 +1323,7 @@ if __name__ == "__main__":
     dodirs(fns, n)
   else: # under a single directory
     if len(fns):
-      for fn in fns: aggregate(fn)
+      for fn in fns: sumdat_wrapper(fn)
     else:
-      aggregate(None)
+      sumdat_wrapper(None)
 

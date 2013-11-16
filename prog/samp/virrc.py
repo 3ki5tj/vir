@@ -127,7 +127,7 @@ def getrcZr(fn):
     # try to call sum.py
     try:
       import virsum
-      virsum.aggregate(None)
+      virsum.sumdat_wrapper(None)
     except ImportError:
       pass
 
