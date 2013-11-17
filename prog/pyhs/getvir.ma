@@ -35,9 +35,20 @@ xload[fn_, verbose_: False] := Module[{fp, xp},
 vircoef[d_, poly_, nmax_, X_, X0_, t_, ch_, prec_ : 20] := Module[
   {l, xx, fn, app, ser, bk, bkrat},
   fn = "vir" <> ToString[d] <> ch <> ".txt";
-  (* here we start with the contant term app = X0,
-     then try app = X0 + X1 t, and determine X1,
-     then try app = X0 + X1 t + X2 t^2, and determine X2, etc. *)
+  (* Given poly(X, t) = 0, we need X = X0 + X1 t + X2 t^2 + ...
+     We start with the contant term X = X0,
+      then if poly(X0, t) = p0 + p1 t + ..., p0 must be zero
+      i.e., poly(X0, 0) = 0
+     Next, we try X = X0 + X1 t, and X1 is determined such that
+      in the expansion poly(X0 + X1 t, t) = p0 + p1 t + ...,
+      we have p1 == 0.
+      Note, p0 == 0 is guaranteed by the previous step
+     We can repeat the previous step and try X = X0 + X1 t + X2 t^2,
+      and determine X2, etc. *)
+  If [ (poly /. {X -> X0, t -> 0}) != 0,
+    Print[ "bad initial value X = ", X0];
+    Exit[];
+  ];
   For [ app = X0; l = 1, l <= nmax, l++,
     app += xx t^l;
     (* Print[Collect[(poly /. {X -> app}), t] // InputForm]; *)

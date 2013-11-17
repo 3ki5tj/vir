@@ -1244,8 +1244,21 @@ def sumdat_wrapper(fninp, dir = None, sum3 = 0):
   fnls = getslaves(fnbas)
 
   if fnbas.startswith("Z"):
-    (x, err, tot) = GC.sumdat(fnbas, fnls)
+    tp = "Z"
   elif fnbas.startswith("mr"):
+    tp = "mr"
+  elif fnbas.startswith("intg"):
+    tp = "intg"
+  else:
+    sinfo = open(fnbas).readlines()[0]
+    if sinfo[1] in "RS":
+      tp = "Z"
+    else:
+      tp = "mr"
+
+  if tp == "Z":
+    (x, err, tot) = GC.sumdat(fnbas, fnls)
+  elif tp == "mr":
     (x, err, tot) = MR.sumdat(fnbas, fnls, sum3)
   else:
     (x, err, tot) = INT.sumdat(fnbas, fnls)

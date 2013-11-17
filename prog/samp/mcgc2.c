@@ -22,10 +22,15 @@ double ratn = 0.5; /* frequency of n-moves */
 real rc0 = 0; /* initial rc */
 double mindata = 100; /* minimal # of data points to make update */
 
-char *fninp = NULL; /* input file */
-char *fnout = NULL; /* output file */
-char *fnZrtmp = "Zrh.tmp"; /* temporary output file */
+/* shared version of the above variables */
+char *fninp0, *fnout0, *fnZrtmp = "Zrh.tmp";
+
+char *fninp, *fnout;
+#pragma omp threadprivate(fninp, fnout)
+
 char *fnBring = NULL; /* ring contribution file */
+
+unsigned rngseed = 0;
 
 int nstcom = 10000;
 int nsted = 10;
@@ -70,8 +75,8 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-a",    "%r",   &mcamp,   "MC amplitude for biconnected diagrams");
   argopt_add(ao, "-r",    "%lf",  &ratn,    "rate of particle moves");
   argopt_add(ao, "-c",    "%r",   &rc0,     "initial rc");
-  argopt_add(ao, "-i",    NULL,   &fninp,   "input file");
-  argopt_add(ao, "-o",    NULL,   &fnout,   "output file");
+  argopt_add(ao, "-i",    NULL,   &fninp0,  "input file");
+  argopt_add(ao, "-o",    NULL,   &fnout0,  "output file");
   argopt_add(ao, "-T",    NULL,   &fnZrtmp, "temporary output file");
   argopt_add(ao, "-I",    NULL,   &fnBring, "ring contribution file");
   argopt_add(ao, "-G",    "%d",   &nsted,   "interval of computing the # of edges");
@@ -87,6 +92,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation");
   argopt_add(ao, "-C",    "%b",   &norc,    "do not update rc");
   argopt_add(ao, "-W",    "%d",   &nmvtype, "nmove type, 0: Metropolis, 1: heatbath");
+  argopt_add(ao, "--rng", "%u",   &rngseed, "set the RNG seed offset");
 
   argopt_parse(ao, argc, argv);
 
@@ -119,15 +125,24 @@ static void doargs(int argc, char **argv)
 
   if (inode == MASTER) {
     argopt_dump(ao);
-  } else { /* change file names for slave nodes */
-    if (fninp) fninp = fnappend(fninp, inode);
-    if (fnout) fnout = fnappend(fnout, inode);
-    if (fnZrtmp) fnZrtmp = fnappend(fnZrtmp, inode);
   }
   argopt_close(ao);
 #ifdef MPI
   MPI_Barrier(comm);
 #endif
+}
+
+
+/* append node ids after the file names */
+INLINE void appendfns(const char *fninp0, const char *fnout0)
+{
+  if (inode != MASTER) {
+    if (fninp0) fninp = fnappend(fninp0,    inode);
+    if (fnout0) fnout = fnappend(fnout0,    inode);
+  } else {
+    if (fninp0) fninp = ssdup(fninp0);
+    if (fnout0) fnout = ssdup(fnout0);
+  }
 }
 
 
@@ -152,6 +167,13 @@ typedef struct {
   double Bring[DG_NMAX + 1]; /* ring contributions to the virial coefficients */
   double ZZ[DG_NMAX + 1]; /* ratio of Z between two successive pure states */
 } gc_t;
+
+#ifndef MPI
+/* shared variables for OpenMP */
+double *gc_Zr;
+real *gc_rc;
+double *gc_Bring;
+#endif
 
 
 
@@ -214,6 +236,17 @@ INLINE gc_t *gc_open(int nmin, int nmax, real rc0)
     loadBring(D, 1, gc->nmax, gc->Bring, fnBring);
 #ifdef MPI
   MPI_Bcast(gc->Bring, gc->nmax + 1, MPI_DOUBLE, MASTER, comm);
+#else
+  if (inode == MASTER) {
+    gc_Zr = gc->Zr;
+    gc_rc = gc->rc;
+    gc_Bring = gc->Bring;
+  }
+  /* wait the master */
+  #pragma omp barrier
+  if (inode != MASTER)
+    for (n = 0; n <= gc->nmax; n++)
+      gc->Bring[n] = gc_Bring[n];
 #endif
   return gc;
 }
@@ -642,16 +675,22 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
   /* make sure the same parameters */
   MPI_Bcast(gc->Zr, gc->nmax + 1, MPI_DOUBLE, MASTER, comm);
   MPI_Bcast(gc->rc, gc->nmax + 1, MPI_MYREAL, MASTER, comm);
-  if (nnodes > 1) /* scramble the random number generator */
-    mtscramble(inode * 2038074743u + nnodes * time(NULL));
   MPI_Barrier(comm);
   if (inode == MASTER)
     for (i = nmin; i <= nmax; i++)
       printf("%3d: %.6f %.6f\n", i, gc->Zr[i], gc->rc[i]);
   MPI_Barrier(comm);
-#else
-  for (i = nmin; i <= nmax; i++)
-    printf("%3d: %.6f %.6f\n", i, gc->Zr[i], gc->rc[i]);
+#else /* OpenMP */
+  #pragma omp barrier
+  if (inode == MASTER) {
+    for (i = nmin; i <= nmax; i++)
+      printf("%3d: %.6f %.6f\n", i, gc->Zr[i], gc->rc[i]);
+  } else { /* nonmaster node: copy from the master */
+    for (i = 0; i <= nmax; i++) {
+      gc->Zr[i] = gc_Zr[i];
+      gc->rc[i] = gc_rc[i];
+    }
+  }
 #endif
 
   /* we limit the initial # of vertices to 8 for larger
@@ -831,10 +870,13 @@ int main(int argc, char **argv)
   {
     inode = omp_get_thread_num();
 #endif
+    mtscramble(inode * 2038074743u + nnodes * time(NULL) + rngseed);
+    appendfns(fninp0, fnout0);
 
     mcgc(nmin, nmax, nsteps, mcamp, neql, nequil, nstsave);
 
     DG_FREEMEMORIES();
+    mtclosedef();
 #ifdef _OPENMP
   }
 #endif

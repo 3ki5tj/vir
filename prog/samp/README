@@ -105,7 +105,7 @@ Use
   gcc -fopenmp
 or
   icc -openmp
-to compile the thread version
+to compile the OpenMP(thread) version
 
 Use
   mpicc -DMPI
@@ -122,6 +122,9 @@ by default D=3
 When the hash table is used, defining the order in advance can save memory
   -DN=12
 
+For large orders,
+  -DDG_NORING=1
+to use algorithm Z instead of algorithm R.
 
 
 
@@ -318,7 +321,7 @@ Note the memory limit in the second run.
 
 
 
-Direct method
+Direct method (old)
 ~~~~~~~~~~~~~~~~~~~~~
 D = 2, n = 10, -1 1e8 -0 1e6 -w 10, vir = 0.019953
 
@@ -329,7 +332,17 @@ T60:  single thread:            9m44s/9m37                  icc -DD=2 -O2 -march
       MPI/gcc -np 8:            13m16s/22m12s               mpicc -DD=2 -O2 -march=native mcrat0.c -lm && rm -f mr* && time mpirun -np 2 ./a.out -n 10 -1 1e8 -0 1e6 --hash-mode=0
 
 
+--------
+With a larger MC amplitude, the rejection rate increases.
+But rejected configurations requires no computation of fb,
+  so it could be advantageous
 
+For D = 2, n = 10, tested "-a 5.0" with little benefit
+
+OMP_NUM_THREADS=16 -1 2e9
+
+-a 5.0      10m43s/165m2s   error = 1.1e-3
+(default)   19m40s/289m39s  error = 4.0e-4
 
 
 
@@ -378,10 +391,4 @@ gcr2:  development of mcgcr2
 
 ring:  development of the ring content in dgring.h and its application
 
-singleif:
-doubleif:  development of the OpenMP version, the doubleif version is better
-           It appears that the double-if branch is faster b/c it voids creating too
-           many `omp critical' blocks (mutexes).
-
-mpi_openmp: MPI + OpenMP version, intended for two MIC cards on stampede
-            this branch is unsuccessful, and may be deleted in the future
+hash:  development of hash table

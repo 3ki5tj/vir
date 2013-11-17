@@ -23,11 +23,16 @@ real sr0 = 1;
 double mindata = 100; /* minimal # of data points to make update */
 int updrc = 0;
 
-char *fninp = NULL;
-char *fnZrr = NULL;
-char *fnZr = NULL;
-char *fnZrrtmp = "Zrr.tmp";
+/* common and shared file names */
+char *fninp0, *fnZrr0, *fnZr0, *fnZrrtmp = "Zrr.tmp";
+
+/* thread-dependent file names */
+char *fninp, *fnZrr, *fnZr;
+#pragma omp threadprivate(fninp, fnZrr, fnZr)
+
 char *fnBring = NULL; /* ring contribution file */
+
+unsigned rngseed = 0;
 
 int nstcom = 10000;
 int nsted = 10;
@@ -73,9 +78,9 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-r",    "%lf",  &ratn,    "rate of particle moves");
   argopt_add(ao, "-c",    "%r",   &rc0,     "radius of particle insersion");
   argopt_add(ao, "-s",    "%r",   &sr0,     "default scaling of distance between the constrained vertex pair");
-  argopt_add(ao, "-i",    NULL,   &fninp,   "input file");
-  argopt_add(ao, "-o",    NULL,   &fnZrr,   "output file");
-  argopt_add(ao, "-O",    NULL,   &fnZr,    "output file (compact)");
+  argopt_add(ao, "-i",    NULL,   &fninp0,  "input file");
+  argopt_add(ao, "-o",    NULL,   &fnZrr0,  "output file");
+  argopt_add(ao, "-O",    NULL,   &fnZr0,   "output file (compact)");
   argopt_add(ao, "-T",    NULL,   &fnZrrtmp,"temporary output file");
   argopt_add(ao, "-I",    NULL,   &fnBring, "ring contribution file");
   argopt_add(ao, "-G",    "%d",   &nsted,   "interval of computing the # of edges");
@@ -92,6 +97,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-R",    "%b",   &restart, "run a restartable simulation");
   argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation");
   argopt_add(ao, "-W",    "%d",   &nmvtype, "nmove type, 0: Metropolis, 1: heatbath");
+  argopt_add(ao, "--rng", "%u",   &rngseed, "set the RNG seed offset");
 
   argopt_parse(ao, argc, argv);
 
@@ -125,23 +131,33 @@ static void doargs(int argc, char **argv)
     nedxmax = (D < 14) ? nedarr[D] : 14;
   }
 
-#ifdef MPI
   die_if (nnodes > 1 && neql > 0,
       "no parameter updating with MPI, neql %d\n", neql);
-#endif
 
   if (inode == MASTER) {
     argopt_dump(ao);
-  } else { /* change file names for slave nodes */
-    if (fninp) fninp = fnappend(fninp, inode);
-    if (fnZrr) fnZrr = fnappend(fnZrr, inode);
-    if (fnZr) fnZr = fnappend(fnZr, inode);
-    if (fnZrrtmp) fnZrrtmp = fnappend(fnZrrtmp, inode);
   }
   argopt_close(ao);
 #ifdef MPI
   MPI_Barrier(comm);
 #endif
+}
+
+
+
+/* append node ids after the file names */
+INLINE void appendfns(const char *fninp0, const char *fnZrr0,
+    const char *fnZr0)
+{
+  if (inode != MASTER) {
+    if (fninp0) fninp = fnappend(fninp0,    inode);
+    if (fnZrr0) fnZrr = fnappend(fnZrr0,    inode);
+    if (fnZr0)  fnZr  = fnappend(fnZr0,     inode);
+  } else {
+    if (fninp0) fninp = ssdup(fninp0);
+    if (fnZrr0) fnZrr = ssdup(fnZrr0);
+    if (fnZr0)  fnZr  = ssdup(fnZr0);
+  }
 }
 
 
@@ -181,6 +197,13 @@ typedef struct {
   double *ZZ; /* ratio of Z between two successive pure states */
 } gc_t;
 
+#ifndef MPI
+/* shared variables for OpenMP */
+double *gc_Zr;
+real *gc_rc;
+real *gc_sr;
+double *gc_Bring;
+#endif
 
 
 /* clear data */
@@ -293,6 +316,18 @@ INLINE gc_t *gc_open(int nmin, int nmax, int m,
     loadBring(D, 1, gc->nmax, gc->Bring, fnBring);
 #ifdef MPI
   MPI_Bcast(gc->Bring, gc->nmax + 1, MPI_DOUBLE, MASTER, comm);
+#else
+  if (inode == MASTER) {
+    gc_Zr = gc->Zr;
+    gc_rc = gc->rc;
+    gc_sr = gc->sr;
+    gc_Bring = gc->Bring;
+  }
+  /* wait the master */
+  #pragma omp barrier
+  if (inode != MASTER)
+    for (n = 0; n <= gc->nmax; n++)
+      gc->Bring[n] = gc_Bring[n];
 #endif
   return gc;
 }
@@ -643,8 +678,8 @@ INLINE double gc_fprintZrr(gc_t *gc, FILE *fp,
       fprintf(fp, "%18.14f %16.14f %16.14f %+17.14f %+20.14e %+20.14e ",
         gc->nedg[n][1] / gc->nedg[n][0],
         gc->ncsp[n][1] / gc->ncsp[n][0],
-        gc->fbsm[n][2] / gc->fbsm[n][0],
-        gc->fbsm[n][1] / gc->fbsm[n][0],
+        gc->fbsm[n][2] / gc->fbsm[n][0], /* < |fb| > */
+        gc->fbsm[n][1] / gc->fbsm[n][0], /* <  fb  > */
         gc->B[n], gc->B2[n]);
     }
     fprintf(fp, "\n");
@@ -1059,14 +1094,23 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
   MPI_Bcast(gc->Zr, gc->nens, MPI_DOUBLE, MASTER, comm);
   MPI_Bcast(gc->rc, gc->nens, MPI_MYREAL, MASTER, comm);
   MPI_Bcast(gc->sr, gc->nens, MPI_MYREAL, MASTER, comm);
-  if (nnodes > 1) /* scramble the random number generator */
-    mtscramble(inode * 2038074743u + nnodes * time(NULL));
   MPI_Barrier(comm);
   if (inode == MASTER)
     gc_print(gc, 1, NULL, NULL, NULL);
   MPI_Barrier(comm);
-#else
-  gc_print(gc, 1, NULL, NULL, NULL);
+#else /* OpenMP */
+  #pragma omp barrier
+  /* in case of OpenMP, we synchronize Zr, rc, sr manually */
+  if (inode == MASTER) {
+    gc_print(gc, 1, NULL, NULL, NULL);
+  } else { /* nonmaster node: copy from the master */
+    int i;
+    for (i = 0; i < gc->nens; i++) {
+      gc->Zr[i] = gc_Zr[i];
+      gc->rc[i] = gc_rc[i];
+      gc->sr[i] = gc_sr[i];
+    }
+  }
 #endif
 
   /* we limit the initial # of vertices to 8 for larger fully-connected
@@ -1278,6 +1322,8 @@ int main(int argc, char **argv)
   MPI_Comm_size(comm, &nnodes);
 #endif
 
+  /* In MPI case, every node calls this function
+   * In OpenMP case, only the master calls this function */
   doargs(argc, argv);
 
 #ifdef _OPENMP
@@ -1292,10 +1338,13 @@ int main(int argc, char **argv)
   {
     inode = omp_get_thread_num();
 #endif
+    mtscramble(inode * 2038074743u + nnodes * time(NULL) + rngseed);
+    appendfns(fninp0, fnZrr0, fnZr0);
 
     mcgcr(nmin, nmax, mtiers, nsteps, mcamp, neql, nequil, nstsave);
 
     DG_FREEMEMORIES();
+    mtclosedef();
 #ifdef _OPENMP
   }
 #endif
