@@ -10,11 +10,6 @@
 #define DGHASH_EXISTS 1
 #endif
 
-#ifndef DGHASH_NMAX
-#define DGHASH_NMAX DG_NMAX
-#endif
-
-
 #ifdef DGHASH_EXISTS
 
 
@@ -35,15 +30,8 @@
 #include "dg.h"
 #include "dgaut.h"
 #include "dgring.h"
+#include "dgdb.h"
 
-
-
-
-/* the number of words to save the code of a graph of vertices
- * the number of bits needed is n * (n - 1) / 2
- * divide this by sizeof(dgword_t) is DGHASH_CWORDS */
-#define DGHASH_CBITS  (DGHASH_NMAX *(DGHASH_NMAX - 1)/2)
-#define DGHASH_CWORDS ((DGHASH_CBITS + DG_WORDBITS - 1)/DG_WORDBITS)
 
 
 /* linear congruential generator */
@@ -55,10 +43,10 @@
 
 
 /* we will use a random number generator to scramble to code */
-#if DGHASH_CWORDS == 1
+#if DG_CWORDS == 1
   #define DGHASH_GETID(id, c, cnt, hbits) \
     id = (DGHASH_LCG(c[0]) >> (DG_WORDBITS - hbits))
-#elif DGHASH_CWORDS == 2
+#elif DG_CWORDS == 2
   #define DGHASH_GETID(id, c, cnt, hbits) \
     id = DGHASH_LCG(DGHASH_LCG(c[0]) + c[1]) >> (DG_WORDBITS - hbits)
 #else
@@ -66,64 +54,11 @@
     for (id = DGHASH_LCG(c[0]), k_ = 1; k_ < cnt; k_++) \
       id = DGHASH_LCG(id + c[k_]); \
     id >>= DG_WORDBITS - hbits; }
-#endif /* DGHASH_CWORDS == 1 */
-
-/* map DGHASH_CWORDS_ to the macro if possible, or a variable otherwise */
-#ifdef N
-#define DGHASH_CWORDS_(cwords) DGHASH_CWORDS
-#else
-#define DGHASH_CWORDS_(cwords) cwords
-#endif
-
-
-
-/* copy the code */
-#if DGHASH_CWORDS == 1
-  #define DGLS_CCPY(dest, src, cnt) dest[0] = src[0]
-#elif DGHASH_CWORDS == 2
-  #define DGLS_CCPY(dest, src, cnt) { \
-    dest[0] = src[0]; dest[1] = src[1]; }
-#else
-  #define DGLS_CCPY(dest, src, cnt) { int cpk_; \
-    for (cpk_ = 0; cpk_ < cnt; cpk_++) \
-      dest[cpk_] = src[cpk_]; }
-#endif
-
-
-
-/* the maximal fb is (n - 2)!, and the maximal nr is n!/(2 n) > (n - 2)!
- * a 32-bit signed integer can hold a number up to 2.1e9
- * a 32-bit unsigned integer can hold a number up to 4.2e9
- * the cutoff N is 14 because 13!/(2*13) = 2.4e8, 14!/(2*14) = 3.1e9
- * using 32-bit integers can save memory */
-#if defined(N) && (N <= 14)
-  typedef int32_t dgls_fb_t;
-  typedef uint32_t dgls_nr_t;
-  /* convert double to integer and save */
-  #define DGLS_SAVEFB(a, b) \
-    (a) = (dgls_fb_t) (((b) < 0 ? ((b) - .5) : ((b) + .5)))
-  #define DGLS_SAVENR(a, b) \
-    (a) = (dgls_nr_t) ((b) + .5)
-#else
-  typedef double dgls_fb_t;
-  typedef double dgls_nr_t;
-  #define DGLS_SAVEFB(a, b) (a) = (b)
-  #define DGLS_SAVENR(a, b) (a) = (b)
-#endif
-
-
-
-typedef struct {
-  dgword_t c[DGHASH_CWORDS];
-  dgls_fb_t fb;
-#ifndef DG_NORING
-  dgls_nr_t nr;
-#endif
-} dgitem_t;
+#endif /* DG_CWORDS == 1 */
 
 typedef struct tagdgls_t {
   int cnt;
-  dgitem_t *arr;
+  dgdbitem_t *arr;
   struct tagdgls_t *next;
 } dgls_t;
 
@@ -147,7 +82,7 @@ typedef struct {
   double tot, hits; /* statistics */
   /* memory allocators, since memory allocation are done
    * in omp critical sections, we don't need to make them thread private */
-  blkmem_t *blkmem_dgls, *blkmem_dgitem;
+  blkmem_t *blkmem_ls, *blkmem_item;
 } dghash_t;
 
 
@@ -246,8 +181,8 @@ INLINE dghash_t *dghash_open(int n, int bits,
    * if blkmem == 1, the system will leave many holes in the memory space, making
    * it inefficient */
   if (blkmem  ==  0)  blkmem  = 0x100; /* 65536 */
-  h->blkmem_dgls = blkmem_open(sizeof(dgls_t), blkmem);
-  h->blkmem_dgitem = blkmem_open(sizeof(dgitem_t), h->blksz * blkmem);
+  h->blkmem_ls = blkmem_open(sizeof(dgls_t), blkmem);
+  h->blkmem_item = blkmem_open(sizeof(dgdbitem_t), h->blksz * blkmem);
 
   h->lsn = (size_t) 1u << (size_t) bits;
   xnew(h->ls, h->lsn);
@@ -264,10 +199,10 @@ INLINE dghash_t *dghash_open(int n, int bits,
    * This may or may not allow a better coverage in the long run */
   if (initls < 0) /* turn it on by default */
     initls = 1;
-  if (h->mem + 1. * h->blksz * sizeof(dgitem_t) * h->lsn > h->memmax)
+  if (h->mem + 1. * h->blksz * sizeof(dgdbitem_t) * h->lsn > h->memmax)
     initls = 0;
   if (initls) {
-    size_t sz = h->blksz * sizeof(dgitem_t) * h->lsn;
+    size_t sz = h->blksz * sizeof(dgdbitem_t) * h->lsn;
     fprintf(stderr, "dghash: initializing all lists, %.0f items %gM/%gM\n",
         1.*h->lsn, sz / (1024.*1024), h->memmax / (1024.*1024));
     if ((h->ls[0].arr = calloc(1, sz)) != NULL) {
@@ -282,10 +217,10 @@ INLINE dghash_t *dghash_open(int n, int bits,
   fprintf(stderr, "dghash bits %d, blksz %u, mem %gM/%gM, "
       "cbits %d, cwords %d, unit %d bytes, level %d, isoenum %d, isomax %d\n",
       bits, (unsigned) blksz, h->mem/(1024.*1024), h->memmax/(1024.*1024),
-      n*(n - 1)/2, h->cwords, (int) sizeof(dgitem_t), level, isoenum, isomax);
-  if (h->cwords * 2 < DGHASH_CWORDS)
-    fprintf(stderr, "dghash can save memory with predefined N (%d >> %d) or DGHASH_CWORDS (%d >> %d)\n",
-        DGHASH_NMAX, n, DGHASH_CWORDS, h->cwords);
+      n*(n - 1)/2, h->cwords, (int) sizeof(dgdbitem_t), level, isoenum, isomax);
+  if (h->cwords * 2 < DG_CWORDS)
+    fprintf(stderr, "dghash can save memory with predefined N (%d >> %d) or DG_CWORDS (%d >> %d)\n",
+        DG_NMAX, n, DG_CWORDS, h->cwords);
 
   h->dostat = 1;
 #ifdef _OPENMP
@@ -303,11 +238,11 @@ INLINE dghash_t *dghash_open(int n, int bits,
 INLINE void dghash_close(dghash_t *h)
 {
 #if 0 /* to print allocation statistics */
-  blkmem_print(h->blkmem_dgitem, "dgitem");
-  blkmem_print(h->blkmem_dgls, "dgls");
+  blkmem_print(h->blkmem_item, "dgitem");
+  blkmem_print(h->blkmem_ls, "dgls");
 #endif
-  blkmem_close(h->blkmem_dgitem);
-  blkmem_close(h->blkmem_dgls);
+  blkmem_close(h->blkmem_item);
+  blkmem_close(h->blkmem_ls);
   free(h->ls);
   free(h);
 }
@@ -339,54 +274,86 @@ INLINE dgls_t *dgls_find(dgls_t *ls, dgword_t *c, int cn, int *pos)
 
 
 
+/* go to the end of the linked list, where we can add a new item
+ * allocate memory if needed */
+INLINE dgls_t *dgls_seekend(dgls_t *ls, int *lscnt, dghash_t *h)
+{
+  /* loop till the end of the linked list */
+  while (ls->next != NULL) {
+    ls = ls->next;
+  }
+  *lscnt = ls->cnt;
+  //die_if (*lscnt > 0 && *lscnt > blksz, "cnt %d, cap %d\n", *lscnt, blksz);
+  if (ls->arr == NULL) { /* no item in the list */
+    if (h->mem > h->memmax) return NULL;
+    h->mem += h->blksz * sizeof(ls->arr[0]);
+    if ((ls->arr = blkmem_new(h->blkmem_item, h->blksz)) == NULL)
+      return NULL;
+    /* this array will not be reallocated */
+    //xnew(ls->arr, h->blksz);
+    //*lscnt = 0; /* to be incremented below */
+  } else {
+    /* check if we have exhausted the capacity of this list */
+    if ((size_t) *lscnt == h->blksz) {
+      if (h->mem > h->memmax) return NULL;
+      h->mem += h->blksz * sizeof(ls->arr[0]) + sizeof(*ls);
+      //xnew(ls->next, 1);
+      if ((ls->next = blkmem_new(h->blkmem_ls, 1)) == NULL)
+        return NULL;
+      //xnew(ls->next->arr, h->blksz);
+      if ((ls->next->arr = blkmem_new(h->blkmem_item, h->blksz)) == NULL) {
+        ls->next = NULL;
+        return NULL;
+      }
+      ls = ls->next; /* shift to the next list */
+      *lscnt = 0; /* to be incremented below */
+    }
+  }
+  return ls;
+}
+
+
+
 /* add the new entry the list `ls'
  * this function is expected to be included in a omp critical block */
 INLINE int dgls_add(dgls_t *ls, const dgword_t *c,
     double fb, double nr, dghash_t *h)
 {
-  dgitem_t *item;
+  dgdbitem_t *item;
   int lscnt;
 
-  /* allocate memory if needed */
-  /* loop till the end of the linked list */
-  while (ls->next != NULL)
-    ls = ls->next;
-  lscnt = ls->cnt;
-  //die_if (lscnt > 0 && lscnt > blksz, "cnt %d, cap %d\n", lscnt, blksz);
-  if (ls->arr == 0) { /* no item in the list */
-    if (h->mem > h->memmax) return -1;
-    h->mem += h->blksz * sizeof(ls->arr[0]);
-    if ((ls->arr = blkmem_new(h->blkmem_dgitem, h->blksz)) == NULL)
-      return -1;
-    /* this array will not be reallocated */
-    //xnew(ls->arr, h->blksz);
-    //lscnt = 0; /* to be incremented below */
-  } else {
-    /* check if we have exhausted the capacity of this list */
-    if ((size_t) lscnt == h->blksz) {
-      if (h->mem > h->memmax) return -1;
-      h->mem += h->blksz * sizeof(ls->arr[0]) + sizeof(*ls);
-      //xnew(ls->next, 1);
-      if ((ls->next = blkmem_new(h->blkmem_dgls, 1)) == NULL)
-        return -1;
-      //xnew(ls->next->arr, h->blksz);
-      if ((ls->next->arr = blkmem_new(h->blkmem_dgitem, h->blksz)) == NULL) {
-        ls->next = NULL;
-        return -1;
-      }
-      ls = ls->next; /* shift to the next list */
-      lscnt = 0; /* to be incremented below */
-    }
-  }
-
+  ls = dgls_seekend(ls, &lscnt, h);
+  if (ls == NULL) return -1;
   item = ls->arr + lscnt;
-  DGCODE_CPY(item->c, c, h->cwords);
-  DGLS_SAVEFB(item->fb, fb);
+  DG_CCPY(item->c, c, h->cwords);
+  DGDB_SAVEFB(item->fb, fb);
 #ifndef DG_NORING
-  DGLS_SAVENR(item->nr, nr);
+  DGDB_SAVENR(item->nr, nr);
 #endif
   ls->cnt = lscnt + 1;
 #pragma omp flush
+  return 0;
+}
+
+
+
+/* add an new item `it' to the list `ls' */
+INLINE int dgls_additem(dgls_t *ls, dgdbitem_t *it, dghash_t *h,
+    int nr)
+{
+  dgdbitem_t *item;
+  int lscnt;
+
+  ls = dgls_seekend(ls, &lscnt, h);
+  if (ls == NULL) return -1;
+  item = ls->arr + lscnt;
+  DG_CCPY(item->c, it->c, h->cwords);
+  item->fb = it->fb;
+#ifndef DG_NORING
+  if (nr)
+    item->nr = it->nr;
+#endif
+  ls->cnt = lscnt + 1;
   return 0;
 }
 
@@ -435,14 +402,14 @@ INLINE int dghash_enumiso(dghash_t *h, const dg_t *g,
 #define dghash_fbnr_lookup(g, nr) \
   dghash_fbnr_lookup0(NULL, g, nr, 0, NULL, NULL)
 
-static dghash_t *dghash_[DGHASH_NMAX + 1]; /* default hash, shared */
+static dghash_t *dghash_[DG_NMAX + 1]; /* default hash, shared */
 
 INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
     double *nr, int nocsep, int *ned, int *degs)
 {
-  static dgword_t c[DGHASH_CWORDS];
+  static dgword_t c[DG_CWORDS];
   static dgword_t ng_c[DG_NMAX];
-  static dg_t ng[1] = {{DGHASH_NMAX, NULL}}; /* a stock graph */
+  static dg_t ng[1] = {{DG_NMAX, NULL}}; /* a stock graph */
 #pragma omp threadprivate(c, ng_c, ng)
 
   DG_DEFN_(g)
@@ -452,7 +419,7 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
   double fb = 0;
 
   if (h == NULL) { /* initialize the stock hash table */
-    die_if (DG_N_ > DGHASH_NMAX, "n %d is too large %d\n", DG_N_, DGHASH_NMAX);
+    die_if (DG_N_ > DG_NMAX, "n %d is too large %d\n", DG_N_, DG_NMAX);
     if (dghash_[DG_N_] == NULL) {
 #ifdef _OPENMP
 #pragma omp critical
@@ -472,10 +439,10 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
   if (ng->c == NULL) ng->c = ng_c; /* initialize the stock graph */
   dg_repiso(ng, g, h->level);
   dg_encode(ng, c);
-  DGHASH_GETID(hashid, c, DGHASH_CWORDS_(h->cwords), h->bits);
+  DGHASH_GETID(hashid, c, DG_CWORDS_(h->cwords), h->bits);
   ls = h->ls + hashid;
 //#pragma omp flush /* flush to get the recent view */
-  ls1 = dgls_find(ls, c, h->cwords, &pos);
+  ls1 = dgls_find(ls, c, DG_CWORDS_(h->cwords), &pos);
   if (ls1 != NULL) { /* entry exists */
 #ifndef DG_NORING
     *nr = ls1->arr[pos].nr;
@@ -570,6 +537,93 @@ INLINE void dghash_printstat(dghash_t *h, FILE *fp)
 
 
 
+/* save entries in the hash table to file */
+INLINE int dghash_save(dghash_t *h, const char *fn,
+    int dim, int binary)
+{
+  dgdb_t *db;
+  FILE *fp;
+  size_t i, cnt = 0;
+  int j;
+
+  if ((db = dgdb_open(dim, h->n)) == NULL) {
+    fprintf(stderr, "%4d: cannot open database\n", inode);
+    return -1;
+  }
+  if ((fp = fopen(fn, binary ? "wb" : "w")) == NULL) {
+    fprintf(stderr, "%4d: cannot write %s\n", inode, fn);
+    dgdb_close(db);
+    return -1;
+  }
+  if (dgdb_savehead(db, fp, fn, binary) != 0) {
+    fprintf(stderr, "%4d: cannot write header to %s\n", inode, fn);
+    return -1;
+  }
+  /* loop over entries of the hash table */
+  for (i = 0; i < h->lsn; i++) {
+    dgls_t *ls = h->ls + i;
+    if (ls->cnt == 0) continue;
+    /* loop over items in the list */
+    for (; ls != NULL; ls = ls->next) {
+      for (j = 0; j < ls->cnt; j++)
+        dgdbitem_save(ls->arr + j, fp, fn, binary,
+                      DGDB_FBTYPE, DG_CWORDS_(h->cwords), 1);
+      cnt += ls->cnt;
+    }
+  }
+  fclose(fp);
+  dgdb_close(db);
+  fprintf(stderr, "%4d: saved %s database to %s, %.0f items\n",
+      inode, binary ? "binary" : "text", fn, 1.*cnt);
+  return 0;
+}
+
+
+
+/* load entries in a binary file to the hash table */
+INLINE int dghash_load(dghash_t *h, const char *fn,
+    int dim, int binary)
+{
+  dgdb_t *db;
+  dgdbitem_t it[1];
+  FILE *fp;
+  dgword_t hashid;
+  size_t cnt = 0;
+
+  if (binary < 0) /* determine if the input is binary */
+    binary = dgdb_detectbinary(fn);
+
+  if ((db = dgdb_open(dim, h->n)) == NULL) {
+    fprintf(stderr, "%4d: cannot open database\n", inode);
+    return -1;
+  }
+  if ((fp = fopen(fn, binary ? "rb" : "r")) == NULL) {
+    fprintf(stderr, "%4d: cannot read %s\n", inode, fn);
+    goto ERR;
+  }
+  if (dgdb_loadhead(db, fp, fn, dim, h->n, binary, 1) != 0) {
+    fprintf(stderr, "%4d: cannot load header from %s\n", inode, fn);
+    goto ERR;
+  }
+  /* loop over entries of the hash table */
+  while ( dgdbitem_load(it, fp, fn, binary, db->fbtype,
+                        DG_CWORDS_(h->cwords), db->hasnr) == 0 ) {
+    DGHASH_GETID(hashid, it->c, DG_CWORDS_(h->cwords), h->bits);
+    dgls_additem(h->ls + hashid, it, h, db->hasnr);
+    cnt++;
+  }
+  fclose(fp);
+  dgdb_close(db);
+  fprintf(stderr, "%4d: loaded %s database from %s, %.0f items\n",
+      inode, binary ? "binary" : "text", fn, 1.*cnt);
+  return 0;
+ERR:
+  dgdb_close(db);
+  return -1;
+}
+
+
+
 #endif /* defined(DGHASH_EXISTS) */
 
 
@@ -582,7 +636,7 @@ INLINE void dghash_free(void)
 
 #pragma omp critical
   {
-    for (k = 0; k <= DGHASH_NMAX; k++)
+    for (k = 0; k <= DG_NMAX; k++)
       if (dghash_[k] != NULL) {
         dghash_close(dghash_[k]);
         dghash_[k] = NULL;

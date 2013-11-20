@@ -20,7 +20,8 @@ MPICC = mpicc -DMPI -Wall -Wextra -O3 -march=native -Wno-unknown-pragmas
 MPILM =
 
 
-deps = dg.h dgmap.h dgmapl.h dgutil.h dgcsep.h dgrjw.h dgsc.h dgring.h dgaut.h dghash.h \
+deps = dg.h dgmap.h dgmapl.h dgutil.h dgcsep.h dgrjw.h dgsc.h \
+       dgring.h dgaut.h dgdb.h dghash.h \
        nau0s.h zcom.h Makefile mcutil.h
 bins = mcrat0 mcgc2 mcgcr2
 bins_d = $(patsubst %, %_d, $(bins))
@@ -48,10 +49,10 @@ sync::
 	rsync -avL *.py cz1@129.109.88.204:lwork/vir
 	rsync -avL *.ma cz1@129.109.88.204:lwork/vir
 	rsync -avL Z.dat cz1@129.109.88.204:lwork/vir
-	rsync -avL *.[ch] oo1@stampede.tacc.utexas.edu:work/vir
-	rsync -avL *.py oo1@stampede.tacc.utexas.edu:work/vir
-	rsync -avL Bring.dat oo1@stampede.tacc.utexas.edu:work/vir
-	rsync -avL Z.dat oo1@stampede.tacc.utexas.edu:work/vir
+	rsync -avL *.[ch] oo1@stampede.tacc.utexas.edu:/work/02464/oo1/vir
+	rsync -avL *.py oo1@stampede.tacc.utexas.edu:/work/02464/oo1/vir
+	rsync -avL Bring.dat oo1@stampede.tacc.utexas.edu:/work/02464/oo1/vir
+	rsync -avL Z.dat oo1@stampede.tacc.utexas.edu:/work/02464/oo1/vir
 
 # files are kraken are automatically on keeneland
 sync2::

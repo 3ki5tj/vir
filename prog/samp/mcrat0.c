@@ -64,12 +64,17 @@ int hash_nocsep = 0; /* test clique separators before passing it to the hash tab
 
 int dostat = 0; /* applies to mapl and hash */
 
+char *dbfninp = NULL; /* input database */
+char *dbfnout = NULL; /* output database */
+int dbbinary = -1; /* binary database */
+
 
 
 /* handle arguments */
 static void doargs(int argc, char **argv)
 {
   argopt_t *ao;
+  int dbset = 0;
 
   ao = argopt_open(0);
   argopt_add(ao, "-n", "%d", &n, "order n");
@@ -108,6 +113,11 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--hash-nocsep", "%b",   &hash_nocsep, "only pass graphs with no clique separator to the hash table");
 
   argopt_add(ao, "--stat",        "%b",   &dostat,      "compute statistics");
+
+  argopt_add(ao, "--dbez",        "%b",   &dbset,       "set default database file fb.bdb for both input and output");
+  argopt_add(ao, "--dbinp",       NULL,   &dbfninp,     "input database");
+  argopt_add(ao, "--dbout",       NULL,   &dbfnout,     "output database");
+  argopt_add(ao, "--dbbin",       "%d",   &dbbinary,    "if the output database is binary, 1: binary, 0: text, -1: default");
 
   argopt_parse(ao, argc, argv);
 
@@ -163,6 +173,28 @@ static void doargs(int argc, char **argv)
   }
 #endif
 
+  if (dbset) {
+    dbbinary = 1;
+    dbfnout = dbfninp = "fb.bdb";
+  }
+
+  if (dbbinary < 0) {
+    if (dbfnout != NULL) { /* judge from the extension */
+      if (strstr(dbfnout, ".bin") || strstr(dbfnout, ".bdb"))
+        dbbinary = 1;
+      else if (strstr(dbfnout, ".txt") || strstr(dbfnout, ".tdb"))
+        dbbinary = 0;
+    }
+    if (dbbinary < 0 && dbfninp != NULL) { /* same as the input */
+      dbbinary = dgdb_detectbinary(dbfninp);
+    }
+    if (dbbinary < 0) /* text file by default */
+      dbbinary = 0;
+    if (inode == MASTER)
+      fprintf(stderr, "assume output database is %s\n",
+          dbbinary ? "binary" : "text");
+  }
+
   /* interval of computing fb */
   if (nstfb <= 0) {
     if (lookup || mapl_on || hash_on) {
@@ -185,15 +217,28 @@ static void doargs(int argc, char **argv)
 #endif
   }
 
-  if (prefix0) sprintf(prefix, "%s/", prefix0);
+  if (prefix0) { /* handle the prefix */
+    char *p;
+    sprintf(prefix, "%s/", prefix0);
+    if (dbfninp) {
+      p = ssdup(prefix);
+      sscat(p, dbfninp);
+      dbfninp = p;
+    }
+    if (dbfnout) {
+      p = ssdup(prefix);
+      sscat(p, dbfnout);
+      dbfnout = p;
+    }
+  }
 
   if (inode == MASTER) {
     argopt_dump(ao);
     printf("D %d, n %d, %g steps, amp %g, nstfb %d, %d-bit, "
-      "%s, %s disp, Bring %g, Z %g\n",
+      "%s, %s disp, Bring %g, Z %g, dbfninp %s, dbfnout %s\n",
       D, n, 1.*nsteps, mcamp, nstfb,
       (int) sizeof(dgword_t) * 8, lookup ? "lookup" : "direct",
-      gdisp ? "Gaussian" : "uniform", Bring, Zn);
+      gdisp ? "Gaussian" : "uniform", Bring, Zn, dbfninp, dbfnout);
   } else { /* change file names for slave nodes */
     if (fnout) fnout = fnappend(fnout, inode);
   }
@@ -541,6 +586,8 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
           hash_blksz, hash_blkmem, memmax, hash_initls,
           auto_level, hash_isoenum, hash_isomax);
       hash->dostat = dostat;
+      if (dbfninp != NULL)
+        dghash_load(hash, dbfninp, D, -1);
     }
     //printf("%4d: hash %p\n", inode, hash);
   }
@@ -680,8 +727,11 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         dgmapl_printstat(mapl, stderr);
 #endif
 #ifdef DGHASH_EXISTS
-      if (hash != NULL && inode == MASTER)
+      if (hash != NULL && inode == MASTER) {
         dghash_printstat(hash, stderr);
+        if (dbfnout != NULL)
+          dghash_save(hash, dbfnout, D, dbbinary);
+      }
 #endif
     }
   }

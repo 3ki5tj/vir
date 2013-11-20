@@ -195,7 +195,7 @@ INLINE dgrjw_fb_t dg_hsfb_rjwlow(const dgword_t *c, int n, int v, dgword_t vs,
   for (r = vs & (bv - 1); r; r ^= b) {
     BITFIRSTLOW(i, r, b);
     /* (i + 1) * 2^n + vs, `|' is equivalent to `+' */
-    id = ((size_t) (i + 1) << DG_N_) | vs; 
+    id = ((size_t) (i + 1) << DG_N_) | vs;
     if ( DGRJW_FBINVALID(fa = faarr[id]) ) {
       fa = dg_hsfa_rjwlow(c, DG_N_, i, vs, faarr, fbarr);
       faarr[id] = fa;

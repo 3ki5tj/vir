@@ -124,12 +124,12 @@ static void speed_cliquesep(int n, int nsamp, int nedmax)
     for (kk = 0; kk < lscnt; kk++)
       sum[0] += (dg_cliquesep(gls[kk]) == 0);
     tsum[0] += clock() - t0;
-    
+
     t0 = clock();
     for (kk = 0; kk < lscnt; kk++)
       sum[1] += (dg_csep(gls[kk]) == 0);
     tsum[1] += clock() - t0;
-    
+
     isamp += lscnt;
     lscnt = 0;
     if (isamp >= nsamp) break;

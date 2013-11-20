@@ -28,7 +28,7 @@
 INLINE double dghash_dummy_lookup(const dg_t *g)
 {
   static dghash_t *hash;
-  static dgword_t c[DGHASH_CWORDS];
+  static dgword_t c[DG_CWORDS];
   DG_MKSTATICSTOCK(ng);
   DG_DEFN_(g);
   int pos, initls = 0, level = -1, enumiso = 1;
@@ -116,3 +116,4 @@ int main(int argc, char **argv)
   test_rndcover(n, nsamp, nedmax);
   return 0;
 }
+

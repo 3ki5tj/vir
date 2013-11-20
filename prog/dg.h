@@ -79,11 +79,19 @@ int inode = MASTER, nnodes = 1;
 
 
 #if DG_WORDBITS == 32
-typedef uint32_t dgword_t;
-typedef int32_t sdgword_t;
+  typedef uint32_t  dgword_t;
+  typedef int32_t   sdgword_t;
+  #define DG_WPRI   PRIx32
+  #define DG_WSCN   SCNx32
+  #define DG_SWPRI  PRId32
+  #define DG_SWSCN  SCNd32
 #elif DG_WORDBITS == 64
-typedef uint64_t dgword_t;
-typedef int64_t sdgword_t;
+  typedef uint64_t  dgword_t;
+  typedef int64_t   sdgword_t;
+  #define DG_WPRI   PRIx64
+  #define DG_WSCN   SCNx64
+  #define DG_SWPRI  PRId64
+  #define DG_SWSCN  SCNd64
 #else
 #error "bad DG_WORDBITS definition"
 #endif
@@ -720,6 +728,19 @@ INLINE dg_t *dg_decode(dg_t *g, dgword_t *code)
 
 
 
+#define dg_printcode(c, n) dg_fprintcode(stdout, c, n)
+
+/* print out the code */
+INLINE void dg_fprintcode(FILE *fp, const dgword_t *c, int n)
+{
+  int i;
+  for (i = 0; i < n; i++)
+    fprintf(fp, "%#" DG_WPRI " ", c[i]);
+  fprintf(fp, "\n");
+}
+
+
+
 /* compare two words of length 1 */
 INLINE int dgword_cmp1(const dgword_t *a, const dgword_t *b)
 {
@@ -790,20 +811,38 @@ INLINE dgword_t *dgword_cpy(dgword_t *a, const dgword_t *b, int n)
 }
 
 
+/* the number of words to save the code of a graph of vertices
+ * the number of bits needed is n * (n - 1) / 2
+ * divide this by sizeof(dgword_t) is DG_CWORDS */
+#define DG_CBITS  (DG_NMAX *(DG_NMAX - 1)/2)
+#define DG_CWORDS ((DG_CBITS + DG_WORDBITS - 1)/DG_WORDBITS)
+#define DG_CPRI   DG_WPRI
+#define DG_CSCN   DG_WSCN
 
-/* signed and unsigned comparison, and copy */
+
+/* map DG_CWORDS_ to the macro if possible, or a variable otherwise */
+#ifdef N
+#define DG_CWORDS_(cwords) DG_CWORDS
+#else
+#define DG_CWORDS_(cwords) cwords
+#endif
+
+
+
+/* copy the code */
+/* signed and unsigned comparison of codes, and copy */
 #if defined(N) && (N*(N-1)/2 <= DG_WORDBITS)
   #define dgcode_cmp(a, b, n) dgword_cmp1(a, b)
   #define dgcode_eq(a, b, n)  dgword_eq1(a, b)
-  #define DGCODE_CPY(a, b, n) a[0] = b[0]
+  #define DG_CCPY(a, b, n) a[0] = b[0]
 #elif defined(N) && (N*(N-1)/2 <= DG_WORDBITS * 2)
   #define dgcode_cmp(a, b, n) dgword_cmp2(a, b)
   #define dgcode_eq(a, b, n)  dgword_eq2(a, b)
-  #define DGCODE_CPY(a, b, n) { a[0] = b[0]; a[1] = b[1]; }
+  #define DG_CCPY(a, b, n) { a[0] = b[0]; a[1] = b[1]; }
 #else
   #define dgcode_cmp(a, b, n) dgword_cmp(a, b, n)
   #define dgcode_eq(a, b, n)  dgword_eq(a, b, n)
-  #define DGCODE_CPY(a, b, n) dgword_cpy(a, b, n)
+  #define DG_CCPY(a, b, n) dgword_cpy(a, b, n)
 #endif
 
 
