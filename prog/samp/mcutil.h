@@ -6,6 +6,7 @@
 
 #define ZCOM_PICK
 #define ZCOM_RVN
+#define ZCOM_SS
 #include "zcom.h"
 #include "dg.h"
 
