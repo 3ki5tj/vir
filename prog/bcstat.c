@@ -41,7 +41,7 @@ static void bcstat(int nmax, double nsteps)
     for (n = 3; n <= nmax; n++) { /* over n-vertex graphs */
       for (i = 0; i <= nmax - n; i++) { /* offset */
         /* construct the vertex set */
-        vs = mkbitsmask(n) << i;
+        vs = MKBITSMASK(n) << i;
         if (dg_biconnectedvs(g, vs))
           cnt[n] += 1.;
       }

@@ -11,9 +11,11 @@
 
 char *fninp = NULL;
 char *fninp2 = NULL;
+char *fninp3 = NULL;
+char *fninp4 = NULL;
 char *fnout = NULL;
 int binary = -1;
-int check = 0;
+int check = 1; /* default checking level */
 int verbose = 0;
 
 
@@ -21,7 +23,7 @@ int verbose = 0;
 int hash_bits = 20;
 int hash_blksz = 0;
 int hash_blkmem = 0;
-double hash_memmax = 0;
+double hash_memmax = 3e10;
 int hash_initls = 1;
 int auto_level = -1;
 int hash_isoenum = 0;
@@ -38,6 +40,8 @@ static void doargs(int argc, char **argv)
   ao->desc = "convert/check/merge database(s) for star and ring contents";
   argopt_add(ao, "-i", NULL, &fninp,    "input database");
   argopt_add(ao, "-j", NULL, &fninp2,   "second database");
+  argopt_add(ao, "-k", NULL, &fninp3,   "third database");
+  argopt_add(ao, "-l", NULL, &fninp4,   "fourth database");
   argopt_add(ao, "-o", NULL, &fnout,    "output database");
   argopt_add(ao, "-b", "%d", &binary,   "output format 1: binary, 0: text, -1: same as the input");
   argopt_add(ao, "-c", "%d", &check,    "checking, 0: disable, 1: biconnectivity, 2: fb and nr are correct");
@@ -101,6 +105,9 @@ static int checkitem(dgdbitem_t *it, dg_t *g, int level,
     }
     if ((cnt + 1) % 100 == 0)
       fprintf(stderr, "checked %.0f items   \r", 1.*cnt + 1);
+  } else {
+    if ((cnt + 1) % 1000000 == 0)
+      fprintf(stderr, "checked %.0f items   \r", 1.*cnt + 1);
   }
   return 0;
 }
@@ -135,8 +142,10 @@ static int load(const char *fninp)
   while (dgdbitem_load(it, fp, fninp, binary, db->fbtype,
                        hash->cwords, db->hasnr) == 0) {
     if (check) {
-      die_if (checkitem(it, g, check, id, cnt) != 0,
-          "corrupted database %s\n", fninp);
+      if (checkitem(it, g, check, id, cnt) != 0) {
+        fprintf(stderr, "database %s corrupted at id %.0f\n", fninp, 1.*id);
+        break;
+      }
     }
     DGHASH_GETID(hashid, it->c, hash->cwords, hash->bits);
     ret = dgls_additem(hash->ls + hashid, it, hash, db->hasnr);
@@ -188,8 +197,10 @@ static int append(const char *fninp)
   while (dgdbitem_load(it, fp, fninp, binary, db2->fbtype,
                        hash->cwords, db->hasnr) == 0) {
     if (check) {
-      die_if (checkitem(it, g, check, id, cnt) != 0,
-          "corrupted database %s\n", fninp);
+      if (checkitem(it, g, check, id, cnt) != 0) {
+        fprintf(stderr, "database %s corrupted at item %.0f\n", fninp, 1.*id);
+        break;
+      }
     }
     DGHASH_GETID(hashid, it->c, hash->cwords, hash->bits);
     ls = hash->ls + hashid;
@@ -266,8 +277,9 @@ int main(int argc, char **argv)
 {
   doargs(argc, argv);
   load(fninp);
-  if (fninp2)
-    append(fninp2);
+  if (fninp2) append(fninp2);
+  if (fninp3) append(fninp3);
+  if (fninp4) append(fninp4);
   dghash_printstat(hash, stdout);
   if (binary < 0) {
     if (strstr(fnout, ".txt") || strstr(fnout, ".tdb"))

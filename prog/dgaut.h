@@ -25,12 +25,12 @@ INLINE dg_t *dg_canlabel(dg_t *gout, const dg_t *gin)
   DG_DEFN_(gin)
 
   /* nauty uses the highest bit for the first index */
-  for (i = 0; i < DG_N_; i++) g0[i] = bitreverse(gin->c[i]);
+  for (i = 0; i < DG_N_; i++) g0[i] = bitrev(gin->c[i]);
   options.getcanon = TRUE;
   densenauty(g0, lab, ptn, orbits, &options, &stats, 1, DG_N_, gc);
 
   gout->n = DG_N_;
-  for (i = 0; i < DG_N_; i++) gout->c[i] = bitreverse(gc[i]);
+  for (i = 0; i < DG_N_; i++) gout->c[i] = bitrev(gc[i]);
   return gout;
 }
 
@@ -458,7 +458,7 @@ INLINE int dg_part2permls(int *perms, int nmax, const dgpart_t *part)
 
   pcnt = 0;
   top = 0;
-  unused = mkbitsmask(n);
+  unused = MKBITSMASK(n);
   stavail[top] = stvs[top];
   while (1) {
     /* determine the vertex on the top */

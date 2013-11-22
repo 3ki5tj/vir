@@ -66,6 +66,7 @@ int dostat = 0; /* applies to mapl and hash */
 
 char *dbfninp = NULL; /* input database */
 char *dbfnout = NULL; /* output database */
+char *dbfnbak = NULL; /* backup output database */
 int dbbinary = -1; /* binary database */
 
 
@@ -232,13 +233,19 @@ static void doargs(int argc, char **argv)
     }
   }
 
+  if (dbfnout != NULL) {
+    dbfnbak = ssdup(dbfnout);
+    sscat(dbfnbak, ".bak");
+  }
+
   if (inode == MASTER) {
     argopt_dump(ao);
     printf("D %d, n %d, %g steps, amp %g, nstfb %d, %d-bit, "
-      "%s, %s disp, Bring %g, Z %g, dbfninp %s, dbfnout %s\n",
+      "%s, %s disp, Bring %g, Z %g, dbfninp %s, dbfnout %s(%s)\n",
       D, n, 1.*nsteps, mcamp, nstfb,
       (int) sizeof(dgword_t) * 8, lookup ? "lookup" : "direct",
-      gdisp ? "Gaussian" : "uniform", Bring, Zn, dbfninp, dbfnout);
+      gdisp ? "Gaussian" : "uniform", Bring, Zn,
+      dbfninp, dbfnout, dbfnbak);
   } else { /* change file names for slave nodes */
     if (fnout) fnout = fnappend(fnout, inode);
   }
@@ -729,8 +736,13 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 #ifdef DGHASH_EXISTS
       if (hash != NULL && inode == MASTER) {
         dghash_printstat(hash, stderr);
-        if (dbfnout != NULL)
+        if (dbfnout != NULL) {
+          /* make a backup file if possible */
+          copyfile(dbfnout, dbfnbak);
+          /* the hash table may be change during the writing process
+           * how to fix this? */
           dghash_save(hash, dbfnout, D, dbbinary);
+        }
       }
 #endif
     }

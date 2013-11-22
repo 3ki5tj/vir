@@ -66,7 +66,7 @@ typedef struct {
 
 #define dgdbitem_save(it, fp, fn, binary, fbtype, cwords, nr) \
   ((binary) ? dgdbitem_fwrite(it, fp, fn, fbtype, cwords, nr) \
-            : dgdbitem_fprint(it, fp, fn, fbtype, cwords, nr))
+            : dgdbitem_fprint(it, fp,             cwords, nr))
 
 
 
@@ -74,7 +74,7 @@ typedef struct {
 INLINE int dgdbitem_fread(dgdbitem_t *it, FILE *fp, const char *fn,
     int fbtype, int cwords, int hasnr)
 {
-  if (cwords != fread(it->c, sizeof(dgword_t), cwords, fp)) {
+  if ((size_t) cwords != fread(it->c, sizeof(dgword_t), cwords, fp)) {
     /* probably the end of file */
     //fprintf(stderr, "cannot read item c from %s\n", fn);
     return -1;
@@ -129,7 +129,7 @@ INLINE int dgdbitem_fread(dgdbitem_t *it, FILE *fp, const char *fn,
 INLINE int dgdbitem_fwrite(dgdbitem_t *it, FILE *fp, const char *fn,
     int fbtype, int cwords, int hasnr)
 {
-  if (cwords != fwrite(it->c, sizeof(dgword_t), cwords, fp)) {
+  if ((size_t) cwords != fwrite(it->c, sizeof(dgword_t), cwords, fp)) {
     fprintf(stderr, "cannot write item c to %s\n", fn);
     return -1;
   }
@@ -160,9 +160,9 @@ INLINE int dgdbitem_fwrite(dgdbitem_t *it, FILE *fp, const char *fn,
         return -2;
       }
     } else if (fbtype == DGDB_FBTYPE_INT32) {
-      int32_t nr;
-      if (DGDB_FBTYPE == fbtype) nr = (int32_t) it->nr;
-      else nr = (int32_t) (it->nr >= 0 ? it->nr + .5 : it->nr - 0.5);
+      uint32_t nr;
+      if (DGDB_FBTYPE == fbtype) nr = (uint32_t) it->nr;
+      else nr = (uint32_t) (it->nr + .5);
       if (1 != fwrite(&nr, sizeof(nr), 1, fp)) {
         fprintf(stderr, "cannot write int32_t nr to %s\n", fn);
         return -2;
@@ -241,8 +241,8 @@ INLINE int dgdbitem_fscan(dgdbitem_t *it, FILE *fp, const char *fn,
 /* print an item to a text file
  * `fbtype' can be different from DGDB_FBTYPE
  * dgword_t must match the input file */
-INLINE int dgdbitem_fprint(dgdbitem_t *it, FILE *fp, const char *fn,
-    int fbtype, int cwords, int hasnr)
+INLINE int dgdbitem_fprint(dgdbitem_t *it, FILE *fp,
+    int cwords, int hasnr)
 {
   int i;
 
@@ -304,7 +304,7 @@ INLINE dgdb_t *dgdb_open(int dim, int n)
 
 #define dgdb_savehead(db, fp, fn, binary) \
   ((binary) ? dgdb_fwritehead(db, fp, fn) : \
-              dgdb_fprinthead(db, fp, fn))
+              dgdb_fprinthead(db, fp))
 
 
 
@@ -453,7 +453,7 @@ EXIT:
 
 
 /* print the header of a text database */
-INLINE int dgdb_fprinthead(dgdb_t *db, FILE *fp, const char *fn)
+INLINE int dgdb_fprinthead(dgdb_t *db, FILE *fp)
 {
   fprintf(fp, "# V%d %d %d %d %d %d %d %d\n",
       db->version, db->dim, db->n, db->wordsz,

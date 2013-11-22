@@ -122,9 +122,16 @@ by default D=3
 When the hash table is used, defining the order in advance can save memory
   -DN=12
 
-For large orders,
+For large orders, compile mcrat0.c with
   -DDG_NORING=1
 to use algorithm Z instead of algorithm R.
+Run the program with
+  --hash-nocsep
+to exclude diagrams with clique separators (more memory-efficient).
+Further, specify database to save the warm-up time
+  --dbez --hash-memmax=1e10
+the second command asks about 10G memory
+
 
 
 

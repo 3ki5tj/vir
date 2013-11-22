@@ -588,7 +588,7 @@ INLINE int dghash_load(dghash_t *h, const char *fn,
   dgdbitem_t it[1];
   FILE *fp;
   dgword_t hashid;
-  size_t cnt = 0;
+  size_t cnt = 0, err = 0;
 
   if (binary < 0) /* determine if the input is binary */
     binary = dgdb_detectbinary(fn);
@@ -609,13 +609,16 @@ INLINE int dghash_load(dghash_t *h, const char *fn,
   while ( dgdbitem_load(it, fp, fn, binary, db->fbtype,
                         DG_CWORDS_(h->cwords), db->hasnr) == 0 ) {
     DGHASH_GETID(hashid, it->c, DG_CWORDS_(h->cwords), h->bits);
-    dgls_additem(h->ls + hashid, it, h, db->hasnr);
-    cnt++;
+    if (dgls_additem(h->ls + hashid, it, h, db->hasnr) == 0) {
+      cnt++;
+    } else {
+      err++;
+    }
   }
   fclose(fp);
   dgdb_close(db);
-  fprintf(stderr, "%4d: loaded %s database from %s, %.0f items\n",
-      inode, binary ? "binary" : "text", fn, 1.*cnt);
+  fprintf(stderr, "%4d: loaded %s database from %s, %.0f items, err %.0f\n",
+      inode, binary ? "binary" : "text", fn, 1.*cnt, 1.*err);
   return 0;
 ERR:
   dgdb_close(db);
