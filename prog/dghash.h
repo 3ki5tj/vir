@@ -49,6 +49,10 @@
 #elif DG_CWORDS == 2
   #define DGHASH_GETID(id, c, cnt, hbits) \
     id = DGHASH_LCG(DGHASH_LCG(c[0]) + c[1]) >> (DG_WORDBITS - hbits)
+#elif DG_CWORDS == 3
+  #define DGHASH_GETID(id, c, cnt, hbits) \
+    id = DGHASH_LCG(DGHASH_LCG(DGHASH_LCG(c[0]) + c[1]) + c[2]) \
+         >> (DG_WORDBITS - hbits)
 #else
   #define DGHASH_GETID(id, c, cnt, hbits) { int k_; \
     for (id = DGHASH_LCG(c[0]), k_ = 1; k_ < cnt; k_++) \
@@ -180,7 +184,7 @@ INLINE dghash_t *dghash_open(int n, int bits,
   /* blkmem is the number of objects (list or list items) we allocate in each time
    * if blkmem == 1, the system will leave many holes in the memory space, making
    * it inefficient */
-  if (blkmem  ==  0)  blkmem  = 0x100; /* 65536 */
+  if (blkmem  ==  0)  blkmem  = 0x10000; /* 65536 */
   h->blkmem_ls = blkmem_open(sizeof(dgls_t), blkmem);
   h->blkmem_item = blkmem_open(sizeof(dgdbitem_t), h->blksz * blkmem);
 
@@ -262,7 +266,7 @@ INLINE dgls_t *dgls_find(dgls_t *ls, dgword_t *c, int cn, int *pos)
     lscnt = ls->cnt;
     for (i = 0; i < lscnt; i++) {
       //die_if (ls->arr[i].c[0] == 0, "uninitialied array element i %d\n", i);
-      if ( dgcode_eq(c, ls->arr[i].c, cn) ) {
+      if ( DG_CEQ(c, ls->arr[i].c, cn) ) {
         *pos = i;
         return ls;
       }
@@ -544,7 +548,7 @@ INLINE int dghash_save(dghash_t *h, const char *fn,
   dgdb_t *db;
   FILE *fp;
   size_t i, cnt = 0;
-  int j;
+  int j, jcnt;
 
   if ((db = dgdb_open(dim, h->n)) == NULL) {
     fprintf(stderr, "%4d: cannot open database\n", inode);
@@ -565,10 +569,11 @@ INLINE int dghash_save(dghash_t *h, const char *fn,
     if (ls->cnt == 0) continue;
     /* loop over items in the list */
     for (; ls != NULL; ls = ls->next) {
-      for (j = 0; j < ls->cnt; j++)
+      jcnt = ls->cnt;
+      for (j = 0; j < jcnt; j++)
         dgdbitem_save(ls->arr + j, fp, fn, binary,
                       DGDB_FBTYPE, DG_CWORDS_(h->cwords), 1);
-      cnt += ls->cnt;
+      cnt += jcnt;
     }
   }
   fclose(fp);

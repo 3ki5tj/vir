@@ -127,11 +127,6 @@ int inode = MASTER, nnodes = 1;
 
 
 
-
-#define mkbitsmask(n) MKBITSMASK(n) /* for compatibility */
-
-
-
 typedef struct {
   int n;
   dgword_t *c; /* the jth bit of c[i] is 1 if the vertices i and j are adjacent */
@@ -242,20 +237,6 @@ INLINE void dg_full(dg_t *g)
   for (i = 0;  i < DG_N_; i++)
     /* all bits, except the ith, are 1s */
     g->c[i] = DG_MASKN_ ^ MKBIT(i);
-}
-
-
-
-/* the complement diagram of h: link <---> g: unlink */
-INLINE dg_t *dg_complement(dg_t *h, dg_t *g)
-{
-  int i;
-  DG_DEFN_(g)
-  DG_DEFMASKN_();
-
-  for (i = 0; i < DG_N_; i++)
-    h->c[i] = DG_MASKN_ ^ (g->c[i] | MKBIT(i));
-  return h;
 }
 
 
@@ -527,6 +508,22 @@ INLINE int dgword_cmp1(const dgword_t *a, const dgword_t *b)
 /* compare two words of length 2 */
 INLINE int dgword_cmp2(const dgword_t *a, const dgword_t *b)
 {
+  if (a[1] > b[1]) return 1;
+  else if (a[1] < b[1]) return -1;
+  if (a[0] > b[0]) return 1;
+  else if (a[0] < b[0]) return -1;
+  return 0;
+}
+
+
+
+/* compare two words of length 3 */
+INLINE int dgword_cmp3(const dgword_t *a, const dgword_t *b)
+{
+  if (a[2] > b[2]) return 1;
+  else if (a[2] < b[2]) return -1;
+  if (a[1] > b[1]) return 1;
+  else if (a[1] < b[1]) return -1;
   if (a[0] > b[0]) return 1;
   else if (a[0] < b[0]) return -1;
   return 0;
@@ -543,22 +540,6 @@ INLINE int dgword_cmp(const dgword_t *a, const dgword_t *b, int n)
     else if (a[k] < b[k]) return -1;
   }
   return 0;
-}
-
-
-
-/* check if two words are equal */
-INLINE int dgword_eq1(const dgword_t *a, const dgword_t *b)
-{
-  return (a[0] == b[0]);
-}
-
-
-
-/* check if two 2-words are equal */
-INLINE int dgword_eq2(const dgword_t *a, const dgword_t *b)
-{
-  return (a[0] == b[0]) && (a[1] == b[1]);
 }
 
 
@@ -584,6 +565,7 @@ INLINE dgword_t *dgword_cpy(dgword_t *a, const dgword_t *b, int n)
 }
 
 
+
 /* the number of words to save the code of a graph of vertices
  * the number of bits needed is n * (n - 1) / 2
  * divide this by sizeof(dgword_t) is DG_CWORDS */
@@ -605,16 +587,21 @@ INLINE dgword_t *dgword_cpy(dgword_t *a, const dgword_t *b, int n)
 /* copy the code */
 /* signed and unsigned comparison of codes, and copy */
 #if defined(N) && (N*(N-1)/2 <= DG_WORDBITS)
-  #define dgcode_cmp(a, b, n) dgword_cmp1(a, b)
-  #define dgcode_eq(a, b, n)  dgword_eq1(a, b)
+  #define DG_CCMP(a, b, n) dgword_cmp1(a, b)
+  #define DG_CEQ(a, b, n)  ((a)[0] == (b)[0])
   #define DG_CCPY(a, b, n) a[0] = b[0]
 #elif defined(N) && (N*(N-1)/2 <= DG_WORDBITS * 2)
-  #define dgcode_cmp(a, b, n) dgword_cmp2(a, b)
-  #define dgcode_eq(a, b, n)  dgword_eq2(a, b)
+  #define DG_CCMP(a, b, n) dgword_cmp2(a, b)
+  #define DG_CEQ(a, b, n)  ((a)[0] == (b)[0] && (a)[1] == (b)[1])
   #define DG_CCPY(a, b, n) { a[0] = b[0]; a[1] = b[1]; }
+#elif defined(N) && (N*(N-1)/2 <= DG_WORDBITS * 3)
+  #define DG_CCMP(a, b, n) dgword_cmp3(a, b)
+  #define DG_CEQ(a, b, n)  \
+    ((a)[0] == (b)[0] && (a)[1] == (b)[1] && (a)[2] == (b)[2])
+  #define DG_CCPY(a, b, n) { a[0] = b[0]; a[1] = b[1]; a[2] = b[2]; }
 #else
-  #define dgcode_cmp(a, b, n) dgword_cmp(a, b, n)
-  #define dgcode_eq(a, b, n)  dgword_eq(a, b, n)
+  #define DG_CCMP(a, b, n) dgword_cmp(a, b, n)
+  #define DG_CEQ(a, b, n)  dgword_eq(a, b, n)
   #define DG_CCPY(a, b, n) dgword_cpy(a, b, n)
 #endif
 

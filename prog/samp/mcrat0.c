@@ -68,7 +68,7 @@ char *dbfninp = NULL; /* input database */
 char *dbfnout = NULL; /* output database */
 char *dbfnbak = NULL; /* backup output database */
 int dbbinary = -1; /* binary database */
-
+int dbnobak = 0; /* do not backup the database */
 
 
 /* handle arguments */
@@ -119,6 +119,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--dbinp",       NULL,   &dbfninp,     "input database");
   argopt_add(ao, "--dbout",       NULL,   &dbfnout,     "output database");
   argopt_add(ao, "--dbbin",       "%d",   &dbbinary,    "if the output database is binary, 1: binary, 0: text, -1: default");
+  argopt_add(ao, "--dbnobak",     "%b",   &dbnobak,     "do not backup database");
 
   argopt_parse(ao, argc, argv);
 
@@ -738,7 +739,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         dghash_printstat(hash, stderr);
         if (dbfnout != NULL) {
           /* make a backup file if possible */
-          copyfile(dbfnout, dbfnbak);
+          if (!dbnobak) copyfile(dbfnout, dbfnbak);
           /* the hash table may be change during the writing process
            * how to fix this? */
           dghash_save(hash, dbfnout, D, dbbinary);

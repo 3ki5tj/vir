@@ -543,7 +543,7 @@ INLINE int dg_repisocodels(dgword_t *codes, int cwords, int nmax,
     dg_encode(ng, codes + ic * cwords);
     /* avoid duplicated codes see if the code is new */
     for (j = 0; j < ic; j++)
-      if (dgcode_eq(codes + ic * cwords, codes + j * cwords, cwords))
+      if (DG_CEQ(codes + ic * cwords, codes + j * cwords, cwords))
         break;
     /* increment ic only if the code is new */
     if (j >= ic) ic++;

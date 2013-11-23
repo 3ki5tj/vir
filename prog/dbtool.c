@@ -16,6 +16,7 @@ char *fninp4 = NULL;
 char *fnout = NULL;
 int binary = -1;
 int check = 1; /* default checking level */
+int checkdup = 0;
 int verbose = 0;
 
 
@@ -45,6 +46,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-o", NULL, &fnout,    "output database");
   argopt_add(ao, "-b", "%d", &binary,   "output format 1: binary, 0: text, -1: same as the input");
   argopt_add(ao, "-c", "%d", &check,    "checking, 0: disable, 1: biconnectivity, 2: fb and nr are correct");
+  argopt_add(ao, "-d", "%b", &checkdup, "check duplications");
   argopt_add(ao, "-v", "%d", &verbose,  "verbose");
   argopt_addhelp(ao, "-h");
   argopt_addhelp(ao, "--help");
@@ -84,7 +86,6 @@ static int checkitem(dgdbitem_t *it, dg_t *g, int level,
   /* check if the fb and nr values are valid */
   if (level >= 2) {
     double fb;
-    int k;
     fb = dg_hsfb_mixed(g);
     if (fabs(fb - it->fb) > 0.1) {
       fprintf(stderr, "id %.0f: fb %g mismatch %g\n",
@@ -93,6 +94,7 @@ static int checkitem(dgdbitem_t *it, dg_t *g, int level,
       dg_print(g);
       return 2;
     }
+#ifndef DG_NORING
     if (db->hasnr) {
       double nr = dg_nring_mixed(g);
       if (fabs(nr - it->nr) > 0.1) {
@@ -103,6 +105,7 @@ static int checkitem(dgdbitem_t *it, dg_t *g, int level,
         return 3;
       }
     }
+#endif
     if ((cnt + 1) % 100 == 0)
       fprintf(stderr, "checked %.0f items   \r", 1.*cnt + 1);
   } else {
@@ -119,11 +122,12 @@ static int load(const char *fninp)
 {
   int binary;
   FILE *fp;
-  dgdbitem_t it[1] = {{{0}, 0, 0}};
+  dgdbitem_t it[1] = {{{0}}};
   dgword_t hashid;
   dg_t *g;
-  size_t cnt = 0, err = 0, id = 0;
-  int ret;
+  dgls_t *ls, *ls1;
+  size_t cnt = 0, err = 0, id = 0, dup = 0;
+  int ret, pos = 0;
 
   binary = dgdb_detectbinary(fninp);
   die_if ((db = dgdb_open(0, 0)) == NULL,
@@ -135,20 +139,30 @@ static int load(const char *fninp)
   printf("checking level %d, D %d, n %d, binary %d\n", check, db->dim, db->n, binary);
   g = dg_open(db->n);
   hash = dghash_open(db->n, hash_bits,
-      hash_blksz, hash_blkmem, hash_memmax, hash_initls,
+      hash_blksz, hash_blkmem, (size_t) hash_memmax, hash_initls,
       auto_level, hash_isoenum, hash_isomax);
   /* loop over entries of the hash table */
   id = 0;
   while (dgdbitem_load(it, fp, fninp, binary, db->fbtype,
                        hash->cwords, db->hasnr) == 0) {
-    if (check) {
+    if ( check ) {
       if (checkitem(it, g, check, id, cnt) != 0) {
         fprintf(stderr, "database %s corrupted at id %.0f\n", fninp, 1.*id);
         break;
       }
     }
     DGHASH_GETID(hashid, it->c, hash->cwords, hash->bits);
-    ret = dgls_additem(hash->ls + hashid, it, hash, db->hasnr);
+    ls = hash->ls + hashid;
+    if ( checkdup ) {
+      ls1 = dgls_find(ls, it->c, hash->cwords, &pos);
+      if (ls1 != NULL) {
+        if (dup == 0)
+          fprintf(stderr, "duplication found!\n");
+        dup++;
+        continue;
+      }
+    }
+    ret = dgls_additem(ls, it, hash, db->hasnr);
     if (ret != 0) {
       if (verbose)
         fprintf(stderr, "failed to add an item %.0f\n", 1.*cnt);
@@ -158,7 +172,7 @@ static int load(const char *fninp)
     }
     id++;
   }
-  printf("loaded %.0f entries, %.0f erors\n", 1.*cnt, 1.*err);
+  printf("loaded %.0f entries, %.0f erors, %.0f dups\n", 1.*cnt, 1.*err, 1.*dup);
   fclose(fp);
   dg_close(g);
   return 0;
@@ -171,7 +185,7 @@ static int append(const char *fninp)
 {
   int binary;
   FILE *fp;
-  dgdbitem_t it[1] = {{{0}, 0, 0}};
+  dgdbitem_t it[1] = {{{0}}};
   dgword_t hashid;
   dgdb_t *db2;
   dg_t *g;
@@ -196,7 +210,7 @@ static int append(const char *fninp)
   id = 0;
   while (dgdbitem_load(it, fp, fninp, binary, db2->fbtype,
                        hash->cwords, db->hasnr) == 0) {
-    if (check) {
+    if ( check ) {
       if (checkitem(it, g, check, id, cnt) != 0) {
         fprintf(stderr, "database %s corrupted at item %.0f\n", fninp, 1.*id);
         break;
@@ -209,15 +223,17 @@ static int append(const char *fninp)
       //fprintf(stderr, "existing entry id %.0f, fb %g vs %g, nr %g vs %g\n",
       //    1.*id, 1.*ls1->arr[pos].fb, 1.*it->fb, 1.*ls1->arr[pos].nr, 1.*it->nr); getchar();
       if (ls1->arr[pos].fb != it->fb) {
-        fprintf(stderr, "id %.0f, hashid %d, fb mismatch %g vs %g\n",
-            1.*id, hashid, 1.*ls1->arr[pos].fb, 1.*it->fb);
+        fprintf(stderr, "id %.0f, hashid %.0f, fb mismatch %g vs %g\n",
+            1.*id, 1.*hashid, 1.*ls1->arr[pos].fb, 1.*it->fb);
         exit(1);
       }
+#ifndef DG_NORING
       if (db2->hasnr && ls1->arr[pos].nr != it->nr) {
-        fprintf(stderr, "id %.0f, hashid %d, nr mismatch %g vs %g\n",
-            1.*id, hashid, 1.*ls1->arr[pos].nr, 1.*it->nr);
+        fprintf(stderr, "id %.0f, hashid %.0f, nr mismatch %g vs %g\n",
+            1.*id, 1.*hashid, 1.*ls1->arr[pos].nr, 1.*it->nr);
         exit(1);
       }
+#endif
       continue;
     }
     ret = dgls_additem(ls, it, hash, db2->hasnr);
@@ -243,8 +259,8 @@ static int append(const char *fninp)
 static void save(const char *fnout, int binary)
 {
   FILE *fp;
-  int i, j, k;
-  size_t cnt = 0;
+  int j, k;
+  size_t i, cnt = 0;
 
   die_if ((fp = fopen(fnout, binary ? "wb" : "w")) == NULL,
       "cannot write %s\n", fnout);
