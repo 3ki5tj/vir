@@ -13,7 +13,7 @@ INLINE void dg_permdegseq0(int *perm, const dg_t *g)
   i = 0;
   for (deg = DG_DEGMIN; deg < DG_N_; deg++) {
     for (vs = cvs[deg]; vs; vs ^= b) { /* loop over this partition */
-      BITFIRSTLOW(k, vs, b); 
+      BITFIRSTLOW(k, vs, b);
       perm[k] = i++;
     }
   }

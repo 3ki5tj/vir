@@ -1,0 +1,36 @@
+application: hsvirial 
+version: 1
+runtime: python27
+api_version: 1
+threadsafe: yes
+
+handlers:
+- url: /css
+  static_dir: css
+
+- url: /js
+  static_dir: js
+
+- url: /img
+  static_dir: img
+
+- url: /doc
+  static_dir: doc
+
+- url: /prog
+  static_dir: prog
+
+- url: /data
+  static_dir: data
+
+- url: /(.*\.(jar|class))
+  static_files: \1
+  upload: (.*\.(jar|class))
+
+- url: /.*
+  script: hsvirial.app
+
+libraries:
+- name: jinja2
+  version: latest
+

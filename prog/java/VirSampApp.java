@@ -1,21 +1,5 @@
-/* Computing the virial coefficients of the 2D hard sphere fluid
-   by Monte Carlo simulation
-
-   Copyright 2013 Cheng Zhang
-
-   This program is free software: you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation, either version 2 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   A copy of the GNU General Public License can be found in
-   <http://www.gnu.org/licenses/>.
-*/
+/** Computing the virial coefficients of the 2D hard sphere fluid
+ *  by Monte Carlo simulation */
 import java.applet.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -30,27 +14,27 @@ import java.util.Random;
 
 
 class Diagram {
-  public static final int nvmax = 62; // maximal number of vertices
+  public static final int NMAX = 63; // maximal number of vertices
   int n;
-  long c[], RHSC_c[];
+  long maskn;
+  long c[];
+  long RHSC_c[]; // temporary c used by RHSC iteration
   int degs[];
-  int nedges;
 
   /** Construct a graph */
   Diagram(int nv) {
-    if (nv > nvmax) nv = nvmax;
+    if (nv > NMAX) nv = NMAX;
     n = nv;
+    maskn = Bits.makeBitsMask(n);
     c = new long [n];
     RHSC_c = new long [n];
     degs = new int [n];
-    nedges = 0;
   }
 
   /** Construct from D-dimensional coordinates */
   Diagram(int nv, int dim, double r[][]) {
     this(nv);
     fromCoordinates(dim, r);
-    getDegrees();
   }
 
   /** Update the graph form D-dimensional coordinates */
@@ -71,21 +55,30 @@ class Diagram {
   }
 
   /** Check if two vertices i and j are linked */
-  boolean isLinked(int i, int j) {
-    return ((c[i] >> j) & 1L) != 0;
+  boolean isLinkedc(long cc[], int i, int j) {
+    return ((cc[i] >> j) & 1L) != 0;
+  }
+
+  /** Check if two vertices i and j are linked */
+  boolean isLinked(int i, int j) { return isLinkedc(c, i, j); }
+
+  /** Link two vertices i and j */
+  void linkc(long cc[], int i, int j) {
+    cc[i] |= 1L << j;
+    cc[j] |= 1L << i;
   }
 
   /** Link two vertices i and j */
-  void link(int i, int j) {
-    c[i] |= 1L << j;
-    c[j] |= 1L << i;
+  void link(int i, int j) { linkc(c, i, j); }
+
+  /** Unlink two vertices i and j */
+  void unlinkc(long cc[], int i, int j) {
+    cc[i] &= ~(1L << j);
+    cc[j] &= ~(1L << i);
   }
 
   /** Unlink two vertices i and j */
-  void unlink(int i, int j) {
-    c[i] &= ~(1L << j);
-    c[j] &= ~(1L << i);
-  }
+  void unlink(int i, int j) { unlinkc(c, i, j); }
 
   /** Copy from src */
   void copy(Diagram src) {
@@ -101,55 +94,65 @@ class Diagram {
   }
 
   /** Print the diagram */
-  void print() {
+  void printc(long cc[]) {
     String s = "";
 
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < n; j++) {
-        if ( isLinked(i, j) )
+        if ( isLinkedc(cc, i, j) )
           s += "* ";
         else
           s += "  ";
       }
       s += "\n";
     }
-    //System.out.println(s + "biconnected: " + biconnected());
+    System.out.println(s + "biconnected: " + biconnected());
   }
+
+  void print() { printc(c); }
 
   /** Add all edges to the graph */
   void full() {
-    long mask = Bits.mkbitsmask(n);
     for (int i = 0; i < n; i++) {
-      c[i] = mask ^ Bits.mkbit(i);
+      c[i] = maskn ^ Bits.makeBit(i);
     }
   }
 
   /** Check if the subgraph of `vs' is connected */
-  boolean connectedvs(long vs) {
-    long stack = vs & (-vs), bk;
-    int k;
+  boolean connectedvsc(long cc[], long vs) {
+    long stack = vs & (-vs);
     while (stack != 0) {
-      bk = stack & (-stack);
-      k = Bits.bit2id(bk);
-      vs ^= bk; /* remove k from the to-do list */
-      stack = (stack | c[k]) & vs;
+      long bk = stack & (-stack);
+      int k = Bits.bit2id(bk);
+      vs ^= bk; // remove k from the to-do list
+      stack = (stack | cc[k]) & vs;
       if (stack == vs)
         return true;
     }
     return false;
   }
 
+  /** Check if the subgraph of `vs' is connected */
+  boolean connectedvs(long vs) {
+    return connectedvsc(c, vs);
+  }
+
+  /** Check if the graph is connected */
+  boolean connectedc(long cc[]) {
+    return connectedvsc(cc, maskn);
+  }
+
   /** Check if the graph is connected */
   boolean connected() {
-    return connectedvs( Bits.mkbitsmask(n) );
+    return connectedvsc(c, maskn);
   }
 
   /** Check if the graph is biconnected */
-  boolean biconnectedLow(int nn, long cc[]) {
+  boolean biconnectedc(int nn, long cc[]) {
     if (nn > 2) {
-      long mask = Bits.mkbitsmask(nn);
+      long mask = Bits.makeBitsMask(nn);
       for (long b = 1; (b & mask) != 0; b <<= 1)
-        if ( !connectedvs(mask ^ b) )
+        if ( !connectedvsc(cc, mask ^ b) )
           return false;
       return true;
     } else if (nn == 2) {
@@ -159,24 +162,33 @@ class Diagram {
 
   /** Check if the graph is biconnected */
   boolean biconnected() {
-    return biconnectedLow(n, c);
+    return biconnectedc(n, c);
   }
 
   /** Degree of vertex i */
-  int getDegree(int i) {
-    return Bits.bitcount(c[i]);
+  int getDegreec(long cc[], int i) {
+    return Bits.bitCount(cc[i]);
   }
 
   /** Degrees of all vertices */
-  int getDegrees() {
-    nedges = 0;
+  int getDegreesc(long cc[], int degs[]) {
+    int nedges = 0;
     for (int i = 0; i < n; i++) {
-      degs[i] = Bits.bitcount(c[i]);
+      degs[i] = Bits.bitCount(cc[i]);
       nedges += degs[i];
     }
-    return nedges /= 2;
+    return nedges / 2;
   }
 
+  /** Get the number of edges */
+  int getNumEdgesc(long cc[]) {
+    return getDegreesc(cc, degs);
+  }
+
+  /** Get the number of edges */
+  int getNumEdges() { return getNumEdgesc(c); }
+
+  /** ====================== Star content ====================== */
 
   /** Ree-Hoover formula to convert the star content of
    *  a smaller diagram to that of a larger diagram */
@@ -188,12 +200,12 @@ class Diagram {
     return sc;
   }
 
-  int RHSCSpec0Err;
+  boolean errRHSCSpec0;
 
   /** Special Ree-Hoover star content */
-  double getRHSCSpec0() {
-    RHSCSpec0Err = 0;
-    getDegrees();
+  double getRHSCSpec0c(long cc[]) {
+    errRHSCSpec0 = false;
+    int nedges = getDegreesc(cc, degs);
 
     if (nedges == n) {
       return 1;
@@ -203,7 +215,7 @@ class Diagram {
         if (degs[i] == 3) break;
       for (j = i + 1; j < n; j++)
         if (degs[j] == 3) break;
-      if ( j < n && !isLinked(i, j) )
+      if ( j < n && !isLinkedc(cc, i, j) )
         return 1;
       else
         return 0;
@@ -211,47 +223,47 @@ class Diagram {
 
     int nedgesinv = n * (n - 1) / 2 - nedges;
     if (nedgesinv < 3) {
-      if (nedgesinv == 0) { /* fully connected */
+      if (nedgesinv == 0) { // fully connected
         return getRHSCIter(n, 2, 1);
       } else if (nedgesinv == 1) {
         return 0;
       } else {
-        /* if there are two wiggly lines, the SC is nonzero only if
-         * the two wiggly lines are not connected to the same vertex */
+        // if there are two wiggly lines, the SC is nonzero only if
+        // the two wiggly lines are not connected to the same vertex
         for (int i = 0; i < n; i++)
           if (degs[i] <= n - 3) return 0;
         return getRHSCIter(n, 4, 1);
       }
     }
 
-    RHSCSpec0Err = 1; /* there is an error */
+    errRHSCSpec0 = true; // not a special case
     return 0;
   }
 
   /** Recursively compute Ree-Hoover star content
    *  starting from the edge (i, j) */
   double getRHSCRecur(long cc[], int sgn, int i, int j) {
-    long maskn = Bits.mkbitsmask(n), avsi, avs, bi, bj;
+    long maskn = Bits.makeBitsMask(n), avsi, avs, bi, bj;
     double sc = 0;
 
     if (++j >= n) j = (++i) + 1;
     for (; i < n - 1; j = (++i) + 1) {
-      if (Bits.bitcount( cc[i] ) <= 2) continue;
-      bi = Bits.mkbit(i);
+      if (Bits.bitCount( cc[i] ) <= 2) continue;
+      bi = Bits.makeBit(i);
       avsi = maskn ^ bi;
       for (; j < n; j++) {
-        /* try to remove the edge i-j */
-        if ( (cc[j] & bi) == 0 || Bits.bitcount(cc[j]) <= 2 )
+        // try to remove the edge i-j
+        if ( (cc[j] & bi) == 0 || Bits.bitCount(cc[j]) <= 2 )
           continue;
-        /* unlink i and j */
+        // unlink i and j
         cc[j] &= ~bi;
-        bj = Bits.mkbit(j);
+        bj = Bits.makeBit(j);
         cc[i] &= ~bj;
         avs = avsi ^ bj;
-        if ( biconnectedLow(n, cc) ) {
+        if ( biconnectedc(n, cc) ) {
           sc += sgn + getRHSCRecur(cc, -sgn, i, j);
         }
-        /* link back i and j */
+        // link back i and j
         cc[i] |= bj;
         cc[j] |= bi;
       }
@@ -260,43 +272,427 @@ class Diagram {
   }
 
   /** Compute Ree-Hoover star content directly */
-  double getRHSCDirectLow() {
+  double getRHSCDirectLowc(long cc[]) {
     for (int i = 0; i < n; i++)
-      RHSC_c[i] = c[i];
+      RHSC_c[i] = cc[i];
     return 1 + getRHSCRecur(RHSC_c, -1, 0, 0);
   }
 
   /** Compute Ree-Hoover star content directly */
-  double getRHSCDirect() {
-    double sc = getRHSCSpec0();
-    if (RHSCSpec0Err == 0) return sc;
-    else sc = getRHSCDirectLow();
-    //System.out.println("sc " + sc + ", err " + RHSCSpec0Err);
+  double getRHSCDirectc(long cc[]) {
+    double sc = getRHSCSpec0c(cc);
+    if (errRHSCSpec0)
+      sc = getRHSCDirectLowc(cc);
+    //System.out.println("sc " + sc + ", spec " + !errRHSCSpec0);
     return sc;
+  }
+
+  /** Compute Ree-Hoover star content directly */
+  double getRHSCDirect(long cc[]) {
+    return getRHSCDirectc(cc);
+  }
+
+  double getFbDirectc(long cc[]) {
+    double sc = getRHSCDirectc(cc);
+    return SC2FB(sc, getNumEdgesc(cc));
   }
 
   /** Convert star content to sum of clusters */
   double SC2FB(double sc, int ned) {
-    return sc * (1 - ned % 2);
+    return sc * (1 - 2 * (ned % 2));
   }
 
   /** Convert sum of clusters to star content */
   double FB2SC(double fb, int ned) {
-    return fb * (1 - ned % 2);
+    return fb * (1 - 2 * (ned % 2));
   }
 
-  /** Compute the hard-sphere weight */
-  double getFb() {
-    double sc = getRHSCDirect();
-    return SC2FB(sc, nedges);
+
+
+  /** ==================  Clique Separator ================= */
+  long [] csFillc = new long [NMAX];
+  int [] csPerm = new int [NMAX];
+
+  int [] csL2 = new int [NMAX]; // the label l times 2
+  long [] csReach = new long [NMAX]; // csReach[label] gives a set of vertices
+  int [] csCnt = new int [NMAX * 2];
+
+  /** Compute a minimal order and the corresponding fill-in of a graph.
+   *  The minimal order is an order of removing vertices such than the
+   *  resulting edges by contraction is locally a minimum.
+   *  the algorithm used here constructs a hierarchical spanning tree
+   *  ``Algorithmic aspects of vertex elimination on graphs''
+   *  Donald J. Rose, R. Endre Tarjan and George S. Lueker
+   *  SIAM J. Comput. Vol 5, No. 2, June 1976 */
+  void getMinimalOrderc(long c[]) {
+    int i, j, k, v = 0, w, z, l;
+    long numbered, reached, bv, bw, bz, r;
+
+    for (i = 0; i < n; i++) csFillc[i] = c[i];
+    for (i = 0; i < n; i++) csL2[i] = 0; // l(i) * 2
+    reached = numbered = 0;
+    k = 1; // number of different labels
+    for (i = n - 1; i >= 0; i--) {
+      // select the vertex with the largest label
+      bw = numbered;
+      for (r = ~numbered & maskn; r != 0; r ^= bv) {
+        bv = r & (-r);
+        v = Bits.bit2id(bv);
+        if ( csL2[v]/2 == k - 1 ) { // found it
+          numbered |= bv;
+          break;
+        }
+      }
+      csPerm[i] = v;
+      // csReach[l] gives the set of vertcies with the same label `l'
+      // the label `l' is the hierarchy level of the spanning tree
+      // vertices with the same label are treated as the same
+      for (l = 0; l < k; l++) csReach[l] = 0;
+      // set all unnumbered vertices as unreached
+      reached = numbered;
+
+      // handle immediate neighbors of v
+      for (r = c[v] & ~numbered & maskn; r != 0; r ^= bw) {
+        bw = r & (-r);
+        w = Bits.bit2id(bw);
+        // the immediate neighbors of w are the starting points
+        // of the search, we group them by the labels
+        csReach[ csL2[w]/2 ] |= bw;
+        reached |= bw;
+        // only update the label after we have done with it
+        // the csL2[w]++ operation only applies to a vertex once
+        csL2[w]++;
+
+        linkc(csFillc, v, w);
+      }
+
+      // search paths from v
+      // the loop is over all labels, from smaller labels to larger ones.
+      // during the search, only vertices of equal or larger labels are
+      // produced, so the one-pass search is sufficient
+      for (j = 0; j < k; j++) {
+        while ( csReach[j] != 0 ) { // if the vertex set is not empty
+          // delete the first w from csReach[j]
+          bw = csReach[j] & (-csReach[j]);
+          w = Bits.bit2id(bw);
+          csReach[j] ^= bw; // remove w from csReach[j]
+          while ( (r = (c[w] & ~reached)) != 0 ) {
+            bz = r & (-r);
+            z = Bits.bit2id(bz);
+            reached |= bz;
+            if ((l = csL2[z]/2) > j) {
+              csReach[l] |= bz;
+              csL2[z]++;
+              linkc(csFillc, v, z);
+            } else { // lower label encountered, count it as label j
+              csReach[j] |= bz;
+            }
+          }
+        }
+      }
+
+      // re-assign labels of the vertices by counting sort
+      for (l = 0; l < 2*n; l++) csCnt[l] = 0;
+      // accumulate the number of visits of each label
+      for (r = ~numbered & maskn; r != 0; r ^= bw) {
+        bw = r & (-r);
+        w = Bits.bit2id(bw);
+        csCnt[ csL2[w] ] = 1;
+      }
+      // count the number of different labels
+      for (k = 0, l = 0; l < 2*n; l++)
+        if ( csCnt[l] != 0 ) // compute the new label
+          csCnt[l] = k++; // csCnt[l] is now the new label
+      for (r = ~numbered & maskn; r != 0; r ^= bw) {
+        bw = r & (-r);
+        w = Bits.bit2id(bw);
+        csL2[w] = 2 * csCnt[ csL2[w] ]; // set the new label
+      }
+    }
   }
 
-  int RingSpec0Err;
+  /** Decompose a diagram by clique separators.
+   *  A clique separator is a fully-connected subgraph
+   *  `g' is the input diagram, `f' is the fill-in diagram
+   *  `a' is the elimination order, a[0] is the first vertex to eliminate
+   *  return the number of cliques, `cl' is the array of cliques
+   *  `stop1' means stop the search after the first clique separator
+   *  The algorithm first find a minimal order of elimination.
+   *  Using this order on a graph with a clique separator, at least
+   *  one part of the graph is eliminated before the clique
+   *  ``Decomposition by clique separators'' Robert E. Tarjan,
+   *  Discrete Mathematics 55 (1985) 221-232 */
+  long decompCliqueSepc(long c[]) {
+    long unvisited = maskn;
+    long cc, r, cb, bw;
+
+    for (int i = 0; i < n; i++) {
+      int v = csPerm[i];
+      unvisited ^= Bits.makeBit(v); // remove the `v' bit
+      // compute C(v), the set of succeeding vertices that
+      // are adjacent to v
+      cc = unvisited & csFillc[v];
+      // test if C(v) is a clique, a fully-connected subgraph
+      for (r = cc; r != 0; r ^= bw) {
+        bw = r & (-r);
+        int w = Bits.bit2id(bw);
+        // c ^ bw is the set of vertices connected to `w'
+        // in `c', if `c' is a clique
+        cb = cc ^ bw;
+        if ((c[w] & cb) != cb) // not a clique
+          break; // break the loop prematurally, r != 0
+      }
+      if (r == 0) { // if the loop is completed, `cc' is a clique
+        if (unvisited == cc) { // clique `cc' == the rest vertices
+          return 0;            // so it is not a separator
+        } else { // found a clique `cc'
+          return cc;
+        }
+      }
+    }
+    return 0;
+  }
+
+  /** General algorithm for clique separators */
+  long getCliqueSepc(long c[]) {
+    getMinimalOrderc(c);
+    return decompCliqueSepc(c);
+  }
+
+  /** Clique separator of two vertices */
+  long getCSep2c(long cc[]) {
+    // loop over the first vertex
+    for (int i = 1; i < n; i++) {
+      long bi = Bits.makeBit(i), b;
+      long maski = maskn ^ bi;
+      long cci = cc[i] & Bits.makeBitsMask(i);
+      // loop over vertices connected to i
+      // with indices lower than i
+      for (; cci != 0; cci ^= b) {
+        b = cci & (-cci);
+        if ( !connectedvsc(cc, maski ^ b) ) {
+          //printc(cc); System.out.printf("csep2: %d and %d\n", i, Bits.bit2id(b));
+          return bi ^ b;
+        }
+      }
+    }
+    return 0;
+  }
+
+  /** Clique separator, best strategy */
+  long getCSepc(long cc[]) {
+    long cs;
+    return ((cs = getCSep2c(cc)) != 0) ? cs : getCliqueSepc(cc);
+  }
+
+  /** Clique separator, best strategy */
+  long getCSep() { return getCSepc(c); }
+
+
+
+  /** ====================== Wheatley's method ====================== */
+  public static final int RJW_NMAX = 22;
+  public static final double RJW_FBDIRTY = -1e301;
+
+  public static boolean isFbRJWInvalid(double x) {
+    return (x < -1e300);
+  }
+
+  /** Increment ms1 in the limits of bits of ms1 | ms2 */
+  long incBits(long ms1, long ms2) {
+    long nms2, lbit, hbits;
+    nms2 = -ms2;
+    lbit = ms2 & nms2; // the lowest bits
+    hbits = ms2 ^ nms2; // collect bits higher than lbit
+    ms1 &= hbits; // wipe out bits lower or equal to the lowest bit
+    ms1 |= lbit; // add the lowest bit
+    return ms1;
+  }
+
+  /** Compute Boltzmann weight, the sum of all diagrams
+   *  `cc' is the connectivity matrix, `vs' is the vertex set */
+  int getFqRJWLow(long cc[], long vs) {
+    long w, bi;
+    // if there is a bond, i.e., r(i, j) < 1, then fq = 0
+    for (w = vs; w != 0; w ^= bi) {
+      // if cc[i] share vertices with vs, there is bond
+      // the Boltzmann weight = \prod_(ij) e_ij, and it allows no clash
+      // therefore return zero immediately
+      bi = w & (-w);
+      int i = Bits.bit2id(bi);
+      if ((cc[i] & vs) != 0) return 0;
+    }
+    return 1;
+  }
+
+  /** Compute the sum of connected diagrams by Wheatley's recursion formula
+   *  `cc' is the connectivity matrix,  `vs' is the vertex set */
+  double getFcRJWLow(long cc[], long vs, double [] fcArr, double [] fqArr)
+  {
+    double fc, fc1, fq2;
+    long ms1, ms2, b1;
+
+    b1 = vs & (-vs);
+    if ( (vs ^ b1) == 0 ) return 1; // only one vertex
+    if ( isFbRJWInvalid(fc = fqArr[(int) vs]) )
+      fqArr[(int) vs] = fc = getFqRJWLow(cc, vs); // start with fq
+    vs ^= b1; // remove vertex b1 from vs, vs = vs - {b1}
+    // before the above statement, `vs' is the set of all vertices
+    // since `b1' is fixed, after excluding `b1' in the statement,
+    // `vs' is the set of *variable* vertices
+    // `ms1' is the subset of variable vertices
+    // `ms2' is the complement set of variable vertices
+    // loop over subsets ms1 of vs, stops when the complement set ms2 == 0
+    for (ms1 = 0; (ms2 = ms1 ^ vs) != 0; ) {
+      if ( isFbRJWInvalid(fq2 = fqArr[(int) ms2]) )
+        fqArr[(int) ms2] = fq2 = getFqRJWLow(cc, ms2); // fq of the complement set
+      if (fq2 != 0) {
+        long vs1 = ms1 | b1; // vs1 = ms1 + {b1}
+        if ( isFbRJWInvalid(fc1 = fcArr[(int) vs1]) )
+          fcArr[(int) vs1] = fc1 = getFcRJWLow(cc, vs1, fcArr, fqArr); // recursion
+        fc -= fc1 * fq2;
+      }
+      // update the subset `ms1'
+      ms1 = incBits(ms1, ms2);
+    }
+    return fc;
+  }
+
+  /** Compute the sum of all connected diagrams without the articulation point
+   *  at vertices lower than `v', `vs' is the vertex set
+   *  if v = 0, it returns fc; if v = n, it returns fb */
+  double getFbRJWLow(long [] cc, int v, long vs, double faArr[], double fbArr[])
+  {
+    int i;
+    double fb, fa;
+    long r, b, bv = Bits.makeBit(v);
+    int id;
+
+    if ((i = Bits.bitCount(vs)) <= 1) {
+      return 1;
+    } else if (i == 2) {
+      return ((cc[ Bits.bitFirst(vs) ] & vs) != 0) ? -1 : 0;
+    }
+
+    // start with the sum of connected diagrams, the first 2^n numbers of
+    // fbArr and faArr are used for saving fcArr and fqArr, respectively
+    if ( isFbRJWInvalid(fb = fbArr[(int) vs]) ) {
+      fb = getFcRJWLow(cc, vs, fbArr, faArr);
+      fbArr[(int) vs] = fb;
+    }
+    // remove diagrams with the lowest articulation points at i < v
+    for (r = vs & (bv - 1); r != 0; r ^= b) {
+      b = r & (-r);
+      i = Bits.bit2id(b);
+      id = ((i + 1) << n)  + (int) vs; // (i + 1) * 2^n + vs
+      if ( isFbRJWInvalid(fa = faArr[id]) ) {
+        fa = getFaRJWLow(cc, i, vs, faArr, fbArr);
+        faArr[id] = fa;
+      }
+      fbArr[id] = (fb -= fa);
+    }
+    return fb;
+  }
+
+  /** Compute the sum of all connected diagrams with the articulation point at v
+   *  and no articulation point at any vertex lower than v */
+  double getFaRJWLow(long [] cc, int v, long vs, double faArr[], double fbArr[])
+  {
+    double fa = 0, fb, fa2, fb2;
+    long ms1, ms2, vs1, bv = Bits.makeBit(v), b1, b1v;
+    int id0, id;
+
+    b1 = vs & (-vs); // lowest vertex
+    if ( b1 == bv ) { // if vertex 1 coincide with `v', find the next lowest
+      b1 = vs ^ bv; // remove `bv' from the vertex set
+      b1 = b1 & (-b1);
+    }
+    b1v = b1 ^ bv;
+    vs ^= b1v; // remove the fixed vertices `b1' and `bv' from `vs'
+    // `vs' is the set of *variable* vertices from now on
+    if ( vs == 0 ) return 0; // no articulated diagram with only two vertices
+    id0 = (v + 1) << n; // (v + 1) * 2^n
+    // `id0' is the offset for vertex v
+    // loop over subsets of vs, stops when vs == vs1
+    for (ms1 = 0; (ms2 = (ms1 ^ vs)) != 0; ) {
+      vs1 = ms1 | b1v; // add the two fixed vertices */
+      id = id0 + (int) vs1;
+      if ( isFbRJWInvalid(fb = fbArr[id]) ) { // compute fb if necessary
+        fb = getFbRJWLow(cc, v + 1, vs1, faArr, fbArr);
+        fbArr[id] = fb;
+      }
+      if ( fb != 0 ) {
+        long vs2 = ms2 | bv; // unused variable vertices + the articulation point `bv'
+                             // `|' is equivalent to `+' here
+        id = id0 + (int) vs2;
+        fb2 = fbArr[id];
+        if ( isFbRJWInvalid(fb2 = fbArr[id]) ) {
+          fb2 = getFbRJWLow(cc, v + 1, vs2, faArr, fbArr);
+          fbArr[id] = fb2; /* save the fb value */
+        }
+        if ( isFbRJWInvalid(fa2 = faArr[id]) ) {
+          fa2 = getFaRJWLow(cc, v, vs2, faArr, fbArr);
+          faArr[id] = fa2; /* save the fa value */
+        }
+        fa += fb * (fb2 + fa2);
+      }
+      ms1 = incBits(ms1, ms2); // update the subset `ms1'
+    }
+    return fa;
+  }
+
+  int nmaxRJW = -1;
+  double faRJWArr[], fbRJWArr[];
+
+  /** Compute the sum of biconnected diagrams by Wheatley's method.
+   *  This is a low level function and the test of clique separator
+   *  is not done here. */
+  double getFbRJWc(long c[]) {
+    int size;
+
+    /* the memory requirement is 2^(n + 1) * (n + 1) * sizeof(double) */
+    if (n > nmaxRJW) {
+      nmaxRJW = n;
+      size = (nmaxRJW + 1) << nmaxRJW; /* (nmax + 1) * 2^nmax */
+      faRJWArr = new double [size];
+      fbRJWArr = new double [size];
+    }
+    size = ((n + 1) << n); /* (n + 1) * 2^n */
+    for (int i = 0; i < size; i++) faRJWArr[i] = RJW_FBDIRTY;
+    for (int i = 0; i < size; i++) fbRJWArr[i] = RJW_FBDIRTY;
+    return getFbRJWLow(c, n, maskn, faRJWArr, fbRJWArr);
+  }
+
+  /** Compute the sum of biconnected diagrams by Wheatley's method. */
+  double getFbRJW() { return getFbRJWc(c); }
+
+
+
+  /** Compute the hard-sphere weight, using the best strategy */
+  double getFbc(long c[]) {
+    // detect clique separators first
+    if ( getCSepc(c) != 0 ) return 0;
+    int nedges = getNumEdgesc(c);
+    if (nedges < 2*n - 2 || n > RJW_NMAX) {
+      double sc = getRHSCDirectc(c);
+      return SC2FB(sc, nedges);
+    } else {
+      return getFbRJWc(c);
+    }
+  }
+
+  /** Compute the hard-sphere weight, using the best strategy */
+  double getFb() { return getFbc(c); }
+
+
+
+  /** ====================== Ring content ====================== */
+  boolean errRingSpec0;
 
   /** Special ring content */
-  double getRingSpec0() {
-    RingSpec0Err = 0;
-    getDegrees();
+  double getRingSpec0(long cc[]) {
+    errRingSpec0 = false;
+    int nedges = getDegreesc(cc, degs);
 
     if (nedges == n) {
       return 1;
@@ -306,25 +702,25 @@ class Diagram {
         if (degs[i] == 3) break;
       for (j = i + 1; j < n; j++)
         if (degs[j] == 3) break;
-      if ( j < n && !isLinked(i, j) )
+      if ( j < n && isLinkedc(cc, i, j) )
         return 1;
       else
         return 0;
     }
 
-    int nedgesinv = n * (n - 1) / 2 - nedges;
-    if (nedges == 0) {
+    // fully-connected diagram
+    if (n * (n - 1) / 2 == nedges) {
       double x = 1;
       for (int i = 3; i < n; i++) x *= i;
       return x;
     }
 
-    RingSpec0Err = 1; /* there is an error */
+    errRingSpec0 = true; // cannot be handled by special cases
     return 0;
   }
 
   /** Compute the ring content directly */
-  double getRingDirectLow() {
+  double getRingDirectLow(long c[]) {
     if (n <= 2) {
       if (n <= 1) return 1;
       else return (double) (c[1] & 0x1L);
@@ -332,27 +728,26 @@ class Diagram {
 
     int [] st = new int [n];
     int top, sttop, root = 0;
-    long maskn = Bits.mkbitsmask(n);
+    long maskn = Bits.makeBitsMask(n);
     long unused, cc, b, croot, ccp;
     double cnt = 0;
 
     st[0] = root;
     st[1] = 0;
     top = 1;
-    unused = maskn ^ Bits.mkbit(root);
+    unused = maskn ^ Bits.makeBit(root);
     croot = c[root];
     ccp = unused & croot;
     sttop = st[top];
 
     while (true) {
       long ccp0 = ccp;
-      cc = ccp & ~Bits.mkbitsmask(sttop + 1);
+      cc = ccp & ~Bits.makeBitsMask(sttop + 1);
       if (cc != 0) {
         b = cc & (-cc);
         sttop = Bits.bit2id(b);
         unused ^= b;
-        ccp = unused & c[sttop];
-        if (ccp != 0) { /* there are still unused vertices */
+        if ((ccp = unused & c[(int) sttop]) != 0) { // there are still unused vertices
           if (top < n - 2) {
             st[top++] = sttop;
             sttop = 0;
@@ -365,20 +760,24 @@ class Diagram {
       } else {
         if (--top == 0) break;
         sttop = st[top];
-        unused ^= Bits.mkbit(sttop);
-        ccp = unused & c[st[top - 1]];
+        unused ^= Bits.makeBit(sttop);
+        ccp = unused & c[(int) st[top - 1]];
       }
     }
     return cnt / 2.;
   }
 
   /** Compute the ring content */
-  double getNr() {
-    double sc = getRingSpec0();
-    if (RingSpec0Err == 0) return sc;
-    else return getRingDirectLow();
+  double getNrc(long cc[]) {
+    double nr = getRingSpec0(cc);
+    if ( errRingSpec0 )
+      nr = getRingDirectLow(cc);
+    return nr;
   }
-  
+
+  /** Compute the ring content */
+  double getNr() { return getNrc(c); }
+
   public static final double [][] BringArr = new double [][] {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -482,20 +881,224 @@ class Diagram {
     {1, 1, 1, 1.7539388183733840273e-7, -3.0654061227161827508e-12, 4.2959182441192810754e-16, -2.6913350026714005536e-19, 5.1015397121685072415e-22, -2.2533194821084877129e-24, 1.9360511769091248096e-26, -2.8437221452037372276e-28, 6.491677548268084299e-30, -2.1428456955122294013e-31, 9.671996926136296503e-33, -5.7116524518336588205e-34, 4.2592182342873926576e-35, -3.8964640446398491139e-36, 4.2699538565914521715e-37, -5.4945967666498776588e-38, 8.1641485985069043028e-39, -1.3808189053013209454e-39, 2.6259276162579006697e-40, -5.5557247868269213092e-41, 1.2956867740602121116e-41, -3.3040663103530906484e-42, 9.1473318527302262079e-43, -2.7321205497980605992e-43, 8.7544875035430580738e-44, -2.994419174358321557e-44, 1.088416662600461192e-44, -4.1871894413811104588e-45, 1.698667659093271119e-45, -7.2429328538143237402e-46, 3.236182332523286144e-46, -1.5110239367528184093e-46, 7.3542584545639129953e-47, -3.7225080731094189186e-47, 1.9554313206829052325e-47, -1.0639298721291208317e-47, 5.9850160336103830032e-48, -3.4751727251241183873e-48, 2.0795814600457569777e-48, -1.2806824229122462717e-48, 8.1057610948009178037e-49, -5.2661507236532003135e-49, 3.5078105681180463138e-49, -2.3930478254825097159e-49, 1.6703138523890749655e-49, -1.1916887265973760581e-49, 8.6827538271532078252e-50, -6.4553111684872797673e-50, 4.8932620942160735331e-50, -3.7790073537615917252e-50, 2.9713213121471279738e-50, -2.3769810943319149092e-50, 1.9334519685876271535e-50, -1.5981388709491426743e-50, 1.3416047790504525719e-50, -1.1432251160366422679e-50, 9.88361683972562459e-51, -8.6649872438565968875e-51, 7.6999696631337749464e-51, -6.9325011296903396067e-51, 6.3210689112379015246e-51, -5.8347059731661170067e-51},
     {1, 1, 1, 1.5118353651379287699e-7, -2.34842516987598679e-12, 2.9873545419531477731e-16, -1.7247801958581432434e-19, 3.0470308718879717916e-22, -1.2651179110045277768e-24, 1.028691325121516727e-26, -1.4377182388327515416e-28, 3.136900759068190285e-30, -9.9337492565363782324e-32, 4.3151131663884613449e-33, -2.4590799494589677188e-34, 1.7737840641999128387e-35, -1.5728944388229570774e-36, 1.6737990097821168125e-37, -2.0949456864905244059e-38, 3.0320502402376471431e-39, -5.0017230172228744528e-40, 9.2883380937425765001e-41, -1.9210410394866026026e-41, 4.3839372056941239381e-42, -1.0948979229392013212e-42, 2.9712610150761071776e-43, -8.7056448769110674874e-44, 2.7383889977077740837e-44, -9.2008287220848036403e-45, 3.2872017381206302992e-45, -1.2437117626357881193e-45, 4.9648324011450419803e-46, -2.0841463870557203032e-46, 9.1721183545906014793e-47, -4.2201139628005046664e-47, 2.0248372574081167542e-47, -1.0107817808633846978e-47, 5.2383881574242064316e-48, -2.8129093285572515593e-48, 1.5622194401764039031e-48, -8.9583115172559228232e-49, 5.2957933350077149583e-49, -3.2227591799506015359e-49, 2.0161909020839686153e-49, -1.2950819756963199304e-49, 8.5313117738195701293e-50, -5.7572036207034465952e-50, 3.9759342257331320735e-50, -2.8072495647758920846e-50, 2.0246270184331042629e-50, -1.4902620606748789193e-50, 1.1186313072599818743e-50, -8.5564002114838372574e-51, 6.6644847532342117871e-51, -5.2822886343832702253e-51, 4.2577710447558919306e-51, -3.4880798197864413237e-51, 2.9026019035156626483e-51, -2.4521739134248990631e-51, 2.1021101609839582165e-51, -1.8276325031954254815e-51, 1.6108334495906657511e-51, -1.4386317707975408708e-51, 1.3013792191968105802e-51, -1.1918999416028739452e-51}};
 
+  /** Encode a graph, return the first word */
+  long encode1c(long c[]) {
+    int ib = 0;
+    long code = 0;
+
+    for (int i = 0; i < n - 1; i++) {
+      code |= (c[i] >> (i + 1)) << ib;
+      ib += n - 1 - i;
+    }
+    return code;
+  }
+
+  /** From code to the connectivity matrix */
+  void decode1c(long c[], long code)
+  {
+    int ib = 0;
+
+    // empty the connectivity matrix
+    for (int i = 0; i < n; i++) c[i] = 0;
+
+    // make links
+    for (int i = 0; i < n - 1; i++) {
+      for (int j = i + 1; j < n; j++) {
+        if ( ((code >> ib) & 1) != 0 )
+          linkc(c, i, j);
+        ++ib;
+      }
+    }
+  }
+
+  private static DiagramMap [] dgmap = new DiagramMap [ DiagramMap.NMAX + 1 ];
+
+  /** Get the diagram index */
+  short getMapIdx() {
+    if (dgmap[n] == null)
+      dgmap[n] = new DiagramMap(n);
+    long code = encode1c(c);
+    return dgmap[n].map[(int) code];
+  }
+
+  private static boolean fbnrMapInitialized = false;
+  private static double [][][] fbnrMap = new double [DiagramMap.NMAX + 1][][];
+
+  /** Get Fb and Nr from the lookup table */
+  double [] getFbNrMap() {
+    if (n < 1 || n > DiagramMap.NMAX) {
+      System.out.printf("cannot use lookup table with n %d\n", n);
+      return null;
+    }
+    short mapID = getMapIdx();
+    short nUnique = dgmap[n].nUnique;
+    if ( fbnrMap[n] == null ) {
+      long cc [] = new long [n];
+      fbnrMap[n] = new double [nUnique][2];
+      for (int ig = 0; ig < nUnique; ig++) {
+        double fb, nr;
+        decode1c(cc, dgmap[n].first[ig]);
+        if ( biconnectedc(n, cc) ) {
+          fb = getFbc(cc);
+          /*
+          // checking code
+          double fb1 = getFbDirectc(cc);
+          double fb2 = getFbRJWc(cc);
+          if (abs(fb - fb1) > 0.01 || abs(fb1 - fb2) > 0.01) {
+            System.out.printf("corruption %f %f %f, ig %d, code %x\n",
+                fb, fb1, fb2, ig, dgmap[n].first[ig]);
+            printc(cc);
+            System.exit(1);
+          }
+          */
+          nr = getNrc(cc);
+        } else {
+          fb = nr = 0;
+        }
+        fbnrMap[n][ig][0] = fb;
+        fbnrMap[n][ig][1] = nr;
+      }
+    }
+    return fbnrMap[n][mapID];
+  }
 }
 
 
 
-/** Bitwise operations
+/** look up table */
+class DiagramMap {
+  public static final int NMAX = 7;
+  int n = 0;
+  short nUnique = 0;
+  short [] map;
+  int [] first;
+  static final int nfirst[] = {1,
+    1, 2, 4, 11, 34, 156, 1044, 12346};
+
+  DiagramMap(int nv) {
+    init(nv);
+  }
+
+  int init(int nv) {
+    if (nv < 1 || nv > NMAX) return -1;
+    if (nUnique > 0) return 0; // initialized
+    n = nv;
+    int npr = n * (n - 1) / 2;
+    int ngr = 1 << npr;
+    map = new short [ngr];
+    for (int c = 0; c < ngr; c++)
+      map[c] = -1;
+    first = new int [ nfirst[n] ];
+
+    if (n == 1) {
+      map[0] = 0;
+      first[0] = 0;
+      return 0;
+    }
+
+    long startTime = System.nanoTime();
+    System.out.printf("n %d: initializing map\n", n);
+    // compute all permutations
+    getPerm(n);
+    long [][] masks = new long [npm][npr];
+    for (int ipm = 0; ipm < npm; ipm++) {
+      for (int ipr = 0, i = 0; i < n - 1; i++) {
+        for (int j = i + 1; j < n; j++, ipr++) {
+          masks[ipm][ipr] = Bits.makeBit(
+              getPairIndex(pm[ipm*n + i], pm[ipm*n + j], n) );
+        }
+      }
+    }
+    pm = null;
+
+    // loop over all diagrams
+    short gid = 0;
+    int c;
+    for (c = 0; c < ngr; c++) {
+      if (map[c] >= 0) continue;
+      first[gid] = c;
+      for (int ipm = 0; ipm < npm; ipm++) {
+        long c1 = 0;
+        for (int ipr = 0; ipr < npr; ipr++) {
+          if (((c >> ipr) & 1) != 0)
+            c1 |= masks[ipm][ipr];
+        }
+        if (map[(int) c1] < 0) {
+          map[(int) c1] = gid;
+        } else {
+          if (map[(int) c1] != gid) {
+            System.out.printf("map conflict at %d, %d vs %d\n",
+                (int) c1, map[(int) c1], gid);
+          }
+        }
+      }
+      gid++;
+    }
+    masks = null;
+    nUnique = gid;
+    long endTime = System.nanoTime();
+    System.out.printf("n %d: initialized map, time %fs\n",
+        n, (endTime - startTime)*1e-9);
+    return 0;
+  }
+
+  /** Get the pair index from 0 to n*(n - 1)/2 - 1 */
+  int getPairIndex(int i, int j, int n)
+  {
+    if (i > j) { int i1 = i; i = j; j = i1; }
+    return n*i - (i + 1)*(i + 2)/2 + j;
+  }
+
+  int npm, pm[];
+  int [] st = new int [NMAX + 2];
+  boolean [] used = new boolean [NMAX + 2];
+
+  /** Compute all permutations of n */
+  int getPerm(int n) {
+    int npp, ipp, i, top;
+
+    for (npm = 1, i = 2; i <= n; i++)
+      npm *= i;
+    npp = npm * n; /* each permutation needs n numbers */
+    pm = new int[npp];
+    for (i = 0; i < n; i++) {
+      st[i] = -1;
+      used[i] = false;
+    }
+    for (ipp = 0, top = 0; ; ) {
+      if (top >= n) {
+        for (i = 0; i < n; i++)
+          pm[ipp++] = st[i];
+      } else {
+        for (i = st[top]; ++i < n; )
+          if ( !used[i] ) break;
+        if (i < n) {
+          used[i] = true;
+          st[top] = i;
+          st[++top] = -1;
+          continue;
+        }
+      }
+      // exhausted this level
+      if (--top < 0) break;
+      used[ st[top] ] = false;
+    }
+    return npm;
+  }
+}
+
+
+
+/** Bitwise operations.
  *  All functions are `static' for no instance is needed */
 class Bits {
   /** Return a long integer with only ith lowest bit being 1 */
-  public static long mkbit(int i) {
+  public static long makeBit(int i) {
     return (long) 1 << i;
   }
 
   /** Return a long integer with the lowest i bits being 1 */
-  public static long mkbitsmask(int i) {
+  public static long makeBitsMask(int i) {
     return ((long) 1 << i) - 1;
   }
 
@@ -512,12 +1115,12 @@ class Bits {
   }
 
   /** Seek the least significant bit */
-  public static int bitfirst(long x) {
+  public static int bitFirst(long x) {
     long bit = x & (-x);
     return bit2id(bit);
   }
 
-  private static final int [] bytecount = {
+  private static final int [] byteBitCount = {
     0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
     1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
     1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
@@ -536,15 +1139,15 @@ class Bits {
     4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8 };
 
   /** Count the number of one-bits in x */
-  public static int bitcount(long x) {
-    return bytecount[(int) (x         & 0xffl)] +
-           bytecount[(int) ((x >>  8) & 0xffl)] +
-           bytecount[(int) ((x >> 16) & 0xffl)] +
-           bytecount[(int) ((x >> 24) & 0xffl)] +
-           bytecount[(int) ((x >> 32) & 0xffl)] +
-           bytecount[(int) ((x >> 40) & 0xffl)] +
-           bytecount[(int) ((x >> 48) & 0xffl)] +
-           bytecount[(int) ((x >> 56) & 0xffl)];
+  public static int bitCount(long x) {
+    return byteBitCount[(int) (x         & 0xffl)] +
+           byteBitCount[(int) ((x >>  8) & 0xffl)] +
+           byteBitCount[(int) ((x >> 16) & 0xffl)] +
+           byteBitCount[(int) ((x >> 24) & 0xffl)] +
+           byteBitCount[(int) ((x >> 32) & 0xffl)] +
+           byteBitCount[(int) ((x >> 40) & 0xffl)] +
+           byteBitCount[(int) ((x >> 48) & 0xffl)] +
+           byteBitCount[(int) ((x >> 56) & 0xffl)];
   }
 }
 
@@ -585,11 +1188,14 @@ class MCSamp {
 
   int step; // the current simulation step
   double mcAmp = 1.5; // amplitude of randomly moving a particle
+  int sampFreq = 1; // sampling frequency
   long mcacc = 0, mctot = 0;
   double x[][], xi[], xo[];
-  double fb, nr;
   Ave avfb = new Ave(), avnr = new Ave();
   double xyz[]; // 3D coordinates to output
+
+  double fb, nr; // star and ring contents
+  private boolean fbdirty = true;
 
   Random rng = new Random();
 
@@ -600,22 +1206,22 @@ class MCSamp {
 
   /** Initialize system */
   public void init(int dim, int order) {
-    int i, j;
     D = dim;
     N = order;
     mcAmp = 1.5/D;
     x = new double [N][D];
     xyz = new double [(N + 1) * 3];
-    for (i = 0; i < N; i++)
-      for (j = 0; j < D; j++)
-        x[i][j] = (rng.nextDouble() - .5) * 1.0/Math.sqrt(D*N);
+    double rr = 0.7/(2.*sin(PI/N));
+    for (int i = 0; i < N; i++) {
+      x[i][0] = rr * cos(2*i*PI/N);
+      x[i][1] = rr * sin(2*i*PI/N);
+      for (int j = 2; j < D; j++) x[i][j] = 0;
+    }
     xi = new double [D];
     xo = new double [D];
-    g = new Diagram(N, D, x);
-    g.full();
+    g  = new Diagram(N, D, x);
     ng = new Diagram(N, D, x);
-    fb = g.getFb();
-    nr = g.getNr();
+    clearData();
   }
 
   /** Clear trajectory data */
@@ -634,7 +1240,7 @@ class MCSamp {
     int i, j, k;
 
     moveAtom = i = (int) (N * rng.nextDouble());
-    /* displace particle i */
+    // displace particle i
     for (k = 0; k < D; k++) {
       xo[k] = x[i][k];
       xi[k] = xo[k] + (2 * rng.nextDouble() - 1) * mcAmp;
@@ -642,7 +1248,7 @@ class MCSamp {
     ng.copy(g);
     for (j = 0; j < N; j++) {
       if (j == i) continue;
-      /* distance between i and j */
+      // distance between i and j
       double dx, x2 = 0;
       for (k = 0; k < D; k++) {
         dx = xi[k] - x[j][k];
@@ -660,17 +1266,28 @@ class MCSamp {
       for (k = 0; k < D; k++)
         x[i][k] = xi[k];
       g.copy(ng);
-      fb = g.getFb();
-      nr = g.getNr();
       //for (int ii = 0; ii < N; ii++) System.out.print("x" + ii + ": " + x[ii][0] + " " + x[ii][1] + " " + x[ii][2] + "; ");
       //System.out.println("moving " + i);
       moveAcc = true;
+      fbdirty = true;
     } else {
-      /* maintain the old fb and nr */
       moveAcc = false;
     }
-    avfb.add(fb);
-    avnr.add(nr);
+    if ((step + 1) % sampFreq == 0) {
+      if ( fbdirty ) {
+        if (N <= DiagramMap.NMAX) {
+          double [] arr2 = g.getFbNrMap();
+          fb = arr2[0];
+          nr = arr2[1];
+        } else {
+          fb = g.getFb();
+          nr = g.getNr();
+        }
+        fbdirty = false;
+      }
+      avfb.add(fb);
+      avnr.add(nr);
+    }
     step++;
   }
 
@@ -684,25 +1301,8 @@ class MCSamp {
       for (int i = 0; i < N; i++)
         x[i][k] -= xc;
       xi[k] -= xc;
+      xo[k] -= xc;
     }
-  }
-
-  /** Get three-dimensional coordinates */
-  public double [] getXYZ() {
-    int i, j;
-
-    rmcom();
-    for (i = 0; i < N; i++) {
-      xyz[i*3 + 0] = x[i][0];
-      xyz[i*3 + 1] = x[i][1];
-      xyz[i*3 + 2] = (D == 2) ? 0.0 : x[i][2];
-    }
-    // the last is the trial position
-    double [] xlast = moveAcc ? xo : xi;
-    xyz[N*3 + 0] = xlast[0];
-    xyz[N*3 + 1] = xlast[1];
-    xyz[N*3 + 2] = (D == 2) ? 0 : xlast[2];
-    return xyz;
   }
 
   /** Get the virial coefficients */
@@ -710,7 +1310,7 @@ class MCSamp {
     double fb = avfb.getAve();
     double sc = avnr.getAve();
     if (sc == 0) return 0;
-    double Bring = Diagram.BringArr[D][N];
+    double Bring = abs( Diagram.BringArr[D][N] );
     return -fb/sc*Bring;
   }
 }
@@ -719,22 +1319,25 @@ class MCSamp {
 
 public class VirSampApp extends JApplet implements ActionListener
 {
-  MCSamp mc = new MCSamp(3, 7);
-  int delay = 1000;
-  int speed = 1; // mc steps per frame
+  MCSamp mc = new MCSamp(3, 6);
+  int delay = 100; // interval of repainting
+  int speed = 10000; // mc steps per frame
   Timer timer;
 
-  MyCanvas canvas; // 3D drawing here
+  MyCanvas canvas; // 3D animation
+  MyScheme scheme; // schematic plot
 
-  JPanel cpnl, spnl;
+  JPanel cpnl, spnl, mpnl;
   JTextField      tDim     = new JTextField("    " + mc.D);
   JTextField      tOrder   = new JTextField("    " + mc.N);
   JTextField      tDelay   = new JTextField("   " + delay);
   JTextField      tSpeed   = new JTextField("   " + speed);
-  JTextField      tMCAmp   = new JTextField("   " + mc.mcAmp);
+  JTextField      tMCAmp   = new JTextField("   " + mc.mcAmp*mc.D);
+  JTextField      tSampFreq = new JTextField("   " + mc.sampFreq);
   JToggleButton   bStart   = new JToggleButton("Start", false);
   JButton         bReset   = new JButton("Reset");
-  JButton         bRetime  = new JButton("Reset time");
+  JButton         bMDS     = new JButton("MDS mode 0");
+  JButton         bClear   = new JButton("Clear");
   JLabel          lStatus  = new JLabel("Status");
   JTextField      tVir     = new JTextField("   0");
   JTextField      tAvStar  = new JTextField("   0");
@@ -749,8 +1352,8 @@ public class VirSampApp extends JApplet implements ActionListener
 
     // cpnl is the panel for controls, such as buttons, textfields, etc.
     cpnl = new JPanel();
-    cpnl.setLayout(new GridLayout(19, 2));
-    box.add(cpnl, BorderLayout.EAST);
+    cpnl.setLayout( new GridLayout(4, 6) ); // four rows, six columns
+    box.add(cpnl, BorderLayout.NORTH);
 
     // add controls
     cpnl.add(bStart);
@@ -759,15 +1362,15 @@ public class VirSampApp extends JApplet implements ActionListener
     cpnl.add(bReset);
     bReset.addActionListener(this);
 
-    cpnl.add(new JLabel(" D:"));
+    cpnl.add(new JLabel(" Dimension (D):"));
     tDim.addActionListener(this);
     cpnl.add(tDim);
 
-    cpnl.add(new JLabel(" N:"));
+    cpnl.add(new JLabel(" Order (n):"));
     tOrder.addActionListener(this);
     cpnl.add(tOrder);
 
-    cpnl.add(new JLabel(" Delay(ms):"));
+    cpnl.add(new JLabel(" Delay (ms):"));
     tDelay.addActionListener(this);
     cpnl.add(tDelay);
 
@@ -775,9 +1378,9 @@ public class VirSampApp extends JApplet implements ActionListener
     tSpeed.addActionListener(this);
     cpnl.add(tSpeed);
 
-    cpnl.add(new JLabel(" Move \u0394X:"));
-    tMCAmp.addActionListener(this);
-    cpnl.add(tMCAmp);
+    cpnl.add(new JLabel(" Samp. freq.:"));
+    tSampFreq.addActionListener(this);
+    cpnl.add(tSampFreq);
 
     cpnl.add(new JLabel(" Bn/B2^(n-1):"));
     tVir.setEditable(false);
@@ -791,36 +1394,57 @@ public class VirSampApp extends JApplet implements ActionListener
     tAvRing.setEditable(false);
     cpnl.add(tAvRing);
 
+    cpnl.add(new JLabel(" Move size D*\u0394X:"));
+    tMCAmp.addActionListener(this);
+    cpnl.add(tMCAmp);
+
     cpnl.add(new JLabel(" Acc. ratio:"));
     tAcc.setEditable(false);
     cpnl.add(tAcc);
 
-    cpnl.add(bRetime);
-    bRetime.addActionListener(this);
+    cpnl.add(bMDS);
+    bMDS.addActionListener(this);
+
+    cpnl.add(bClear);
+    bClear.addActionListener(this);
 
     // spnl is the panel at the bottom
     spnl = new JPanel(); // create a panel for status
     box.add(spnl, BorderLayout.SOUTH);
-    lStatus.setFont(new Font("Courier", 0, 12));
+    lStatus.setFont(new Font("Courier", Font.BOLD, 14));
     spnl.add(lStatus);
+
+    // create a panel for animation and schematic plot
+    mpnl = new JPanel();
+    mpnl.setLayout(new GridLayout(1, 2));
+    box.add(mpnl, BorderLayout.CENTER);
+
+    // scheme is the schematic diagram
+    scheme = new MyScheme();
+    scheme.setMC(mc);
+    mpnl.add(scheme);
 
     // canvas is the place for 3D animation
     canvas = new MyCanvas();
     canvas.setMC(mc);
-    box.add(canvas, BorderLayout.CENTER);
+    mpnl.add(canvas);
+
+    Font font = new Font("Arial", Font.BOLD, 14);
+    tVir.setFont(font);
 
     timer = new Timer(delay, this);
     timer.start(); timer.stop();
   }
 
   public void start() {
+    scheme.start();
     canvas.start();
   }
 
-  public void update(Graphics g) { paint(g); }
+  public void update(Graphics g) {
+    paint(g);
+  }
 
-  DecimalFormat df = new DecimalFormat("###0.000000");
-  DecimalFormat dfe = new DecimalFormat("#.000000E00");
   //int frame = 0;
 
   /** paint the applet */
@@ -828,26 +1452,26 @@ public class VirSampApp extends JApplet implements ActionListener
     //System.out.println("frame: " + (frame++));
     double vir = mc.getVir();
     lStatus.setText("steps = " + mc.step + ", "
+         + "D = " + mc.D + ", "
          + "n = " + mc.N + ", "
-         + "vir = " + dfe.format(vir) + ", "
-         + "avfb = " + df.format(mc.avfb.getAve()) + ", "
-         + "avnr = " + df.format(mc.avnr.getAve())
-         + ";");
-    tVir.setText(" " + df.format(vir));
-    tAvStar.setText(" " + df.format(mc.avfb.getAve()));
-    tAvRing.setText(" " + df.format(mc.avnr.getAve()));
-    tAcc.setText(" " + df.format(mc.mctot > 0 ? 1.0*mc.mcacc/mc.mctot : 0.0));
+         + "vir = " + String.format("%+.5e", vir) + ", "
+         + "avfb = " + String.format("%+8.5f", mc.avfb.getAve()) + ", "
+         + "avnr = " + String.format("%+8.5f", mc.avnr.getAve())
+         + "");
+    tVir.setText(" " + String.format("%.5e", vir));
+    tAvStar.setText(" " + String.format("%g", mc.avfb.getAve()));
+    tAvRing.setText(" " + String.format("%g", mc.avnr.getAve()));
+    tAcc.setText(" " + String.format("%g", mc.mctot > 0 ? 1.0*mc.mcacc/mc.mctot : 0.0));
+    scheme.repaint();
     if (canvas.model != null) {
-      canvas.model.updateXYZ( mc.getXYZ() );
-      canvas.model.moveAtom = mc.moveAtom;
-      canvas.model.moveAcc = mc.moveAcc;
+      canvas.update();
       canvas.repaint();
-    } else return;
+    }
     cpnl.repaint();
     spnl.repaint();
   }
 
-  /** event handler */
+  /** Event handler */
   public void actionPerformed(ActionEvent e) {
     Object src = e.getSource();
 
@@ -855,35 +1479,86 @@ public class VirSampApp extends JApplet implements ActionListener
     if (src == timer) {
       for (int i = 0; i < speed; i++) // sample a few steps
         mc.mcStep();
-      mc.g.print();
+      //mc.g.print();
       repaint(); // calls the paint() function above
       return;
     }
 
-    if (src == tDelay) {
+    //System.out.println( "trigger: " + src.toString() );
+
+    // the user may change the value of some parameters
+    // but forget to press Enter to trigger an event
+    // so we always refresh all parameters when an effect occurs
+    int dim = mc.D;
+    try {
+      dim = Integer.parseInt(tDim.getText().trim());
+    } catch (NumberFormatException err) {}
+    if (dim < 2) {
+      dim = 2;
+      tDim.setText(" " + dim);
+    } else if (dim > 100) {
+      dim = 100;
+      tDim.setText(" " + dim);
+    }
+
+    int n = mc.N;
+    try {
+      n = Integer.parseInt(tOrder.getText().trim());
+    } catch (NumberFormatException err) {}
+    if (n < 2) {
+      n = 2;
+      tOrder.setText(" " + n);
+    } else if (n > Diagram.NMAX) {
+      n = Diagram.NMAX;
+      tOrder.setText(" " + n);
+    }
+
+    try {
       delay = Integer.parseInt(tDelay.getText().trim());
-      if (delay < 1) { delay = 1; tDelay.setText(" " + delay); }
-      timer.stop();
-      timer = new Timer(delay, this);
-      timer.start();
+    } catch (NumberFormatException err) {}
+    if (delay < 1) {
+      delay = 1;
+      tDelay.setText(" " + delay);
     }
 
-    if (src == tSpeed || src == bReset) {
+    try {
       speed = Integer.parseInt(tSpeed.getText().trim());
-      if (speed < 1) { speed = 1; tSpeed.setText("   " +speed); }
+    } catch (NumberFormatException err) {}
+    if (speed < 1) {
+      speed = 1;
+      tSpeed.setText(" " + speed);
     }
 
-    if (src == tMCAmp || src == bReset) {
-      double amp = Double.parseDouble(tMCAmp.getText().trim());
-      if (amp < 0.) {
-        amp = -amp;
-        tMCAmp.setText("   " + amp);
+    int sampFreq = mc.sampFreq;
+    try {
+      sampFreq = Integer.parseInt(tSampFreq.getText().trim());
+    } catch (NumberFormatException err) {}
+    if (sampFreq < 1) {
+      sampFreq = 1;
+      tSpeed.setText(" " + sampFreq);
+    }
+    mc.sampFreq = sampFreq;
+
+    double amp = mc.mcAmp * mc.D;
+    try {
+      amp = Double.parseDouble(tMCAmp.getText().trim());
+    } catch (NumberFormatException err) {}
+    if (amp < 0.) {
+      amp = -amp;
+      tMCAmp.setText(" " + amp);
+    }
+    mc.mcAmp = amp / dim;
+
+    if (src == tDelay) {
+      if ( timer.isRunning() ) {
+        timer.stop();
+        timer = new Timer(delay, this);
+        timer.start();
       }
-      mc.mcAmp = amp;
-      mc.clearData();
     }
 
-    if (src == bRetime) {
+    if (src == tSampFreq || src == tMCAmp
+        || src == bReset || src == bClear) {
       mc.clearData();
     }
 
@@ -898,32 +1573,38 @@ public class VirSampApp extends JApplet implements ActionListener
       }
     }
 
-    if (src == tDim || src == bReset) {
-      int dim = Integer.parseInt(tDim.getText().trim());
-      if (dim < 2) { dim = 2; tDim.setText(" " + dim); }
-      else if (dim > 100) { dim = 100; tDim.setText(" " + dim); }
-      mc.D = dim;
-      mc.init(mc.D, mc.N);
-      mc.clearData();
+    if (src == tDim || src == tOrder || src == bReset
+     || dim != mc.D || n != mc.N) {
+      if ( src == bReset ) {
+        if ( timer.isRunning() ) timer.stop();
+        bStart.setSelected(false);
+        bStart.setText("Start");
+      }
+      mc.init(dim, n);
       canvas.amat.unit(); // reset the view
-      canvas.gaugeByWidth( Math.pow(mc.N, 1./mc.D) );
+      canvas.bStarted = false;
     }
 
-    if (src == tOrder || src == bReset) {
-      int n = Integer.parseInt(tOrder.getText().trim());
-      if (n < 2) { n = 2; tOrder.setText(" " + n); }
-      else if (n > 62) { n = 62; tOrder.setText(" " + n); }
-      mc.N = n;
-      mc.init(mc.D, mc.N);
-      mc.clearData();
-      canvas.gaugeByWidth( Math.pow(mc.N, 1./mc.D) );
+    // change the mode of multidimensional scaling
+    if (src == bMDS) {
+      int mdsmode = 0;
+      mdsmode = Integer.parseInt( bMDS.getText().substring(9) );
+      mdsmode = (mdsmode + 1) % 4;
+      //System.out.println("" + mdsmode);
+      bMDS.setText( String.format("MDS mode %d", mdsmode) );
+      scheme.useMDS = ((mdsmode & 0x1) != 0);
+      canvas.useMDS = ((mdsmode & 0x2) != 0);
     }
 
-    if (src == bReset) {
-      if (timer.isRunning()) timer.stop();
-      bStart.setSelected(false);
-      bStart.setText("Start");
-      mc.init(mc.D, mc.N);
+    // in case the schematic diagram has not been initialized
+    // initialize it
+    if ( !scheme.bStarted ) {
+      scheme.newImgBuf();
+    }
+
+    // in case the canvas has not been initialized, initialize it
+    if ( !canvas.bStarted ) {
+      canvas.gauge();
     }
     repaint();
   }
@@ -931,8 +1612,189 @@ public class VirSampApp extends JApplet implements ActionListener
 
 
 
-/** Panel for drawing visual diagram */
-class MyVisDiagram extends JPanel
+/** Panel for drawing the schematic diagram */
+class MyScheme extends JPanel
+    implements MouseListener, MouseMotionListener, MouseWheelListener {
+  Image img;
+  Graphics imgG;
+  Dimension imgSize;
+  MCSamp mc;
+  public boolean bStarted = false;
+  public static final long serialVersionUID = 2L;
+
+  public MyScheme() {
+    super();
+    setBackground( Color.WHITE );
+  }
+
+  void setMC(MCSamp m) { mc = m; }
+
+  public void start() {
+    newImgBuf();
+    addMouseListener(this);
+    addMouseMotionListener(this);
+    addMouseWheelListener(this);
+  }
+
+  public void newImgBuf() {
+    if (getSize().width == 0 || getSize().height == 0) {
+      System.out.println("scheme not ready.\n");
+      return;
+    }
+    //System.out.println("scheme " + getSize().toString());
+    img = createImage(getSize().width, getSize().height);
+    if (imgG != null) { imgG.dispose(); }
+    imgG = img.getGraphics();
+    imgSize = getSize();
+    bStarted = true;
+  }
+
+  public void update(Graphics g) {
+    if (img == null)
+      g.clearRect(0, 0, getSize().width, getSize().height);
+    paintComponent(g);
+  }
+
+  private static final Color colorLine         = Color.BLACK;
+  private static final Color colorLargeCircle  = new Color(230, 230, 230);
+  private static final Atom atomNormal = new Atom(  0,   0, 255);
+  private static final Atom atomFailed = new Atom(255, 100, 100);
+  private static final Atom atomMoved  = new Atom(100, 255, 100);
+
+  boolean useMDS = false;
+
+  protected void paintComponent(Graphics g) {
+    super.paintComponent(g);
+    if ( img == null ) return;
+    if ( !imgSize.equals(getSize()) )
+      newImgBuf();
+    imgG.setColor( Color.WHITE );
+    int w = getSize().width;
+    int h = getSize().height;
+    imgG.fillRect(0, 0, w, h);
+
+    if ( mc == null) return;
+    int np = mc.N;
+
+    // make lines thicker
+    Graphics2D imgG2 = (Graphics2D) imgG;
+    int lineWidth = (int) (40./np);
+    if (lineWidth > 4) lineWidth = 4;
+    else if (lineWidth < 1) lineWidth = 1;
+    imgG2.setStroke(new BasicStroke(lineWidth));
+
+    int rad = 400 / np; // radius of the balls
+    if (rad > 40) rad = 40;
+    int [][] xy;
+
+    if (useMDS) {
+      xy = getMDS(np, rad);
+    } else {
+      int radius = (int) (w/2 - rad - 5); // the big circle
+      xy = new int [np][2];
+      // compute the 2D coordinates around the circle
+      for (int i = 0; i < np; i++) {
+        double theta = 2*PI*i/np - PI*.5;
+        xy[i][0] = (int) (w/2 + radius * cos(theta) + .5);
+        xy[i][1] = (int) (h/2 + radius * sin(theta) + .5);
+      }
+      // draw the big circle
+      imgG.setColor( colorLargeCircle );
+      imgG.drawOval(w/2 - radius, h/2 - radius, 2*radius, 2*radius);
+    }
+
+    // draw connections
+    imgG.setColor( colorLine );
+    for (int i = 0; i < np; i++) {
+      for (int j = i + 1; j < np; j++) {
+        if ( mc.g.isLinked(i, j) ) {
+          // draw a line between i and j
+          imgG2.drawLine(xy[i][0], xy[i][1], xy[j][0], xy[j][1]);
+        }
+      }
+    }
+
+    // draw the small circles
+    for (int i = 0; i < np; i++) {
+      Atom atom = atomNormal;
+      if (i == mc.moveAtom)
+        atom = mc.moveAcc ? atomMoved : atomFailed;
+      atom.paint(imgG, xy[i][0], xy[i][1], 15, rad);
+    }
+
+    g.drawImage(img, 0, 0, this);
+  }
+
+  /** Get the best coordinates from multidimensional scaling */
+  int [][] getMDS(int np, int rad) {
+    double [][] xy0 = new double [np][2];
+    int [][] xy = new int [np][2];
+    for (int i = 0; i < np; i++) {
+      double theta = 2*PI*i/np - PI*.5;
+      xy0[i][0] = cos(theta);
+      xy0[i][1] = sin(theta);
+    }
+    MDS mds = new MDS(mc.x);
+    mds.min0(xy0, 0);
+    int w = getSize().width, h = getSize().height;
+    int margin = 5 + rad;
+
+    double xmin = 0, xmax = 0, ymin = 0, ymax = 0;
+    for (int i = 0; i < np; i++) {
+      if (xy0[i][0] > xmax) xmax = xy0[i][0];
+      else if (xy0[i][0] < xmin) xmin = xy0[i][0];
+      if (xy0[i][1] > ymax) ymax = xy0[i][1];
+      else if (xy0[i][1] < ymin) ymin = xy0[i][1];
+    }
+    xmax = max(xmax, -xmin);
+    ymax = max(ymax, -ymin);
+
+    double scl = min((.5 * w - margin) / xmax, (.5 * h - margin) / ymax);
+    for (int i = 0; i < np; i++) {
+      xy[i][0] = (int) (w / 2 + scl * xy0[i][0]);
+      xy[i][1] = (int) (h / 2 + scl * xy0[i][1]);
+    }
+    xy0 = null;
+    return xy;
+  }
+
+  /** Event handling */
+  public void mouseClicked(MouseEvent e) { }
+  public void mousePressed(MouseEvent e) {
+    //prevx = e.getX();
+    //prevy = e.getY();
+    // consume this event so that it will not be processed
+    // in the default manner
+    e.consume();
+  }
+  public void mouseReleased(MouseEvent e) { }
+  public void mouseEntered(MouseEvent e) { }
+  public void mouseExited(MouseEvent e) { }
+
+  public void mouseDragged(MouseEvent e) {
+    //int x = e.getX();
+    //int y = e.getY();
+    //double xtheta = 360.0 * (prevy - y) / getSize().height;
+    //double ytheta = 360.0 * (x - prevx) / getSize().width;
+    repaint();
+    //prevx = x;
+    //prevy = y;
+    e.consume();
+  }
+
+  public void mouseMoved(MouseEvent e) { }
+
+  public void mouseWheelMoved(MouseWheelEvent e) {
+    //int notches = e.getWheelRotation();
+    //repaint();
+    e.consume();
+  }
+}
+
+
+
+/** Panel for drawing particles */
+class MyCanvas extends JPanel
     implements MouseListener, MouseMotionListener, MouseWheelListener {
   Image img;
   Graphics imgG;
@@ -947,6 +1809,7 @@ class MyVisDiagram extends JPanel
   String message;
   XYZModel model;
   MCSamp mc;
+  public boolean bStarted = false;
 
   public static final long serialVersionUID = 2L;
 
@@ -956,25 +1819,61 @@ class MyVisDiagram extends JPanel
 
   void setMC(MCSamp m) { mc = m; }
 
-  private double preferredWidth = 2.0;
+  boolean useMDS = false; // use multidimensional scaling to transform coordinates
 
-  /** determine scaling factors based on the given width */
-  void gaugeByWidth(double w) {
-    preferredWidth = w;
+  /** Get 3D position */
+  double [][] getPos3D() {
+    int n = mc.N, D = mc.D;
+    double r[][] = new double[n + 1][3];
 
+    mc.rmcom();
+
+    // copy the direct coordinates
+    for (int i = 0; i < n; i++) {
+      r[i][0] = mc.x[i][0];
+      r[i][1] = mc.x[i][1];
+      r[i][2] = (D == 2) ? 0.0 : mc.x[i][2];
+    }
+    // the last is the trial position
+    double [] xlast0 = mc.moveAcc ? mc.xo : mc.xi;
+    r[n][0] = xlast0[0];
+    r[n][1] = xlast0[1];
+    r[n][2] = (D == 2) ? 0 : xlast0[2];
+
+    if ( D > 3 && useMDS ) {
+      double r0[][] = new double[n + 1][D];
+      double [] xlast = mc.moveAcc ? mc.xo : mc.xi;
+
+      for (int i = 0; i < n; i++)
+        for (int k = 0; k < D; k++)
+          r0[i][k] = mc.x[i][k];
+      for (int k = 0; k < D; k++)
+        r0[n][k] = xlast[k];
+
+      MDS mds = new MDS(r0);
+      mds.min0(r, 0);
+    }
+    return r;
+  }
+
+  /** Copy coordinates from MCSamp to XYZModel */
+  public void update() {
+    model.updateXYZ( getPos3D() );
+    model.moveAtom = mc.moveAtom;
+    model.moveAcc = mc.moveAcc;
+  }
+
+  /** Determine scaling factors based on the current coordinates */
+  void gauge() {
+    int dim = useMDS ? 3 : mc.D;
+    double w = 1.5*Math.pow(mc.N, 1./dim);
     if (model == null)
-      model = new XYZModel( mc.getXYZ() );
-
+      model = new XYZModel( getPos3D() );
     double f1 = getSize().width  / w;
     double f2 = getSize().height / w;
     real2scrn = 0.7f * (f1 < f2 ? f1 : f2);
     System.out.println("real2scrn " + real2scrn + " w " + w);
     newImgBuf();
-  }
-
-  /** Determine scaling factors based on the current coordinates */
-  void gauge() {
-    gaugeByWidth(preferredWidth);
   }
 
   public void start() {
@@ -984,7 +1883,7 @@ class MyVisDiagram extends JPanel
     addMouseWheelListener(this);
   }
 
-  private void newImgBuf() {
+  public void newImgBuf() {
     if (getSize().width == 0 || getSize().height == 0) {
       System.out.println("canvas not ready.\n");
       return;
@@ -994,6 +1893,7 @@ class MyVisDiagram extends JPanel
     if (imgG != null) { imgG.dispose(); }
     imgG = img.getGraphics();
     imgSize = getSize();
+    bStarted = true;
   }
 
   public void update(Graphics g) {
@@ -1030,7 +1930,7 @@ class MyVisDiagram extends JPanel
     }
   }
 
-  /* event handling */
+  /** Event handling */
   public void mouseClicked(MouseEvent e) { }
   public void mousePressed(MouseEvent e) {
     prevx = e.getX();
@@ -1062,144 +1962,8 @@ class MyVisDiagram extends JPanel
 
   public void mouseWheelMoved(MouseWheelEvent e) {
     int notches = e.getWheelRotation();
-    if ((zoomscale -= 0.05f*notches) < 0.09999f) zoomscale = 0.1f;
-    repaint();
-  }
-}
-
-
-
-/** Panel for drawing particles */
-class MyCanvas extends JPanel implements MouseListener, MouseMotionListener, MouseWheelListener {
-  Image img;
-  Graphics imgG;
-  Dimension imgSize;
-
-  double real2scrn;
-  double xtheta, ytheta;
-  double zoomscale = 1.0f;
-  public Matrix3D amat = new Matrix3D(); // view matrix
-  private Matrix3D tmat = new Matrix3D(); // temporary matrix
-  int prevx, prevy;
-  String message;
-  XYZModel model;
-  MCSamp mc;
-
-  public static final long serialVersionUID = 2L;
-
-  public MyCanvas() {
-    super();
-  }
-
-  void setMC(MCSamp m) { mc = m; }
-
-  private double preferredWidth = 2.0;
-
-  /** determine scaling factors based on the given width */
-  void gaugeByWidth(double w) {
-    preferredWidth = w;
-
-    if (model == null)
-      model = new XYZModel( mc.getXYZ() );
-
-    double f1 = getSize().width  / w;
-    double f2 = getSize().height / w;
-    real2scrn = 0.7f * (f1 < f2 ? f1 : f2);
-    System.out.println("real2scrn " + real2scrn + " w " + w);
-    newImgBuf();
-  }
-
-  /** Determine scaling factors based on the current coordinates */
-  void gauge() {
-    gaugeByWidth(preferredWidth);
-  }
-
-  public void start() {
-    gauge();
-    addMouseListener(this);
-    addMouseMotionListener(this);
-    addMouseWheelListener(this);
-  }
-
-  private void newImgBuf() {
-    if (getSize().width == 0 || getSize().height == 0) {
-      System.out.println("canvas not ready.\n");
-      return;
-    }
-    //System.out.println("canvas " + getSize().toString());
-    img = createImage(getSize().width, getSize().height);
-    if (imgG != null) { imgG.dispose(); }
-    imgG = img.getGraphics();
-    imgSize = getSize();
-  }
-
-  public void update(Graphics g) {
-    if (img == null)
-      g.clearRect(0, 0, getSize().width, getSize().height);
-    paintComponent(g);
-  }
-
-  protected void paintComponent(Graphics g) {
-    super.paintComponent(g);
-    if (model != null) {
-      model.mat.unit();
-      model.mat.mult(amat);
-      // real2scrn is the default scaling from real coordinate
-      // to the screen coordinats, it must be multiplied by
-      // the zoom scale to get the actual scaling
-      double real2scrn1 = real2scrn * zoomscale;
-      model.mat.scale(real2scrn1, real2scrn1, real2scrn1);
-      model.mat.translate(getSize().width / 2, getSize().height / 2, 8);
-      model.real2scrn = real2scrn1; // tell the XYZModel the scaling factor
-      model.transformed = false;
-      if ( img != null ) {
-        if ( !imgSize.equals(getSize()) )
-          newImgBuf();
-        imgG.setColor(Color.BLACK);
-        imgG.fillRect(0, 0, getSize().width, getSize().height);
-        model.paint(imgG);
-        g.drawImage(img, 0, 0, this);
-      } else
-        model.paint(g);
-    } else if ( message != null ) {
-      g.drawString("Error in model:", 3, 20);
-      g.drawString(message, 10, 40);
-    }
-  }
-
-  /* event handling */
-  public void mouseClicked(MouseEvent e) { }
-  public void mousePressed(MouseEvent e) {
-    prevx = e.getX();
-    prevy = e.getY();
-    // consume this event so that it will not be processed
-    // in the default manner
-    e.consume();
-  }
-  public void mouseReleased(MouseEvent e) { }
-  public void mouseEntered(MouseEvent e) { }
-  public void mouseExited(MouseEvent e) { }
-
-  public void mouseDragged(MouseEvent e) {
-    int x = e.getX();
-    int y = e.getY();
-    tmat.unit();
-    double xtheta = 360.0 * (prevy - y) / getSize().height;
-    double ytheta = 360.0 * (x - prevx) / getSize().width;
-    tmat.xrot(xtheta);
-    tmat.yrot(ytheta);
-    amat.mult(tmat);
-    repaint();
-    prevx = x;
-    prevy = y;
-    e.consume();
-  }
-
-  public void mouseMoved(MouseEvent e) { }
-
-  public void mouseWheelMoved(MouseWheelEvent e) {
-    int notches = e.getWheelRotation();
-    if ((zoomscale -= 0.05f*notches) < 0.09999f) zoomscale = 0.1f;
+    if ((zoomscale -= 0.05f*notches) < 0.09999f)
+      zoomscale = 0.1f;
     repaint();
   }
 }
@@ -1208,8 +1972,8 @@ class MyCanvas extends JPanel implements MouseListener, MouseMotionListener, Mou
 
 /** A set of atoms with 3D coordinates */
 class XYZModel {
-  double realxyz[]; // 3D real coordinates 3*np
-  int scrnxyz[];  // 3D screen coordinates in pixels
+  double realxyz[][]; // 3D real coordinates 3*np
+  int scrnxyz[][];  // 3D screen coordinates in pixels
                     // only the first two dimensions are used in drawing
   int zorder[]; // z-order, larger is closer to the viewer
   int np = -1;
@@ -1224,35 +1988,38 @@ class XYZModel {
   int moveAtom = -1;
   boolean moveAcc = false;
 
-  /* atom types */
-  static Atom atom_normal = new Atom(  0,   0, 255);
+  // various atom types
+  static Atom atomNormal = new Atom(  0,   0, 255);
   // failed move
-  static Atom atom_trial  = new Atom(255,   0,   0);  // failed trial postion
-  static Atom atom_failed = new Atom( 50,   0, 100);  // new and old position
+  static Atom atomTrial  = new Atom(255,   0,   0);  // failed trial postion
+  static Atom atomFailed = new Atom( 50,   0, 100);  // new and old position
   // successful move
-  static Atom atom_moved  = new Atom(  0, 255,   0);  // trial and new position
-  static Atom atom_oldpos = new Atom(  0, 100, 100);  // old position
+  static Atom atomMoved  = new Atom(  0, 255,   0);  // trial and new position
+  static Atom atomOldpos = new Atom(  0, 100, 100);  // old position
 
-  /** constructor from the real coordinates */
-  XYZModel(double r[]) {
+  /** Constructor from the real coordinates */
+  XYZModel(double r[][]) {
     mat = new Matrix3D();
     updateXYZ(r);
   }
 
   /** Refresh coordinates */
-  void updateXYZ(double r[]) {
-    int n = r.length/3;
+  void updateXYZ(double r[][]) {
+    int n = r.length;
     if (n != np) {
       np = n;
-      realxyz = new double[np * 3];
-      scrnxyz = new int[np * 3];
+      realxyz = new double[np][3];
+      scrnxyz = new int[np][3];
       zorder = new int[np];
     }
-    for (int i = 0; i < 3*np; i++)
-      realxyz[i] = r[i];
+    for (int i = 0; i < np; i++) {
+      realxyz[i][0] = r[i][0];
+      realxyz[i][1] = r[i][1];
+      realxyz[i][2] = r[i][2];
+    }
     transformed = false;
     //for (int i = 0; i < np; i++)
-    //  System.out.println("i " + i + ": " + r[3*i] + " " + r[3*i+1] + " " + r[3*i+2]);
+    //  System.out.println("i " + i + ": " + r[i][0] + " " + r[i][1] + " " + r[i][2]);
   }
 
   /** Paint this model to the graphics context `g' */
@@ -1268,12 +2035,13 @@ class XYZModel {
     // bubble sort z-order
     // zorder[0] is the fartherest from the viewer
     // zorder[np - 1] is the nearest to the viewer
-    for (int i = 0; i < np; i++) zorder[i] = i;
+    for (int i = 0; i < np; i++)
+      zorder[i] = i;
     for (int i = 0; i < np; i++) {
       // find the particle with the smallest z
       int jm = i, k;
       for (int j = i + 1; j < np; j++)
-        if (scrnxyz[3*zorder[j] + 2] < scrnxyz[3*zorder[jm] + 2])
+        if (scrnxyz[zorder[j]][2] < scrnxyz[zorder[jm]][2])
           jm = j;
       if (jm != i) {
         k = zorder[i];
@@ -1282,8 +2050,8 @@ class XYZModel {
       }
     }
 
-    double zmin = scrnxyz[3*zorder[0] + 2];
-    double zmax = scrnxyz[3*zorder[np - 1] + 2];
+    double zmin = scrnxyz[zorder[0]][2];
+    double zmax = scrnxyz[zorder[np - 1]][2];
     //System.out.println("" + zmin + " " + zmax);
 
     // radius in pixels
@@ -1295,23 +2063,23 @@ class XYZModel {
       if (zmin == zmax) { // two-dimensional case
         greyscale = 15;
       } else {
-        greyscale = (int) (15.999 * (scrnxyz[3*i + 2] - zmin) / (zmax - zmin));
+        greyscale = (int) (15.999 * (scrnxyz[i][2] - zmin) / (zmax - zmin));
       }
       // scrnxyz[3*i] and scrnxyz[3*i + 1] are the (x, y) coordinates on screen
-      Atom atom = atom_normal;
+      Atom atom = atomNormal;
       if ( i == moveAtom )
-        atom = moveAcc ? atom_moved : atom_failed;
+        atom = moveAcc ? atomMoved : atomFailed;
       if ( i == np - 1 ) {
         if ( moveAtom < 0 ) {
           atom = null;
         } else if ( moveAcc ) { // the original position before pos
-          atom = atom_oldpos;
+          atom = atomOldpos;
         } else { // the failed trial position
-          atom = atom_trial;
+          atom = atomTrial;
         }
       }
       if ( atom != null )
-        atom.paint(g, scrnxyz[3*i], scrnxyz[3*i + 1], greyscale, radius);
+        atom.paint(g, scrnxyz[i][0], scrnxyz[i][1], greyscale, radius);
     }
   }
 }
@@ -1328,7 +2096,7 @@ class Atom {
   private static int maxr; // maximal intensity
 
   private static byte data[];
-  static { /* data[] is a bitmap image of the ball of radius R */
+  static { // data[] is a bitmap image of the ball of radius R
     data = new byte[R * 2 * R * 2];
     for (int Y = -R; Y < R; Y++) {
       int x0 = (int) (Math.sqrt(R * R - Y * Y) + 0.5);
@@ -1349,7 +2117,6 @@ class Atom {
   private Image balls[]; // 0..nBalls-1, at different z distances
   public double ballSize; // ball size
 
-
   /** Constructor */
   Atom(int r, int g, int b) {
     setRGB(r, g, b);
@@ -1361,7 +2128,7 @@ class Atom {
     makeBalls();
   }
 
-
+  /** Linearly interpolate colors */
   private int blend(int fg, int bg, double fgfactor) {
     return (int) (bg + (fg - bg) * fgfactor);
   }
@@ -1405,7 +2172,6 @@ class Atom {
     if (balls == null) makeBalls();
     Image img = balls[r]; // r = [0..15]
 
-    //radius *= (36. + r) / (36. + 15); // make remote balls smaller
     int size = (int) (radius * 2 + .5);
     gc.drawImage(img, x - size/2, y - size/2, size, size, null);
     //System.out.println("" + x + " " + y + " " + r + " " + radius);
@@ -1530,16 +2296,178 @@ class Matrix3D {
     zo = 0; zx = 0; zy = 0; zz = 1;
   }
 
-  /** Transform np points from v into tv.  v contains the input
-   coordinates in floating point.  Three successive entries in
-   the array constitute a point.  tv ends up holding the transformed
-   points as integers; three successive entries per point */
-  void transform(double v[], int tv[], int np) {
+  /** Transform np points from v into tv.
+   *  v contains the input coordinates in floating point.
+   *  Three successive entries in the array constitute a point.
+   *  tv ends up holding the transformed points as integers;
+   *  three successive entries per point */
+  void transform(double v[][], int tv[][], int np) {
+    // np can be different from v.length
     for (int i = 0; i < np; i++) {
-      double x = v[3*i], y = v[3*i + 1], z = v[3*i + 2];
-      tv[3*i]     = (int) (xx * x + xy * y + xz * z + xo);
-      tv[3*i + 1] = (int) (yx * x + yy * y + yz * z + yo);
-      tv[3*i + 2] = (int) (zx * x + zy * y + zz * z + zo);
+      double x = v[i][0], y = v[i][1], z = v[i][2];
+      tv[i][0] = (int) (xx * x + xy * y + xz * z + xo);
+      tv[i][1] = (int) (yx * x + yy * y + yz * z + yo);
+      tv[i][2] = (int) (zx * x + zy * y + zz * z + zo);
     }
   }
 }
+
+
+
+/** Multidimensional scaling */
+class MDS {
+  int N = -1;
+  double [][] mat;
+
+  /** Constructor from the coordinates */
+  MDS(double x[][]) {
+    N = x.length;
+    mat = new double[N][N];
+    getDisMat(mat, x);
+  }
+
+  /** Compute the distance matrix */
+  void getDisMat(double [][] m, double x[][]) {
+    int D = x[0].length;
+    for (int i = 0; i < N - 1; i++) {
+      for (int j = i + 1; j < N; j++) {
+        double d2 = 0;
+        for (int k = 0; k < D; k++) {
+          double dx = x[i][k] - x[j][k];
+          d2 += dx * dx;
+        }
+        m[i][j] = m[j][i] = sqrt(d2);
+      }
+    }
+  }
+
+  int ITER_MAX = 1000;
+
+  /** Get coordinates */
+  double min0(double y[][], double tol) {
+    if (y.length != N) {
+      System.out.printf("dimension mismatch %d vs %d\n", y.length, N);
+      System.exit(1);
+    }
+    int D = y[0].length;
+    int npr = N * (N - 1) / 2;
+
+    if (tol <= 0) tol = 1e-4;
+
+    double [][] f  = new double [N][D];
+    double [][] yp = new double [N][D];
+    double [][] fp = new double [N][D];
+    double ene = getForce(y, f);
+    double dt = 0.1;
+    int iter;
+
+    for (iter = 0; iter < ITER_MAX; iter++) {
+      double enep = ene;
+      for (int i = 0; i < N; i++) {
+        for (int j = 0; j < D; j++) {
+          // backup the force
+          yp[i][j] = y[i][j];
+          fp[i][j] = f[i][j];
+
+          // move along the force
+          y[i][j] += f[i][j] * dt;
+        }
+      }
+      ene = getForce(y, f);
+      if (ene > enep) {
+        dt *= 0.7;
+        // recover the force
+        for (int i = 0; i < N; i++) {
+          for (int j = 0; j < D; j++) {
+            y[i][j] = yp[i][j];
+            f[i][j] = fp[i][j];
+          }
+        }
+      } else {
+        if (abs(ene - enep) < tol * npr * dt)
+          break;
+        dt *= 1.03f; // attempt to increase the step size
+      }
+    }
+    if (iter >= ITER_MAX) {
+      System.out.println("failed to reach convergence in " + iter + " steps");
+    }
+    f = null;
+    fp = null;
+    yp = null;
+    rmcom(y);
+    //print(y);
+    return ene;
+  }
+
+  final double DMIN = 1e-6;
+
+  /** Compute the force and energy */
+  double getForce(double y[][], double f[][]) {
+    int D = y[0].length;
+
+    // clear the force
+    for (int i = 0; i < N; i++)
+      for (int k = 0; k < D; k++)
+        f[i][k] = 0;
+
+    double ene = 0;
+    double [] dy = new double [D];
+    // compute the pair difference
+    for (int i = 0; i < N; i++) {
+      for (int j = i + 1; j < N; j++) {
+        double dy2 = 0;
+        for (int k = 0; k < D; k++) {
+          dy[k] = y[i][k] - y[j][k];
+          dy2 += dy[k] * dy[k];
+        }
+        double dij = sqrt(dy2);
+        double dref = mat[i][j];
+        double dsc = dij/dref - 1;
+        ene += dsc * dsc;
+        if (dij < DMIN) dij = DMIN;
+        for (int k = 0; k < D; k++) {
+          dy[k] *= -(dij - dref) / (dref * dref * dij);
+          f[i][k] += dy[k];
+          f[j][k] -= dy[k];
+        }
+      }
+    }
+    dy = null;
+    return ene;
+  }
+
+  /** Remove the center of mass */
+  void rmcom(double x[][]) {
+    int D = x[0].length;
+    int N = x.length;
+
+    for (int k = 0; k < D; k++) {
+      double xc = 0;
+      for (int i = 0; i < N; i++)
+        xc += x[i][k];
+      xc /= N;
+      for (int i = 0; i < N; i++)
+        x[i][k] -= xc;
+    }
+  }
+
+  /** Print coordinates */
+  void print(double x[][]) {
+    int D = x[0].length;
+    int N = x.length;
+
+    for (int i = 0; i < N; i++) {
+      System.out.printf("%2d: ", i);
+      for (int j = 0; j < D; j++)
+        System.out.printf("%+8.3f ", x[i][j]);
+      System.out.println("");
+    }
+  }
+
+  /** Free memory */
+  void finish() {
+    mat = null;
+  }
+}
+

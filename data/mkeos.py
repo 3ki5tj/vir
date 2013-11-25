@@ -33,7 +33,7 @@ def getcompfac(vir, rho):
   while n >= 2:
     bPrho = rho * (vir[n] + bPrho)
     n -= 1
-  return bPrho 
+  return bPrho
 
 
 

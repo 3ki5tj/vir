@@ -16,7 +16,6 @@ char *fninp4 = NULL;
 char *fnout = NULL;
 int binary = -1;
 int check = 1; /* default checking level */
-int checkdup = 0;
 int verbose = 0;
 
 
@@ -44,7 +43,6 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-o", NULL, &fnout,    "output database");
   argopt_add(ao, "-b", "%d", &binary,   "output format 1: binary, 0: text, -1: same as the input");
   argopt_add(ao, "-c", "%d", &check,    "checking, 0: disable, 1: biconnectivity, 2: fb and nr are correct");
-  argopt_add(ao, "-d", "%b", &checkdup, "check duplications");
   argopt_add(ao, "-v", "%d", &verbose,  "verbose");
   argopt_addhelp(ao, "-h");
   argopt_addhelp(ao, "--help");
@@ -148,7 +146,7 @@ static int load(const char *fninp)
     }
     DGHASH_GETID(hashid, it->c, hash->cwords, hash->bits);
     ls = hash->ls + hashid;
-    if ( checkdup ) {
+    if ( check ) {
       ls1 = dgls_find(ls, it->c, hash->cwords, &pos);
       if (ls1 != NULL) {
         if (dup == 0)

@@ -1,0 +1,1 @@
+../../../../prog/samp/ring.ma

@@ -1089,6 +1089,7 @@ def guessdirs(n):
   # try to search directories of order n
   dirs = [d for d in glob.glob("n%d*" % n) if os.path.isdir(d)]
   dirs += [d for d in glob.glob("n%d*/mic*" % n) if os.path.isdir(d)]
+  dirs += [d for d in glob.glob("n%d*/n%dmic*" % (n, n)) if os.path.isdir(d)]
   dirs = list( set( dirs ) )
   dirs.sort()
   if len(dirs) == 0:
@@ -1203,10 +1204,12 @@ def checkdirfn(dir, fn):
       if dird != fnd:
         print "file name %s (D = %d) incompatible with the dir name %s (D = %d)" % (
             fn, fnd, dir, dird)
-        raise Exception
+        return 1
 
   # check orders
-  mdir = re.search("n([0-9]+)", dir)
+  mdir = re.search("n([0-9]+)mic", dir)
+  if not mdir:
+    mdir = re.search("n([0-9]+)", dir)
   if mdir:
     dirn = int( mdir.group(1) )
     mfn = re.search("n([0-9]+)", fn)
@@ -1215,11 +1218,13 @@ def checkdirfn(dir, fn):
       if dirn != fnn:
         print "file name %s (n = %d) incompatible with the dir name %s (n = %d)" % (
             fn, fnn, dir, dirn)
-        raise Exception
+        return 1
+
+  return 0
 
 
 
-def sumdat_wrapper(fninp, dir = None, sum3 = 0):
+def sumdat_wrapper(fninp, dir = None, sum3 = 0, checkdirname = True):
   ''' summarize data for fninp under a single directory '''
 
   dir0 = os.getcwd()
@@ -1228,16 +1233,21 @@ def sumdat_wrapper(fninp, dir = None, sum3 = 0):
   fnbas = getfnbas(fninp)
   if fnbas:
     # check if the file name is compatible with directory name
-    checkdirfn(os.getcwd(), fnbas)
+    if checkdirname and checkdirfn(os.getcwd(), fnbas) != 0:
+      if dir:
+        os.chdir(dir0)
+      return None, None, None
   if not fnbas: # no basic file name
     if verbose:
       print "cannot find a .dat file under %s" % dir
-    if dir: os.chdir(dir0)
+    if dir:
+      os.chdir(dir0)
     return None, None, None
   elif not os.path.exists(fnbas):
     if verbose:
       print "cannot find %s, dir %s %s" % (fnbas, dir, dir0)
-    if dir: os.chdir(dir0)
+    if dir:
+      os.chdir(dir0)
     return None, None, None
 
   # obtain slave files from the basic file
@@ -1338,5 +1348,5 @@ if __name__ == "__main__":
     if len(fns):
       for fn in fns: sumdat_wrapper(fn)
     else:
-      sumdat_wrapper(None)
+      sumdat_wrapper(None, checkdirname = False)
 

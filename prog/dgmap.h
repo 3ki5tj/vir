@@ -44,7 +44,7 @@ INLINE int dgmap_getperm(int n, int **pp)
 #pragma omp threadprivate(st, used)
 
   for (np = 1, i = 1; i <= n; i++) np *= i;
-  npp = np * n;
+  npp = np * n; /* each permutation needs n numbers */
   xnew(*pp, npp);
   /* add all permutations of the diagram */
   for (i = 0; i < n; i++) {
@@ -60,6 +60,7 @@ INLINE int dgmap_getperm(int n, int **pp)
         (*pp)[ipp++] = st[i];
       }
     } else {
+      /* select the number on level top */
       for (i = st[top]; ++i < n; )
         if ( !used[i] ) break;
       if (i < n) {
@@ -81,8 +82,11 @@ INLINE int dgmap_getperm(int n, int **pp)
 INLINE int dgmap_init(dgmap_t *m, int n)
 {
   dgword_t c, c1, ng, *masks, *ms;
-  int ipm, npm, *pm, i, j, ipr, npr, sz, gid;
+  int ipm, npm, *pm, i, j, ipr, npr, gid;
   clock_t t0;
+  /* number of unique diagrams */
+  static int nfirst[DGMAP_NMAX + 1] = {1,
+    1, 2, 4, 11, 34, 156, 1044, 12346};
 
   die_if (n > DGMAP_NMAX || n <= 0, "bad n %d\n", n);
   /* if any thread sees `m->ng > 0' it is already initialized */
@@ -108,7 +112,7 @@ INLINE int dgmap_init(dgmap_t *m, int n)
       fprintf(stderr, "%4d: dgmap allocated %gMB for n %d\n",
           inode, (sdgword_t) ng * sizeof(m->map[0]) / (1024.*1024), n);
       for (c = 0; c < ng; c++) m->map[c] = -1;
-      xnew(m->first, sz = 1024);
+      xnew(m->first, nfirst[n]);
 
       if (n == 1) {
         m->map[0] = 0;
@@ -118,7 +122,7 @@ INLINE int dgmap_init(dgmap_t *m, int n)
 
       /* compute all permutations */
       npm = dgmap_getperm(DG_N_, &pm);
-      /* for each permutation compute the mask of each particle pair */
+      /* for each permutation compute the mask of each vertex pair */
       xnew(masks, npm * npr);
       for (ipm = 0; ipm < npm; ipm++)
         for (ipr = 0, i = 0; i < DG_N_ - 1; i++)
@@ -132,7 +136,7 @@ INLINE int dgmap_init(dgmap_t *m, int n)
       /* loop over all diagrams */
       for (gid = 0, c = 0; c < ng; c++) {
         if (m->map[c] >= 0) continue;
-        if (gid >= sz) xrenew(m->first, sz += 1024);
+        die_if (gid >= nfirst[n], "too many diagrams %d\n", gid);
         m->first[gid] = c;
         /* add all permutations of the diagram */
         for (ms = masks, ipm = 0; ipm < npm; ipm++) {

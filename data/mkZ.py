@@ -90,7 +90,7 @@ def mkZ(fnout):
   for dim in range(2, 1000):
     src += dodim(dim)
 
-  # write the output fnout 
+  # write the output fnout
   if os.path.exists(fnout):
     src0 = open(fnout).read()
     if src0 == src:

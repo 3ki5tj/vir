@@ -1,0 +1,172 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+<title>Virial coefficients of hard-sphere fluids</title>
+<script type="text/javascript" src="js/default.js"></script>
+<link type="text/css" rel="stylesheet" href="css/default.css">
+</head>
+<body>
+
+
+<h1>Virial coefficients of hard-sphere fluids</h1>
+
+<!--
+<div class="p">
+  This page is about an algorithm of computing
+  the virial coefficients of hard-sphere fluids.
+</div>
+-->
+
+
+
+<h2>Introduction</h2>
+
+<div class="p">
+  To be constructed
+</div>
+
+
+<h2>Programs</h2>
+
+
+<h3>Java demonstration</h3>
+
+
+<div class="p">
+  <img class="javaimg" src="prog/java/virsampjava.png"
+    alt="VirSampApp" width="801" height="525">
+  <!--
+  <applet code = 'VirSampApp'
+    archive = 'VirSampApp.jar' width = 801 height = 525>
+  </applet>
+  -->
+  Tips:
+  <ul>
+    <li>
+      Always hit &ldquo;Enter&rdquo; after changing any parameter
+      to make sure it takes effect.
+    </li>
+    <li>
+      The maximal dimension is 100, and the maximal order is 63.
+    </li>
+    <li>
+      Click &ldquo;MDS mode 0&rdquo; to change the representations
+      in the left and right panels.
+      In modes 1 and 3, the left panel uses multidimensional scaling.
+      In modes 2 and 3, the right panel uses multidimensional scaling.
+    </li>
+    <li>
+      Click the right panel and scroll the mouse to change the scale
+      there; drag the mouse to rotate the structure.
+    </li>
+  </ul>
+
+</div>
+<div class="p">
+  The source code of the above applet can be downloaded here
+  <a href="prog/java/VirSampApp.java">VirSampApp.java</a>.
+  It was adapted from the C-based source code below.
+  Although not fully-optimized, it offers a convenient to tool make rough estimates.
+</div>
+
+
+
+<h3>Complete source code</h3>
+
+<div class="p">
+  The complete C-based source code can be downloaded here
+  <a href="prog/c/vircode.zip">vircode.zip</a>.
+  The package also contains several auxiliary Mathematica and Python scripts.
+</div>
+
+
+
+
+<h2>References</h2>
+
+<h3>Background</h3>
+
+<ul>
+  <li>
+    J.-P. Hansen, and I. R. McDonald,
+    &ldquo;Theory of Simple Liquids,&rdquo;
+    3rd Edition, Amsterdam, Academic Press, 2007.
+  </li>
+</ul>
+
+<h3>Key references</h3>
+<ul>
+
+  <li>
+    N. Metropolis, A. W. Rosenbluth, M. N. Rosenbluth,
+    A. H. Teller, and E. Teller,
+    <i>Equation of state calculations by fast computing machines</i>,
+    The Journal of Chemical Physics <b>21</b>, 1087-1092, 1953.
+  </li>
+
+  <li>
+    F. H. Ree and W. G. Hoover,
+    <i>Fifth and Sixth Virial Coefficients for Hard Spheres and Hard Disks</i>,
+    The Journal of Chemical Physics <b>40</b>, 939-950, 1964.
+  </li>
+
+  <li>
+    J. K. Singh and D. A. Kofke,
+    <i>Mayer Sampling: Calculation of Cluster Integrals using Free-Energy Perturbation Methods</i>,
+    Physical Review Letters <b>92</b>, 220601, 2004
+  </li>
+
+  <li>
+    N. Clisby and B. McCoy,
+    <i>Ninth and Tenth Order Virial Coefficients for Hard Spheres in D Dimensions</i>,
+    Journal of Statistical Physics <b>122</b>, 15-57, 2006
+  </li>
+
+  <li>
+    R. J. Wheatley,
+    <i>Calculation of High-Order Virial Coefficients with Applications to Hard and Soft Spheres</i>,
+    Physical Review Letters <b>110</b>, 200601, 2013
+  </li>
+
+
+
+</ul>
+
+<h3>Exact solution under the Percus-Yevick closure</h3>
+
+<ul>
+  <li>
+    M. S. Wertheim,
+    <i>Exact Solution of the Percus-Yevick Integral Equation for Hard Spheres</i>,
+    Physical Review Letters, <b>10</b>, 321-323, 1963.
+  </li>
+
+  <li>
+    E. Thiele,
+    <i>Equation of State for Hard Spheres</i>,
+    The Journal of Chemical Physics, <b>39</b>, 474-479, 1963.
+  </li>
+
+  <li>
+    R. J. Baxter,
+    <i>Ornstein-Zernike relation for a disordered fluid</i>,
+    Australian Journal of Physics, <b>21</b>, 563-569, 1968.
+  </li>
+
+  <li>
+    E. Leutheusser,
+    <i>Exact solution of the Percus-Yevick equation for a hard-core fluid in odd dimensions</i>,
+    Physica, <b>127A</b>, 667-676, 1984.
+  </li>
+
+</ul>
+
+
+{{ prim_ref }}
+
+{{ go_home }}
+{{ last_update }}
+
+</body>
+</html>

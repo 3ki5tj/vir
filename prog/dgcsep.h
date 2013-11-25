@@ -207,14 +207,17 @@ INLINE dgword_t dg_csep2(const dg_t *g)
   DG_DEFMASKN_()
   dgword_t c, b, bi, maski;
 
+  /* loop for the first vertex */
   for (i = 1; i < DG_N_; i++) {
     bi = MKBIT(i);
     maski = DG_MASKN_ ^ bi;
     c = g->c[i] & MKBITSMASK(i);
+    /* loop over vertices connected to i
+     * and with indices less than i */
     for (; c; c ^= b) {
       b = c & (-c);
       if ( !dg_connectedvs(g, maski ^ b) )
-        return bi ^ b;
+        return bi ^ b; /* bi | b */
     }
   }
   return 0;

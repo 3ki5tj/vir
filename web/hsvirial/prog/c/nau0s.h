@@ -1,0 +1,1 @@
+../../../../prog/samp/nau0s.h

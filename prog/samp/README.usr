@@ -1,0 +1,72 @@
+Files
+-----
+
+mcrat0.c    calculate the virial coefficients
+            Ree-Hoover star contents are used, so no need to sample
+            over diagrams
+
+mcgc2.c     grand canonical simulation
+            no intermediate states, with heat-bath algorithm
+
+mcgcr2.c    grand canonical simulation, multiple intermediate states
+            with a distance restraint between a pair of special vertices
+            with heat-bath algorithm
+
+dbtool.c    check and combine database .bdb files
+
+pyhs2.ma    exact solution of PY closure in odd dimensions
+            (Mathematica script)
+
+ring.ma     computes the ring integrals (Mathematica script)
+
+lsvir.ma    list the exact partition function virial coefficients
+            for n = 4 and D <= 12 (Mathematica script)
+
+virsum.py   combine data for MPI/OpenMP runs, estimate error
+            (Python script)
+
+virrc.py    estimate radius of convergence
+
+Ring.dat    values of the ring integrals
+
+Z.dat       values of the partition functions
+
+
+
+mcrat0 usage
+-------------
+
+Compiling
+~~~~~~~~~
+
+Use
+  gcc -fopenmp
+or
+  icc -openmp
+to compile the OpenMP(thread) version
+
+Use
+  mpicc -DMPI
+to compile the MPI version
+
+Use
+  icc -mmic -openmp
+to compile the Intel MIC version
+
+The dimension D needs to specified during compilation, e.g.,
+  -DD=20
+by default D=3
+
+When the hash table is used, defining the order in advance can save memory
+  -DN=12
+
+For large orders, compile mcrat0.c with
+  -DDG_NORING=1
+to use algorithm Z instead of algorithm R.
+Run the program with
+  --hash-nocsep
+to exclude diagrams with clique separators (more memory-efficient).
+Further, specify database to save the warm-up time
+  --dbez --hash-memmax=1e10
+the second command asks about 10G memory
+

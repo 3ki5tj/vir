@@ -58,7 +58,7 @@
 
 
 
-/* for a configuration, compute sum of all diagrams
+/* compute the Boltzmann weight, the sum of all diagrams
   `c' is the connectivity matrix, `vs' is the vertex set */
 INLINE int dg_hsfq_rjwlow(const dgword_t *c, dgword_t vs)
 {
@@ -98,7 +98,7 @@ INLINE int dg_hsfq_rjwlow(const dgword_t *c, dgword_t vs)
 
 
 
-/* for a configuration, compute the sum of connected diagrams by
+/* compute the sum of connected diagrams by
  * Wheatley's recursion formula
  * `c' is the connectivity matrix,  `vs' is the vertex set */
 INLINE dgrjw_fb_t dg_hsfc_rjwlow(const dgword_t *c, dgword_t vs,
@@ -265,7 +265,7 @@ static dgrjw_fb_t *dgrjw_faarr_, *dgrjw_fbarr_;
 #pragma omp threadprivate(dgrjw_nmax_, dgrjw_faarr_, dgrjw_fbarr_)
 
 
- /* compute the sum of biconnected diagrams by Wheatley's method
+/* compute the sum of biconnected diagrams by Wheatley's method
  * This is a low level function and the test of clique separator
  * is not done here. */
 INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
