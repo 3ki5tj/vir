@@ -22,10 +22,8 @@ int verbose = 0;
 
 
 int hash_bits = 20;
-int hash_blksz = 0;
 int hash_blkmem = 0;
 double hash_memmax = 3e10;
-int hash_initls = 1;
 int auto_level = -1;
 int hash_isoenum = 0;
 int hash_isomax = 0;
@@ -53,10 +51,8 @@ static void doargs(int argc, char **argv)
 
   /* hash table parameters */
   argopt_add(ao, "--hash-bits",   "%d",   &hash_bits,   "number of bits in the key of the hash table");
-  argopt_add(ao, "--hash-blksz",  "%u",   &hash_blksz,  "number of items in a link of a hash list (bucket)");
   argopt_add(ao, "--hash-blkmem", "%d",   &hash_blkmem, "number of list links to cache each time (pass to the pooled memory allocator blkmem_new() to avoid memory fragmentation), 0: default");
   argopt_add(ao, "--hash-memmax", "%lf",  &hash_memmax, "maximal memory for the hash table");
-  argopt_add(ao, "--hash-initls", "%d",   &hash_initls, "initially allocate lists");
   argopt_add(ao, "--auto-level",  "%d",   &auto_level,  "automorphism level, -1: canonical label, 0: no transformation, 1: degree sequence, 2 or 3: first automorphism in the searching tree");
   argopt_add(ao, "--hash-isoenum","%d",   &hash_isoenum,"enumerate isomorphic graphs after a new graph is found, 1: yes, 0: no, -1: default");
   argopt_add(ao, "--hash-isomax", "%d",   &hash_isomax, "maximal number of items to used in the above enumeration");
@@ -138,8 +134,7 @@ static int load(const char *fninp)
       "cannot load header from %s\n", fninp);
   printf("checking level %d, D %d, n %d, binary %d\n", check, db->dim, db->n, binary);
   g = dg_open(db->n);
-  hash = dghash_open(db->n, hash_bits,
-      hash_blksz, hash_blkmem, (size_t) hash_memmax, hash_initls,
+  hash = dghash_open(db->n, hash_bits, hash_blkmem, (size_t) hash_memmax,
       auto_level, hash_isoenum, hash_isomax);
   /* loop over entries of the hash table */
   id = 0;

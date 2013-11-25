@@ -60,9 +60,17 @@
     id >>= DG_WORDBITS - hbits; }
 #endif /* DG_CWORDS == 1 */
 
+
+
+#ifndef DGHASH_BLKSZ
+#define DGHASH_BLKSZ 4
+#endif
+
+
+
 typedef struct tagdgls_t {
   int cnt;
-  dgdbitem_t *arr;
+  dgdbitem_t arr[DGHASH_BLKSZ];
   struct tagdgls_t *next;
 } dgls_t;
 
@@ -70,7 +78,6 @@ typedef struct {
   int n; /* number of vertices in the graph */
   int bits; /* number of hash bits */
   int cwords; /* number of dgword_t to save the connectivity matrix */
-  size_t blksz; /* number of items to allocate for each list */
   size_t lsn; /* number of lists */
   dgls_t *ls; /* each ls[key], where key = 0..lsn-1, is a list of items
                  under the same hash key */
@@ -86,7 +93,7 @@ typedef struct {
   double tot, hits; /* statistics */
   /* memory allocators, since memory allocation are done
    * in omp critical sections, we don't need to make them thread private */
-  blkmem_t *blkmem_ls, *blkmem_item;
+  blkmem_t *blkmem_ls;
 } dghash_t;
 
 
@@ -97,8 +104,6 @@ typedef struct {
  *            2^bits different keys, hence buckets
  *            each bucket poccess a linked list
  *            0 or negative values: for the default value
- * `blksz'    is the number of blocks in a link of each hash table list
- *            0: for the default value
  * `blkmem'   is the number of memory blocks used in the underlying
  *            pooled memory allocator for the linked lists
  *            0: for the default value
@@ -107,8 +112,6 @@ typedef struct {
  *            but the program should not abort
  *            However, using too much memory may slow down the program
  *            0: for the default value
- * `initls'   means to try to initially allocate spaces for all keys
- *            0: off, 1: on, -1: default
  * `level'    means the type of isomorphic transformation to the graph
  *            before using the hash table
  *            possible values 0-4; a value > 9 or a negative value means
@@ -119,26 +122,21 @@ typedef struct {
  *            but useful if the degree sequence is used (level == 1)
  * `isomax'   is the maximal number of isomorphic graphs in the above search
  *            for each newly discovered graph */
-INLINE dghash_t *dghash_open(int n, int bits,
-    size_t blksz, size_t blkmem, size_t memmax, int initls,
+INLINE dghash_t *dghash_open(int n, int bits, size_t blkmem, size_t memmax,
     int level, int isoenum, int isomax)
 {
   /* generally blksz should be large enough to avoid too many linked lists */
   /* default parameters for level 1 */
-  static struct { int bits, blksz; } defp1[] = {
-    {26, 4}, /* default setting for n > 10 */
-    { 1, 1}, { 1, 1}, { 1, 1}, { 3, 2}, { 6, 2},
-    {10, 4}, {14, 4}, {20, 4}, {24, 4}, {26, 4},
-  };
+  static int defbitsp1[] = {26, /* default setting for n > 10 */
+     1,  1,  1,  3,  6, 10, 14, 20, 24, 26};
   /* default parameters for level 4 */
-  static struct { int bits, blksz; } defp4[] = {
-    {24, 4}, /* default setting for n > 10 */
-    { 1, 1}, { 1, 1}, { 1, 1}, { 3, 2}, { 6, 2},
-    { 8, 2}, {10, 4}, {14, 4}, {22, 4}, {24, 4},
-  };
+  static int defbitsp4[] = { 24, /* default setting for n > 10 */
+     1,  1,  1,  3,  6,  8, 10, 14, 22, 24};
   dghash_t *h;
   size_t i;
-  /* approximate hash table size (with low level of automorphism)
+  /* approximate hash table size
+   * (with low level of automorphism,
+   *  including diagrams with clique separators)
    *
    * level 1 uses most memory
    *
@@ -158,12 +156,10 @@ INLINE dghash_t *dghash_open(int n, int bits,
    * */
 
   if (level >= 4 || level < 0) {
-    if (bits    <=  0)  bits    = (n <= 10) ? defp4[n].bits    : defp4[0].bits;
-    if (blksz   ==  0)  blksz   = (n <= 10) ? defp4[n].blksz   : defp4[0].blksz;
+    if (bits    <=  0)  bits    = (n <= 10) ? defbitsp4[n] : defbitsp4[0];
     isoenum = 0;
   } else if (level == 1) {
-    if (bits    <=  0)  bits    = (n <= 10) ? defp1[n].bits    : defp1[0].bits;
-    if (blksz   ==  0)  blksz   = (n <= 10) ? defp1[n].blksz   : defp1[0].blksz;
+    if (bits    <=  0)  bits    = (n <= 10) ? defbitsp1[n] : defbitsp1[0];
     if (isoenum <   0)  isoenum = 1;
   }
   die_if (bits > DG_WORDBITS, "dghash: too many hash bits %d > %d\n",
@@ -175,7 +171,6 @@ INLINE dghash_t *dghash_open(int n, int bits,
   h->n = n;
   h->cwords = (n * (n - 1) / 2 + DG_WORDBITS - 1) / DG_WORDBITS;
   h->bits = bits;
-  h->blksz = blksz;
   h->memmax = memmax;
   h->level = level;
   h->isoenum = isoenum;
@@ -184,43 +179,20 @@ INLINE dghash_t *dghash_open(int n, int bits,
   /* blkmem is the number of objects (list or list items) we allocate in each time
    * if blkmem == 1, the system will leave many holes in the memory space, making
    * it inefficient */
-  if (blkmem  ==  0)  blkmem  = 0x10000; /* 65536 */
+  if (blkmem == 0)  blkmem  = 0x10000; /* 65536 */
   h->blkmem_ls = blkmem_open(sizeof(dgls_t), blkmem);
-  h->blkmem_item = blkmem_open(sizeof(dgdbitem_t), h->blksz * blkmem);
 
   h->lsn = (size_t) 1u << (size_t) bits;
   xnew(h->ls, h->lsn);
   for (i = 0; i < h->lsn; i++) {
     h->ls[i].cnt = 0;
     h->ls[i].next = NULL;
-    h->ls[i].arr = NULL;
   }
-  h->mem = sizeof(*h) + h->lsn * sizeof(h->ls[0]);
+  h->mem = sizeof(*h) + h->lsn * sizeof(dgls_t);
 
-  /* Assuming hashbits are properly given, it might be advantageous
-   * to allocate memory for all lists to preserve space for unused entries
-   * This can save much time for latter allocations
-   * This may or may not allow a better coverage in the long run */
-  if (initls < 0) /* turn it on by default */
-    initls = 1;
-  if (h->mem + 1. * h->blksz * sizeof(dgdbitem_t) * h->lsn > h->memmax)
-    initls = 0;
-  if (initls) {
-    size_t sz = h->blksz * sizeof(dgdbitem_t) * h->lsn;
-    fprintf(stderr, "dghash: initializing all lists, %.0f items %gM/%gM\n",
-        1.*h->lsn, sz / (1024.*1024), h->memmax / (1024.*1024));
-    if ((h->ls[0].arr = calloc(1, sz)) != NULL) {
-      for (i = 1; i < h->lsn; i++)
-        h->ls[i].arr = h->ls[0].arr + i * h->blksz;
-      h->mem += sz;
-    } else {
-      fprintf(stderr, "dghah: initial list allocation failed\n");
-    }
-  }
-
-  fprintf(stderr, "dghash bits %d, blksz %u, mem %gM/%gM, "
+  fprintf(stderr, "dghash bits %d, DGHASH_BLKSZ %u, mem %gM/%gM, "
       "cbits %d, cwords %d, unit %d bytes, level %d, isoenum %d, isomax %d\n",
-      bits, (unsigned) blksz, h->mem/(1024.*1024), h->memmax/(1024.*1024),
+      bits, (unsigned) DGHASH_BLKSZ, h->mem/(1024.*1024), h->memmax/(1024.*1024),
       n*(n - 1)/2, h->cwords, (int) sizeof(dgdbitem_t), level, isoenum, isomax);
   if (h->cwords * 2 < DG_CWORDS)
     fprintf(stderr, "dghash can save memory with predefined N (%d >> %d) or DG_CWORDS (%d >> %d)\n",
@@ -242,10 +214,8 @@ INLINE dghash_t *dghash_open(int n, int bits,
 INLINE void dghash_close(dghash_t *h)
 {
 #if 0 /* to print allocation statistics */
-  blkmem_print(h->blkmem_item, "dgitem");
   blkmem_print(h->blkmem_ls, "dgls");
 #endif
-  blkmem_close(h->blkmem_item);
   blkmem_close(h->blkmem_ls);
   free(h->ls);
   free(h);
@@ -283,35 +253,20 @@ INLINE dgls_t *dgls_find(dgls_t *ls, dgword_t *c, int cn, int *pos)
 INLINE dgls_t *dgls_seekend(dgls_t *ls, int *lscnt, dghash_t *h)
 {
   /* loop till the end of the linked list */
-  while (ls->next != NULL) {
+  while (ls->next != NULL)
     ls = ls->next;
-  }
   *lscnt = ls->cnt;
   //die_if (*lscnt > 0 && *lscnt > blksz, "cnt %d, cap %d\n", *lscnt, blksz);
-  if (ls->arr == NULL) { /* no item in the list */
+  /* check if we have exhausted the capacity of this list */
+  if ((size_t) *lscnt == DGHASH_BLKSZ) {
     if (h->mem > h->memmax) return NULL;
-    h->mem += h->blksz * sizeof(ls->arr[0]);
-    if ((ls->arr = blkmem_new(h->blkmem_item, h->blksz)) == NULL)
+    h->mem += sizeof(*ls);
+    /* the following statement is the replacement for
+     *    xnew(ls->next, 1); */
+    if ((ls->next = blkmem_new(h->blkmem_ls, 1)) == NULL)
       return NULL;
-    /* this array will not be reallocated */
-    //xnew(ls->arr, h->blksz);
-    //*lscnt = 0; /* to be incremented below */
-  } else {
-    /* check if we have exhausted the capacity of this list */
-    if ((size_t) *lscnt == h->blksz) {
-      if (h->mem > h->memmax) return NULL;
-      h->mem += h->blksz * sizeof(ls->arr[0]) + sizeof(*ls);
-      //xnew(ls->next, 1);
-      if ((ls->next = blkmem_new(h->blkmem_ls, 1)) == NULL)
-        return NULL;
-      //xnew(ls->next->arr, h->blksz);
-      if ((ls->next->arr = blkmem_new(h->blkmem_item, h->blksz)) == NULL) {
-        ls->next = NULL;
-        return NULL;
-      }
-      ls = ls->next; /* shift to the next list */
-      *lscnt = 0; /* to be incremented below */
-    }
+    ls = ls->next; /* shift to the next list */
+    *lscnt = 0; /* to be incremented below */
   }
   return ls;
 }
@@ -431,7 +386,7 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
         if (dghash_[DG_N_] == NULL)
 #endif /* _OPENMP */
           /* open a hash table with default settings */
-          dghash_[DG_N_] = dghash_open(DG_N_, 0, 0, 0, 0, -1, -1, -1, 0);
+          dghash_[DG_N_] = dghash_open(DG_N_, 0, 0, 0, -1, -1, 0);
 #ifdef _OPENMP
       } /* omp critical */
 #endif /* _OPENMP */
@@ -495,11 +450,11 @@ INLINE void dghash_printstat(dghash_t *h, FILE *fp)
     dgls_t *ls;
 
     x = h->ls[i].cnt;
-    xm = h->blksz;
+    xm = DGHASH_BLKSZ;
     /* loop over linked lists */
     for (ls = h->ls[i].next; ls; ls = ls->next) {
       x += ls->cnt;
-      xm += h->blksz;
+      xm += DGHASH_BLKSZ;
     }
     cap += xm;
     sm += x;

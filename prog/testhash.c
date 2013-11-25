@@ -10,10 +10,6 @@
 #define HASHBITS 0
 #endif
 
-#ifndef BLKSZ
-#define BLKSZ 0
-#endif
-
 #ifndef BLKMEM
 #define BLKMEM 0
 #endif
@@ -31,12 +27,12 @@ INLINE double dghash_dummy_lookup(const dg_t *g)
   static dgword_t c[DG_CWORDS];
   DG_MKSTATICSTOCK(ng);
   DG_DEFN_(g);
-  int pos, initls = 0, level = -1, enumiso = 1;
+  int pos, level = -1, enumiso = 1;
   dgword_t hashid;
   dgls_t *ls, *ls1;
 
   if (hash == NULL) {
-    hash = dghash_open(DG_N_, HASHBITS, BLKSZ, BLKMEM, MEMMAX, initls, level, enumiso, 0);
+    hash = dghash_open(DG_N_, HASHBITS, BLKMEM, MEMMAX, level, enumiso, 0);
     hash->dostat = 1; /* turn on statistics */
   }
 

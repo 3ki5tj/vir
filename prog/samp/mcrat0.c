@@ -161,10 +161,14 @@ static void doargs(int argc, char **argv)
   /* decide if we should use the hash table */
 #ifdef DGHASH_EXISTS
   if (hash_on != 0) {
-    hash_on = 1; /* turn on the hash table generally */
-    if (D > 15 && n <= 64) /* TODO: improve this */
+    hash_on = 1; /* turn on the hash table by default */
+    if (D >= 50 && n <= 64) /* TODO: improve this */
       hash_on = 0;
   }
+  if ( argopt_isset(ao, hash_blksz) )
+    fprintf(stderr, "--hash-blksz is deprecated, define DGHASH_BLKSZ\n");
+  if ( argopt_isset(ao, hash_initls) )
+    fprintf(stderr, "--hash-initls is set by default\n");
 #else
   hash_on = 0;
 #endif
@@ -590,8 +594,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         memmax = (size_t) (-1);
       else
         memmax = (size_t) (hash_memmax + .5);
-      hash = dghash_open(n, hash_bits,
-          hash_blksz, hash_blkmem, memmax, hash_initls,
+      hash = dghash_open(n, hash_bits, hash_blkmem, memmax,
           auto_level, hash_isoenum, hash_isomax);
       hash->dostat = dostat;
       if (dbfninp != NULL)
