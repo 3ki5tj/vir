@@ -23,9 +23,9 @@ handlers:
 - url: /data
   static_dir: data
 
-- url: /(.*\.(jar|class))
+- url: /(.*\.(jar|class|png|zip))
   static_files: \1
-  upload: (.*\.(jar|class))
+  upload: (.*\.(jar|class|png|zip))
 
 - url: /.*
   script: hsvirial.app

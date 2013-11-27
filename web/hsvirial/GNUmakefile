@@ -11,7 +11,6 @@ upload: prep
 
 prep::
 	make -C prog/java jar
-	make -C prog/java clean
 	make -C prog/c zip
 
 htmls = $(wildcard *.html)

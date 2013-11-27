@@ -34,27 +34,34 @@
 
 
 <div class="p">
-  <img class="javaimg" src="prog/java/virsampjava.png"
+  <img class="javaimg" src="virsampjava.png"
     alt="VirSampApp" width="801" height="525">
   <!--
   <applet code = 'VirSampApp'
     archive = 'VirSampApp.jar' width = 801 height = 525>
   </applet>
   -->
-  Tips:
+  Notes and tips:
   <ul>
     <li>
-      Always hit &ldquo;Enter&rdquo; after changing any parameter
-      to make sure it takes effect.
+      A red ball represents a failed Monte Carlo (MC) trial;
+      a green ball represents a successful one.
     </li>
     <li>
       The maximal dimension is 100, and the maximal order is 63.
     </li>
     <li>
-      Click &ldquo;MDS mode 0&rdquo; to change the representations
+      Always hit &ldquo;<code>Enter</code>&rdquo; after changing any parameter
+      to make sure it takes effect.
+    </li>
+    <li>
+      Click &ldquo;<code>MDS mode 0</code>&rdquo; to change the representations
       in the left and right panels.
       In modes 1 and 3, the left panel uses multidimensional scaling.
       In modes 2 and 3, the right panel uses multidimensional scaling.
+      Multidimensional scaling is a way of squeezing high-dimensional
+      objects in lower dimensions, and thus is useful in visualizing
+      high-dimensional clusters here.
     </li>
     <li>
       Click the right panel and scroll the mouse to change the scale
@@ -76,7 +83,7 @@
 
 <div class="p">
   The complete C-based source code can be downloaded here
-  <a href="prog/c/vircode.zip">vircode.zip</a>.
+  <a href="vircode.zip">vircode.zip</a>.
   The package also contains several auxiliary Mathematica and Python scripts.
 </div>
 

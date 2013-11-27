@@ -159,8 +159,12 @@ def getrcZr(fn):
     BRarr = getcol(lines, 18)
   avhist = sum(hist)/n
   if len(lines[1]) > width:
-    BRerr = getcol(lines, 19)
-    Zrerr = getcol(lines, 21)
+    if isZrh:
+      BRerr = getcol(lines, 23)
+      Zrerr = getcol(lines, 25)
+    else:
+      BRerr = getcol(lines, 19)
+      Zrerr = getcol(lines, 21)
   else:
     BRerr = [1] * n
     Zrerr = [1] * n
