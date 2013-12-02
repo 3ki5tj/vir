@@ -27,10 +27,24 @@ static void testrtl(void)
 
 
 
+static void printcsep(dg_t *g)
+{
+  dgvsref_t c;
+  dgvs_t vs;
+
+  c = dg_csep(g);
+  if ( c ) {
+    DGVS_CPY(vs, c)
+    dgvs_printn(vs, NULL);
+  }
+  printf("\n");
+}
+
+
+
 static void testcsep(void)
 {
   dg_t *g;
-  dgword_t c, bw;
   /* Fig 2. of Decomposition by clique separator,
    * R. E. Tarjan, Discrete Mathematics 55 (1985) 221-232 */
   int pair3[][2] = {{0, 1}, {0, 2}, {0, 3}, {0, 4}, {1, 2}, {1, 4},
@@ -45,9 +59,7 @@ static void testcsep(void)
   dg_unlink(g, 0, 2);
   dg_print(g);
   printf("case 1: clique separator (should be 1, 3): ");
-  for (c = dg_csep(g); c; c ^= bw)
-    printf("%d ", bitfirstlow(c, &bw));
-  printf("\n\n");
+  printcsep(g);
   dg_close(g);
 
   g = dg_open(5);
@@ -57,27 +69,21 @@ static void testcsep(void)
   dg_unlink(g, 3, 4);
   dg_print(g);
   printf("case 2: clique separator (should be none): ");
-  for (c = dg_csep(g); c; c ^= bw)
-    printf("%d ", bitfirstlow(c, &bw));
-  printf("\n\n");
+  printcsep(g);
   dg_close(g);
 
   g = dg_open(5);
   dg_linkpairs(g, pair3);
   dg_print(g);
   printf("case 3: clique separator (0, 4) or (0, 2, 4): ");
-  for (c = dg_csep(g); c; c ^= bw)
-    printf("%d ", bitfirstlow(c, &bw));
-  printf("\n\n");
+  printcsep(g);
   dg_close(g);
 
   g = dg_open(11);
   dg_linkpairs(g, pair4);
   dg_print(g);
-  printf("case 4: clique separator: ");
-  for (c = dg_csep(g); c; c ^= bw)
-    printf("%d ", bitfirstlow(c, &bw));
-  printf("\n\n");
+  printf("case 4: clique separator (3, 8): ");
+  printcsep(g);
   dg_close(g);
 }
 
@@ -236,7 +242,7 @@ static void verify_zerofb(int n, int nsteps)
 
 int main(int argc, char **argv)
 {
-  int n = 9, nsteps = 10000000, nedmax = 1000;
+  int n = 9, nsteps = 10000000, nedmax = 100000000;
 #ifdef N
   n = N;
 #endif

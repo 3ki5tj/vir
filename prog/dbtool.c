@@ -2,6 +2,15 @@
 #define ZCOM_ARGOPT
 #include "zcom.h"
 
+
+
+/* turn on RJWDBL by default */
+#if (!defined(RJW32) && !defined(RJW64))
+  #define RWJDBL 1
+#endif
+
+
+
 /* utilities to handle the database */
 #include "dghash.h"
 #include "dgrjw.h"
@@ -16,6 +25,7 @@ char *fninp4 = NULL;
 char *fnout = NULL;
 int binary = -1;
 int check = 1; /* default checking level */
+int checkdup = 0; /* check for duplicated items */
 int verbose = 0;
 
 
@@ -43,6 +53,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-o", NULL, &fnout,    "output database");
   argopt_add(ao, "-b", "%d", &binary,   "output format 1: binary, 0: text, -1: same as the input");
   argopt_add(ao, "-c", "%d", &check,    "checking, 0: disable, 1: biconnectivity, 2: fb and nr are correct");
+  argopt_add(ao, "-d", "%b", &checkdup, "checking duplicated items");
   argopt_add(ao, "-v", "%d", &verbose,  "verbose");
   argopt_addhelp(ao, "-h");
   argopt_addhelp(ao, "--help");
@@ -55,6 +66,10 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--hash-isoenum","%d",   &hash_isoenum,"enumerate isomorphic graphs after a new graph is found, 1: yes, 0: no, -1: default");
   argopt_add(ao, "--hash-isomax", "%d",   &hash_isomax, "maximal number of items to used in the above enumeration");
   argopt_parse(ao, argc, argv);
+
+  if ( check ) {
+    checkdup = 1;
+  }
   argopt_close(ao);
 }
 
@@ -121,7 +136,7 @@ static int load(const char *fninp)
   dg_t *g;
   dgls_t *ls, *ls1;
   size_t cnt = 0, err = 0, id = 0, dup = 0;
-  int ret, pos = 0;
+  int ret, pos = 0, cwords, dupbad;
 
   binary = dgdb_detectbinary(fninp);
   die_if ((db = dgdb_open(0, 0)) == NULL,
@@ -134,23 +149,40 @@ static int load(const char *fninp)
   g = dg_open(db->n);
   hash = dghash_open(db->n, hash_bits, hash_blkmem, (size_t) hash_memmax,
       auto_level, hash_isoenum, hash_isomax);
+  cwords = hash->cwords;
   /* loop over entries of the hash table */
   id = 0;
   while (dgdbitem_load(it, fp, fninp, binary, db->fbtype,
-                       hash->cwords, db->hasnr) == 0) {
+                       cwords, db->hasnr) == 0) {
     if ( check ) {
       if (checkitem(it, g, check, id, cnt) != 0) {
         fprintf(stderr, "database %s corrupted at id %.0f\n", fninp, 1.*id);
         break;
       }
     }
-    DGHASH_GETID(hashid, it->c, hash->cwords, hash->bits);
+    DGHASH_GETID(hashid, it->c, DG_CWORDS_(cwords), hash_bits);
     ls = hash->ls + hashid;
-    if ( check ) {
-      ls1 = dgls_find(ls, it->c, hash->cwords, &pos);
+    if ( checkdup ) {
+      ls1 = dgls_find(ls, it->c, DG_CWORDS_(cwords), &pos);
       if (ls1 != NULL) {
+        die_if ( !DG_CEQ(ls1->arr[pos].c, it->c, DG_CWORDS_(cwords) ),
+            "fake duplication hashid %.0f, pos %d\n", 1.*hashid, pos);
+        dupbad = (fabs(it->fb - ls1->arr[pos].fb) > 0.001);
+#ifndef DG_NORING
+        if ( !dupbad && db->hasnr ) {
+          dupbad = (fabs(it->nr - ls1->arr[pos].nr) > 0.001);
+        }
+#endif
+        if (dupbad) {
+          fprintf(stderr, "corruption pos %d, fb %g vs %g",
+              pos, 1.*it->fb, 1.*ls1->arr[pos].fb);
+#ifndef DG_NORING
+          fprintf(stderr, ", nr %g vs %g", 1.*it->nr, 1.*ls1->arr[pos].nr);
+#endif
+          fprintf(stderr, "\n");
+        }
         if (dup == 0)
-          fprintf(stderr, "duplication found!\n");
+          fprintf(stderr, "duplication found! dupbad %d\n", dupbad);
         dup++;
         continue;
       }
@@ -215,13 +247,13 @@ static int append(const char *fninp)
     if (ls1 != NULL) { /* compare fb and nr values */
       //fprintf(stderr, "existing entry id %.0f, fb %g vs %g, nr %g vs %g\n",
       //    1.*id, 1.*ls1->arr[pos].fb, 1.*it->fb, 1.*ls1->arr[pos].nr, 1.*it->nr); getchar();
-      if (ls1->arr[pos].fb != it->fb) {
+      if (fabs(ls1->arr[pos].fb - it->fb) > 0.001) {
         fprintf(stderr, "id %.0f, hashid %.0f, fb mismatch %g vs %g\n",
             1.*id, 1.*hashid, 1.*ls1->arr[pos].fb, 1.*it->fb);
         exit(1);
       }
 #ifndef DG_NORING
-      if (db2->hasnr && ls1->arr[pos].nr != it->nr) {
+      if (db2->hasnr && fabs(ls1->arr[pos].nr - it->nr) > 0.001) {
         fprintf(stderr, "id %.0f, hashid %.0f, nr mismatch %g vs %g\n",
             1.*id, 1.*hashid, 1.*ls1->arr[pos].nr, 1.*it->nr);
         exit(1);

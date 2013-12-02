@@ -23,7 +23,7 @@ MPILM =
 deps = dg.h dgmap.h dgmapl.h dgutil.h dgcsep.h dgrjw.h dgsc.h \
        dgring.h dgaut.h dgdb.h dghash.h \
        nau0s.h zcom.h Makefile mcutil.h
-bins = mcrat0 mcgc2 mcgcr2
+bins = mcrat0 mcgc2 mcgcr2 dbtool
 bins_d = $(patsubst %, %_d, $(bins))
 bins_mp = $(patsubst %, %_mp, $(bins))
 bins_mpi = $(patsubst %, %_mpi, $(bins))

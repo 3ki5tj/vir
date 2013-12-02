@@ -8,6 +8,45 @@
 
 
 
+/* rearrange l2[] such that they occupied 0..k-1 positions */
+INLINE int dg_sortlabels(int l2[], dgvs_t unnumbered, int n)
+{
+  int l, w, k, lmax = 0;
+  int cnt[DG_NMAX * 2];
+  dgvs_t r;
+  dgword_t bw;
+  DGVS_DEFIQ_(iq)
+
+  /* A. Check if each label is visited */
+  for (l = 0; l < 2*n; l++) cnt[l] = 0;
+  DGVS_CPY(r, unnumbered)
+  while ( dgvs_nonzero(r) ) { /* loop over unnumbered vertices in `r' */
+    DGVS_FIRSTLOW1(w, r, bw, iq) /* extract the first vertex `w' in `r' */
+    l = l2[w];
+    if (l > lmax) lmax = l;
+    cnt[ l ] = 1;
+    DGVS_XOR1(r, bw, iq) /* remove `w' from the vertex set `r' */
+  }
+  /* B. Count the number of different labels */
+  for (k = 0, l = 0; l <= lmax; l++)
+    if ( cnt[l] ) /* compute the new label */
+      cnt[l] = k++; /* cnt[l] is now the new label */
+#ifdef DGCSEP_DBG
+  printf("counting sort %d items, n %d, number of values %d, lmax %d\n",
+     dgvs_count(unnumbered), n, k, lmax);
+#endif
+  /* C. Assign the new labels to the array l2[] */
+  DGVS_CPY(r, unnumbered)
+  while ( dgvs_nonzero(r) ) { /* loop over unnumbered vertices in `r' */
+    DGVS_FIRSTLOW1(w, r, bw, iq) /* extract the first vertex `w' in `r' */
+    l2[w] = 2 * cnt[ l2[w] ]; /* set the new label */
+    DGVS_XOR1(r, bw, iq) /* remove `w' from the vertex set `r' */
+  }
+  return k;
+}
+
+
+
 /* compute a minimal order and the corresponding fill-in of a graph
  * the minimal order is an order of removing vertices such than the
  * resulting edges by contraction is locally a minimum.
@@ -18,87 +57,141 @@
 INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
 {
   int i, j, k, v = 0, w, z, l;
-  dgword_t numbered, reached, bv, bw, bz, r;
-  DG_DEFN_(g)
-  DG_DEFMASKN_()
+  dgvs_t numbered, reached, r;
+  dgword_t bv, bw, bz;
   int l2[DG_NMAX]; /* the label l times 2 */
-  dgword_t reach[DG_NMAX]; /* reach[label] gives a set of vertices */
-  int cnt[DG_NMAX * 2];
+  dgvs_t reach[DG_NMAX]; /* reach[label] gives a set of vertices */
+  DGVS_DEFIQ_(iq)
+  DGVS_DEFIQ_(iq1)
+  DG_DEFN_(g)
+  DGVS_DEFMASKN_()
 
   if (f) dg_copy(f, g);
   for (i = 0; i < DG_N_; i++) l2[i] = 0; /* l(i) * 2 */
-  reached = numbered = 0;
+  DGVS_CLEAR(reached)
+  DGVS_CLEAR(numbered)
   k = 1; /* number of different labels */
   for (i = DG_N_ - 1; i >= 0; i--) {
-    /* select the vertex with the largest label */
-    bw = numbered;
-    for (r = ~numbered & DG_MASKN_; r; r ^= bv) {
-      BITFIRSTLOW(v, r, bv);
+#ifdef DGCSEP_DBG
+    dgvs_t numbered0;
+    DGVS_CPY(numbered0, numbered)
+#endif
+
+    /* I. Select the unnumbered vertex with the largest label */
+    DGVS_COMPLM2(r, numbered, DG_MASKN_) /* r = ~numbered & maskn */
+    while ( dgvs_nonzero(r) ) {
+      DGVS_FIRSTLOW1(v, r, bv, iq) /* first vertex `v' in the vertex set `r' */
+      /* currently all `l2' labels are even numbers */
       if ( l2[v]/2 == k - 1 ) { /* found it */
-        numbered |= bv;
+        DGVS_OR1(numbered, bv, iq) /* add vertex `v' the `numbered' vertex set */
         break;
       }
+      DGVS_XOR1(r, bv, iq) /* remove `v' from the vertex set `r' */
     }
-    die_if (bw == numbered, "i %d no vertex is left\n", i);
+
+#ifdef DGCSEP_DBG
+    die_if (dgvs_eq(numbered0, numbered), "i %d no vertex is left\n", i);
+#endif
+
+    /* In the rest of the loop, particularly, in blocks II and III,
+     * we will find all unnumbered vertices that are adjacent to `v'
+     * in the *fill-in* graph, and increase their labels by one.
+     * In this way, these vertices will have relatively larger labels
+     * and be readily distinguished from the nonadjacent ones */
+
     if (a) a[i] = v;
-    /* reach[l] gives the set of vertcies with the same label `l'
+    /* reach[l] gives the set of vertices with the same label `l'
      * the label `l' is the hierarchy level of the spanning tree
-     * vertices with the same label are treated as the same */
-    for (l = 0; l < k; l++) reach[l] = 0;
+     * Vertices with the same label are treated as the equivalent,
+     * and thus are grouped together
+     * In block III below, we loop over levels instead of vertices  */
+    for (l = 0; l < k; l++)
+      DGVS_CLEAR( reach[l] )
     /* set all unnumbered vertices as unreached */
-    reached = numbered;
+    DGVS_CPY(reached, numbered)
 
-    /* handle immediate neighbors of v */
-    for (r = g->c[v] & ~numbered & DG_MASKN_; r; r ^= bw) {
-      BITFIRSTLOW(w, r, bw);
-      /* the immediate neighbors of w are the starting points
-       * of the search, we group them by the labels */
-      reach[ l2[w]/2 ] |= bw;
-      reached |= bw;
-      /* only update the label after we have done with it
-       * the l2[w]++ operation only applies to a vertex once */
+    /* II. Handle unnumbered vertices `v' adjacent to `v' in the graph `g'
+     * The above unnumbered neighbors are the seeds in constructing
+     * the hierarchical spanning tree based on the breath-first search */
+    DGVS_COMPLM2(r, numbered, g->c[v]) /* r = ~numbered & g->c[v] */
+    while ( dgvs_nonzero( r ) ) { /* loop over vertices `w' in `r' */
+      DGVS_FIRSTLOW1(w, r, bw, iq) /* first unnumbered vertex `w' */
+      /* the immediate neighbors of `w' are the starting points
+       * of the search, we group them by the labels
+       * l2[w]/2 gives the group id, l2[w] is even at the moment */
+      DGVS_OR1(reach[ l2[w] / 2 ], bw, iq)
+      /* mark `w' as `reached' such that the label of each vertex `w'
+       * will be updated only once */
+      DGVS_OR1(reached, bw, iq)
+      /* increase the label of `w' such that vertices reached by `v'
+       * will have larger labels than others
+       * Since each label is updated only once, the label l2[w] encountered
+       * here is always an even number before the update below
+       * At the end of this loop, there might be multiple vertices
+       * sharing the same odd label; but this is okay, for these
+       * vertices of the same odd label are equivalent, i.e., they
+       * are all adjacent to `v' in the fill-in graph */
       l2[w]++;
+      /* add the edge (`v', `w') into the fill-in graph `f' */
       if (f) DG_LINK(f, v, w);
+      DGVS_XOR1(r, bw, iq) /* remove the vertex `w' from the set `r' */
     }
 
-    /* search paths from v
-     * the loop is over all labels, from smaller labels to larger ones.
-     * during the search, only vertices of equal or larger labels are
-     * produced, so the one-pass search is sufficient */
-    for (j = 0; j < k; j++) {
-      while ( reach[j] ) { /* if the vertex set is not empty */
-        /* delete the first w from reach[j] */
-        BITFIRSTLOW(w, reach[j], bw);
-        reach[j] ^= bw; /* remove w from reach[j] */
-        while ( (r = (g->c[w] & ~reached)) != 0 ) {
-          BITFIRSTLOW(z, r, bz);
-          reached |= bz;
+    /* III. Search unnumbered indirect neighbors of `v', which are vertices
+     * adjacent to `v' in the fill-in graph `f', but not in the original
+     * graph `g'
+     * To do so, we will search paths v-z1-z2-...-zk-z{k+1}, such that
+     * l2(z1), ..., l2(zk) are all greater than z{k+1}, and z1 is one of
+     * the seeds `w' found in the previous block (block II)
+     * cf Sec. 4.1 on page 273 of the paper
+     * The loop is over all original labels, which serve as indices
+     * in the array reach[], the updates `l2[w]++' in the previous block
+     * (block II) are irrelevant here, because they happen after the array
+     * reach[] is updated
+     * The loop starts from smaller labels to larger ones during the search
+     * only vertices of equal or larger labels are produced
+     * so the one-pass search is sufficient, see details below */
+    for (j = 0; j < k; j++) { /* loop over distinct labels */
+      /* loop over vertices with the same label j
+       * note, the vertex set reach[j] will be updated within the loop
+       * so it should not be fixed before the loop */
+      while ( dgvs_nonzero( reach[j] ) ) {
+        /* select the first `w' from reach[j] */
+        DGVS_FIRSTLOW1(w, reach[j], bw, iq)
+        DGVS_XOR1(reach[j], bw, iq) /* remove w from reach[j] */
+        /* loop over unreached vertices adjacent to g->c[w] */
+        while ( dgvs_nonzero( dgvs_complement2(r, reached, g->c[w]) ) ) {
+          DGVS_FIRSTLOW1(z, r, bz, iq1) /* pick `z' */
+          DGVS_OR1(reached, bz, iq1) /* mark `z' as `reached' */
+          /* here we distinguish two cases
+           * (A) if `z' has a label greater than `j' (the label of `w')
+           * it means that the `w' is eliminated before `z', so there
+           * will be an edge `v'-`z' in the fill-in graph
+           * Thus, we should add vertex `z' (just as we have added `w')
+           * to the array reach[] for further searches
+           * Since `z' has a larger label, its label will be handled later
+           * in the outer loop
+           * (B) if, however, `z' has a label less than `j' (the label of `w')
+           * it means that `z' is eliminated before `w'
+           * But instead of going back to the smaller label of `z',
+           * we simply append `z' to this list reach[j] */
           if ((l = l2[z]/2) > j) {
-            reach[l] |= bz;
+            DGVS_OR1(reach[l], bz, iq1)
             l2[z]++;
             if (f) DG_LINK(f, v, z);
-          } else { /* lower label encountered, count it as label j */
-            reach[j] |= bz;
+          } else { /* lower label encountered, count it as label[j] */
+            DGVS_OR1(reach[j], bz, iq1)
           }
         }
       }
     }
 
-    /* re-assign labels of the vertices by counting sort */
-    for (l = 0; l < 2*DG_N_; l++) cnt[l] = 0;
-    /* accumulate the number of visits of each label */
-    for (r = ~numbered & DG_MASKN_; r; r ^= bw) {
-      BITFIRSTLOW(w, r, bw);
-      cnt[ l2[w] ] = 1;
-    }
-    /* count the number of different labels */
-    for (k = 0, l = 0; l < 2*DG_N_; l++)
-      if ( cnt[l] ) /* compute the new label */
-        cnt[l] = k++; /* cnt[l] is now the new label */
-    for (r = ~numbered & DG_MASKN_; r; r ^= bw) {
-      BITFIRSTLOW(w, r, bw);
-      l2[w] = 2 * cnt[ l2[w] ]; /* set the new label */
-    }
+    /* IV. Re-assign labels of the vertices by counting sort */
+    DGVS_COMPLM2(r, numbered, DG_MASKN_)
+    k = dg_sortlabels(l2, r, DG_N_);
+#ifdef DGCSEP_DBG
+    printf("round %d, %d labels\n", i, k);
+#endif
   }
 }
 
@@ -116,33 +209,42 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
  * ``Decomposition by clique separators'' Robert E. Tarjan,
  * Discrete Mathematics 55 (1985) 221-232 */
 INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
-    const int *a, dgword_t * RESTRICT cl, int stop1)
+    const int *a, dgvs_t * RESTRICT cl, int stop1)
 {
   int v, w, i, ncl = 0;
+  dgvs_t cb, c, r, cwb, unvisited;
+  dgword_t bw;
+  DGVS_DEFIQ_(iq)
   DG_DEFN_(g)
   DG_DEFMASKN_()
-  dgword_t cb, c, bw, r, unvisited = DG_MASKN_;
 
+  DGVS_CPY(unvisited, DG_MASKN_)
   for (i = 0; i < DG_N_; i++) {
     v = a[i];
-    unvisited ^= MKBIT(v); /* remove the `v' bit */
+    DGVS_FLIP(unvisited, v) /* remove the `v' bit */
     /* compute C(v), the set of succeeding vertices that
      * are adjacent to v */
-    c = unvisited & f->c[v];
-    /* test if C(v) is a clique, a fully-connected subgraph */
-    for (r = c; r; r ^= bw) {
-      BITFIRSTLOW(w, r, bw);
-      /* c ^ bw is the set of vertices connected to `w'
-       * in `c', if `c' is a clique */
-      cb = c ^ bw;
-      if ((g->c[w] & cb) != cb) /* not a clique */
-        break; /* break the loop prematurally, r != 0 */
+    DGVS_AND2(c, unvisited, f->c[v]) /* c = unvisited & f->c[v] */
+    /* test if c = C(v) is a clique, a fully-connected subgraph */
+    DGVS_CPY(r, c)
+    while ( dgvs_nonzero(r) ) { /* loop over vertices in `c' */
+      DGVS_FIRSTLOW1(w, r, bw, iq) /* vertex `w' in `c' */
+      /* cb = c ^ bw is the set of vertices connected to `w' in `c'
+       * if `c' is a clique */
+      DGVS_CPY(cb, c)
+      DGVS_XOR1(cb, bw, iq)
+      /* test `cwb' is the vertices adjacent to `w', limited to `cb' */
+      DGVS_AND2(cwb, g->c[w], cb)
+      /* `cwb' must be equal to `cb' if `c' is a clique */
+      if ( !dgvs_eq(cwb, cb) ) /* not a clique */
+        break; /* break the loop prematurely, r != 0 */
+      DGVS_XOR1(r, bw, iq)
     }
-    if (r == 0) { /* if the loop is completed, `c' is a clique */
-      if (unvisited  == c) { /* clique `c' == the rest vertices */
+    if ( !dgvs_nonzero(r) ) { /* if the loop is completed, `c' is a clique */
+      if ( dgvs_eq(unvisited, c) ) { /* clique `c' == the rest vertices */
         return ncl;          /* so it is not a separator */
       } else { /* found a clique `c' */
-        if (cl != NULL) cl[ncl] = c;
+        if (cl != NULL) DGVS_CPY(cl[ncl], c);
         ncl++;
         if (stop1) return 1;
       }
@@ -154,17 +256,19 @@ INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
 
 
 /* test if a graph has a clique separator */
-INLINE dgword_t dg_cliquesep(const dg_t *g)
+INLINE dgvsref_t dg_cliquesep(const dg_t *g)
 {
-  static dgword_t fs_c[DG_NMAX];
+  static dgvs_t fs_c[DG_NMAX];
   static dg_t fs[1] = {{0, NULL}}; /* stock fill-in graph */
   static int a[DG_NMAX]; /* a[k] is the kth vertex */
 #pragma omp threadprivate(fs_c, fs, a)
   DG_DEFN_(g)
-  dgword_t cl = 0;
+  static dgvs_t cl;
+#pragma omp threadprivate(cl)
 
   fs->n = DG_N_;
   fs->c = fs_c;
+  DGVS_CLEAR(cl)
 
   /* 1. find a minimal ordering and its fill-in */
   dg_minimalorder(g, fs, a);
@@ -179,9 +283,9 @@ INLINE dgword_t dg_cliquesep(const dg_t *g)
 /* number of nodes in the clique-separator decomposition */
 #define dg_ncsep(g) dg_decompcsep(g, NULL)
 
-INLINE int dg_decompcsep(const dg_t *g, dgword_t * RESTRICT cl)
+INLINE int dg_decompcsep(const dg_t *g, dgvs_t * RESTRICT cl)
 {
-  static dgword_t fs_c[DG_NMAX];
+  static dgvs_t fs_c[DG_NMAX];
   static dg_t fs[1] = {{0, NULL}}; /* stock fill-in graph */
   static int a[DG_NMAX]; /* a[k] is the kth vertex */
 #pragma omp threadprivate(fs_c, fs, a)
@@ -199,25 +303,30 @@ INLINE int dg_decompcsep(const dg_t *g, dgword_t * RESTRICT cl)
 
 
 
+#if DGVS_ONEWORD
+
+
+
 /* find clique separator of two vertices */
-INLINE dgword_t dg_csep2(const dg_t *g)
+INLINE dgvsref_t dg_csep2(const dg_t *g)
 {
   int i;
+  dgvs_t ci, maski;
+  dgword_t bi, bj;
   DG_DEFN_(g)
   DG_DEFMASKN_()
-  dgword_t c, b, bi, maski;
 
   /* loop for the first vertex */
   for (i = 1; i < DG_N_; i++) {
     bi = MKBIT(i);
     maski = DG_MASKN_ ^ bi;
-    c = g->c[i] & MKBITSMASK(i);
-    /* loop over vertices connected to i
-     * and with indices less than i */
-    for (; c; c ^= b) {
-      b = c & (-c);
-      if ( !dg_connectedvs(g, maski ^ b) )
-        return bi ^ b; /* bi | b */
+
+    /* loop over vertices connected to `i', and with indices less than `i' */
+    for (ci = g->c[i] & MKBITSMASK(i); ci; ci ^= bj) {
+      bj = ci & (-ci);
+      /* if the cluster is not connected, we have found a clique separator */
+      if ( !dg_connectedvs(g, maski ^ bj) )
+        return bi ^ bj; /* bi | bj */
     }
   }
   return 0;
@@ -225,13 +334,76 @@ INLINE dgword_t dg_csep2(const dg_t *g)
 
 
 
+#else /* !DGVS_ONEWORD */
+
+
+
+/* find clique separator of two vertices */
+INLINE dgvsref_t dg_csep2(const dg_t *g)
+{
+  int i;
+  dgvs_t ci, maski, maskci;
+  dgword_t bi, bj;
+  DGVS_DEFIQ_(iq)
+  DGVS_DEFIQ_(jq)
+  DG_DEFN_(g)
+  DG_DEFMASKN_()
+
+  DGVS_CPY(maski, DG_MASKN_)
+  DGVS_CLEAR(maskci)
+  maskci[0] = 1;
+
+  /* loop for the first vertex */
+  for (i = 1; i < DG_N_; i++) {
+    DGVS_MKBIT(i, bi, iq) /* bi = MKBIT(i); */
+    /* the next two statements; maski = DG_MASKN_ ^ bi; */
+    DGVS_XOR1(maski, bi, iq)
+    /* maskci: vertices connected to `i', and with indices less than `i' */
+    DGVS_AND2(ci, g->c[i], maskci)
+    DGVS_OR1(maskci, bi, iq) /* update maskci */
+
+    while ( dgvs_nonzero(ci) ) {
+      DGVS_FIRSTBIT1(ci, bj, jq)
+      DGVS_XOR1(ci, bj, jq) /* remove `bj' from `ci' */
+      DGVS_XOR1(maski, bj, jq) /* `maski' now lacks the `j' bit */
+
+      /* if the cluster is not connected, we have found a clique separator */
+      if ( !dg_connectedvs(g, maski) ) {
+        static dgvs_t csep;
+        #pragma omp threadprivate(csep)
+        DGVS_CLEAR(csep)
+        DGVS_OR1(csep, bi, iq)
+        DGVS_OR1(csep, bj, jq)
+        return csep;
+      }
+      DGVS_XOR1(maski, bj, jq) /* add back the `j' bit */
+    }
+    DGVS_XOR1(maski, bi, iq) /* add back the `i' bit */
+  }
+  return 0;
+}
+
+
+#endif /* DGVS_ONEWORD */
+
+
+
+#define dg_csep(g) dg_cseplow(g, 0)
+
 /* test if a graph has a clique separator
  * optimized version of dg_cliquesep(g) */
-INLINE dgword_t dg_csep(const dg_t *g)
+INLINE dgvsref_t dg_cseplow(const dg_t *g, int ned)
 {
-  dgword_t cc;
+  dgvsref_t cc;
 
-  return ((cc = dg_csep2(g)) != 0) ? cc : dg_cliquesep(g);
+  /* it appears that it is advantageous to test 2-clique separators
+   * for loosely-connected diagrams */
+  if (ned < 0) ned = dg_nedges(g);
+  if (ned <= g->n * 2 + 3) {
+    cc = dg_csep2(g);
+    if (cc != 0) return cc;
+  }
+  return dg_cliquesep(g);
 }
 
 
