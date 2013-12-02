@@ -318,7 +318,7 @@ INLINE dgmapl_t *dgmapl_open(int n, int k)
   die_if (n >= 10 && sizeof(size_t) <= 4,
       "size_t %d is not large enough\n", (int) sizeof(size_t));
   m->size = (size_t) 1u << (n * (n - 1) / 2 - k);
-  die_if (n*(n-1)/2-k > (int) sizeof(dgword_t) * 8,
+  die_if (n*(n - 1)/2 - k > (int) sizeof(dgword_t) * 8,
       "n %d, k %d cannot be contained in %d bits, increase DG_WORDBITS\n",
       n, k, (int) sizeof(dgword_t));
   xnew(m->fbnr, m->size);

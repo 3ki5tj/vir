@@ -9,6 +9,9 @@
 
 
 
+/* Since RJWNMAX is currently much less than DG_WORDBITS,
+ * we assume a one-word vertex set, even if DGVS_ONEWORD == 0 */
+
 #if !defined(RJW64) && !defined(RJWDBL) && \
     (defined(RJW32) || (defined(N) && N <= 14 && DG_WORDBITS == 32))
   typedef int32_t dgrjw_fb_t;
@@ -60,7 +63,7 @@
 
 /* compute the Boltzmann weight, the sum of all diagrams
   `c' is the connectivity matrix, `vs' is the vertex set */
-INLINE int dg_hsfq_rjwlow(const dgword_t *c, dgword_t vs)
+INLINE int dg_hsfq_rjwlow(dgvs_t *c, dgword_t vs)
 {
   dgword_t w, b;
 
@@ -69,7 +72,7 @@ INLINE int dg_hsfq_rjwlow(const dgword_t *c, dgword_t vs)
     /* if c[i] share vertices with vs, there is bond
      * the Boltzmann weight = \prod_(ij) e_ij, and it allows no clash
      * therefore return zero immediately */
-    if (c[bitfirstlow(w, &b)] & vs) return 0;
+    if (DGVS_FIRSTWORD(c[bitfirstlow(w, &b)]) & vs) return 0;
   }
   return 1;
 }
@@ -101,7 +104,7 @@ INLINE int dg_hsfq_rjwlow(const dgword_t *c, dgword_t vs)
 /* compute the sum of connected diagrams by
  * Wheatley's recursion formula
  * `c' is the connectivity matrix,  `vs' is the vertex set */
-INLINE dgrjw_fb_t dg_hsfc_rjwlow(const dgword_t *c, dgword_t vs,
+INLINE dgrjw_fb_t dg_hsfc_rjwlow(dgvs_t *c, dgword_t vs,
     dgrjw_fb_t * RESTRICT fcarr, dgrjw_fb_t * RESTRICT fqarr)
 {
   dgrjw_fb_t fc, fc1, fq2;
@@ -163,7 +166,7 @@ INLINE dgrjw_fb_t dg_hsfc_rjw(const dg_t *g)
 
 
 
-INLINE dgrjw_fb_t dg_hsfa_rjwlow(const dgword_t *c, int n, int v, dgword_t vs,
+INLINE dgrjw_fb_t dg_hsfa_rjwlow(dgvs_t *c, int n, int v, dgword_t vs,
     dgrjw_fb_t * RESTRICT faarr, dgrjw_fb_t * RESTRICT fbarr);
 
 
@@ -171,7 +174,7 @@ INLINE dgrjw_fb_t dg_hsfa_rjwlow(const dgword_t *c, int n, int v, dgword_t vs,
 /* compute the sum of all connected diagrams without the articulation point
    at vertices lower than `v', `vs' is the vertex set
    if v = 0, it returns fc; if v = n, it returns fb */
-INLINE dgrjw_fb_t dg_hsfb_rjwlow(const dgword_t *c, int n, int v, dgword_t vs,
+INLINE dgrjw_fb_t dg_hsfb_rjwlow(dgvs_t *c, int n, int v, dgword_t vs,
     dgrjw_fb_t * RESTRICT faarr, dgrjw_fb_t * RESTRICT fbarr)
 {
   int i;
@@ -182,7 +185,7 @@ INLINE dgrjw_fb_t dg_hsfb_rjwlow(const dgword_t *c, int n, int v, dgword_t vs,
   if ((i = bitcount(vs)) <= 1) {
     return 1;
   } else if (i == 2) {
-    return (c[ BITFIRSTNZ(vs) ] & vs) ? -1 : 0;
+    return (DGVS_FIRSTWORD(c[ BITFIRSTNZ(vs) ]) & vs) ? -1 : 0;
   }
 
   /* start with the sum of connected diagrams, the first 2^n numbers of
@@ -209,7 +212,7 @@ INLINE dgrjw_fb_t dg_hsfb_rjwlow(const dgword_t *c, int n, int v, dgword_t vs,
 
 /* compute the sum of all connected diagrams with the articulation point at v
    and no articulation point at any vertex lower than v */
-INLINE dgrjw_fb_t dg_hsfa_rjwlow(const dgword_t *c, int n, int v, dgword_t vs,
+INLINE dgrjw_fb_t dg_hsfa_rjwlow(dgvs_t *c, int n, int v, dgword_t vs,
     dgrjw_fb_t * RESTRICT faarr, dgrjw_fb_t * RESTRICT fbarr)
 {
   dgrjw_fb_t fa = 0, fb, fa2, fb2;
@@ -272,7 +275,7 @@ INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
 {
 
   DG_DEFN_(g)
-  DG_DEFMASKN_()
+  dgword_t maskn;
   size_t size;
 
   /* the memory requirement is 2^(n + 1) * (n + 1) * sizeof(dgrjw_fb_t) */
@@ -281,7 +284,7 @@ INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
      * because this function might not be called at all
      * in high dimensions */
     dgrjw_nmax_ = DG_N_;
-    size = (dgrjw_nmax_ + 1) << dgrjw_nmax_; /* (nmax + 1) * 2^nmax */
+    size = (size_t) (dgrjw_nmax_ + 1) << dgrjw_nmax_; /* (nmax + 1) * 2^nmax */
     xnew(dgrjw_faarr_, size * 2);
     dgrjw_fbarr_ = dgrjw_faarr_ + size;
     fprintf(stderr, "%4d: dgrjw allocated %gMB memory for n %d\n", inode,
@@ -290,13 +293,14 @@ INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
 #ifndef N /* if N is fixed no need to reallocate */
   else if (DG_N_ > dgrjw_nmax_) {
     dgrjw_nmax_ = DG_N_;
-    size = (dgrjw_nmax_ + 1) << dgrjw_nmax_; /* (nmax + 1) * 2^nmax */
+    size = (size_t) (dgrjw_nmax_ + 1) << dgrjw_nmax_; /* (nmax + 1) * 2^nmax */
     xrenew(dgrjw_faarr_, size * 2);
     dgrjw_fbarr_ = dgrjw_faarr_ + size;
     fprintf(stderr, "%4d: dgrjw reallocated %gMB memory for n %d\n", inode,
         size * 2. * sizeof(dgrjw_fb_t) / (1024*1024), dgrjw_nmax_);
   }
-#endif
+#endif /* !defined(N) */
+
   size = ((size_t) (DG_N_ + 1) << DG_N_); /* (n + 1) * 2^n */
 #ifdef DGRJW_DOUBLE
   {
@@ -309,7 +313,9 @@ INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
   memset(dgrjw_faarr_, 0x80, size * sizeof(dgrjw_fb_t));
   memset(dgrjw_fbarr_, 0x80, size * sizeof(dgrjw_fb_t));
 #endif
-  return dg_hsfb_rjwlow(g->c, DG_N_, DG_N_, DG_MASKN_, dgrjw_faarr_, dgrjw_fbarr_);
+  die_if (DG_N_ > DG_WORDBITS, "n %d > wordbits %d\n", DG_N_, DG_WORDBITS);
+  maskn = MKBITSMASK(DG_N_);
+  return dg_hsfb_rjwlow(g->c, DG_N_, DG_N_, maskn, dgrjw_faarr_, dgrjw_fbarr_);
 }
 
 

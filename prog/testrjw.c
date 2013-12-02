@@ -14,7 +14,7 @@ typedef struct {
 static void cmpref(int n, edges_t *ref)
 {
   int i, j;
-  double fb;
+  double fb, fb1, fb2;
   dg_t *g;
 
   g = dg_open(n);
@@ -28,6 +28,14 @@ static void cmpref(int n, edges_t *ref)
     if (fabs(fb - ref[i].fb) > 1e-3) {
       printf("n %d: model %d fb mismatch %g vs %d (ref)\n",
           n, i, fb, ref[i].fb);
+      dg_print(g);
+      exit(1);
+    }
+    fb1 = dg_hsfb_rjw(g);
+    fb2 = DG_SC2FB(dg_rhsc_directlow(g), dg_nedges(g));
+    if (fabs(fb1 - fb) > 1e-3 || fabs(fb2 - fb) > 1e-3) {
+      printf("n %d: model %d fb mismatch %g(rjw), %g(sc) vs %g (ref)\n",
+          n, i, fb1, fb2, fb);
       dg_print(g);
       exit(1);
     }
@@ -203,10 +211,11 @@ int main(int argc, char **argv)
     {-1, {{0, 0}}, 0},
   };
   edges_t ref5[] = {
-    {0, {{0, 0}}, -6},
     {1, {{0, 1}}, 0},
+    {0, {{0, 0}}, -6},
     {2, {{0, 1}, {2, 3}}, 3},
     {2, {{0, 1}, {1, 2}}, 0},
+    {3, {{0, 1}, {0, 3}, {2, 4}}, 2},
     {3, {{0, 1}, {2, 3}, {3, 4}}, 2},
     {3, {{0, 1}, {1, 3}, {2, 4}}, 2},
     {3, {{0, 1}, {1, 3}, {1, 4}}, 0},

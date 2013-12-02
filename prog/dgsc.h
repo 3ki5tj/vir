@@ -38,30 +38,43 @@ INLINE double dg_rhiter(int n, int n0, double sc)
 INLINE dg_t *dg_mintop(dg_t *g)
 {
   int i;
-  dgword_t mask = MKBITSMASK(g->n);
+  dgvs_t vs;
+  dgword_t bi;
+  DGVS_DEFIQ_(iq)
 
-  /* remove fully-connected vertices until it is no longer biconnected */
+  /* remove fully-connected vertices until it is no longer biconnected
+   * note, g->n changes in the loop */
   for (i = 0; i < g->n; i++) {
     /* construct a vertex set without i */
-    dgword_t vs = mask ^ MKBIT(i);
+    DGVS_MKBIT(i, bi, iq)
+    DGVS_MKBITSMASK(vs, g->n);
+    DGVS_XOR1(vs, bi, iq) /* remove `bi' from `vs' */
     /* see if removing a fully-connected vertex leaves
      * the diagram biconnected */
-    if ( g->c[i] == vs && dg_biconnectedvs(g, vs) ) {
+    if ( dgvs_eq(g->c[i], vs) && dg_biconnectedvs(g, vs) ) {
+      //dg_print(g);
+      //printf("removing %d/%d\n", i, g->n);
+      //dgvs_printn(vs, "vs");
       dg_remove1(g, g, i);
+      //dg_print(g);
     } /* otherwise keep searching */
+    DGVS_XOR1(vs, bi, iq) /* add `bi' back to `vs' */
   }
   return g;
 }
 
 
 
+#if DGVS_ONEWORD
+
+
 /* check if a graph is biconnected under the assumption that
  * only vertices in avs can be articulation points */
-INLINE int dg_biconnectedavs(const dg_t *g, dgword_t avs)
+INLINE int dg_biconnectedavs(const dg_t *g, dgvs_t avs)
 {
+  dgword_t b;
   DG_DEFN_(g)
   DG_DEFMASKN_()
-  dgword_t b;
 
   for (b = 1; b & DG_MASKN_; b <<= 1)
     if ( (b & avs) && !dg_connectedvs(g, DG_MASKN_ ^ b) )
@@ -71,19 +84,35 @@ INLINE int dg_biconnectedavs(const dg_t *g, dgword_t avs)
 
 
 
-#if 0 /* same as the above but slightly slower version */
-INLINE int dg_biconnectedavsb(const dg_t *g, dgword_t avs)
-{
-  DG_DEFN_(g)
-  DG_DEFMASKN_()
-  dgword_t b;
+#else /* !DGVS_ONEWORD */
 
-  for (; avs; avs ^= b) /* `b' is the first nonzero bit */
-    if ( !dg_connectedvs(g, DG_MASKN_ ^ (b = avs & (-avs))) )
+
+
+/* check if a graph is biconnected under the assumption that
+ * only vertices in `avs' can be articulation points */
+INLINE int dg_biconnectedavs(const dg_t *g, dgvs_t avs0)
+{
+  dgvs_t avs, mask;
+  dgword_t b;
+  DGVS_DEFIQ_(iq)
+  DG_DEFN_(g)
+
+  DGVS_MKBITSMASK(mask, DG_N_)
+  DGVS_CPY(avs, avs0)
+  while ( dgvs_nonzero( avs ) ) {
+    DGVS_FIRSTBIT(avs, b, iq) /* first bit `b' in the vertex set `avs' */
+    DGVS_XOR1(avs, b, iq) /* remove `b' from the vertex set `avs' */
+    DGVS_XOR1(mask, b, iq) /* remove `b' from `mask' */
+    if ( !dg_connectedvs(g, mask) )
       return 0;
+    DGVS_XOR1(mask, b, iq) /* add `b' back into `mask' */
+  }
   return 1;
 }
-#endif
+
+
+
+#endif /* DGVS_ONEWORD */
 
 
 
@@ -91,43 +120,60 @@ INLINE int dg_biconnectedavsb(const dg_t *g, dgword_t avs)
  * starting from the edge (i, j + 1) */
 INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
 {
+  dgvs_t avs;
+  dgword_t bi, bj;
+  DGVS_DEFIQ_(iq)
+  DGVS_DEFIQ_(jq)
+  double sc = 0;
   DG_DEFN_(g)
   DG_DEFMASKN_()
-  dgword_t avs, avsi, bi, bj;
-  double sc = 0;
 
   /* find the pair after (i, j) with i < j */
   if (++j >= DG_N_) j = (++i) + 1;
+  DGVS_MKBITSMASK(avs, DG_N_)
+  //dg_print(g); printf("n %d\n", DG_N_); getchar();
   /* loop over the first vertex i */
   for (; i < DG_N_ - 1; j = (++i) + 1) {
     /* if the degree <= 2, removing an edge connecting i
      * makes the biconnectivity impossible */
     if (dg_deg(g, i) <= 2) continue;
-    bi = MKBIT(i);
-    avsi = DG_MASKN_ ^ bi;
+    DGVS_MKBIT(i, bi, iq)
+    DGVS_XOR1(avs, bi, iq) /* remove `bi' from `avs' */
     /* loop over the second vertex j */
     for (; j < DG_N_; j++) {
       /* try to remove the edge i-j */
-      if (!(g->c[j] & bi) || dg_deg(g, j) <= 2)
+      if ( !DGVS_HASBIT(g->c[j], bi, iq) )
         continue;
-      g->c[j] &= ~bi;
-      bj = MKBIT(j);
-      g->c[i] &= ~bj;
+      if (dg_deg(g, j) <= 2)
+        continue;
+      //printf("n %d, before removing (%d, %d), bi %x bj %x ci %x, cj %x\n", DG_N_, i, j, bi, bj, g->c[i], g->c[j]);
+      DGVS_ANDNOT1(g->c[j], bi, iq)
+      //g->c[j] &= ~bi;
+      DGVS_MKBIT(j, bj, jq)
+      DGVS_ANDNOT1(g->c[i], bj, jq)
+      //dg_print(g);
+      //printf("n %d, removing (%d, %d), bi %x bj %x ci %x, cj %x\n", DG_N_, i, j, bi, bj, g->c[i], g->c[j]); getchar();
+      //g->c[i] &= ~bj;
       /* It is certain that neither i or j is an aritculation points (*)
        * we will only test the connectivity of g without other vertices
        * Prove (*):
        * Since `g' with (i, j) is biconnected, g\{i} is connected
        * so g'\{i} where g' is g \ {(i, j)} is also connected,
        * hence i is not an articulation point of g'  */
-      avs = avsi ^ bj;
+      //avs = avsi ^ bj;
+      DGVS_XOR1(avs, bj, jq) /* remove `bj' from `avs' */
       if ( dg_biconnectedavs(g, avs) ) {
         sc += sgn /* add the diagram without (i, j) */
             + dg_rhsc_recur(g, -sgn, i, j); /* diagrams without (i, j) */
       }
+      DGVS_XOR1(avs, bj, jq) /* add back `bj' to `avs' */
       /* link back, find subdiagrams with (i, j) */
-      g->c[i] |= bj;
-      g->c[j] |= bi;
+      DGVS_OR1(g->c[i], bj, jq)
+      DGVS_OR1(g->c[j], bi, iq)
+      //g->c[i] |= bj;
+      //g->c[j] |= bi;
     }
+    DGVS_XOR1(avs, bi, iq) /* add `bi' back to `avs' */
   }
   return sc;
 }
@@ -210,7 +256,7 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
   if (testcsep) {
     /* if nocsep, we know for sure there is no clique separator
      * then the hard calculation must be done */
-    *err = (nocsep || !dg_csep(g));
+    *err = (nocsep || !dg_cseplow(g, ned0));
   } else { /* if we don't want to test clique separator */
     *err = 1; /* simply show failure */
   }
@@ -226,7 +272,7 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
 INLINE double dg_rhsc_directlow(const dg_t *g)
 {
   double sc;
-  static dgword_t g0_c[DG_NMAX];
+  static dgvs_t g0_c[DG_NMAX];
   static dg_t g0[1] = {{0, NULL}};
 #pragma omp threadprivate(g0_c, g0)
 
@@ -333,5 +379,5 @@ INLINE double dg_rhsc0(const dg_t *g, int nocsep, int *ned, int *degs)
 
 
 
-#endif
+#endif /* !defined(DGSC_H__) */
 

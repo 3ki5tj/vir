@@ -21,7 +21,7 @@ INLINE int dg_sortlabels(int l2[], dgvs_t unnumbered, int n)
   for (l = 0; l < 2*n; l++) cnt[l] = 0;
   DGVS_CPY(r, unnumbered)
   while ( dgvs_nonzero(r) ) { /* loop over unnumbered vertices in `r' */
-    DGVS_FIRSTLOW1(w, r, bw, iq) /* extract the first vertex `w' in `r' */
+    DGVS_FIRSTLOW(w, r, bw, iq) /* extract the first vertex `w' in `r' */
     l = l2[w];
     if (l > lmax) lmax = l;
     cnt[ l ] = 1;
@@ -38,7 +38,7 @@ INLINE int dg_sortlabels(int l2[], dgvs_t unnumbered, int n)
   /* C. Assign the new labels to the array l2[] */
   DGVS_CPY(r, unnumbered)
   while ( dgvs_nonzero(r) ) { /* loop over unnumbered vertices in `r' */
-    DGVS_FIRSTLOW1(w, r, bw, iq) /* extract the first vertex `w' in `r' */
+    DGVS_FIRSTLOW(w, r, bw, iq) /* extract the first vertex `w' in `r' */
     l2[w] = 2 * cnt[ l2[w] ]; /* set the new label */
     DGVS_XOR1(r, bw, iq) /* remove `w' from the vertex set `r' */
   }
@@ -78,9 +78,9 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
 #endif
 
     /* I. Select the unnumbered vertex with the largest label */
-    DGVS_COMPLM2(r, numbered, DG_MASKN_) /* r = ~numbered & maskn */
+    DGVS_ANDNOT2(r, DG_MASKN_, numbered) /* r = maskn & ~numbered */
     while ( dgvs_nonzero(r) ) {
-      DGVS_FIRSTLOW1(v, r, bv, iq) /* first vertex `v' in the vertex set `r' */
+      DGVS_FIRSTLOW(v, r, bv, iq) /* first vertex `v' in the vertex set `r' */
       /* currently all `l2' labels are even numbers */
       if ( l2[v]/2 == k - 1 ) { /* found it */
         DGVS_OR1(numbered, bv, iq) /* add vertex `v' the `numbered' vertex set */
@@ -113,9 +113,9 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
     /* II. Handle unnumbered vertices `v' adjacent to `v' in the graph `g'
      * The above unnumbered neighbors are the seeds in constructing
      * the hierarchical spanning tree based on the breath-first search */
-    DGVS_COMPLM2(r, numbered, g->c[v]) /* r = ~numbered & g->c[v] */
+    DGVS_ANDNOT2(r, g->c[v], numbered) /* r = ~numbered & g->c[v] & ~numbered */
     while ( dgvs_nonzero( r ) ) { /* loop over vertices `w' in `r' */
-      DGVS_FIRSTLOW1(w, r, bw, iq) /* first unnumbered vertex `w' */
+      DGVS_FIRSTLOW(w, r, bw, iq) /* first unnumbered vertex `w' */
       /* the immediate neighbors of `w' are the starting points
        * of the search, we group them by the labels
        * l2[w]/2 gives the group id, l2[w] is even at the moment */
@@ -157,11 +157,11 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
        * so it should not be fixed before the loop */
       while ( dgvs_nonzero( reach[j] ) ) {
         /* select the first `w' from reach[j] */
-        DGVS_FIRSTLOW1(w, reach[j], bw, iq)
+        DGVS_FIRSTLOW(w, reach[j], bw, iq)
         DGVS_XOR1(reach[j], bw, iq) /* remove w from reach[j] */
         /* loop over unreached vertices adjacent to g->c[w] */
-        while ( dgvs_nonzero( dgvs_complement2(r, reached, g->c[w]) ) ) {
-          DGVS_FIRSTLOW1(z, r, bz, iq1) /* pick `z' */
+        while ( dgvs_nonzero( dgvs_andnot2(r, g->c[w], reached) ) ) {
+          DGVS_FIRSTLOW(z, r, bz, iq1) /* pick `z' */
           DGVS_OR1(reached, bz, iq1) /* mark `z' as `reached' */
           /* here we distinguish two cases
            * (A) if `z' has a label greater than `j' (the label of `w')
@@ -187,7 +187,7 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
     }
 
     /* IV. Re-assign labels of the vertices by counting sort */
-    DGVS_COMPLM2(r, numbered, DG_MASKN_)
+    DGVS_ANDNOT2(r, DG_MASKN_, numbered)
     k = dg_sortlabels(l2, r, DG_N_);
 #ifdef DGCSEP_DBG
     printf("round %d, %d labels\n", i, k);
@@ -228,7 +228,7 @@ INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
     /* test if c = C(v) is a clique, a fully-connected subgraph */
     DGVS_CPY(r, c)
     while ( dgvs_nonzero(r) ) { /* loop over vertices in `c' */
-      DGVS_FIRSTLOW1(w, r, bw, iq) /* vertex `w' in `c' */
+      DGVS_FIRSTLOW(w, r, bw, iq) /* vertex `w' in `c' */
       /* cb = c ^ bw is the set of vertices connected to `w' in `c'
        * if `c' is a clique */
       DGVS_CPY(cb, c)
@@ -363,7 +363,7 @@ INLINE dgvsref_t dg_csep2(const dg_t *g)
     DGVS_OR1(maskci, bi, iq) /* update maskci */
 
     while ( dgvs_nonzero(ci) ) {
-      DGVS_FIRSTBIT1(ci, bj, jq)
+      DGVS_FIRSTBIT(ci, bj, jq)
       DGVS_XOR1(ci, bj, jq) /* remove `bj' from `ci' */
       DGVS_XOR1(maski, bj, jq) /* `maski' now lacks the `j' bit */
 
@@ -398,7 +398,7 @@ INLINE dgvsref_t dg_cseplow(const dg_t *g, int ned)
 
   /* it appears that it is advantageous to test 2-clique separators
    * for loosely-connected diagrams */
-  if (ned < 0) ned = dg_nedges(g);
+  if (ned <= 0) ned = dg_nedges(g);
   if (ned <= g->n * 2 + 3) {
     cc = dg_csep2(g);
     if (cc != 0) return cc;

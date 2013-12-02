@@ -122,32 +122,38 @@ INLINE double dg_nring_direct(const dg_t *g)
   DG_DEFN_(g)
   DG_DEFMASKN_()
   int st[DG_NMAX], top, sttop, root = 0;
-  dgword_t unused, c, b, croot, ccp;
+  dgvs_t unused, ccp, ccp0, croot, c, masktop, vstmp;
+  dgword_t bi;
+  DGVS_DEFIQ_(iq)
   double cnt = 0;
 
   if (DG_N_ <= 2) {
     if (DG_N_ <= 1) return 1;
-    else return (double) (int) (g->c[1] & 0x1);
+    else return (double) (int) (DGVS_FIRSTWORD(g->c[1]) & 0x1);
   }
   st[0] = root;
   st[1] = 0;
   top = 1;
-  unused = DG_MASKN_ ^ MKBIT(root);
-  croot = g->c[root];
+  /* unused = DG_MASKN_ ^ MKBIT(root); */
+  DGVS_MKBITSMASK(unused, DG_N_)
+  DGVS_REMOVE(unused, root)
+  DGVS_CPY(croot, g->c[root]) /* vertices adjacent to the `root' */
 
-  ccp = unused & croot; /* ccp: set of unused vertices adjacent to st[top-1] */
+  DGVS_AND2(ccp, unused, croot); /* ccp: set of unused vertices adjacent to st[top-1] */
   sttop = st[top];
 
   while (1) {
-    dgword_t ccp0 = ccp; /* backup ccp in case pushing failed */
+    DGVS_CPY(ccp0, ccp) /* backup ccp in case pushing failed */
     /* construct a set of vertices that satisfy
      * 1. in ccp: unused && connected to st[top-1]
      * 2. indices > sttop */
-    c = ccp & MKINVBITSMASK(sttop + 1);
-    if ( c != 0 ) {
-      BITFIRSTLOW(sttop, c, b);
-      unused ^= b; /* remove b from the unused vertex set */
-      ccp = unused & g->c[sttop];
+    /* c = ccp & MKINVBITSMASK(sttop + 1); */
+    DGVS_MKBITSMASK(masktop, sttop + 1)
+    DGVS_ANDNOT2(c, ccp, masktop)
+    if ( dgvs_nonzero(c) ) {
+      DGVS_FIRSTLOW(sttop, c, bi, iq) /* choose `sttop' (or bit `bi') from `c' */
+      DGVS_XOR1(unused, bi, iq) /* remove b from the unused vertex set */
+      DGVS_AND2(ccp, unused, g->c[sttop]) /* ccp = unused & g->c[sttop]; */
       if (ccp) { /* there are still unused vertices */
         if (top < DG_N_ - 2) { /* push */
           st[top++] = sttop; /* save the current top */
@@ -156,16 +162,20 @@ INLINE double dg_nring_direct(const dg_t *g)
         }
         /* stay on the highest level, fall through
          * ccp should be a single bit representing the last the vertex */
-        cnt += ((croot & ccp) != 0); /* check ccp and the root are adjacent */
+        /* check ccp and the root are adjacent */
+        cnt += !dgvs_nonzero( dgvs_and2(vstmp, croot, ccp) );
+        // cnt += ((croot & ccp) != 0);
       }
       /* stay on this level */
-      ccp = ccp0; /* recover the old ccp */
-      unused ^= b; /* add b back to the unused vertices */
+      DGVS_CPY(ccp, ccp0) /* recover the old ccp */
+      DGVS_XOR1(unused, bi, iq) /* add b back to the unused vertices */
+      //unused ^= b;
     } else { /* exhausted this level, pop  */
       if (--top == 0) break;
       sttop = st[top];
-      unused ^= MKBIT(sttop); /* add b back to the unused vertices */
-      ccp = unused & g->c[st[top - 1]]; /* reconstruct ccp */
+      DGVS_FLIP(unused, sttop) /* add `b' back to the unused vertices */
+      // unused ^= MKBIT(sttop);
+      DGVS_AND2(ccp, unused, g->c[st[top - 1]]); /* reconstruct ccp */
     }
   }
   return cnt / 2; /* clockwise & counterclockwise */
