@@ -841,6 +841,7 @@ INLINE int bcrstep(int i0, int j0, dg_t *g, dg_t *ng,
     real rc, real amp, int gauss)
 {
   int i, j, n = g->n, gdirty;
+  dgvs_t vs;
 
   DISPRNDI(i, n, x, xi, amp, gauss);
   /* check if the distance constraint is satisfied */
@@ -859,7 +860,8 @@ INLINE int bcrstep(int i0, int j0, dg_t *g, dg_t *ng,
   /* the new graph needs to be biconnected and without
    * the articulation pair (i0, j0) */
   } else if ( dg_biconnected(ng)
-    && dg_connectedvs(ng, MKBITSMASK(n) ^ MKBIT(i0) ^ MKBIT(j0)) ) {
+    && dg_connectedvs(ng, dgvs_mkinvset2(vs, n, i0, j0)) ) {
+
     dg_copy(g, ng);
     rvn_copy(x[i], xi);
     UPDR2(r2ij, r2i, n, i, j);
@@ -892,11 +894,12 @@ INLINE int changenapair_metro(int *i, int *j, const dg_t *g,
     real r2ij[][DG_NMAX], real rc)
 {
   int ni, nj;
+  dgvs_t vs;
 
   ni = randpair(g->n, &nj);
   if ( !(ni == *i && nj == *j) && !(ni == *j && nj == *i)
-    && dg_connectedvs(g, MKBITSMASK(g->n) ^ MKBIT(ni) ^ MKBIT(nj))
-    && r2ij[ni][nj] < rc * rc ) {
+    && r2ij[ni][nj] < rc * rc
+    && dg_connectedvs(g, dgvs_mkinvset2(vs, g->n, ni, nj)) ) {
     *i = ni;
     *j = nj;
     return 1;
@@ -957,10 +960,11 @@ INLINE int nmove_restraineddown2pure(int i0, int j0,
     dg_t *g, rvn_t *x, real r2ij[][DG_NMAX], double Zr)
 {
   int i, n = g->n, j, k;
+  dgvs_t vs;
 
   if (Zr < 1 && rnd0() >= Zr) return 0;
   i = (rnd0() > 0.5) ? i0 : j0;
-  if ( n > 2 && !dg_biconnectedvs(g, MKBITSMASK(n) ^ MKBIT(i)) )
+  if ( n > 2 && !dg_biconnectedvs(g, dgvs_mkinvset(vs, n, i)) )
     return 0;
   dg_remove1(g, g, i);
   /* update x */
@@ -1022,6 +1026,7 @@ static int check(const dg_t *g, rvn_t *x, real (*r2ij)[DG_NMAX],
 {
   int i, j, n = g->n, err = 0, type = gc->type[iens];
   real r2, rc2 = gc->rc[iens] * gc->rc[iens];
+  dgvs_t vs;
 
   /* check the pair distances */
   for (i = 1; i < n; i++) {
@@ -1062,7 +1067,7 @@ static int check(const dg_t *g, rvn_t *x, real (*r2ij)[DG_NMAX],
           i0, j0, n, r2ij[i0][j0], rc2, gc->rc[iens]);
       err++;
     }
-    if ( !dg_connectedvs(g, MKBITSMASK(g->n) ^ MKBIT(i0) ^ MKBIT(j0)) ) {
+    if ( !dg_connectedvs(g, dgvs_mkinvset2(vs, n, i0, j0)) ) {
       fprintf(stderr, "the pair (%d, %d) is articulated\n", i0, j0);
       err++;
     }
@@ -1084,6 +1089,7 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
   dg_t *g, *ng, *g1, *ng1;
   rvn_t x[DG_NMAX] = {{0}}, xi;
   real r2ij[DG_NMAX][DG_NMAX] = {{0}}, r2i[DG_NMAX] = {0};
+  dgvs_t vs;
   const char *smove = "undefined";
 
   gc = gc_open(nmin, nmax, mtiers, rc0, sr0);
@@ -1212,7 +1218,7 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
           else /* select a random pair */
             pj = randpair(g->n, &pi);
 
-          if ( (g->n <= 3 || dg_connectedvs(g, MKBITSMASK(g->n) ^ MKBIT(pi) ^ MKBIT(pj)))
+          if ( ( g->n <= 3 || dg_connectedvs(g, dgvs_mkinvset2(vs, g->n, pi, pj) ) )
             && r2ij[pj][pi] < dblsqr(gc->rc[iens - 1] * gc->sr[iens - 1])
             && (nmvtype == 0 || rnd0() < gc->Zr[iens] * ned) ) {
             acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i, 1. / gc->sr[iens - 1],

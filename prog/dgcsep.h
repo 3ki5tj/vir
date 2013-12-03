@@ -395,11 +395,12 @@ INLINE dgvsref_t dg_csep2(const dg_t *g)
 INLINE dgvsref_t dg_cseplow(const dg_t *g, int ned)
 {
   dgvsref_t cc;
+  DG_DEFN_(g)
 
   /* it appears that it is advantageous to test 2-clique separators
    * for loosely-connected diagrams */
   if (ned <= 0) ned = dg_nedges(g);
-  if (ned <= g->n * 2 + 3) {
+  if (ned <= DG_N_ * 2 + 3) {
     cc = dg_csep2(g);
     if (cc != 0) return cc;
   }

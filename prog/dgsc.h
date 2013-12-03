@@ -126,7 +126,6 @@ INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
   DGVS_DEFIQ_(jq)
   double sc = 0;
   DG_DEFN_(g)
-  DG_DEFMASKN_()
 
   /* find the pair after (i, j) with i < j */
   if (++j >= DG_N_) j = (++i) + 1;
@@ -256,7 +255,8 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
   if (testcsep) {
     /* if nocsep, we know for sure there is no clique separator
      * then the hard calculation must be done */
-    *err = (nocsep || !dg_cseplow(g, ned0));
+    //*err = (nocsep || !dg_cseplow(g, ned0));
+    *err = (nocsep || !dg_csep(g));
   } else { /* if we don't want to test clique separator */
     *err = 1; /* simply show failure */
   }

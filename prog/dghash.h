@@ -367,7 +367,7 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
     double *nr, int nocsep, int *ned, int *degs)
 {
   static dgword_t c[DG_CWORDS];
-  static dgword_t ng_c[DG_NMAX];
+  static dgvs_t ng_c[DG_NMAX];
   static dg_t ng[1] = {{DG_NMAX, NULL}}; /* a stock graph */
 #pragma omp threadprivate(c, ng_c, ng)
 

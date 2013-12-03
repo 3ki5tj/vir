@@ -301,10 +301,12 @@ ipo:
 
 
 
-D = 2, n = 10, -1 1e8 -0 1e6 -w 1, vir = 0.019953
+D = 2, n = 10, -1 1e8 -0 1e6 -w 1, vir = 0.019953 (timed on Dec. 2)
 T60:
-      single thread (level 9):  5m50s/5m42s                 icc -DD=2 -DN=10 -openmp -O2 -march=native -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1
-     *2-thread (level 1):       5m03s/9m33s                 icc -DD=2 -DN=10 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1 --auto-level=1
+      single thread (level 9):  4m04s/4m01s                 icc -DD=2 -DN=10 -openmp -O2 -march=native -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1 --auto-level=9 --hash-bits=24
+     *2-thread (level 9):       5m23s/9m51s                 icc -DD=2 -DN=10 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1 --auto-level=9 --hash-bits=24
+     *2-thread (level 1):       3m59s/6m10s                 icc -DD=2 -DN=10 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1 --auto-level=1 --hash-bits=24
+     *2-thread (level 1, nocep):3m47s/6m15s                 icc -DD=2 -DN=10 -openmp -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e8 -0 1e6 --hash-mode=1 --auto-level=1 --hash-nocsep --hash-bits=24
 
 D = 2, n = 10, -1 1e9 -0 1e6 -w 1, vir = 0.019953
 ipo:  single thread (level 9):  15m30s/15m30s               icc -DD=2 -DN=10 -O2 -ipo mcrat0.c && rm -f mr* && time ./a.out -1 1e9 -0 1e6 --hash-mode=1

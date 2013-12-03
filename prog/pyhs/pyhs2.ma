@@ -67,16 +67,21 @@ geteqsQ[k_, t_] := Module[{Q, Qr, dQ0, i, n, r, r1, eqs, eq1, eq2, eq, lam},
 
 
 (* compute the polynomial of X = 1/sqrt(kappa) and t *)
-numXt2[eqs_, X_, t_, Q_, pref_, nt_, dt_, nXmax_, i0_ : 0] := Module[
+numXt2[eqs_, X_, t_, Q_, pref_, nt_, dt_, nXmax_, i0_ : 0, i1_ : 100000] := Module[
   {tv, ls = {}, ls1, p1, val, v0, vr, i, j, s, sr, sref = 1, ex, pr, fn},
 
   ex = Exponent[pref, X];
   pr = Coefficient[pref, X^ex];
   fn = "ls" <> ToString[X] <> ToString[t] <> ToString[nt] <> ".txt";
 
+  Print["total ", nt, " values, i ", i0, " - ", i1];
+
   (* compute the Groebner basis for each density t *)
-  For [ tv = (-Ceiling[nt/2] + i0) * dt, Length[ls] < nt, tv += dt,
+  For [ tv = (-Ceiling[nt/2] + i0) * dt; ii = i0,
+        Length[ls] < nt && ii < i1,
+        tv += dt; ii += 1,
     If [ tv == 0 || tv == 1, Continue[]; ];
+    Print["trying t = ", tv, ", i ", ii, " in [", i0, ", ", i1, ")"];
     MemoryConstrained[
       val = GroebnerBasis[eqs /. {t -> tv}, {X}, Q],
     2000000000];
@@ -85,11 +90,15 @@ numXt2[eqs_, X_, t_, Q_, pref_, nt_, dt_, nXmax_, i0_ : 0] := Module[
     If [ v0 == 0, Continue[]; ];
     ls = Append[ls, {tv, val, v0}];
     If [ nt >= 64,
-      Print["t ", (tv // InputForm), " ", fn];
+      Print["t ", (tv // InputForm), ", i ", ii, "/", nt, ", ", fn];
       xsave[fn, {tv, val}, True];
     ];
   ];
   (* Print[ls // InputForm]; *)
+  If [ Length[ls] < nt && ii >= i0,
+    Print[ "Collected partial list of ", i1 - i0, " items, exiting" ];
+    Exit[];
+  ];
 
   (* compute the reference scaling sref *)
   s = Table[1, {i, Length[ls]} ];
@@ -204,7 +213,12 @@ i0 = 0;
 If [ Length[ $CommandLine ] >= 4,
   i0 = ToExpression[ $CommandLine[[4]] ];
 ];
-Print["start from i0 ", i0];
+
+i1 = 1000000;
+If [ Length[ $CommandLine ] >= 5,
+  i1 = ToExpression[ $CommandLine[[5]] ];
+];
+Print["start from i0 ", i0, ", ends at i1 ", i1];
 
 
 
@@ -235,7 +249,7 @@ If [ StringCount[op, "c"] > 0,
     dt = 1;
     nt = nXmax * 2 + 1;
     prc = (1 - t)^(2^k) X^(2^(k-1));
-    Xt = numXt2[eqsc, X, t, Qc, prc, nt, dt, nXmax, i0];
+    Xt = numXt2[eqsc, X, t, Qc, prc, nt, dt, nXmax, i0, i1];
   ][[1]];
   Print[ (If [d <= 9, Xt, X^Exponent[Xt, X]] // InputForm), ", time ", tm];
   xsave["Xt" <> ToString[d] <> "c.txt", Xt, False, True];
@@ -268,7 +282,7 @@ If [ StringCount[op, "p"] > 0,
     dt = 1;
     nt = nXmax * 3;
     prc = (1 - t)^(2^k) t^(2^(k - 1) - 1) g^(2^(k - 1));
-    gt = numXt2[eqsp, g, t, Qp, prc, nt, dt, nXmax, i0];
+    gt = numXt2[eqsp, g, t, Qp, prc, nt, dt, nXmax, i0, i1];
   ][[1]];
   Print[ (If [d <= 9, gt, g^Exponent[gt, g]] // InputForm), ", time ", tm];
   (* convert to Zt *)

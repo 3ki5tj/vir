@@ -635,10 +635,11 @@ INLINE int getpair(int *pi, int *pj, const dg_t *g,
 {
   int i, j, npr = 0, id, n = g->n;
   static int pr[DG_NMAX*DG_NMAX];
-  dgword_t mask = MKBITSMASK(n);
+  dgvs_t vs;
 
   for (i = 0; i < n; i++) { /* the vertex to remove */
-    if ( n > 2 && !dg_biconnectedvs(g, mask ^ MKBIT(i)) ) continue;
+    if ( n > 2 &&
+        !dg_biconnectedvs(g, dgvs_mkinvset(vs, n, i)) ) continue;
     for (j = 0; j < n; j++) { /* root */
       if ( j == i ) continue;
       if ( r2ij[i][j] < rc * rc )
@@ -665,6 +666,7 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
   int ninit, i, j, k, n, npr, deg, acc, it, ieql, loaddata;
   gc_t *gc;
   dg_t *g, *ng;
+  dgvs_t vs;
   rvn_t x[DG_NMAX], xi;
   real r2ij[DG_NMAX][DG_NMAX], r2i[DG_NMAX];
 
@@ -766,7 +768,7 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
           /* test if * the graph is biconnected without i
            * and the pair i and j are connected */
           if ( ( n > 2
-              && !dg_biconnectedvs(g, MKBITSMASK(n) ^ MKBIT(i)) )
+              && !dg_biconnectedvs(g, dgvs_mkinvset(vs, n, i) ) )
            || rvn_dist2(x[i], x[j]) >= dblsqr(gc->rc[n]) )
             goto STEP_END;
         }

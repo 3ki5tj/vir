@@ -10,7 +10,7 @@
 /* choose a random edge, return the number of edges */
 INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
 {
-  dgvs_t c, vs, maski;
+  dgvs_t c, maski;
   dgword_t b;
   DGVS_DEFIQ_(iq)
   int i, j, k, ne, ipr, rr;

@@ -151,6 +151,8 @@ int inode = MASTER, nnodes = 1;
 
 #if DGVS_ONEWORD /* 1-word vertex set */
 
+#define DG_NW 1
+
 /* 1-word vertex set */
 typedef dgword_t dgvs_t;
 typedef dgword_t dgvsref_t;
@@ -158,6 +160,8 @@ typedef dgword_t dgvsref_t;
 #define DGVS_CLEAR(vs)              (vs) = 0;
 
 #define dgvs_nonzero(vs)            ((vs) != 0)
+
+#define dgvs_iszero(vs)             ((vs) == 0)
 
 /* vs = ~vs */
 #define DGVS_NOT(a, b)              (a) = ~(b);
@@ -183,7 +187,13 @@ typedef dgword_t dgvsref_t;
  * `vs' is dgvs_t, 'b' is dgword_t, `iq' is unused */
 #define DGVS_FIRSTLOW(k, vs, b, iq)   BITFIRSTLOW(k, vs, b)
 
+#define dgvs_first(vs)          bitfirst(vs)
+
+#define dgvs_bit2id(vs)         BIT2ID(vs)
+
 #define dgvs_eq(a, b)           ((a) == (b))
+
+#define dgvs_neq(a, b)          ((a) != (b))
 
 /* a ^= b */
 #define DGVS_XOR(a, b)          ((a) ^= (b));
@@ -238,7 +248,10 @@ typedef dgword_t dgvsref_t;
 /* test if the vertex set `vs' has bit `bi' */
 #define DGVS_HASBIT(vs, bi, iq) (((vs) & (bi)) != 0)
 
-#define DGVS_MKBIT(i, b, iq)    b = MKBIT(i);
+/* set `vs' as a vertex set of a single bit `bi' */
+#define DGVS_ONEBIT(vs, bi, iq) (vs) = (bi);
+
+#define DGVS_MKBIT(i, bi, iq)    bi = MKBIT(i);
 
 /* a mask with the lowest n words */
 #define DGVS_MKBITSMASK(vs, n)  (vs) = MKBITSMASK(n);
@@ -260,13 +273,13 @@ typedef dgword_t dgvsref_t;
 
 #if DG_WORDBITS == 32
   #define DG_NW         ((DG_NMAX + 31) >> 5)
-  #define DG_IQ(i)      ((i) >> 5)
-  #define DG_IR(i)      ((i) & 0x1f)
+  #define DG_IQ(i)      ((i) >> 5)            /* i / 32 */
+  #define DG_IR(i)      ((i) & 0x1f)          /* i % 32 */
   #define DG_IB(i)      MKBIT( DG_IR(i) )
 #elif DG_WORDBITS == 64
   #define DG_NW         ((DG_NMAX + 63) >> 6)
-  #define DG_IQ(i)      ((i) >> 6)
-  #define DG_IR(i)      ((i) & 0x3f)
+  #define DG_IQ(i)      ((i) >> 6)            /* i / 64 */
+  #define DG_IR(i)      ((i) & 0x3f)          /* i % 64 */
   #define DG_IB(i)      MKBIT( DG_IR(i) )
 #else
   #define DG_NW         ((DG_NMAX + DG_WORDBITS - 1) / DG_WORDBITS)
@@ -285,13 +298,15 @@ typedef dgword_t *dgvsref_t;
     (vs)[ii_] = 0; }
 
 /* test if a vertex set is zero */
-int dgvs_nonzero(dgvs_t vs)
+INLINE int dgvs_nonzero(dgvs_t vs)
 {
   int i;
   for (i = 0; i < DG_NW; i++)
     if (vs[i] != 0) return 1;
   return 0;
 }
+
+#define dgvs_iszero(vs)   (!dgvs_nonzero(vs))
 
 /* negate a vertex set */
 #define DGVS_NOT(a, b) { int ii_; \
@@ -336,6 +351,32 @@ INLINE int dgvs_count(dgvs_t vs)
       break; \
     } } }
 
+/* first vertex in `vs' */
+INLINE int dgvs_first(dgvs_t vs)
+{
+  dgword_t b;
+  int k, iq;
+  for (iq = 0; iq < DG_NW; iq++) {
+    if (vs[iq] != 0) {
+      BITFIRSTLOW(k, vs[iq], b);
+      return k + iq * DG_WORDBITS;
+    }
+  }
+  return 0;
+}
+
+/* assuming `vs' contains a single bit, return the bit `id' */
+INLINE int dgvs_bit2id(dgvs_t vs)
+{
+  dgword_t b;
+  int iq;
+
+  for (iq = 0; iq < DG_NW; iq++)
+    if ((b = vs[iq]) != 0)
+      return iq * DG_WORDBITS + BIT2ID(b);
+  return 0;
+}
+
 /* return if a == b */
 INLINE int dgvs_eq(dgvs_t a, dgvs_t b)
 {
@@ -344,6 +385,8 @@ INLINE int dgvs_eq(dgvs_t a, dgvs_t b)
     if (a[i] != b[i]) return 0;
   return 1;
 }
+
+#define dgvs_neq(a, b)  (!dgvs_eq(a, b))
 
 /* a ^= b */
 #define DGVS_XOR(a, b) { int ii_; \
@@ -436,7 +479,10 @@ INLINE dgvsref_t dgvs_andnot2(dgvs_t a, dgvs_t b, dgvs_t c)
   for (ii_ = 0; ii_ < DG_NW; ii_++) \
     vs1[ii_] = vs2[ii_]; }
 
-#define DGVS_MKBIT(i, b, iq)    iq = DG_IQ(i), b = MKBIT(DG_IR(i));
+/* set `vs' as a vertex set of a single bit `bi' */
+#define DGVS_ONEBIT(vs, bi, iq)  { DGVS_CLEAR(vs) vs[iq] = bi; }
+
+#define DGVS_MKBIT(i, bi, iq)    iq = DG_IQ(i), bi = MKBIT(DG_IR(i));
 
 /* a mask with the lowest n words */
 #define DGVS_MKBITSMASK(vs, n) { int ii_; \
@@ -452,11 +498,28 @@ INLINE dgvsref_t dgvs_andnot2(dgvs_t a, dgvs_t b, dgvs_t c)
 
 #endif /* DGVS_ONEWORD */
 
+
+
 #define DG_MASKN_       DGVS_MASKN_
 #define DG_DEFMASKN_    DGVS_DEFMASKN_
 
+#define DGVS_MKINVSET(vs, n, i)  \
+  DGVS_MKBITSMASK(vs, n) DGVS_REMOVE(vs, i)
 
+INLINE dgvsref_t dgvs_mkinvset(dgvsref_t vs, int n, int i)
+{
+  DGVS_MKINVSET(vs, n, i)
+  return vs;
+}
 
+#define DGVS_MKINVSET2(vs, n, i, j)  \
+  DGVS_MKBITSMASK(vs, n) DGVS_REMOVE(vs, i) DGVS_REMOVE(vs, j) 
+
+INLINE dgvsref_t dgvs_mkinvset2(dgvsref_t vs, int n, int i, int j)
+{
+  DGVS_MKINVSET2(vs, n, i, j)
+  return vs;
+}
 
 #define dgvs_print(vs, name) dgvs_fprint(vs, stdout, name)
 

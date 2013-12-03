@@ -15,12 +15,12 @@ static void testfoo(int n)
   g1a = dg_open(n);
   g2a = dg_open(n);
 
-  printf("before:\n");
+  printf("before dg_canlabel():\n");
   dg_print(g1);
   dg_print(g2);
   dg_canlabel(g1a, g1);
   dg_canlabel(g2a, g2);
-  printf("after:\n");
+  printf("after dg_canlabel():\n");
   dg_print(g1a);
   dg_print(g2a);
   dg_close(g1); dg_close(g1a);
@@ -41,17 +41,24 @@ static void testequipart(void)
 
   g = dg_open(9);
   dg_linkpairs(g, pairs);
-  printf("3x3 graph\n");
+  printf("  0---1---2\n"
+         "  |   |   |\n"
+         "  3---4---5\n"
+         "  |   |   |\n"
+         "  6---7---8\n");
+  printf("dg_equipart() on the above 3x3 graph\n");
   dg_print(g);
   dgpart_unit(&part, g->n);
   dg_equipart(&part, g);
-  dgpart_print(&part);
+  dgpart_print(&part); //getchar();
 
   printf("recursive\n");
   dgpart_unit(&part, g->n);
   while (part.nc < g->n) {
     int ip;
-    dgword_t vs, b;
+    dgvs_t vs;
+    dgword_t b;
+    DGVS_DEFIQ_(iq)
 
     dg_equipart(&part, g);
     if (part.nc == g->n) break;
@@ -60,12 +67,16 @@ static void testequipart(void)
       if (part.cnt[ip] > 1)
         break;
     /* artificially break the first cell */
-    vs = part.cs[ip];
-    b = vs & (-vs);
-    part.cs[part.nc] = vs ^ b;
+    DGVS_CPY(vs, part.cs[ip]);
+    DGVS_FIRSTBIT(vs, b, iq)
+    DGVS_XOR1(vs, b, iq)
+
+    DGVS_CPY(part.cs[part.nc], vs) //part.cs[part.nc] = vs ^ b;
     part.cnt[part.nc] = part.cnt[ip] - 1;
-    part.cs[ip] = b;
+
+    DGVS_ONEBIT(part.cs[ip], b, iq)
     part.cnt[ip] = 1;
+
     part.nc += 1;
     dgpart_print(&part);
   }
@@ -150,6 +161,7 @@ int main(int argc, char **argv)
 #else
   testfoo(6);
   testequipart();
+  exit(1);
   if (argc >= 2) n = atoi(argv[1]);
 #endif
 

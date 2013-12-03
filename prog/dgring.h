@@ -120,7 +120,6 @@ INLINE int dg_fbnr_spec0(const dg_t *g, double *fb, double *nr,
 INLINE double dg_nring_direct(const dg_t *g)
 {
   DG_DEFN_(g)
-  DG_DEFMASKN_()
   int st[DG_NMAX], top, sttop, root = 0;
   dgvs_t unused, ccp, ccp0, croot, c, masktop, vstmp;
   dgword_t bi;

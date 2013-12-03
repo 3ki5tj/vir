@@ -194,6 +194,7 @@ INLINE dgrjw_fb_t dg_hsfb_rjwlow(dgvs_t *c, int n, int v, dgword_t vs,
     fb = dg_hsfc_rjwlow(c, vs, fbarr, faarr);
     fbarr[vs] = fb;
   }
+#if !defined(N) || N <= 32 || (N <= 64 && ULONG_MAX > 4294967295UL)
   /* remove diagrams with the lowest articulation points at i < v */
   for (r = vs & (bv - 1); r; r ^= b) {
     BITFIRSTLOW(i, r, b);
@@ -205,6 +206,7 @@ INLINE dgrjw_fb_t dg_hsfb_rjwlow(dgvs_t *c, int n, int v, dgword_t vs,
     }
     fbarr[id] = (fb -= fa);
   }
+#endif
   return fb;
 }
 
@@ -228,6 +230,7 @@ INLINE dgrjw_fb_t dg_hsfa_rjwlow(dgvs_t *c, int n, int v, dgword_t vs,
   vs ^= b1v; /* remove the fixed vertices `b1' and `bv' from `vs' */
   /* `vs' is the set of *variable* vertices from now on */
   if ( vs == 0 ) return 0; /* no articulated diagram with only two vertices */
+#if !defined(N) || N <= 32 || (N <= 64 && ULONG_MAX > 4294967295UL)
   id0 = ((size_t) (v + 1) << DG_N_); /* (v + 1) * 2^n */
   /* `id0' is the offset for vertex v */
   /* loop over subsets of vs, stops when vs == vs1 */
@@ -256,6 +259,7 @@ INLINE dgrjw_fb_t dg_hsfa_rjwlow(dgvs_t *c, int n, int v, dgword_t vs,
     /* update the subset `ms1' */
     DGRJW_INC(ms1, ms2);
   }
+#endif
   return fa;
 }
 
@@ -301,7 +305,9 @@ INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
   }
 #endif /* !defined(N) */
 
+#if !defined(N) || N <= 32 || (N <= 64 && ULONG_MAX > 4294967295UL)
   size = ((size_t) (DG_N_ + 1) << DG_N_); /* (n + 1) * 2^n */
+
 #ifdef DGRJW_DOUBLE
   {
     size_t i;
@@ -316,6 +322,9 @@ INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
   die_if (DG_N_ > DG_WORDBITS, "n %d > wordbits %d\n", DG_N_, DG_WORDBITS);
   maskn = MKBITSMASK(DG_N_);
   return dg_hsfb_rjwlow(g->c, DG_N_, DG_N_, maskn, dgrjw_faarr_, dgrjw_fbarr_);
+#else
+  return 0;
+#endif
 }
 
 

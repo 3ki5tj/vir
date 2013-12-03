@@ -16,21 +16,36 @@
 /* canonical label */
 INLINE dg_t *dg_canlabel(dg_t *gout, const dg_t *gin)
 {
-  static dgword_t g0[DG_NMAX], gc[DG_NMAX];
+  static dgword_t g0[DG_NMAX*DG_NW], gc[DG_NMAX*DG_NW];
   static int lab[DG_NMAX], ptn[DG_NMAX], orbits[DG_NMAX];
   static DEFAULTOPTIONS_GRAPH(options);
   static statsblk stats;
 #pragma omp threadprivate(g0, gc, lab, ptn, orbits, options, stats)
   int i;
+  DGVS_DEFIQ_(iq)
   DG_DEFN_(gin)
 
   /* nauty uses the highest bit for the first index */
-  for (i = 0; i < DG_N_; i++) g0[i] = bitrev(gin->c[i]);
+  for (i = 0; i < DG_N_; i++) {
+#if DGVS_ONEWORD
+    g0[i] = bitrev(gin->c[i]);
+#else /* !DGVS_ONEWORD */
+    for (iq = 0; iq < DG_NW; iq++)
+      g0[i * DG_NW + iq] = bitrev(gin->c[i][iq]);
+#endif /* DGVS_ONEWORD */
+  }
   options.getcanon = TRUE;
-  densenauty(g0, lab, ptn, orbits, &options, &stats, 1, DG_N_, gc);
+  densenauty(g0, lab, ptn, orbits, &options, &stats, DG_NW, DG_N_, gc);
 
   gout->n = DG_N_;
-  for (i = 0; i < DG_N_; i++) gout->c[i] = bitrev(gc[i]);
+  for (i = 0; i < DG_N_; i++) {
+#if DGVS_ONEWORD
+    gout->c[i] = bitrev(gc[i]);
+#else /* !DGVS_ONEWORD */
+    for (iq = 0; iq < DG_NW; iq++)
+      gout->c[i][iq] = bitrev(gc[i * DG_NW + iq]);
+#endif /* DGVS_ONEWORD */
+  }
   return gout;
 }
 
@@ -39,7 +54,7 @@ INLINE dg_t *dg_canlabel(dg_t *gout, const dg_t *gin)
 typedef struct {
   int n; /* number of vertices */
   int nc; /* number of sets in the partition */
-  dgword_t cs[DG_NMAX]; /* cs[i] is the ith vertex set */
+  dgvs_t cs[DG_NMAX]; /* cs[i] is the ith vertex set */
   int cnt[DG_NMAX]; /* cnt[i] is the number of vertices in set i */
 } dgpart_t; /* an ordered partition, a sequence of vertex sets */
 
@@ -49,7 +64,7 @@ INLINE void dgpart_unit(dgpart_t *part, int n)
 {
   part->n = n;
   part->nc = 1;
-  part->cs[0] = MKBITSMASK(n);
+  DGVS_MKBITSMASK(part->cs[0], n)
   part->cnt[0] = n;
 }
 
@@ -62,11 +77,15 @@ INLINE void dgpart_unit(dgpart_t *part, int n)
 INLINE void dgpart_fprint(const dgpart_t *part, FILE *fp)
 {
   int ic, k;
-  dgword_t vs, b;
+  dgvs_t vs;
+  dgword_t b;
+  DGVS_DEFIQ_(iq)
 
   for (ic = 0; ic < part->nc; ic++) {
-    for (vs = part->cs[ic]; vs; vs ^= b) {
-      BITFIRSTLOW(k, vs, b);
+    DGVS_CPY(vs, part->cs[ic])
+    while ( dgvs_nonzero(vs) ) {
+      DGVS_FIRSTLOW(k, vs, b, iq)
+      DGVS_XOR1(vs, b, iq)
       fprintf(fp, "%d ", k);
     }
     fprintf(fp, "| ");
@@ -81,18 +100,22 @@ INLINE void dgpart_fprint(const dgpart_t *part, FILE *fp)
 INLINE int dgpart_check(const dgpart_t *part, int equitable, const dg_t *g)
 {
   int ic, sz;
-  dgword_t all = 0, vs;
+  dgvs_t all, vs, vs1;
 
+  DGVS_CLEAR(all)
   for (ic = 0; ic < part->nc; ic++) {
-    vs = part->cs[ic];
-    if (vs & all) {
+    DGVS_CPY(vs, part->cs[ic]);
+    /* `all' collects all encountered vertices so far,
+     * so if this partition `vs' overlaps with `all'
+     * there is a conflict */
+    if ( dgvs_nonzero( dgvs_and2(vs1, vs, all) ) ) {
       fprintf(stderr, "cell %d has a previous element %d\n",
-          ic, BIT2ID(vs & all));
+          ic, dgvs_first(vs1));
       dgpart_errprint(part);
       return 1;
     }
-    all |= vs;
-    sz = bitcount(vs);
+    sz = dgvs_count(vs); /* count vertices in `vs' */
+    DGVS_OR(all, vs) /* add vertices in `vs' to `all' */
     if (sz != part->cnt[ic] || sz == 0) {
       fprintf(stderr, "bad cell %d size %d, or it mismatches %d\n",
           ic, sz, part->cnt[ic]);
@@ -100,26 +123,35 @@ INLINE int dgpart_check(const dgpart_t *part, int equitable, const dg_t *g)
       return 2;
     }
   }
-  if (all != MKBITSMASK(part->n)) {
+  DGVS_MKBITSMASK(vs, part->n)
+  /* `all' must contain all vertices now */
+  if ( dgvs_neq(all, vs) ) {
     fprintf(stderr, "partition does not cover all vertices\n");
     dgpart_errprint(part);
     return 3;
   }
 
-  if (equitable) { /* check if the diagram is equitable */
+  if (equitable) { /* see if the partition is equitable w.r.t. all cells */
     /* loop over the shatterers */
     for (ic = 0; ic < part->nc; ic++) {
       int jc, deg0, deg, k, k0;
-      dgword_t vsi, vsj, b;
-      vsi = part->cs[ic];
+      dgvs_t vsi, vsj;
+      dgword_t b;
+      DGVS_DEFIQ_(iq)
+
+      DGVS_CPY(vsi, part->cs[ic]);
       /* loop over the shatterees */
       for (jc = 0; jc < part->nc; jc++) {
+        /* if the cell has only one vertex, it cannot be shattered */
         if (part->cnt[jc] == 1) continue;
         deg0 = k0 = -1;
         /* loop over vertices in the cell jc */
-        for (vsj = part->cs[jc]; vsj; vsj ^= b) {
-          BITFIRSTLOW(k, vsj, b);
-          deg = dg_degvs(g, k, vsi);
+        DGVS_CPY(vsj, part->cs[jc])
+        while ( dgvs_nonzero(vsj) ) {
+          //BITFIRSTLOW(k, vsj, b);
+          DGVS_FIRSTLOW(k, vsj, b, iq) /* first vertex `k' in `vsj' */
+          DGVS_XOR1(vsj, b, iq) /* remove `b' from `vsj' */
+          deg = dg_degvs(g, k, vsi); /* degree of `k' w.r.t. cell `i' */
           if (deg0 < 0) {
             deg0 = deg;
             k0 = k;
@@ -128,7 +160,7 @@ INLINE int dgpart_check(const dgpart_t *part, int equitable, const dg_t *g)
                 jc, k, ic, deg, deg0, k0);
             dgpart_print(part);
             dg_print(g);
-            return 99;
+            return 9;
           }
         }
       }
@@ -139,7 +171,7 @@ INLINE int dgpart_check(const dgpart_t *part, int equitable, const dg_t *g)
 
 
 
-/* return an equitable partition of the graph that is compatible with part
+/* return an equitable partition of the graph that is compatible with `g'
  * An equitable partition is a sequence of vertex subsets or cells {Vi},
  * such that for any Vi and Vj (i can be equal to j) and
  * for any vk and vl in Vi, deg(vk, Vj) == deg(vk, Vi) */
@@ -147,20 +179,26 @@ INLINE void dg_equipart(dgpart_t *part, const dg_t *g)
 {
   DG_DEFN_(g)
   int i, i0, imax, j, k, deg, ni;
-  dgword_t vsj, vsi, vs, b;
-  dgword_t vswdeg[DG_NMAX]; /* vswdeg[i] is the vertex set with degree i */
+  dgvs_t vsj, vsi;
+  static dgvs_t vswdeg[DG_NMAX]; /* vswdeg[i] is the vertex set with degree i */
+#pragma omp threadprivate(vswdeg)
+  dgword_t b;
+  DGVS_DEFIQ_(iq)
 
-  for (j = 0; j < part->nc; j++) { /* loop over shatterers */
-    vsj = part->cs[j];
-    //printf("shatter j %d\n", j); dgpart_print(part); getchar();
+  /* loop over shatterers
+   * note: the number of cells `part->nc' will be increased later
+   * in the loop, so it should not be fixed at the beginning of the loop */
+  for (j = 0; j < part->nc; j++) {
+    DGVS_CPY(vsj, part->cs[j])
+    //printf("shatterer j %d\n", j); dgpart_print(part); getchar();
 
     /* loop over shatterees
-     * In this process, the shatterer j is treated as fixed
-     * so once the cell i is shattered properly, its subcells
-     * cannot be further shattered by j, this means that we
+     * In this process, the shatterer `j' is treated as fixed
+     * so once the cell `i' is shattered properly, its subcells
+     * cannot be further shattered by `j', this means that we
      * only need to loop to the current number of cells imax
-     * even if part->nc grows latter on.
-     * Note, the shatterer j may be changed during the process.
+     * even if number of cells part->nc grows latter on.
+     * Note, the shatterer `j' may be changed during the process.
      * However, if Vj_old cannot shatter a cell i*, but the
      * new Vj_new (a subset of Vj_old) can shatter this cell i*
      * then the subset Vj_old - Vj_new can shatter this cell i* as well
@@ -170,46 +208,60 @@ INLINE void dg_equipart(dgpart_t *part, const dg_t *g)
     imax = part->nc; /* the current number of cells */
     i0 = -1; /* the first shattered cell */
     for (i = 0; i < imax; i++) {
-      vsi = part->cs[i];
+      dgvs_t nzdegs;
+      dgword_t bdeg;
+      DGVS_DEFIQ_(degq)
+
       ni = part->cnt[i]; /* number of vertices */
       //die_if (ni == 0, "set %d is empty\n", i);
-      if (ni == 1) { /* one-vertex cell, nothing to shatter */
+      if (ni == 1) /* one-vertex cell, cannot be shatterred */
         continue;
-      } else {
-        dgword_t nzdegs, nz, bdeg;
-        /* we use count sort to shatter vsi, that is,
-         * we sort cells according to their degrees with respect to vsj
-         * then each nonempty bags labeled by the degree gives the shatterer */
-        /* loop over vertices in the shatteree */
-        nzdegs = 0;
-        for (vs = vsi; vs; vs ^= b) {
-          BITFIRSTLOW(k, vs, b);
-          deg = dg_degvs(g, k, vsj);
-          bdeg = MKBIT(deg);
-          if (bdeg & nzdegs) { /* vswdeg[deg] already has something */
-            vswdeg[deg] |= b;
-          } else {
-            vswdeg[deg] = b;
-            nzdegs |= bdeg; /* mark degree `deg' has been occupied */
-          }
+
+      /* use count sort to shatter `vsi'
+       * sort cells according to their degrees with respect to `vsj'
+       * then each nonempty bucket labeled by the degree gives
+       * the set of shatterees of the same degree */
+      DGVS_CPY(vsi, part->cs[i]);
+      /* `nzdegs' has bit `deg' if there is a vertex in cell `vsi'
+       * with a degree `deg' w.r.t. `vsj' */
+      DGVS_CLEAR(nzdegs)
+      /* loop over vertices in the shatteree `vsi' */
+      while ( dgvs_nonzero(vsi) ) {
+        DGVS_FIRSTLOW(k, vsi, b, iq) /* first vertex `k' in `vsi' */
+        DGVS_XOR1(vsi, b, iq) /* remove `b' from `vsi' */
+        deg = dg_degvs(g, k, vsj); /* degree of `k' w.r.t. to `vsj' */
+        DGVS_MKBIT(deg, bdeg, degq)
+        /* vswdeg[deg] already has something */
+        if ( !DGVS_HASBIT(nzdegs, bdeg, degq) ) {
+          /* mark degree `deg' has been occupied */
+          DGVS_OR1(nzdegs, bdeg, degq)
+          DGVS_CLEAR(vswdeg[deg]) /* clear the bucket for `deg' */
         }
-        /* if there is only one occupied cell, no shattering */
-        if (bitcount(nzdegs) == 1) continue;
-        /* now nonzero vswdeg[x] collects a subset of vsi with deg x
-         * we now loop over occupied degrees */
-        k = 0; /* number of shattered cells */
-        for (nz = nzdegs; nz; nz ^= bdeg) {
-          BITFIRSTLOW(deg, nz, bdeg);
-          if (k == 0) { /* replace cell i by the first partition */
-            part->cnt[i] = bitcount( part->cs[i] = vswdeg[deg] );
-            k = part->nc; /* the next set begins here */
-          } else {
-            part->cnt[k] = bitcount( part->cs[k] = vswdeg[deg] );
-            part->nc = ++k;
-            if (i0 < 0) i0 = i; /* update i0, if cell i has been shattered */
-          }
+        DGVS_XOR1(vswdeg[deg], b, iq) /* add `b' into the bucket `vswdeg[deg]' */
+      }
+      /* if there is only one occupied cell, no shattering */
+      if ( dgvs_count(nzdegs) == 1) continue;
+      /* now nonzero vswdeg[deg] collects a subset of `vsi' with degree `deg'
+       * we loop over occupied degrees */
+      k = 0; /* number of shattered cells */
+      while ( dgvs_nonzero(nzdegs) ) {
+        DGVS_FIRSTLOW(deg, nzdegs, bdeg, degq)
+        DGVS_XOR1(nzdegs, bdeg, degq) /* remove `bdeg' from `nzdegs' */
+        //printf("shatter %d k %d deg %d, part->nc %d\n", i, k, deg, part->nc);
+        //dgvs_printn(vswdeg[deg], "vs[deg]");
+        if (k == 0) { /* replace cell `i' by the first partition */
+          DGVS_CPY(part->cs[i], vswdeg[deg])
+          part->cnt[i] = dgvs_count( part->cs[i] );
+          k = part->nc; /* the next set begins here */
+        } else {
+          DGVS_CPY(part->cs[k], vswdeg[deg])
+          part->cnt[k] = dgvs_count( part->cs[k] );
+          part->nc = ++k;
+          if (i0 < 0) i0 = i; /* update i0, if cell i has been shattered */
         }
       }
+      //dgpart_print(part); getchar();
+      /* if the partition has n cells, return */
       if (part->nc == DG_N_) return;
     } /* end of the loop over shatterees */
   } /* end of the loop over shatterers */
@@ -257,15 +309,17 @@ INLINE int dg_checkperm(const int *perm, int n)
 
 
 /* get a graph that is compatible with the equitable partition
- * if recur is true, try to artificially break the equitable partion
+ * if `recur' is true, try to artificially break the equitable partion
  *   until it becomes discrete
  * the speed of using recur or not is very similar, recommended */
 INLINE void dg_permequipart(int *perm, const dg_t *g, int recur)
 {
   DG_DEFN_(g)
   dgpart_t part;
+  dgvs_t vs;
   int ic, k, i;
-  dgword_t vs, b;
+  dgword_t b;
+  DGVS_DEFIQ_(iq)
 
   /* initially set part as the unit partition */
   dgpart_unit(&part, DG_N_);
@@ -273,34 +327,44 @@ INLINE void dg_permequipart(int *perm, const dg_t *g, int recur)
   if (recur) {
     /* recursively call dg_equipart() until part becomes discrete */
     while (part.nc < DG_N_) {
+      /* call dg_equipart() the shatter `part' */
       dg_equipart(&part, g);
+
       if (part.nc == DG_N_) break;
       /* find the first unfixed cell */
       for (ic = 0; ic < part.nc; ic++)
         if (part.cnt[ic] > 1)
           break;
       /* artificially break the first cell */
-      vs = part.cs[ic];
-      b = vs & (-vs);
-      part.cs[part.nc] = vs ^ b;
+      DGVS_CPY(vs, part.cs[ic])
+      DGVS_FIRSTBIT(vs, b, iq) /* extract the first bit `b' from `vs' */
+      DGVS_XOR1(vs, b, iq) /* remove `b' from `vs' */
+
+      DGVS_CPY(part.cs[part.nc], vs) /* append a cell with the new `vs' */
       part.cnt[part.nc] = part.cnt[ic] - 1;
-      part.cs[ic] = b;
+
+      DGVS_ONEBIT(part.cs[ic], b, iq) /* change this cell to a single bit */
       part.cnt[ic] = 1;
+
       part.nc += 1;
     }
+    /* now each cell is discrete, and the partition corresponds to a permutation */
     for (ic = 0; ic < DG_N_; ic++) {
-      perm[ BIT2ID(part.cs[ic]) ] = ic;
+      perm[ dgvs_first(part.cs[ic]) ] = ic;
     }
   } else { /* single pass */
     dg_equipart(&part, g);
+    /* find the first permutation compatible with the partitions */
     /* loop over cells in the partition */
     for (i = 0, ic = 0; ic < part.nc; ic++) {
-      for (vs = part.cs[ic]; vs; vs ^= b) {
-        BITFIRSTLOW(k, vs, b);
+      DGVS_CPY(vs, part.cs[ic])
+      while ( dgvs_nonzero(vs) ) {
+        DGVS_FIRSTLOW(k, vs, b, iq) /* first bit `b' in vs */
+        DGVS_XOR1(vs, b, iq) /* remove bit `b' from `vs' */
         perm[ k ] = i++;
       } /* loop over vertices in a partition */
     } /* loop over partitions */
-  }
+  } /* recur or single-pass */
 }
 
 
@@ -310,17 +374,24 @@ INLINE void dg_permdegseq(int *perm, const dg_t *g)
 {
   DG_DEFN_(g)
   int i, k, deg;
-  dgword_t cvs[DG_NMAX], vs, b;
+  dgvs_t cvs[DG_NMAX], vs;
+  dgword_t b;
+  DGVS_DEFIQ_(iq)
 #define DG_DEGMIN 0 /* can be 2 for biconnected graphs */
 
-  for (i = DG_DEGMIN; i < DG_N_; i++) cvs[i] = 0;
+  for (i = DG_DEGMIN; i < DG_N_; i++) {
+    DGVS_CLEAR( cvs[i] )
+  }
   /* use count sort to collect vertices with the same degrees */
-  for (b = 1, i = 0; i < DG_N_; i++, b <<= 1)
-    cvs[dg_deg(g, i)] |= b;
+  for (i = 0; i < DG_N_; i++) {
+    DGVS_ADD( cvs[dg_deg(g, i)], i )
+  }
   i = 0;
   for (deg = DG_DEGMIN; deg < DG_N_; deg++) {
-    for (vs = cvs[deg]; vs; vs ^= b) { /* loop over this partition */
-      BITFIRSTLOW(k, vs, b);
+    DGVS_CPY(vs, cvs[deg]) /* copy the vertex set */
+    while ( dgvs_nonzero(vs) ) { /* loop over vertices in this cell */
+      DGVS_FIRSTLOW(k, vs, b, iq) /* extract the first bit `b' from `vs' */
+      DGVS_XOR1(vs, b, iq) /* remove `b' from `vs' */
       perm[ k ] = i++;
     }
   }
@@ -333,20 +404,25 @@ INLINE void dg_partdegseq(dgpart_t *part, const dg_t *g)
 {
   DG_DEFN_(g)
   int i, deg, ic;
-  dgword_t cvs[DG_NMAX], vs, b;
+  dgvs_t cvs[DG_NMAX];
 #define DG_DEGMIN 0 /* can be 2 for biconnected graphs */
 
-  for (i = DG_DEGMIN; i < DG_N_; i++) cvs[i] = 0;
-  /* use count sort to collect vertices with the same degrees */
-  for (b = 1, i = 0; i < DG_N_; i++, b <<= 1)
-    cvs[dg_deg(g, i)] |= b;
+  for (i = DG_DEGMIN; i < DG_N_; i++) {
+    DGVS_CLEAR( cvs[i] )
+  }
+  /* use count sort to collect vertices with the same degrees
+   * `cvs[deg]' collects vertices of the same degree `deg' */
+  for (i = 0; i < DG_N_; i++) {
+    DGVS_ADD(cvs[dg_deg(g, i)], i)
+  }
   /* construct a partition accordingly */
   part->n = g->n;
   ic = 0;
   for (deg = DG_DEGMIN; deg < DG_N_; deg++) {
-    if ((vs = cvs[deg]) == 0) continue;
-    part->cs[ic] = vs;
-    part->cnt[ic] = bitcount(vs);
+    dgvsref_t vs = cvs[deg];
+    if ( !dgvs_nonzero(vs) ) continue;
+    DGVS_CPY(part->cs[ic], vs)
+    part->cnt[ic] = dgvs_count(vs);
     ic++;
   }
   part->nc = ic;
@@ -359,15 +435,20 @@ INLINE dg_t *dg_permutate(dg_t * RESTRICT gout, const dg_t * RESTRICT gin, const
 {
   DG_DEFN_(gin)
   int i, j;
-  dgword_t ci, ci_out;
+  dgvs_t ci, ci_out;
 
   gout->n = DG_N_;
   dg_empty(gout); /* adding this appears to make the function faster? */
   for (i = 0; i < DG_N_; i++) {
-    for (ci = gin->c[ i ], ci_out = 0, j = 0; j < DG_N_; j++, ci >>= 1)
-      if (ci & 0x1)
-        ci_out |= MKBIT(perm[j]);
-    gout->c[ perm[i] ] = ci_out;
+    DGVS_CPY(ci, gin->c[i])
+    DGVS_CLEAR(ci_out)
+    for (j = 0; j < DG_N_; j++) {
+      if ( DGVS_HAS(ci, j) ) {
+        DGVS_ADD(ci_out, perm[j])
+        //ci_out |= MKBIT(perm[j]);
+      }
+    }
+    DGVS_CPY(gout->c[ perm[i] ], ci_out);
   }
   return gout;
 }
@@ -379,12 +460,14 @@ INLINE int dg_checkiso(const dg_t *a, const dg_t *b, const int *perm)
 {
   DG_DEFN_(b)
   int i, j;
-  dgword_t cai, cbi;
 
-  for (i = 0; i < DG_N_; i++)
-    for (cai = a->c[i], cbi = b->c[perm[i]], j = 0; j < DG_N_; j++)
-      if (((cai >> j) & 0x1) != ((cbi >> perm[j]) & 0x1))
+  for (i = 0; i < DG_N_; i++) {
+    for (j = 0; j < DG_N_; j++) {
+      if (DGVS_HAS(a->c[i], j)
+       != DGVS_HAS(b->c[perm[i]], perm[j]))
         return 1;
+    }
+  }
   return 0;
 }
 
@@ -436,20 +519,23 @@ INLINE dg_t *dg_repiso(dg_t *gout, const dg_t *gin, int level)
 
 
 /* enumerate all permutations compatible with a partition  */
-INLINE int dg_part2permls(int *perms, int nmax, const dgpart_t *part)
+INLINE int dg_part2permls(int *perms, int nmax, dgpart_t *part)
 {
   int i, ic, k, pcnt, n = part->n, nc = part->nc;
-  dgword_t vs, vs1, b, unused;
-  int st[DG_NMAX], stdefid[DG_NMAX], top = 0;
-  dgword_t stvs[DG_NMAX], stavail[DG_NMAX];
+  dgvs_t vs, vs1, unused;
+  dgword_t b;
+  int st[DG_NMAX], top = 0;
+  //int stdefid[DG_NMAX];
+  dgvs_t stvs[DG_NMAX], stavail[DG_NMAX];
+  DGVS_DEFIQ_(iq)
 
   /* vertices available in each stack position */
   for (i = 0, ic = 0; ic < nc; ic++) {
-    int defid = (part->cnt[ic] == 1) ? bitfirst(part->cs[ic]) : -1;
-    for (k = 0; k < part->cnt[ ic ]; k++) {
-      stvs[i] = part->cs[ ic ];
-      stdefid[i] = defid;
-      i++;
+    //int defid = (part->cnt[ic] == 1) ? dgvs_first(part->cs[ic]) : -1;
+    for (k = 0; k < part->cnt[ ic ]; k++, i++) {
+      /* vertices in the cell `ic' share the same vertex set */
+      DGVS_CPY(stvs[i], part->cs[ ic ]);
+      //stdefid[i] = defid;
     }
   }
   //dgpart_print(part);
@@ -458,34 +544,44 @@ INLINE int dg_part2permls(int *perms, int nmax, const dgpart_t *part)
 
   pcnt = 0;
   top = 0;
-  unused = MKBITSMASK(n);
-  stavail[top] = stvs[top];
+  DGVS_MKBITSMASK(unused, n)
+  DGVS_CPY(stavail[top], stvs[top])
   while (1) {
     /* determine the vertex on the top */
-    vs = stavail[top];
-    if (vs) { /* we still have vertices on this level */
-      BITFIRSTLOW(k, vs, b);
-      st[top] = k;
+    DGVS_CPY(vs, stavail[top])
+    if ( vs ) { /* we still have vertices on this level */
+      DGVS_FIRSTLOW(k, vs, b, iq) /* select the vertex `k' from `vs' */
+      st[top] = k; /* set the vertex on the top as `k' */
       //printf("push top %d, k %d, stavail %s, unused %s\n", top, k, dg_strset1(stavail[top]), dg_strset1(unused) );
-      stavail[top] = vs ^ b; /* remove b from the unused list */
+      /* remove `b' from the available set `stavail[top]'
+       * equivalent to: stavail[top] = vs ^ b */
+      DGVS_XOR1(vs, b, iq)
+      DGVS_CPY(stavail[top], vs)
       if (top < n - 2) { /* push */
-        unused ^= b;
-        if ((vs1 = stvs[top + 1]) == stvs[top]) { /* same cell */
-          stavail[top + 1] = unused & vs1; /* copy the unused list */
-        } else { /* different cell */
-          stavail[top + 1] = vs1;
+        dgvsref_t vsr;
+        DGVS_XOR1(unused, b, iq) /* `unused' is the current vertex set
+                                    with the current stack pointer
+                                    remove `b' from this set */
+        /* if the next level `top + 1' share the same cell with the
+         * current level, we update the available vertex set
+         * by excluding used vertices */
+        vsr = stvs[top + 1]; /* all vertices in the cell */
+        if ( dgvs_eq(vsr, stvs[top]) ) { /* same cell */
+          DGVS_AND2(stavail[top + 1], vsr, unused) /* copy the unused list */
+        } else { /* different cells, copy all vertices in the cell */
+          DGVS_CPY(stavail[top + 1], vsr)
         }
         top++;
         continue;
       }
       /* here top == n - 2, this means that we are at the next to
        * the top level, then no need to go up further */
-      /* need to determine the last vertex */
-      if (unused ^ b) { /* the last vertex is in the same cell */
-        st[top + 1] = BIT2ID(unused ^ b);
-      } else { /* otherwise the last cell must be a discrete cell */
-        st[top + 1] = stdefid[top + 1];
-      }
+      /* determine the last vertex, which is given by the
+       * single bit in the vertex set given by vs1 = unused ^ b */
+      DGVS_CPY(vs1, unused)
+      DGVS_XOR1(vs1, b, iq)
+      //die_if (dgvs_iszero(vs1), "no vertex on the last level, top %d\n", top);
+      st[top + 1] = dgvs_bit2id(vs1);
       //dgpart_print(part); dg_printperm(st, n); getchar();
       /* TODO: remove this */
       //die_if (dg_checkperm(st, n) != 0, "bad permutation n %d\n", n);
@@ -493,11 +589,10 @@ INLINE int dg_part2permls(int *perms, int nmax, const dgpart_t *part)
       for (k = 0; k < n; k++)
         perms[pcnt * n + st[k]] = k;
       if (++pcnt >= nmax) return pcnt;
-      /* do not increase top, so that we can explore other choices
-       * on this level */
+      /* do not increase top, just explore other choices on this level */
     } else { /* no vertex left on this level, pop */
       if (--top < 0) break;
-      unused |= MKBIT(st[top]);
+      DGVS_ADD(unused, st[top]);
       //printf("pop top %d, k %d, stavail %s, unused %s\n", top, st[top], dg_strset1(stavail[top]), dg_strset1(unused) );
     }
   }

@@ -2,22 +2,39 @@
 #include "testutil.h"
 
 
+
 /* test the RTL example */
 static void testrtl(void)
 {
-  dg_t *g = dg_open(9), *f = dg_open(9);
+  dg_t *g = dg_open(9), *f = dg_open(9), *f2 = dg_open(9);
   int a[9], i;
-  /* RTL paper index = 9 - i, P274 Fig. 2
+  /* RTL paper, with vertex index = 9 - i, P274 Fig. 2
    * Algorithmic aspects of vertex elimination on graphs
    * D. J. Rose, R. E. Trajan, and G. S. Lueker,
    * SIAM, J. Comput. Vol. 5. No. 2. June 1976 */
-  int pair[][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 5}, {1, 4}, {2, 3}, {2, 6},
-    {3, 5}, {3, 7}, {4, 5}, {4, 8}, {5, 7}, {6, 7}, {7, 8}, {-1, -1}};
+  int pairs[][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 5}, {1, 4}, {2, 3},
+    {2, 6}, {3, 5}, {3, 7}, {4, 5}, {4, 8}, {5, 7}, {6, 7}, {7, 8},
+    {-1, -1}};
+  /* the correct fill-in graph */
+  int fpairs[][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 5}, {1, 4}, {2, 3},
+    {2, 6}, {3, 5}, {3, 7}, {4, 5}, {4, 8}, {5, 7}, {6, 7}, {7, 8},
+    {1, 2}, {1, 3}, {2, 4}, {2, 5}, {3, 4}, {3, 6}, {4, 6}, {4, 7}, {5, 6},
+    {-1, -1}};
 
   dg_linkpairs(g, pair);
   dg_print(g);
   dg_minimalorder(g, f, a);
   dg_print(f);
+  /* check `f' against the correct fill-in `f2' */
+  for (i = 0; i < 9; i++) {
+    if ( dgvs_neq(f->c[i], f2->c[i]) ) {
+      printf("graph differs at %d\n", i);
+      dgvs_printn(f->c[i], "f");
+      dgvs_printn(f2->c[i], "f2");
+      dg_print(f);
+      dg_print(f2);
+    }
+  }
   for (i = 0; i < 9; i++) {
     printf("%d %d\n", i, a[i]);
   }
@@ -142,9 +159,9 @@ static void speed_cliquesep(int n, int nsamp, int nedmax)
   }
   tsum[0] /= CLOCKS_PER_SEC;
   tsum[1] /= CLOCKS_PER_SEC;
-  printf("dg_cliquesep()/dg_csep(): n %d; sum %g/%g; "
+  printf("dg_cliquesep()/dg_csep(): n %d; nocsep %g%%/%g%%; "
       "time used: %gs/%d = %gmcs, %gs/%d = %gmcs\n",
-      n, sum[0]/nsamp, sum[1]/nsamp,
+      n, 100.*sum[0]/nsamp, 100.*sum[1]/nsamp,
       tsum[0], nsamp, tsum[0]/nsamp*1e6,
       tsum[1], nsamp, tsum[1]/nsamp*1e6);
   dg_close(g);
