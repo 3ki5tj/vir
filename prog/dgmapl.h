@@ -23,6 +23,19 @@
 #endif /* DG_WORDBITS */
 #endif /* DGMAPL_NMAX >= 10 */
 
+/* currently we only use dgmapl with DGVS_ONEWORD */
+#include "dg.h"
+#if !DGVS_ONEWORD
+#undef DGMAPL_EXISTS
+#endif /* !defined(DGVS_ONEWORD) */
+
+#endif /* defined(DGMAPL_EXISTS) */
+
+
+
+
+#ifdef DGMAPL_EXISTS
+
 /* including dgring.h also implicitly include dgrjw.h and dgsc.h, etc. */
 #include "dgring.h"
 
