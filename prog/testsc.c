@@ -51,7 +51,8 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
 
   g = dg_open(n);
   dg_full(g);
-  if (method == 'l') {
+#ifdef DGMAP_EXISTS
+  if (method == 'l' && n < DGMAP_NMAX) {
     int ig;
     double sc1, sc2;
     dg_t *g2;
@@ -76,6 +77,7 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
     }
     dg_close(g2);
   }
+#endif
 
   ned = dg_nedges(g);
   for (t = 0; ; t++) {

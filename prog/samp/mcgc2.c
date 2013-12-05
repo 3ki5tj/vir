@@ -574,6 +574,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       ncs = 1;
       fb = fbarr[n];
       nr = 1;
+#if DGMAP_EXISTS
     } else if (n <= nlookup) { /* lookup table */
       dgword_t code;
       unqid_t uid;
@@ -585,6 +586,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       fb = dg_hsfb_lookuplow(n, uid);
       nr = dg_nring_lookuplow(n, uid);
       err = errnr = 0;
+#endif
     } else {
       /* this function implicitly computes the clique separator
        * with a very small overhead */

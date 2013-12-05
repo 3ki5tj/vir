@@ -148,7 +148,7 @@ class Diagram {
   }
 
   /** Check if the graph is biconnected */
-  boolean biconnectedc(int nn, long cc[]) {
+  boolean biconnectedc_simple(int nn, long cc[]) {
     if (nn > 2) {
       long mask = Bits.makeBitsMask(nn);
       for (long b = 1; (b & mask) != 0; b <<= 1)
@@ -159,6 +159,72 @@ class Diagram {
       return ((cc[1] & 0x1l) != 0) ? true : false;
     } else return true;
   }
+
+  int [] stack = new int [NMAX + 1];
+  int [] dfn = new int [NMAX];
+  int [] low = new int [NMAX];
+
+  /** Check if a graph is biconnected
+   *  standard algorithm with bitwise operation */
+  boolean biconnectedc(int nn, long cc[])
+  {
+    int top, v, par, ppar, id, root = 0;
+    long unvisited, gc, bv;
+
+    dfn[root] = low[root] = id = 1;
+    unvisited = Bits.makeBitsMask(n) ^ Bits.makeBit(root); // all vertices except `root'
+    stack[0] = root;
+    // depth-first search to construct the spanning tree 
+    for (top = 1; top != 0; ) {
+      par = stack[top - 1];
+
+      // find the first unvisited vertex `v' adjacent to `par'
+      // the set of the above vertices is `gc'
+      if ( (gc = cc[par] & unvisited) != 0 ) {
+        // such a vertex exists, push
+        bv = gc & (-gc);
+        v = Bits.bit2id(bv);
+        unvisited ^= bv; // remove `bv' from `unvisited'
+        stack[top++] = v;
+        dfn[v] = low[v] = ++id;
+        continue; // push
+      }
+      // if no vertex for this level, fall through and pop
+
+      // if we get here with top == 1, we have finished enumerating all vertices
+      //   connected to the root, if there is any unvisited vertex, it is not
+      //   connected to `root'
+      // if we get here with top == 2, we have finished enumerating all vertices
+      //   int the first branch of the tree grown from `root', if there is any
+      //   unvisited vertex, the graph is disconnected or not biconnected,
+      //   in the latter case, `root' is an articulation point.
+      if (top <= 2) return unvisited == 0;
+
+      // all children of `par' are visited, ready to pop 
+      // update the low-point of `par', low[par]
+      ppar = stack[top - 2];
+      gc = cc[par] ^ Bits.makeBit(ppar);
+      while ( gc != 0 ) {
+        bv = gc & (-gc);
+        v = Bits.bit2id(bv);
+        gc ^= bv;
+        // low[par] = min{low[par], low[v]}
+        // if `v' is a son of `par' in the tree, this formula includes
+        //    backedges that start from `v' or a descendant of `v'
+        // otherwise, `v' holds a smaller `dfn' than `par', so
+        //    par-->v is a backedge
+        if ( low[v] < low[par] )
+          low[par] = low[v];
+      }
+      // now low[par] is correctly computed
+      if ( low[par] >= dfn[ppar] )
+        return false;
+      top--; /* pop */
+    }
+    return true; // should never reach here
+  }
+
+
 
   /** Check if the graph is biconnected */
   boolean biconnected() {

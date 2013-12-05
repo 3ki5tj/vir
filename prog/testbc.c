@@ -38,7 +38,7 @@ static void cmpref(int n, edges_t *ref)
 
 
 
-#define LISTSIZE 1000
+#define LISTSIZE 100000
 
 static void speed_connected(int n, int nsamp)
 {
@@ -101,18 +101,15 @@ static void verify_biconnected(int n, int nsteps)
 
 
 
-static void speed_biconnected(int n, int nsamp,
-    int method, int nedmax)
+static void speed_biconnected(int n, int nsamp, int nedmax)
 {
   dg_t *g = dg_open(n);
   clock_t t0;
-  int t, npr = n*(n-1)/2, i = 0, j = 1, isamp = 0, sum = 0, ned = 0;
-  double tsum = 0;
+  int t, npr = n*(n-1)/2, i = 0, j = 1, isamp = 0, ned = 0;
+  int sum[3] = {0};
+  double tsum[3] = {0};
   dg_t *gls[LISTSIZE] = {NULL};
   int lscnt = 0, kk;
-
-  die_if (method == 'l' && n > DGMAP_NMAX,
-    "n %d cannot use the lookup method\n", n);
 
   for (t = 0; t < LISTSIZE; t++)
     gls[t] = dg_open(n);
@@ -140,19 +137,26 @@ static void speed_biconnected(int n, int nsamp,
     if (t % LISTSIZE != 0) continue;
 
     t0 = clock();
-    for (kk = 0; kk < lscnt; kk++) {
-      if (method == 's')
-        sum += dg_biconnected_std(gls[kk]);
+    for (kk = 0; kk < lscnt; kk++)
+      sum[0] += dg_biconnected_simple(gls[kk]);
+    tsum[0] += clock() - t0;
+
+    t0 = clock();
+    for (kk = 0; kk < lscnt; kk++)
+      sum[1] += dg_biconnected_std(gls[kk]);
+    tsum[1] += clock() - t0;
+
 #ifdef DGMAP_EXISTS
-      else if (method == 'l')
-        sum += dg_biconnected_lookup(gls[kk]);
-#endif
-      else
-        sum += dg_biconnected(gls[kk]);
+    if (n <= DGMAP_NMAX) {
+      t0 = clock();
+      for (kk = 0; kk < lscnt; kk++)
+        sum[2] += dg_biconnected_lookup(gls[kk]);
+      tsum[2] += clock() - t0;
     }
+#endif
+
     isamp += lscnt;
     lscnt = 0;
-    tsum += clock() - t0;
 #ifdef TESTRING
     if (ned > n) {
       dg_unlink(g, i, j);
@@ -161,9 +165,13 @@ static void speed_biconnected(int n, int nsamp,
 #endif
     if (isamp >= nsamp) break;
   }
-  tsum /= CLOCKS_PER_SEC;
-  printf("biconnected, n %d: time used: %gs/%d = %gmcs, av %g\n",
-      n, tsum, nsamp, tsum / nsamp * 1e6, 1. * sum / nsamp);
+  tsum[0] /= 1. * CLOCKS_PER_SEC * nsamp;
+  tsum[1] /= 1. * CLOCKS_PER_SEC * nsamp;
+  tsum[2] /= 1. * CLOCKS_PER_SEC * nsamp;
+  printf("biconnected, n %d: time of %d samples simple/std/lookup: "
+      "%g/%g/%gmcs, av %g/%g/%g\n",
+      n, nsamp, tsum[0]*1e6, tsum[1]*1e6, tsum[2]*1e6,
+      1.*sum[0]/nsamp, 1.*sum[1]/nsamp, 1.*sum[2]/nsamp);
   dg_close(g);
 }
 
@@ -243,13 +251,12 @@ int main(int argc, char **argv)
 
   if (argc > 3) n1 = atoi(argv[3]);
   if (argc > 4) nsteps1 = atoi(argv[4]);
-  if (argc > 5) method = argv[5][0];
-  if (argc > 6) nedmax = atoi(argv[6]);
-  printf("speed test: n %d, nsteps %d, method %c, nedmax %d\n",
-      n1, nsteps1, method, nedmax);
-  /* 0.0mcs on T60 */
+  if (argc > 5) nedmax = atoi(argv[5]);
+  printf("speed test: n %d, nsteps %d, nedmax %d\n",
+      n1, nsteps1, nedmax);
+  /* n = 9, 0.0mcs on T60 */
   speed_connected(n1, nsteps1);
-  /* 0.26mcs on T60 */
-  speed_biconnected(n1, nsteps1, method, nedmax);
+  /* time on T60 about 0.26mcs for n = 9 */
+  speed_biconnected(n1, nsteps1, nedmax);
   return 0;
 }

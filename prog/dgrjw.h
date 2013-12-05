@@ -194,19 +194,21 @@ INLINE dgrjw_fb_t dg_hsfb_rjwlow(dgvs_t *c, int n, int v, dgword_t vs,
     fb = dg_hsfc_rjwlow(c, vs, fbarr, faarr);
     fbarr[vs] = fb;
   }
-#if !defined(N) || N <= 32 || (N <= 64 && ULONG_MAX > 4294967295UL)
   /* remove diagrams with the lowest articulation points at i < v */
   for (r = vs & (bv - 1); r; r ^= b) {
     BITFIRSTLOW(i, r, b);
     /* (i + 1) * 2^n + vs, `|' is equivalent to `+' */
+#if !defined(N) || N <= 31 || (N <= 63 && ULONG_MAX > 4294967295UL)
     id = ((size_t) (i + 1) << DG_N_) | vs;
+#else
+    id = 0; /* dummy code to avoid warnings */
+#endif
     if ( DGRJW_FBINVALID(fa = faarr[id]) ) {
       fa = dg_hsfa_rjwlow(c, DG_N_, i, vs, faarr, fbarr);
       faarr[id] = fa;
     }
     fbarr[id] = (fb -= fa);
   }
-#endif
   return fb;
 }
 
@@ -230,8 +232,11 @@ INLINE dgrjw_fb_t dg_hsfa_rjwlow(dgvs_t *c, int n, int v, dgword_t vs,
   vs ^= b1v; /* remove the fixed vertices `b1' and `bv' from `vs' */
   /* `vs' is the set of *variable* vertices from now on */
   if ( vs == 0 ) return 0; /* no articulated diagram with only two vertices */
-#if !defined(N) || N <= 32 || (N <= 64 && ULONG_MAX > 4294967295UL)
+#if !defined(N) || N <= 31 || (N <= 63 && ULONG_MAX > 4294967295UL)
   id0 = ((size_t) (v + 1) << DG_N_); /* (v + 1) * 2^n */
+#else
+  id0 = 0; /* dummy code to avoid warnings */
+#endif
   /* `id0' is the offset for vertex v */
   /* loop over subsets of vs, stops when vs == vs1 */
   for (ms1 = 0; (ms2 = (ms1 ^ vs)) != 0; ) {
@@ -259,7 +264,6 @@ INLINE dgrjw_fb_t dg_hsfa_rjwlow(dgvs_t *c, int n, int v, dgword_t vs,
     /* update the subset `ms1' */
     DGRJW_INC(ms1, ms2);
   }
-#endif
   return fa;
 }
 
@@ -305,8 +309,11 @@ INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
   }
 #endif /* !defined(N) */
 
-#if !defined(N) || N <= 32 || (N <= 64 && ULONG_MAX > 4294967295UL)
+#if !defined(N) || N <= 31 || (N <= 63 && ULONG_MAX > 4294967295UL)
   size = ((size_t) (DG_N_ + 1) << DG_N_); /* (n + 1) * 2^n */
+#else
+  size = 0; /* dummy code to avoid warnings */
+#endif
 
 #ifdef DGRJW_DOUBLE
   {
@@ -322,9 +329,6 @@ INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
   die_if (DG_N_ > DG_WORDBITS, "n %d > wordbits %d\n", DG_N_, DG_WORDBITS);
   maskn = MKBITSMASK(DG_N_);
   return dg_hsfb_rjwlow(g->c, DG_N_, DG_N_, maskn, dgrjw_faarr_, dgrjw_fbarr_);
-#else
-  return 0;
-#endif
 }
 
 
@@ -348,7 +352,7 @@ INLINE double dg_hsfb_mixed0(const dg_t *g,
   sc = dg_rhsc_spec0(g, nocsep, 1, ned, degs, &err);
   if ( err == 0 ) {
     return DG_SC2FB(sc, *ned);
-  } else if ( *ned <= 2*DG_N_ - 3 || DG_N_ > RJWNMAX) {
+  } else if ( *ned <= 2*DG_N_ - 2 || DG_N_ > RJWNMAX) {
     return DG_SC2FB(dg_rhsc_directlow(g), *ned);
   } else { /* hsfb_rjw() requires 2^(n + 1) * (n + 1) memory */
     return (double) dg_hsfb_rjw(g);

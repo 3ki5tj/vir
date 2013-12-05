@@ -31,7 +31,7 @@ static void cmpref(int n, edges_t *ref)
       dg_print(g);
       exit(1);
     }
-    fb1 = dg_hsfb_rjw(g);
+    fb1 = 1.*dg_hsfb_rjw(g);
     fb2 = DG_SC2FB(dg_rhsc_directlow(g), dg_nedges(g));
     if (fabs(fb1 - fb) > 1e-3 || fabs(fb2 - fb) > 1e-3) {
       printf("n %d: model %d fb mismatch %g(rjw), %g(sc) vs %g (ref)\n",

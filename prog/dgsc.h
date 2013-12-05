@@ -65,62 +65,11 @@ INLINE dg_t *dg_mintop(dg_t *g)
 
 
 
-#if DGVS_ONEWORD
-
-
-/* check if a graph is biconnected under the assumption that
- * only vertices in avs can be articulation points */
-INLINE int dg_biconnectedavs(const dg_t *g, dgvs_t avs)
-{
-  dgword_t b;
-  DG_DEFN_(g)
-  DG_DEFMASKN_()
-
-  for (b = 1; b & DG_MASKN_; b <<= 1)
-    if ( (b & avs) && !dg_connectedvs(g, DG_MASKN_ ^ b) )
-        return 0;
-  return 1;
-}
-
-
-
-#else /* !DGVS_ONEWORD */
-
-
-
-/* check if a graph is biconnected under the assumption that
- * only vertices in `avs' can be articulation points */
-INLINE int dg_biconnectedavs(const dg_t *g, dgvs_t avs0)
-{
-  dgvs_t avs, mask;
-  dgword_t b;
-  DGVS_DEFIQ_(iq)
-  DG_DEFN_(g)
-
-  DGVS_MKBITSMASK(mask, DG_N_)
-  DGVS_CPY(avs, avs0)
-  while ( dgvs_nonzero( avs ) ) {
-    DGVS_FIRSTBIT(avs, b, iq) /* first bit `b' in the vertex set `avs' */
-    DGVS_XOR1(avs, b, iq) /* remove `b' from the vertex set `avs' */
-    DGVS_XOR1(mask, b, iq) /* remove `b' from `mask' */
-    if ( !dg_connectedvs(g, mask) )
-      return 0;
-    DGVS_XOR1(mask, b, iq) /* add `b' back into `mask' */
-  }
-  return 1;
-}
-
-
-
-#endif /* DGVS_ONEWORD */
-
-
-
 /* recursively find the star content
  * starting from the edge (i, j + 1) */
 INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
 {
-  dgvs_t avs;
+  //dgvs_t avs;
   dgword_t bi, bj;
   DGVS_DEFIQ_(iq)
   DGVS_DEFIQ_(jq)
@@ -129,7 +78,7 @@ INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
 
   /* find the pair after (i, j) with i < j */
   if (++j >= DG_N_) j = (++i) + 1;
-  DGVS_MKBITSMASK(avs, DG_N_)
+  //DGVS_MKBITSMASK(avs, DG_N_)
   //dg_print(g); printf("n %d\n", DG_N_); getchar();
   /* loop over the first vertex i */
   for (; i < DG_N_ - 1; j = (++i) + 1) {
@@ -137,7 +86,7 @@ INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
      * makes the biconnectivity impossible */
     if (dg_deg(g, i) <= 2) continue;
     DGVS_MKBIT(i, bi, iq)
-    DGVS_XOR1(avs, bi, iq) /* remove `bi' from `avs' */
+    //DGVS_XOR1(avs, bi, iq) /* remove `bi' from `avs' */
     /* loop over the second vertex j */
     for (; j < DG_N_; j++) {
       /* try to remove the edge i-j */
@@ -159,20 +108,20 @@ INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
        * Since `g' with (i, j) is biconnected, g\{i} is connected
        * so g'\{i} where g' is g \ {(i, j)} is also connected,
        * hence i is not an articulation point of g'  */
-      //avs = avsi ^ bj;
-      DGVS_XOR1(avs, bj, jq) /* remove `bj' from `avs' */
-      if ( dg_biconnectedavs(g, avs) ) {
+      //DGVS_XOR1(avs, bj, jq) /* remove `bj' from `avs' */
+      //if ( dg_biconnectedavs(g, avs) ) {
+      if ( dg_biconnected(g) ) {
         sc += sgn /* add the diagram without (i, j) */
             + dg_rhsc_recur(g, -sgn, i, j); /* diagrams without (i, j) */
       }
-      DGVS_XOR1(avs, bj, jq) /* add back `bj' to `avs' */
+      //DGVS_XOR1(avs, bj, jq) /* add back `bj' to `avs' */
       /* link back, find subdiagrams with (i, j) */
       DGVS_OR1(g->c[i], bj, jq)
       DGVS_OR1(g->c[j], bi, iq)
       //g->c[i] |= bj;
       //g->c[j] |= bi;
     }
-    DGVS_XOR1(avs, bi, iq) /* add `bi' back to `avs' */
+    //DGVS_XOR1(avs, bi, iq) /* add `bi' back to `avs' */
   }
   return sc;
 }

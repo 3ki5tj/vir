@@ -256,6 +256,8 @@ typedef dgword_t dgvsref_t;
 /* a mask with the lowest n words */
 #define DGVS_MKBITSMASK(vs, n)  (vs) = MKBITSMASK(n);
 
+#define dgvs_mkbitsmask(vs, n)  ((vs) = MKBITSMASK(n))
+
 #ifdef N
   #define DGVS_MASKN_ MKBITSMASK(N)
   #define DGVS_DEFMASKN_()
@@ -493,6 +495,13 @@ INLINE dgvsref_t dgvs_andnot2(dgvs_t a, dgvs_t b, dgvs_t c)
   for (ii_ = iq_; ii_ < DG_NW; ii_++) \
     (vs)[ii_] = 0; }
 
+INLINE dgvsref_t dgvs_mkbitsmask(dgvs_t vs, int n)
+{
+  DGVS_MKBITSMASK(vs, n)
+  return vs;
+}
+
+
 #define DGVS_MASKN_       maskn
 #define DGVS_DEFMASKN_()  dgvs_t maskn; DGVS_MKBITSMASK(maskn, DG_N_)
 
@@ -513,7 +522,7 @@ INLINE dgvsref_t dgvs_mkinvset(dgvsref_t vs, int n, int i)
 }
 
 #define DGVS_MKINVSET2(vs, n, i, j)  \
-  DGVS_MKBITSMASK(vs, n) DGVS_REMOVE(vs, i) DGVS_REMOVE(vs, j) 
+  DGVS_MKBITSMASK(vs, n) DGVS_REMOVE(vs, i) DGVS_REMOVE(vs, j)
 
 INLINE dgvsref_t dgvs_mkinvset2(dgvsref_t vs, int n, int i, int j)
 {
@@ -766,7 +775,7 @@ INLINE int dg_connectedvs(const dg_t *g, dgword_t vs)
 
 /* check if diagram is biconnected, bitwise version
  * we do not use lookup table by default */
-INLINE int dg_biconnected(const dg_t *g)
+INLINE int dg_biconnected_simple(const dg_t *g)
 {
   DG_DEFN_(g)
   DGVS_DEFMASKN_()
@@ -792,7 +801,7 @@ INLINE int dg_biconnected(const dg_t *g)
 
 
 /* check if a sub-diagram is biconnected  */
-INLINE int dg_biconnectedvs(const dg_t *g, dgword_t vs)
+INLINE int dg_biconnectedvs_simple(const dg_t *g, dgword_t vs)
 {
   dgword_t b, todo;
 
@@ -818,8 +827,8 @@ INLINE int dg_connectedvs(const dg_t *g, dgvs_t vs0)
   int iq, k;
 
   DGVS_CPY(vs, vs0)
-  DGVS_CLEAR(stack)
   DGVS_FIRSTBIT(vs, b, iq)
+  DGVS_CLEAR(stack)
   stack[iq] = b;
   while ( dgvs_nonzero(stack) ) {
     DGVS_FIRSTLOW(k, stack, b, iq) /* first vertex (1-bit) in the stack */
@@ -847,7 +856,7 @@ INLINE int dg_connected(const dg_t *g)
 
 /* check if diagram is biconnected, bitwise version
  * we do not use lookup table by default */
-INLINE int dg_biconnected(const dg_t *g)
+INLINE int dg_biconnected_simple(const dg_t *g)
 {
   int i, iq;
   DG_DEFN_(g)
@@ -869,7 +878,7 @@ INLINE int dg_biconnected(const dg_t *g)
 
 
 /* check if a sub-diagram is biconnected  */
-INLINE int dg_biconnectedvs(const dg_t *g, dgvs_t vs)
+INLINE int dg_biconnectedvs_simple(const dg_t *g, dgvs_t vs)
 {
   int iq;
   dgvs_t todo;
@@ -893,57 +902,79 @@ INLINE int dg_biconnectedvs(const dg_t *g, dgvs_t vs)
 
 
 
+#ifndef DGBC_SIMPLE
+#define dg_biconnected(g)         dg_biconnected_std(g)
+#else
+#define dg_biconnected(g)         dg_biconnected_simple(g)
+#endif
+#define dg_biconnectedvs(g, vs)   dg_biconnectedvs_simple(g, vs)
+
+
+
 /* check if a graph is biconnected
- * standard algorithm used as a reference
- * slower than the default bitwise version */
+ * standard algorithm with bitwise operation */
 INLINE int dg_biconnected_std(const dg_t *g)
 {
-  int i0, v, par, id, root = 0;
+  int top, v, par, ppar, id, root = 0;
   DG_DEFN_(g)
-  static int stack[DG_NMAX + 1], parent[DG_NMAX], dfn[DG_NMAX], low[DG_NMAX];
-#pragma omp threadprivate(stack, parent, dfn, low)
+  static int stack[DG_NMAX + 1], dfn[DG_NMAX], low[DG_NMAX];
+#pragma omp threadprivate(stack, dfn, low)
+  dgvs_t unvisited, gc;
+  dgword_t bv;
+  DGVS_DEFIQ_(vq)
 
-  for (v = 0; v < DG_N_; v++) {
-    dfn[v] = 0; /* no vertex is visited */
-    parent[v] = -1; /* no parent */
-  }
   dfn[root] = low[root] = id = 1;
+  DGVS_MKINVSET(unvisited, DG_N_, root) /* all vertices except `root' */
   stack[0] = root;
-  stack[1] = -1;
   /* depth-first search to construct the spanning tree */
-  for (i0 = 1; i0; ) {
-    par = (i0 >= 1) ? stack[i0 - 1] : -1;
-    if (i0 == DG_N_) {
-      v = DG_N_; /* last level, no need to DFS */
-    } else {
-      /* v == the first unvisited vertex adjacent to `par' */
-      for (v = ++stack[i0]; v < DG_N_; stack[i0] = ++v)
-        /* dfn[] of an unvisited vertex is 0 */
-        if ( dfn[v] == 0 && dg_linked(g, par, v) ) {
-          dfn[v] = low[v] = ++id;
-          parent[v] = par;
-          stack[++i0] = -1; /* push `v', clear the next level */
-          break; /* break the loop to go to the next level */
-        }
+  for (top = 1; top != 0; ) {
+    par = stack[top - 1];
+
+    /* find the first unvisited vertex `v' adjacent to `par'
+     * the set of the above vertices is `gc' */
+    if ( dgvs_nonzero( dgvs_and2(gc, g->c[par], unvisited) ) ) {
+      /* such a vertex exists, push */
+      DGVS_FIRSTLOW(v, gc, bv, vq)
+      DGVS_XOR1(unvisited, bv, vq) /* remove `bv' from `unvisited' */
+      stack[top++] = v;
+      dfn[v] = low[v] = ++id;
+      continue; /* push */
     }
-    if (v == DG_N_) { /* all children of `par' are visited, ready to pop */
-      for (v = 0; v < DG_N_; v++) { /* update lowpoints */
-        /* if we get here with i0 == 1, it means no vertex is connected to `root'
-           if we get here with i0 == 2, it means there is vertex not connected
-             to the first branch of the tree grown from `root', the graph is
-             either unconnected or not biconnected */
-        if ( i0 <= 2 && dfn[v] == 0 ) return 0;
-        if ( !dg_linked(g, par, v) ) continue;
-        if ( low[v] < low[par] && v != parent[par] )
-          low[par] = low[v];
-        /* the i0 == 1 case means `par' is the root, so it must be excluded */
-        if ( i0 > 1 && low[v] >= dfn[par] && parent[v] == par )
-          return 0;
-      }
-      i0--; /* pop */
+    /* if no vertex for this level, fall through and pop */
+
+    /* if we get here with top == 1, we have finished enumerating all vertices
+     *   connected to the root, if there is any unvisited vertex, it is not
+     *   connected to `root' */
+    /* if we get here with top == 2, we have finished enumerating all vertices
+     *   int the first branch of the tree grown from `root', if there is any
+     *   unvisited vertex, the graph is disconnected or not biconnected,
+     *   in the latter case, `root' is an articulation point. */
+    if (top <= 2) return dgvs_iszero(unvisited);
+
+    /* all children of `par' are visited, ready to pop */
+    /* update the low-point of `par', low[par] */
+    DGVS_CPY(gc, g->c[par])
+    ppar = stack[top - 2];
+    DGVS_REMOVE(gc, ppar)
+    while ( dgvs_nonzero(gc) ) {
+      DGVS_FIRSTLOW(v, gc, bv, vq)
+      DGVS_XOR1(gc, bv, vq)
+      /* low[par] = min{low[par], low[v]}
+       * if `v' is a son of `par' in the tree, this formula includes
+       *    backedges that start from `v' or a descendant of `v'
+       * otherwise, `v' holds a smaller `dfn' than `par', so
+       *    par-->v is a backedge  */
+      if ( low[v] < low[par] )
+        low[par] = low[v];
     }
+    //printf("popping top %d, par %d, low %d, ppar %d, stack %d, %d, %d\n",
+    //    top, par, low[par], ppar, stack[0], stack[1], stack[2]); getchar();
+    /* now low[par] is correctly computed */
+    if ( low[par] >= dfn[ppar] )
+      return 0;
+    top--; /* pop */
   }
-  return 1;
+  return 1; /* should never reach here */
 }
 
 

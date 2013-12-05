@@ -1,9 +1,13 @@
 (* compute the ring contributions to the virial coefficients
-   Copyright 2013 Cheng Zhang *)
-nmax = 64
-dmax = 50
-prec = 20
-fnls = "Bring.dat"
+   Usage
+    math < ring.ma [dmin] [dmax] [nmin] [nmax] [prec] [output]
+ *)
+dmin = 2;
+dmax = 50;
+nmin = 1;
+nmax = 64;
+prec = 20;
+fnls = "Bring.dat";
 
 
 
@@ -17,11 +21,18 @@ Bnr[d_, n_, prec_: 20] := (-1)^(n - 1) Gamma[d/2]^(n - 2) *
 
 
 (* construct a list of virial series *)
-mkBls[dmax_, nmax_, prec_] := Module[{n, d, x, d0 = 2},
-  ls = Table[If[n == 1, d, 1], {d, d0, dmax}, {n, 1, nmax + 1}];
-  For [d = d0, d <= dmax, d++,
-    For [ n = 3, n <= nmax, n++,
-      ls[[d - d0 + 1, n + 1]] = x = N[Bnr[d, n, prec], prec];
+mkBls[dmin_, dmax_, nmin_, nmax_, prec_] := Module[{n, d, x},
+  (* the first column is reserved for the dimension *)
+  ls = Table[ d,
+              {d, dmin, dmax},
+              {n, nmin, nmax + 1} ];
+  For [d = dmin, d <= dmax, d++,
+    For [ n = nmin, n <= nmax, n++,
+      If [ n <= 2,
+        x = 1,
+        x = N[Bnr[d, n, prec], prec]
+      ];
+      ls[[d - dmin + 1, n - nmin + 2]] = x;
       Print["d ", d, ", n ", n, ", B ", (x // InputForm)];
     ];
   ];
@@ -32,13 +43,22 @@ mkBls[dmax_, nmax_, prec_] := Module[{n, d, x, d0 = 2},
 
 (* main function starts here *)
 argc = Length[$CommandLine];
-If [ argc >= 2, dmax = ToExpression[ $CommandLine[[2]] ] ];
-If [ argc >= 3, nmax = ToExpression[ $CommandLine[[3]] ] ];
-If [ argc >= 4, prec = ToExpression[ $CommandLine[[4]] ] ];
-If [ argc >= 5, fnls = ToExpression[ $CommandLine[[5]] ] ];
+argid = 2;
+If [ argc >= argid, dmin = ToExpression[ $CommandLine[[argid]] ] ];
+argid += 1;
+If [ argc >= argid, dmax = ToExpression[ $CommandLine[[argid]] ] ];
+argid += 1;
+If [ argc >= argid, nmin = ToExpression[ $CommandLine[[argid]] ] ];
+argid += 1;
+If [ argc >= argid, nmax = ToExpression[ $CommandLine[[argid]] ] ];
+argid += 1;
+If [ argc >= argid, prec = ToExpression[ $CommandLine[[argid]] ] ];
+argid += 1;
+If [ argc >= argid, fnls = $CommandLine[[argid]] ];
 
-Print["dmax ", dmax, ", nmax ", nmax];
-ls = mkBls[dmax, nmax, prec];
+Print["dim (", dmin, ", ", dmax, "), n (", nmin, ", ", nmax, ", ",
+      "prec ", prec, ", file ", fnls];
+ls = mkBls[dmin, dmax, nmin, nmax, prec];
 Print["output saved to ", fnls];
 Export[fnls, ls];
 

@@ -488,6 +488,14 @@ INLINE void dgmapl_printstat(dgmapl_t *m, FILE *fp)
 }
 
 
+#else
+
+
+#define ZCOM_PICK
+#define ZCOM_UTIL
+#include "zcom.h"
+
+
 #endif /* defined(DGMAPL_EXISTS) */
 
 

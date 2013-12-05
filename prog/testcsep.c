@@ -21,10 +21,11 @@ static void testrtl(void)
     {1, 2}, {1, 3}, {2, 4}, {2, 5}, {3, 4}, {3, 6}, {4, 6}, {4, 7}, {5, 6},
     {-1, -1}};
 
-  dg_linkpairs(g, pair);
+  dg_linkpairs(g, pairs);
   dg_print(g);
   dg_minimalorder(g, f, a);
   dg_print(f);
+  dg_linkpairs(f2, fpairs);
   /* check `f' against the correct fill-in `f2' */
   for (i = 0; i < 9; i++) {
     if ( dgvs_neq(f->c[i], f2->c[i]) ) {
@@ -33,6 +34,7 @@ static void testrtl(void)
       dgvs_printn(f2->c[i], "f2");
       dg_print(f);
       dg_print(f2);
+      exit(1);
     }
   }
   for (i = 0; i < 9; i++) {

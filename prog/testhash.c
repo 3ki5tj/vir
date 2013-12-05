@@ -25,7 +25,7 @@ INLINE double dghash_dummy_lookup(const dg_t *g)
 {
   static dghash_t *hash;
   static dgword_t c[DG_CWORDS];
-  DG_DEFN_(g);
+  DG_DEFN_(g)
   static dgvs_t ng_c[DG_NMAX];
   static dg_t ng[1];
   int pos, level = -1, enumiso = 1;
@@ -43,7 +43,7 @@ INLINE double dghash_dummy_lookup(const dg_t *g)
   /* find the representative graph of according to the automorphism level */
   dg_repiso(ng, g, hash->level);
   dg_encode(ng, c);
-  DGHASH_GETID(hashid, c, DGHASH_CWORDS_(hash->cwords), hash->bits);
+  DGHASH_GETID(hashid, c, DG_CWORDS_(hash->cwords), hash->bits);
   ls = hash->ls + hashid;
   ls1 = dgls_find(ls, c, hash->cwords, &pos);
   hash->tot += 1;

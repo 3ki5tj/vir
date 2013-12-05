@@ -56,7 +56,10 @@ INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
 INLINE dg_t *dg_remove1(dg_t *sg, dg_t *g, int i0)
 {
   int i, is = 0, n = g->n;
-  dgvs_t maskl, maskh, vs1, vs2;
+  dgvs_t maskl, maskh;
+#if !DGVS_ONEWORD
+  dgvs_t vs1, vs2;
+#endif
 
 #ifdef N
   die_if(n - 1 != N, "dg_remove1 cannot be used n %d with fixed N\n", n);

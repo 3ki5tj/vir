@@ -3,6 +3,7 @@
 
 
 
+#ifdef DGMAP_EXISTS
 /* test the permutation routine */
 static void testperm(int n)
 {
@@ -16,6 +17,7 @@ static void testperm(int n)
   }
   free(p);
 }
+#endif
 
 
 
@@ -33,7 +35,9 @@ int main(void)
   }
 #endif
 
+#ifdef DGMAP_EXISTS
   testperm(3);
+#endif
 
   g = dg_open(10);
   dg_full(g);

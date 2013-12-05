@@ -2,6 +2,8 @@
 #include "testutil.h"
 
 
+
+#ifdef DGMAPL_EXISTS
 static void testspeed(int k, int n, int nsamp, int nedmax)
 {
   dg_t *g;
@@ -52,6 +54,7 @@ static void testbyte3(void)
         x0, x0, b3[2], b3[1], b3[0], x1, x1);
   }
 }
+#endif
 
 
 
@@ -59,13 +62,15 @@ int main(int argc, char **argv)
 {
   int k = 7, n = 9, nsamp = 1000000, nedmax = 1000000;
 
-  testbyte3();
-  printf("short %d, %x \n", (int16_t) 0x8080, 32639);
   if (argc >= 2) k = atoi(argv[1]);
   if (argc >= 3) n = atoi(argv[2]);
   if (argc >= 4) nsamp = atoi(argv[3]);
   if (argc >= 5) nedmax = atoi(argv[4]);
+#ifdef DGMAPL_EXISTS
+  testbyte3();
+  printf("short %d, %x \n", (int16_t) 0x8080, 32639);
   testspeed(k, n, nsamp, nedmax);
+#endif
   return 0;
 }
 
