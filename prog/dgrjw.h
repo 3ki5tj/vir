@@ -32,7 +32,7 @@
   typedef int64_t dgrjw_fb_t;
   /* for n <= 22, max |fb(n)| = 20! = 2.4e18 < |DGRJW_FBDIRTY| */
   /* Note: the threshold is based on the limit 20! = 2.4e18
-   *  and 21! cannot be contained in a 64-bint integer
+   *  and 21! cannot be contained in a 64-bit integer
    * The code may however fail before that due to the cancellation
    *  in intermediate steps
    * Another limit is that memory > 2^(n + 1) * (n + 1) */
@@ -67,7 +67,7 @@ INLINE int dg_hsfq_rjwlow(dgvs_t *c, dgword_t vs)
 {
   dgword_t w, b;
 
-  /* if there is a bond, i.e., r(i, j) < 1, then fq = 0 */
+  /* if there is a bond, i.e., r(i, j) < 1, then Eq = 0 */
   for (w = vs; w; w ^= b) {
     /* if c[i] share vertices with vs, there is bond
      * the Boltzmann weight = \prod_(ij) e_ij, and it allows no clash
@@ -369,8 +369,8 @@ static double *dgmap_fb_[DGMAP_NMAX + 1]; /* fb of unique diagrams */
 #pragma omp threadprivate(dgmap_fb_)
 
 
-/* compute the hard shpere weight `fb' by a lookup table
- * the return can always fit into an intger */
+/* compute the hard sphere weight `fb' by a lookup table
+ * the return can always fit into an integer */
 INLINE double dg_hsfb_lookuplow(int n, unqid_t id)
 {
   if (DG_N_ <= 1) return 1;

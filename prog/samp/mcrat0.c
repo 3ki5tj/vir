@@ -26,7 +26,7 @@ double nequil = 1000000; /* number of equilibration steps */
 double nsteps = 10000000;
 real mcamp = 1.5;
 int gdisp = 0; /* normally distributed */
-int nstfb = 0; /* interval of evaluting the weight */
+int nstfb = 0; /* interval of evaluating the weight */
 int nstcom = 10000; /* frequency of the n move */
 int nstrep = 1000000000; /* interval of reporting */
 int lookup = -1; /* if to use the lookup table */
@@ -150,7 +150,7 @@ static void doargs(int argc, char **argv)
     mapl_on = (n <= DGMAPL_NMAX);
     hash_on = 0;
   }
-  /* the hash table (at leat at n <= 9) is generally not as efficient
+  /* the hash table (at least at n <= 9) is generally not as efficient
    * as the larger lookup table, because we have to compute
    * the canonical label */
   if (mapl_on) hash_on = 0;
@@ -451,7 +451,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
       else
         rvn_rnddisp(xi, x[i], amp);
 
-      /* directly change the connectivity bitstring of the graph */
+      /* directly change the connectivity bits of the graph */
       ncode = code;
       /* for j < i pairs */
       for (pid = i - 1, j = 0; j < i; j++, pid += DG_N_ - j - 1)

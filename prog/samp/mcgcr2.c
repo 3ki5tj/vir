@@ -76,7 +76,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-1",    "%lf",  &nsteps,  "number of simulation steps");
   argopt_add(ao, "-a",    "%r",   &mcamp,   "MC amplitude for biconnected diagrams");
   argopt_add(ao, "-r",    "%lf",  &ratn,    "rate of particle moves");
-  argopt_add(ao, "-c",    "%r",   &rc0,     "radius of particle insersion");
+  argopt_add(ao, "-c",    "%r",   &rc0,     "radius of particle insertion");
   argopt_add(ao, "-s",    "%r",   &sr0,     "default scaling of distance between the constrained vertex pair");
   argopt_add(ao, "-i",    NULL,   &fninp0,  "input file");
   argopt_add(ao, "-o",    NULL,   &fnZrr0,  "output file");
@@ -96,7 +96,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-K",    "%d",   &nstcheck,"interval of checking");
   argopt_add(ao, "-R",    "%b",   &restart, "run a restartable simulation");
   argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation");
-  argopt_add(ao, "-W",    "%d",   &nmvtype, "nmove type, 0: Metropolis, 1: heatbath");
+  argopt_add(ao, "-W",    "%d",   &nmvtype, "nmove type, 0: Metropolis, 1: heat-bath");
   argopt_add(ao, "--rng", "%u",   &rngseed, "set the RNG seed offset");
 
   argopt_parse(ao, argc, argv);
@@ -290,7 +290,7 @@ INLINE gc_t *gc_open(int nmin, int nmax, int m,
     gc->rc[i] = (real) rc;
 
     if (gc->type[i] == GCX_PURE && n >= 1)
-      gc->Zr[i] = 1.0/n; /* inverse number of nonarticulated pairs */
+      gc->Zr[i] = 1.0/n; /* inverse number of non-articulation pairs */
     else gc->Zr[i] = 1;
     gc->Z[i] = 1; /* absolute partition function */
   }
@@ -1111,7 +1111,7 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
   /* in case of OpenMP, we synchronize Zr, rc, sr manually */
   if (inode == MASTER) {
     gc_print(gc, 1, NULL, NULL, NULL);
-  } else { /* nonmaster node: copy from the master */
+  } else { /* non-master node: copy from the master */
     int i;
     for (i = 0; i < gc->nens; i++) {
       gc->Zr[i] = gc_Zr[i];
@@ -1142,7 +1142,7 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
   die_if ( !dg_biconnected(g), "n %d: not biconnected", g->n);
   printf("%4d/%-4d: n %d [%d, %d], iens %d [%d, %d]\n", inode, nnodes, g->n, nmin, nmax, iens, ensmin, ensmax);
 
-  ieql = (neql > 0) ? 1 : neql; /* stage of equilibrations if > 0 */
+  ieql = (neql > 0) ? 1 : neql; /* stage of equilibration if > 0 */
   /* ieql < 0 means no data collection */
 
   /* main loop */

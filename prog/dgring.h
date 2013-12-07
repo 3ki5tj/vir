@@ -84,7 +84,7 @@ INLINE int dg_fbnr_spec0(const dg_t *g, double *fb, double *nr,
       /* ned0 == n + 1
        * (a) if the two deg-3 vertices are mutually connected,
        * then there is a ring, but the two deg-3 vertices is a
-       * clique separtor
+       * clique separator
        * (b) if the two deg-3 vertices are connected to deg-2 vertices
        * then no subgraph is ring, and sc = 1 */
       for (i = 0; i < DG_N_; i++)

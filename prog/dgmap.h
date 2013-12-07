@@ -140,7 +140,7 @@ INLINE int dgmap_init(dgmap_t *m, int n)
         m->first[gid] = c;
         /* add all permutations of the diagram */
         for (ms = masks, ipm = 0; ipm < npm; ipm++) {
-          /* `c1' is the code of the permutated diagram `c' */
+          /* `c1' is the code of the permuted diagram `c' */
           for (c1 = 0, ipr = 0; ipr < npr; ipr++, ms++)
             if ((c >> ipr) & 1u) c1 |= *ms;
           if (m->map[c1] < 0) {

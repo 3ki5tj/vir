@@ -48,7 +48,7 @@ typedef unsigned char byte3_t[3];
 
 
 #ifdef DGMAPL_INT32
-/* if DGMAPL_NMAX >= 10, 32-bit integer may be preferrable */
+/* if DGMAPL_NMAX >= 10, 32-bit integer may be preferable */
 typedef int32_t dgmapl_fb_t; /* internal type to save fb and nr */
 #define DGMAPL_MAX ((dgmapl_int_t) 0x7f7f7f7f)
 #define DGMAPL_BAD ((dgmapl_int_t) 0x80808080)
@@ -121,7 +121,7 @@ INLINE void dgmapl_seti2(dgmapl_fb_t * RESTRICT x, dgmapl_int_t * RESTRICT i)
 
 
 
-/* encode a graph according to the permuation `st' */
+/* encode a graph according to the permutation `st' */
 INLINE dgword_t dgmapl_encode(const dg_t *g, int k, int *st)
 {
   int i, j, jmax;
@@ -182,8 +182,8 @@ LOOPEND:
 
 
 /* find all chains of k links in the graph g, and assign the values
- * of the graphs from permutating indices to val
- * `st' will be destoryed */
+ * of the graphs from permuting indices to val
+ * `st' will be destroyed */
 INLINE int dgmapl_save2full(
 #ifndef DG_NORING
     dgmapl_fb_t (* RESTRICT arr)[2],
@@ -482,7 +482,7 @@ INLINE void dgmapl_printstat(dgmapl_t *m, FILE *fp)
       m->hits = m->misses = m->tot = 1e-30;
     }
   }
-  /* use sprintf() and fputs() to reduce the number of file writting operations */
+  /* use sprintf() and fputs() to reduce the number of file writing operations */
   sprintf(p, "\n");
   fputs(sbuf, fp);
 }

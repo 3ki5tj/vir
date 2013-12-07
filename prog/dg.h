@@ -1,10 +1,8 @@
 #ifndef DG_H__
 #define DG_H__
 /* handling diagrams in the virial expansion
- * using bitwise operations
- * This file contains generic code only
- * one-word and multiple-word codes are
- * distributed in dg1.h and dgl.h */
+ * using bitwise operations */
+
 
 
 #ifdef __INTEL_COMPILER
@@ -14,13 +12,20 @@
    * 2415: unused static variables */
   #pragma warning disable 161 869 981 2415
 #elif defined(__GNUC__) && !defined(__INTEL_COMPILER)
-  /* ignore all openmp pragmas */
+  /* ignore all OpenMP pragmas */
   #pragma GCC diagnostic ignored "-Wunknown-pragmas"
   #pragma GCC diagonstic ignored "-Wunused-parameter"
 #elif defined(_MSC_VER)
   /* 4068: unknown pragma
      4146: unary minus operator applied to unsigned type */
   #pragma warning(disable : 4068 4146)
+  /* no need for "_s" versions of the CRT functions */
+  #ifndef _CRT_SECURE_NO_DEPRECATE
+  #define _CRT_SECURE_NO_DEPRECATE 1
+  #endif
+  #ifndef _CRT_SECURE_NO_WARNINGS
+  #define _CRT_SECURE_NO_WARNINGS 1
+  #endif
 #elif defined(__BORLANDC__)
   /* 8041: negating unsigned value */
   #pragma warn -8041
@@ -806,7 +811,7 @@ INLINE int dg_biconnectedvs_simple(const dg_t *g, dgword_t vs)
   dgword_t b, todo;
 
   for (todo = vs; todo; todo ^= b) {
-    b = todo & (-todo); /* first vertex (1-bit) of the todo list */
+    b = todo & (-todo); /* first vertex (1-bit) of the to-do list */
     if ( !dg_connectedvs(g, vs ^ b) )
       return 0;
   }
@@ -886,7 +891,7 @@ INLINE int dg_biconnectedvs_simple(const dg_t *g, dgvs_t vs)
 
   DGVS_CPY(todo, vs)
   while ( dgvs_nonzero(todo) ) {
-    DGVS_FIRSTBIT(todo, bi, iq) /* first vertex (1-bit) of the todo list */
+    DGVS_FIRSTBIT(todo, bi, iq) /* first vertex (1-bit) of the to-do list */
     vs[iq] ^= bi;
     if ( !dg_connectedvs(g, vs) )
       return 0;

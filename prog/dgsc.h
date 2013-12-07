@@ -102,7 +102,7 @@ INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
       //dg_print(g);
       //printf("n %d, removing (%d, %d), bi %x bj %x ci %x, cj %x\n", DG_N_, i, j, bi, bj, g->c[i], g->c[j]); getchar();
       //g->c[i] &= ~bj;
-      /* It is certain that neither i or j is an aritculation points (*)
+      /* It is certain that neither i or j is an articulation points (*)
        * we will only test the connectivity of g without other vertices
        * Prove (*):
        * Since `g' with (i, j) is biconnected, g\{i} is connected
@@ -160,7 +160,7 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
 
   /* loosely connected diagrams */
   if (ned0 <= n + 1) {
-    if (ned0 == n || nocsep) /* ring diagram or interwined rings (see below) */
+    if (ned0 == n || nocsep) /* ring diagram or intertwined rings (see below) */
       return 1;
 
     /* ned0 == n + 1
@@ -183,7 +183,7 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
   /* densely-connected diagrams */
   ned1 = n * (n - 1) / 2 - ned0;
   if (ned1 < 3) {
-    /* with no clique separactor, this covers the following three cases
+    /* with no clique separator, this covers the following three cases
      * `ned1' can only be 0 or 2 */
     if (nocsep) return dg_rhiter(n, ned1 + 2, 1);
 

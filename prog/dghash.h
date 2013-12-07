@@ -15,7 +15,7 @@
 
 /* although set code bits to 64 would possible make hash function faster
  * it might make Wheatley's method slow on a 32-bit machine
- * the disadvantage outweights the advantage */
+ * the disadvantage outweighs the advantage */
 /*
 #ifndef DG_WORDBITS
 #if defined(N) && (N >= 9)
@@ -86,7 +86,7 @@ typedef struct {
   int isoenum;  /* enumerate other isomorphic graphs after a new graph is found */
   int isomax; /* maximal number graphs used in the above process */
   int level; /* automorphism level, see dgaut.h/dg_getrep() for details
-                0 means no tranformation to the graph
+                0 means no transformation to the graph
                 1 means to find a version compatible with the degree sequence
                 4 means to find the canonical label */
   int dostat; /* collect the following data */
@@ -102,12 +102,12 @@ typedef struct {
 /* open an hash table for the nth virial coefficient
  * `bits'     is the number of bits of the hash table, such that it has
  *            2^bits different keys, hence buckets
- *            each bucket poccess a linked list
+ *            each bucket possesses a linked list
  *            0 or negative values: for the default value
  * `blkmem'   is the number of memory blocks used in the underlying
  *            pooled memory allocator for the linked lists
  *            0: for the default value
- * `memmax'   is the maximal permissble memory in bytes. Even if it is infinity
+ * `memmax'   is the maximal permissible memory in bytes. Even if it is infinity
  *            some latter allocation through the blkmem_new() function may fail
  *            but the program should not abort
  *            However, using too much memory may slow down the program
@@ -117,7 +117,7 @@ typedef struct {
  *            possible values 0-4; a value > 9 or a negative value means
  *            to use the canonical label, the value 1 means to use a
  *            permutation compatible with the degree sequence
- * `isoenum'  0 or 1, means to find others ways of permutating vertices
+ * `isoenum'  0 or 1, means to find others ways of permuting vertices
  *            it is unnecessary if the canonical label is used (level == 4)
  *            but useful if the degree sequence is used (level == 1)
  * `isomax'   is the maximal number of isomorphic graphs in the above search
@@ -235,7 +235,7 @@ INLINE dgls_t *dgls_find(dgls_t *ls, dgword_t *c, int cn, int *pos)
   while ( ls != NULL ) {
     lscnt = ls->cnt;
     for (i = 0; i < lscnt; i++) {
-      //die_if (ls->arr[i].c[0] == 0, "uninitialied array element i %d\n", i);
+      //die_if (ls->arr[i].c[0] == 0, "uninitialized array element i %d\n", i);
       if ( DG_CEQ(c, ls->arr[i].c, cn) ) {
         *pos = i;
         return ls;
@@ -322,7 +322,7 @@ static int dghash_isocap_;
 static dgword_t *dghash_isocodes_;
 #pragma omp threadprivate(dghash_isocodes_, dghash_isocap_)
 
-/* add other keys compatbile with the automorphism level into the hash list */
+/* add other keys compatible with the automorphism level into the hash list */
 INLINE int dghash_enumiso(dghash_t *h, const dg_t *g,
     double fb, double nr, dg_t *ng)
 {

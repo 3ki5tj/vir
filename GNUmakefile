@@ -17,8 +17,8 @@ $(prj)pack.zip::
 		doc/vir.enl \
 		doc/*.tex doc/*.doc \
 		doc/fig/Makefile doc/fig/ergo.cdr \
-		doc/fig/*.gp
-		-x \*~
+		doc/fig/*.gp \
+		--exclude="*~"
 	zip --symlinks $@ \
 	  	prog/samp/*.h prog/intg/*.h \
 	  	doc/fig/bcacc.txt doc/fig/data

@@ -397,7 +397,7 @@ INLINE int dgdb_fwritehead(dgdb_t *db, FILE *fp, const char *fn)
   if (1 != fwrite(&db->itemsz, sizeof(int), 1, fp)) goto ERR;
   return 0;
 ERR:
-  fprintf(stderr, "error occuried in writing %s\n", fn);
+  fprintf(stderr, "error occurred in writing %s\n", fn);
   return -1;
 }
 

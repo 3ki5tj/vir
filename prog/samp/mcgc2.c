@@ -91,7 +91,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-R",    "%b",   &restart, "run a restartable simulation (do not overwrite Zr & rc on output)");
   argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation");
   argopt_add(ao, "-C",    "%b",   &norc,    "do not update rc");
-  argopt_add(ao, "-W",    "%d",   &nmvtype, "nmove type, 0: Metropolis, 1: heatbath");
+  argopt_add(ao, "-W",    "%d",   &nmvtype, "nmove type, 0: Metropolis, 1: heat-bath");
   argopt_add(ao, "--rng", "%u",   &rngseed, "set the RNG seed offset");
 
   argopt_parse(ao, argc, argv);
@@ -712,7 +712,7 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
   die_if ( !dg_biconnected(g), "n %d: not biconnected", g->n);
   printf("%4d/%-4d: n %d [%d, %d]\n", inode, nnodes, g->n, nmin, nmax);
 
-  ieql = (neql > 0) ? 1 : neql; /* stage of equilibrations if > 0 */
+  ieql = (neql > 0) ? 1 : neql; /* stage of equilibration if > 0 */
   /* ieql < 0 means no data collection */
 
   for (it = 1, t = 1; ieql || t <= nsteps; t += 1, it++) {

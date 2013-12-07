@@ -22,7 +22,7 @@ MPILM =
 
 deps = dg.h dgmap.h dgmapl.h dgutil.h dgcsep.h dgrjw.h dgsc.h \
        dgring.h dgaut.h dgdb.h dghash.h \
-       nau0s.h zcom.h Makefile mcutil.h
+       nau0s.h zcom.h GNUmakefile mcutil.h
 bins = mcrat0 mcgc2 mcgcr2
 bins_d = $(patsubst %, %_d, $(bins))
 bins_mp = $(patsubst %, %_mp, $(bins))
@@ -48,7 +48,7 @@ clean:
 	rm -rf $(bins) $(bins_d) $(bins_mp) $(bins_mpi) *~ a.out gmon.out \
 	  *.his MTSEED bin obj r[0-9][0-9][0-9][a-z]* mr* Zr*
 
-vircode.zip:
+vircode.zip: $(deps) Bring.dat Z.dat
 	zip vircode.zip *.[ch] *.ma *.dat *.py README.usr GNUmakefile
 
 zip: vircode.zip

@@ -5,7 +5,7 @@
 #include "dg.h"
 
 
-/* set parameteters for the program `nauty' (No AUTomorphism, Yes?) */
+/* set parameters for the program `nauty' (No AUTomorphism, Yes?) */
 #define WORDSIZE        DG_WORDBITS
 #define MAXN            DG_NMAX
 #define ONE_WORD_SETS 1 /* use one-word set when possible */
@@ -214,7 +214,7 @@ INLINE void dg_equipart(dgpart_t *part, const dg_t *g)
 
       ni = part->cnt[i]; /* number of vertices */
       //die_if (ni == 0, "set %d is empty\n", i);
-      if (ni == 1) /* one-vertex cell, cannot be shatterred */
+      if (ni == 1) /* one-vertex cell, cannot be shattered */
         continue;
 
       /* use count sort to shatter `vsi'
@@ -284,7 +284,7 @@ INLINE void dg_fprintperm(FILE *fp, const int *perm, int n)
 
 
 
-/* check if a permuation of n is good, return 0 on success */
+/* check if a permutation of n is good, return 0 on success */
 INLINE int dg_checkperm(const int *perm, int n)
 {
   dgword_t c = 0, b;
@@ -309,7 +309,7 @@ INLINE int dg_checkperm(const int *perm, int n)
 
 
 /* get a graph that is compatible with the equitable partition
- * if `recur' is true, try to artificially break the equitable partion
+ * if `recur' is true, try to artificially break the equitable partition
  *   until it becomes discrete
  * the speed of using recur or not is very similar, recommended */
 INLINE void dg_permequipart(int *perm, const dg_t *g, int recur)
@@ -430,7 +430,7 @@ INLINE void dg_partdegseq(dgpart_t *part, const dg_t *g)
 
 
 
-/* rearrange vertices in `gin' according to the permuation `perm' */
+/* rearrange vertices in `gin' according to the permutation `perm' */
 INLINE dg_t *dg_permutate(dg_t * RESTRICT gout, const dg_t * RESTRICT gin, const int *perm)
 {
   DG_DEFN_(gin)
@@ -484,9 +484,9 @@ INLINE int dg_checkiso(const dg_t *a, const dg_t *b, const int *perm)
  * if level == 0, it returns a graph compatible with the degree sequence
  *
  * In all cases, `gout' is isomorphic to `gin' since the former is produced
- *  from some vertex permuation of the latter.
+ *  from some vertex permutation of the latter.
  * But isomorphic graphs may not be mapped to the same `gout' if level < 3
- * with a higher `level' the redundance reduces, but the speed goes down.
+ * with a higher `level' the redundancy reduces, but the speed goes down.
  * gout->n will be proper set here
  * */
 INLINE dg_t *dg_repiso(dg_t *gout, const dg_t *gin, int level)
