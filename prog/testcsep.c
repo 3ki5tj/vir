@@ -108,12 +108,48 @@ static void testcsep(void)
 
 
 
+static void testfillin(void)
+{
+  dg_t *g, *f, *f2;
+  int prg[][2] = {{0, 2}, {0, 3}, {0, 5}, {1, 3}, {1, 4}, {1, 6},
+                  {3, 5}, {-1, -1}};
+  int prf[][2] = {{0, 2}, {0, 3}, {0, 5}, {1, 3}, {1, 4}, {1, 6},
+                  {2, 3}, {2, 5}, {3, 4}, {3, 5}, {3, 6},
+                  {4, 5}, {4, 6}, {5, 6}, {-1, -1}};
+  int a[7] = {0, 1, 2, 3, 4, 5, 6}, p[7] = {0, 1, 2, 3, 4, 5, 6};
+  int i, j;
+
+  g = dg_open(7);
+  f = dg_open(7);
+  f2 = dg_open(7);
+  dg_linkpairs(g, prg);
+  dg_linkpairs(f, prf);
+  dg_fillin(g, f2, a, p);
+  for (i = 1; i < 7; i++) {
+    for (j = 0; j < i; j++) {
+      if (dg_linked(f, i, j) != dg_linked(f2, i, j)) {
+        dg_print(g);
+        dg_print(f);
+        dg_print(f2);
+        fprintf(stderr, "i %d, j %d linked %d vs %d\n", i, j,
+          dg_linked(f, i, j), dg_linked(f2, i, j));
+      }
+    }
+  }
+  dg_close(g);
+  dg_close(f);
+  dg_close(f2);
+  fprintf(stderr, "passed the fill-in test\n");
+}
+
+
+
 static void speed_cliquesep(int n, int nsamp, int nedmax)
 {
   dg_t *g = dg_open(n);
   clock_t t0;
-  int t, ned, eql = 1, nequil = 1000, isamp = 0, good = 0, tot = 0;
-  double tsum[2] = {0, 0}, sum[2] = {0, 0};
+  int t, k, ned, eql = 1, nequil = 1000, isamp = 0, good = 0, tot = 0;
+  double tsum[3] = {0, 0}, sum[3] = {0, 0};
   double rnp = 0.1; /* rate for moves increasing edges */
 #define LISTSIZE 1000
   dg_t *gls[LISTSIZE] = {NULL};
@@ -155,17 +191,23 @@ static void speed_cliquesep(int n, int nsamp, int nedmax)
       sum[1] += (dg_csep(gls[kk]) == 0);
     tsum[1] += clock() - t0;
 
+    t0 = clock();
+    for (kk = 0; kk < lscnt; kk++)
+      sum[2] += (dg_csep0(gls[kk], 2) == 0);
+    tsum[2] += clock() - t0;
+
     isamp += lscnt;
     lscnt = 0;
     if (isamp >= nsamp) break;
   }
-  tsum[0] /= CLOCKS_PER_SEC;
-  tsum[1] /= CLOCKS_PER_SEC;
-  printf("dg_cliquesep()/dg_csep(): n %d; nocsep %g%%/%g%%; "
-      "time used: %gs/%d = %gmcs, %gs/%d = %gmcs\n",
-      n, 100.*sum[0]/nsamp, 100.*sum[1]/nsamp,
+  for (k = 0; k < 3; k++)
+    tsum[k] /= CLOCKS_PER_SEC;
+  printf("dg_cliquesep()/dg_csep(): n %d; nocsep %g%%/%g%%, %g%%; "
+      "time used: %gs/%d = %gmcs, %gs/%d = %gmcs, %gs/%d = %gmcs\n",
+      n, 100.*sum[0]/nsamp, 100.*sum[1]/nsamp, 100.*sum[2]/nsamp,
       tsum[0], nsamp, tsum[0]/nsamp*1e6,
-      tsum[1], nsamp, tsum[1]/nsamp*1e6);
+      tsum[1], nsamp, tsum[1]/nsamp*1e6,
+      tsum[2], nsamp, tsum[2]/nsamp*1e6);
   dg_close(g);
 }
 
@@ -179,9 +221,10 @@ static void verify_allzerofb(int n, int verbose)
 {
   dg_t *g = dg_open(n);
   int ncsep, cnt = 0, *visited;
-  dgword_t c, npr;
+  dgword_t c, npr, csw;
   double fb;
   unqid_t uid;
+  int fpos = 0, fneg = 0, cntcsep = 0;
 
   die_if(n > DGMAP_NMAX, "n %d is too large\n", n);
   dg_biconnected_lookup(g); /* initialize the lookup table */
@@ -196,6 +239,7 @@ static void verify_allzerofb(int n, int verbose)
     /* test if a graph with a clique separator necessarily
      * implies that fb is 0 */
     if (ncsep > 0) { /* has at least one clique separator */
+      cntcsep += 1;
       if (fabs(fb = dg_hsfb_lookuplow(n, uid)) > 0.1) {
         fprintf(stderr, "n %d, fb %g, c %#x\n",
             n, fb, (unsigned) c);
@@ -211,10 +255,22 @@ static void verify_allzerofb(int n, int verbose)
         }
       }
     }
+    if ( dg_connected(g) &&
+        (ncsep != 0) != ((csw = dg_csep0(g, 1)) != 0) ) {
+      fpos += (csw != 0);
+      fneg += (csw == 0);
+      if (fpos) {
+        dg_print(g);
+        fprintf(stderr, "csep %#x vs %#x\n",
+          dg_csep0(g, 0), dg_csep0(g, 1));
+      }
+    }
     cnt++;
   }
   dg_close(g);
   printf("verified all zero fb for %d graphs of n = %d\n", cnt, n);
+  printf("maximal cardinality n %d, false positive %d, false negative %d, %d/%d\n",
+      n, fpos, fneg, cntcsep, cnt);
 }
 
 
@@ -262,13 +318,16 @@ static void verify_zerofb(int n, int nsteps)
 int main(int argc, char **argv)
 {
   int n = 9, nsteps = 10000000, nedmax = 100000000;
+
 #ifdef N
   n = N;
 #endif
 #ifndef N
   testrtl();
   testcsep();
+  testfillin();
 #endif
+
   if (argc >= 2) n = atoi(argv[1]);
   if (argc >= 3) nsteps = atoi(argv[2]);
   if (argc >= 4) nedmax = atoi(argv[3]);
@@ -283,7 +342,8 @@ int main(int argc, char **argv)
 #ifdef VERIFY
   printf("\n\n\n");
 #ifdef N
-  verify_allzerofb(N, 0);
+  if (N <= DGMAP_NMAX)
+    verify_allzerofb(N, 0);
 #else
   {
     int i;
@@ -291,7 +351,8 @@ int main(int argc, char **argv)
       verify_allzerofb(i, 0);
   }
 #endif
-  verify_zerofb(n, nsteps);
+  if (n > DGMAP_NMAX)
+    verify_zerofb(n, nsteps);
 #endif /* VERIFY */
   return 0;
 }

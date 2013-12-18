@@ -128,20 +128,22 @@ INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
 
 
 
-#define dg_rhsc_spec(g, err) dg_rhsc_spec0(g, 0, 1, NULL, NULL, err)
+#define dg_rhsc_spec(g, err) dg_rhsc_spec0(g, 1, NULL, NULL, err)
 
 /* compute the star content (SC) of a Ree-Hoover diagram in special cases
  * only use cheap strategies to deduce the SC
  * assuming the diagram is biconnected
  * if successful, *err = 0, otherwise *err = 1
- * nocsep = 1 means the diagram has been tested with no clique separator
- *        = 0 means it MAY have clique separators
  *   if *err = 0, the diagram has a clique separator if the returned
  *                value of SC is zero
  *   if *err = 1, the diagram has no clique separator on return
+ * csepmethod = 0 means not to test clique separators
+ *            = 1 means to test clique separators thoroughly
+ *            = 2 means to test clique separators by maximal cardinality search
+ *              which can produce false negatives
  * *ned: number of edges; degs: unsorted degree sequence
  * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
-INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
+INLINE double dg_rhsc_spec0(const dg_t *g, int csepmethod,
     int *ned, int *degs, int *err)
 {
   int i, j, n = g->n, ned0, ned1;
@@ -160,7 +162,7 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
 
   /* loosely connected diagrams */
   if (ned0 <= n + 1) {
-    if (ned0 == n || nocsep) /* ring diagram or intertwined rings (see below) */
+    if (ned0 == n) /* ring diagram or intertwined rings (see below) */
       return 1;
 
     /* ned0 == n + 1
@@ -183,10 +185,6 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
   /* densely-connected diagrams */
   ned1 = n * (n - 1) / 2 - ned0;
   if (ned1 < 3) {
-    /* with no clique separator, this covers the following three cases
-     * `ned1' can only be 0 or 2 */
-    if (nocsep) return dg_rhiter(n, ned1 + 2, 1);
-
     if (ned1 == 0) { /* fully connected */
       return dg_rhiter(n, 2, 1);
     } else if (ned1 == 1) { /* always has a clique separator */
@@ -201,11 +199,12 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int nocsep, int testcsep,
   }
 
   /* general case: try to find a clique separator */
-  if (testcsep) {
-    /* if nocsep, we know for sure there is no clique separator
-     * then the hard calculation must be done */
-    //*err = (nocsep || !dg_cseplow(g, ned0));
-    *err = (nocsep || !dg_csep(g));
+  if (csepmethod) {
+    /* csepmethod can be 1 or 2, in the latter case
+     * we use dg_csep(g, 2), which invokes the maximal cardinality search */
+    /* if there is a clique separator, dg_csep0() returns nonzero
+     * and we know fb == 0, and there is no error */
+    *err = !dg_csep0(g, csepmethod);
   } else { /* if we don't want to test clique separator */
     *err = 1; /* simply show failure */
   }
@@ -241,7 +240,7 @@ INLINE double dg_rhsc_directlow(const dg_t *g)
 
 
 
-#define dg_rhsc_direct(g) dg_rhsc_direct0(g, 0, NULL, NULL)
+#define dg_rhsc_direct(g) dg_rhsc_direct0(g, 1, NULL, NULL)
 
 /* directly compute the star content (SC) of a Ree-Hoover diagram
  * unconnected edge is treated as a wiggly line
@@ -250,13 +249,14 @@ INLINE double dg_rhsc_directlow(const dg_t *g)
  * nocsep = 1 means if the graph has been tested with no clique separator
  *        = 0 means it MAY have clique separators
  * *ned: number of edges; degs: degree sequence */
-INLINE double dg_rhsc_direct0(const dg_t *g, int nocsep, int *ned, int *degs)
+INLINE double dg_rhsc_direct0(const dg_t *g, int csepmethod,
+    int *ned, int *degs)
 {
   double sc;
   int err;
 
   /* detect special cases when possible */
-  sc = dg_rhsc_spec0(g, nocsep, 1, ned, degs, &err);
+  sc = dg_rhsc_spec0(g, csepmethod, ned, degs, &err);
   if (err == 0) return sc;
   else return dg_rhsc_directlow(g);
 }
@@ -307,11 +307,13 @@ INLINE double dg_rhsc_lookup(const dg_t *g)
 #endif /* defined(DGMAP_EXISTS) */
 
 
-#define dg_rhsc(g) dg_rhsc0(g, 0, NULL, NULL)
+
+#define dg_rhsc(g) dg_rhsc0(g, 1, NULL, NULL)
 
 /* compute the star content (SC) of a Ree-Hoover diagram
  * see the comments of dg_rhsc_direct0() for details */
-INLINE double dg_rhsc0(const dg_t *g, int nocsep, int *ned, int *degs)
+INLINE double dg_rhsc0(const dg_t *g, int csepmethod,
+    int *ned, int *degs)
 {
   double sc;
   int err;
@@ -321,7 +323,7 @@ INLINE double dg_rhsc0(const dg_t *g, int nocsep, int *ned, int *degs)
     return dg_rhsc_lookup(g);
 #endif /* defined(DGMAP_EXISTS) */
 
-  sc = dg_rhsc_spec0(g, nocsep, 1, ned, degs, &err);
+  sc = dg_rhsc_spec0(g, csepmethod, ned, degs, &err);
   if (err == 0) return sc;
   else return dg_rhsc_directlow(g);
 }

@@ -21,6 +21,7 @@ double ratn = 0.5; /* frequency of n-moves */
    * configurational sampling, so we should use a larger ratn */
 real rc0 = 0; /* initial rc */
 double mindata = 100; /* minimal # of data points to make update */
+int csepmethod = 1; /* method of detecting clique separators */
 
 /* shared version of the above variables */
 char *fninp0, *fnout0, *fnZrtmp = "Zrh.tmp";
@@ -92,6 +93,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation");
   argopt_add(ao, "-C",    "%b",   &norc,    "do not update rc");
   argopt_add(ao, "-W",    "%d",   &nmvtype, "nmove type, 0: Metropolis, 1: heat-bath");
+  argopt_add(ao, "-p",    "%d",   &csepmethod, "method of detecting clique separators, 0: disable, 1: full detection, 2: mcs detection");
   argopt_add(ao, "--rng", "%u",   &rngseed, "set the RNG seed offset");
 
   argopt_parse(ao, argc, argv);
@@ -590,7 +592,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
     } else {
       /* this function implicitly computes the clique separator
        * with a very small overhead */
-      sc = dg_rhsc_spec0(g, 0, 1, &ned, degs, &err);
+      sc = dg_rhsc_spec0(g, csepmethod, &ned, degs, &err);
       if (err == 0) {
         ncs = (fabs(sc) > 1e-3);
         fb = DG_SC2FB(sc, ned);
@@ -874,7 +876,7 @@ int main(int argc, char **argv)
   {
     inode = omp_get_thread_num();
 #endif
-    mtscramble(inode * 2038074743u + nnodes * time(NULL) + rngseed);
+    mtscramble(inode * 2038074743u + nnodes * (unsigned) time(NULL) + rngseed);
     appendfns(fninp0, fnout0);
 
     mcgc(nmin, nmax, nsteps, mcamp, neql, nequil, nstsave);

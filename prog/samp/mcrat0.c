@@ -32,6 +32,7 @@ int nstrep = 1000000000; /* interval of reporting */
 int lookup = -1; /* if to use the lookup table */
 double ratcr = 0; /* rate of coordinates replacement */
 double r2cr = 0; /* variance of replaced coordinates */
+int csepmethod = 1; /* method of detecting clique separators */
 char *fnout = NULL;
 char *prefix0 = NULL, prefix[FILENAME_MAX] = "";
 
@@ -88,6 +89,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-G", "%b", &gdisp, "normally-distributed displacement");
   argopt_add(ao, "-H", "%lf", &ratcr, "rate of coordinates replacement");
   argopt_add(ao, "-U", "%lf", &r2cr, "squared radius of replaced coordinates");
+  argopt_add(ao, "-p", "%d", &csepmethod, "method of detecting clique separators, 0: disable, 1: full detection, 2: mcs detection");
   argopt_add(ao, "-o", NULL, &fnout, "output file");
   argopt_add(ao, "-P", NULL, &prefix0, "directory to save data");
   argopt_add(ao, "-B", "%b", &bsim0, "discard data in previous simulations");
@@ -530,23 +532,22 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
 #ifdef DGHASH_EXISTS
 /* conditionally use the hash table to compute fb and nr */
-INLINE double hashgetfbnr(dghash_t *hash, const dg_t *g, double *nr, int *ned, int *degs)
+INLINE double hashgetfbnr(dghash_t *hash, const dg_t *g, double *nr, 
+    int csepmethod, int *ned, int *degs)
 {
 #ifdef DG_NORING
-  int nocsep = 0;
-
   if ( hash_nocsep ) { /* check if there is a clique separator */
-    if ( dg_csep(g) ) { /* there is a clique separator */
+    if ( dg_csep0(g, csepmethod) ) { /* there is a clique separator */
       *nr = 0;
       return 0;
     } else { /* there is no clique separator */
-      nocsep = 1;
+      csepmethod = 0;
     }
   }
-  return dghash_fbnr_lookup0(hash, g, nr, nocsep, ned, degs);
+  return dghash_fbnr_lookup0(hash, g, nr, csepmethod, ned, degs);
 #else /* !defined(DG_NORING) */
   /* if both fb and nr are needed, call dghash_fbnr_lookup0() directly */
-  return dghash_fbnr_lookup0(hash, g, nr, 0, ned, degs);
+  return dghash_fbnr_lookup0(hash, g, nr, csepmethod, ned, degs);
 #endif /* defined(DG_NORING) */
 }
 #endif /* defined(DGHASH_EXISTS) */
@@ -685,11 +686,11 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
           {
 #ifdef DGHASH_EXISTS
             if ( hash_on && hash != NULL) {
-              fb = hashgetfbnr(hash, g, &nr, &ned, degs);
+              fb = hashgetfbnr(hash, g, &nr, csepmethod, &ned, degs);
             } else
 #endif /* defined(DGHASH_EXISTS) */
             {
-              fb = dg_hsfb_mixed0(g, 0, &ned, degs);
+              fb = dg_hsfb_mixed0(g, csepmethod, &ned, degs);
 #ifndef DG_NORING
               nr = dg_nring_mixed0(g, &ned, degs);
 #endif /* !defined(DG_NORING) */

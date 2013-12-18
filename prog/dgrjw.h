@@ -333,7 +333,7 @@ INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
 
 
 
-#define dg_hsfb_mixed(g) dg_hsfb_mixed0(g, 0, NULL, NULL)
+#define dg_hsfb_mixed(g) dg_hsfb_mixed0(g, 1, NULL, NULL)
 
 /* directly compute the sum of biconnected diagrams by various strategies
  * a mixed strategy of dg_hsfb_rjw() and dg_rhsc()
@@ -342,14 +342,14 @@ INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
  * *ned: number of edges; degs: degree sequence
  * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
 INLINE double dg_hsfb_mixed0(const dg_t *g,
-    int nocsep, int *ned, int *degs)
+    int csepmethod, int *ned, int *degs)
 {
   int err, nedges = -1;
   DG_DEFN_(g)
   double sc;
 
   if ( ned == NULL ) ned = &nedges;
-  sc = dg_rhsc_spec0(g, nocsep, 1, ned, degs, &err);
+  sc = dg_rhsc_spec0(g, csepmethod, ned, degs, &err);
   if ( err == 0 ) {
     return DG_SC2FB(sc, *ned);
   } else if ( *ned <= 2*DG_N_ - 2 || DG_N_ > RJWNMAX) {
@@ -405,18 +405,17 @@ INLINE double dg_hsfb_lookuplow(int n, unqid_t id)
 
 
 
-#define dg_hsfb(g) dg_hsfb0(g, 0, NULL, NULL)
+#define dg_hsfb(g) dg_hsfb0(g, 1, NULL, NULL)
 
-/* compute the hard-sphere total weight of a configuration
- * nocsep: if the graph has been tested with no clique separator */
-INLINE double dg_hsfb0(dg_t *g, int nocsep, int *ned, int *degs)
+/* compute the hard-sphere total weight of a configuration */
+INLINE double dg_hsfb0(dg_t *g, int csepmethod, int *ned, int *degs)
 {
 #ifdef DGMAP_EXISTS
   if (g->n <= DGMAP_NMAX)
     return dg_hsfb_lookup(g);
 #endif /* defined(DGMAP_EXISTS) */
 
-  return dg_hsfb_mixed0(g, nocsep, ned, degs);
+  return dg_hsfb_mixed0(g, csepmethod, ned, degs);
 }
 
 

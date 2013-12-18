@@ -364,7 +364,7 @@ static dgmapl_t *dgmapl_[DGMAPL_NMAX + 1]; /* default maps are shared */
 /* compute fb and nr by the larger lookup table
  * set k = 0 to use the default search length */
 INLINE double dgmapl_fbnr_lookup0(dgmapl_t *m, const dg_t *g,
-    double *nr, int nocsep, int *ned, int *degs)
+    double *nr, int csepmethod, int *ned, int *degs)
 {
   static int st[DGMAPL_NMAX + 1];
 #pragma omp threadprivate(st)
@@ -415,7 +415,7 @@ INLINE double dgmapl_fbnr_lookup0(dgmapl_t *m, const dg_t *g,
 
   if (c == 0) { /* the lookup table is not applicable, do it directly */
     *nr = 0;
-    fb = dg_hsfb_mixed0(g, nocsep, ned, degs);
+    fb = dg_hsfb_mixed0(g, csepmethod, ned, degs);
     return fb;
   }
 
@@ -423,7 +423,7 @@ INLINE double dgmapl_fbnr_lookup0(dgmapl_t *m, const dg_t *g,
   if (ifbnr[0] != DGMAPL_BAD) {
     fb = ifbnr[0];
   } else {
-    fb = dg_hsfb_mixed0(g, nocsep, ned, degs);
+    fb = dg_hsfb_mixed0(g, csepmethod, ned, degs);
     if (fabs(fb) < DGMAPL_MAX) {
       ifbnr[0] = (dgmapl_int_t) ((fb < 0) ? (fb - .5) : (fb + .5));
       hasnew = 1;

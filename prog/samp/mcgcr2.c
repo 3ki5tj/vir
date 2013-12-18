@@ -22,6 +22,7 @@ real rc0 = -1;
 real sr0 = 1;
 double mindata = 100; /* minimal # of data points to make update */
 int updrc = 0;
+int csepmethod = 1; /* method of detecting clique separators */
 
 /* common and shared file names */
 char *fninp0, *fnZrr0, *fnZr0, *fnZrrtmp = "Zrr.tmp";
@@ -97,6 +98,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-R",    "%b",   &restart, "run a restartable simulation");
   argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation");
   argopt_add(ao, "-W",    "%d",   &nmvtype, "nmove type, 0: Metropolis, 1: heat-bath");
+  argopt_add(ao, "-p",    "%d",   &csepmethod, "method of detecting clique separators, 0: disable, 1: full detection, 2: mcs detection");
   argopt_add(ao, "--rng", "%u",   &rngseed, "set the RNG seed offset");
 
   argopt_parse(ao, argc, argv);
@@ -409,7 +411,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
     } else {
       /* this function implicitly computes the clique separator
        * with a very small overhead */
-      sc = dg_rhsc_spec0(g, 0, 1, &ned, degs, &err);
+      sc = dg_rhsc_spec0(g, csepmethod, &ned, degs, &err);
       if (err == 0) {
         ncs = (fabs(sc) > 1e-3);
         fb = DG_SC2FB(sc, ned);
@@ -861,13 +863,14 @@ INLINE int bcrstep(int i0, int j0, dg_t *g, dg_t *ng,
     return 1;
   /* the new graph needs to be biconnected and without
    * the articulation pair (i0, j0) */
-  } else if ( dg_biconnected(ng)
-    && dg_connectedvs(ng, dgvs_mkinvset2(vs, n, i0, j0)) ) {
-
-    dg_copy(g, ng);
-    rvn_copy(x[i], xi);
-    UPDR2(r2ij, r2i, n, i, j);
-    return 1;
+  } else if ( dg_biconnected(ng) ) {
+    DGVS_MKINVSET2(vs, n, i0, j0)
+    if ( dg_connectedvs(ng, vs) ) {
+      dg_copy(g, ng);
+      rvn_copy(x[i], xi);
+      UPDR2(r2ij, r2i, n, i, j);
+      return 1;
+    }
   }
   return 0;
 }
@@ -900,11 +903,13 @@ INLINE int changenapair_metro(int *i, int *j, const dg_t *g,
 
   ni = randpair(g->n, &nj);
   if ( !(ni == *i && nj == *j) && !(ni == *j && nj == *i)
-    && r2ij[ni][nj] < rc * rc
-    && dg_connectedvs(g, dgvs_mkinvset2(vs, g->n, ni, nj)) ) {
-    *i = ni;
-    *j = nj;
-    return 1;
+    && r2ij[ni][nj] < rc * rc ) {
+    DGVS_MKINVSET2(vs, g->n, ni, nj)
+    if ( dg_connectedvs(g, vs) ) {
+      *i = ni;
+      *j = nj;
+      return 1;
+    }
   }
   ni = *i, *i = *j, *j = ni;
   return 0;
@@ -966,8 +971,11 @@ INLINE int nmove_restraineddown2pure(int i0, int j0,
 
   if (Zr < 1 && rnd0() >= Zr) return 0;
   i = (rnd0() > 0.5) ? i0 : j0;
-  if ( n > 2 && !dg_biconnectedvs(g, dgvs_mkinvset(vs, n, i)) )
-    return 0;
+  if ( n > 2 ) {
+    DGVS_MKINVSET(vs, n, i)
+    if ( !dg_biconnectedvs(g, vs) )
+      return 0;
+  }
   dg_remove1(g, g, i);
   /* update x */
   for (j = i; j < n - 1; j++)
@@ -1069,7 +1077,8 @@ static int check(const dg_t *g, rvn_t *x, real (*r2ij)[DG_NMAX],
           i0, j0, n, r2ij[i0][j0], rc2, gc->rc[iens]);
       err++;
     }
-    if ( !dg_connectedvs(g, dgvs_mkinvset2(vs, n, i0, j0)) ) {
+    DGVS_MKINVSET2(vs, n, i0, j0)
+    if ( !dg_connectedvs(g, vs) ) {
       fprintf(stderr, "the pair (%d, %d) is articulated\n", i0, j0);
       err++;
     }
@@ -1346,7 +1355,7 @@ int main(int argc, char **argv)
   {
     inode = omp_get_thread_num();
 #endif
-    mtscramble(inode * 2038074743u + nnodes * time(NULL) + rngseed);
+    mtscramble(inode * 2038074743u + nnodes * (unsigned) time(NULL) + rngseed);
     appendfns(fninp0, fnZrr0, fnZr0);
 
     mcgcr(nmin, nmax, mtiers, nsteps, mcamp, neql, nequil, nstsave);

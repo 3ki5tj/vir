@@ -8,6 +8,106 @@
 
 
 
+/* maximal cardinality search
+ * Robert E. Tarjan and Mihalis Yannakakis
+ * ``Simple Linear-Time Algorithms to Test Chordality of
+ *   Graphs, Test Acyclicity of Hypergraphs, and Selectively
+ *   Reduce Acyclic Hypergraphs''
+ * SIAM J. Comput. Vol. 13 No. 3 August 1984 */
+INLINE void dg_mcsearch(const dg_t *g, int *a, int *p)
+{
+  static dgvs_t set[DG_NMAX];
+  static int size[DG_NMAX];
+#pragma omp threadprivate(set, size)
+  int i, j, v, w, szw;
+  dgvs_t unvisited;
+  dgword_t cv, bv, bw;
+  DGVS_DEFIQ_(vq)
+  DGVS_DEFIQ_(wq)
+  DG_DEFN_(g)
+
+  /* `set[i]' collects vertices of the same cardinality,
+   * which is the number of neighboring numbered vertices */  
+  for (i = 0; i < DG_N_; i++) {
+    DGVS_CLEAR( set[i] )
+  }
+  /* `size[v]' gives the cardinality of vertex `v' */
+  for (i = 0; i < DG_N_; i++) size[i] = 0;
+  DGVS_MKBITSMASK(set[0], DG_N_)
+  DGVS_MKBITSMASK(unvisited, DG_N_)
+  j = 0;
+  for (i = DG_N_ - 1; i >= 0; i--) { /* number the ith vertex */
+    /* set[j] collects vertices with the highest cardinality */
+    DGVS_FIRSTLOW(v, set[j], bv, vq)
+    DGVS_XOR1(set[j], bv, vq)
+    DGVS_XOR1(unvisited, bv, vq)
+    a[i] = v;
+    p[v] = i;
+    DGVS_AND2(cv, g->c[v], unvisited)
+    while ( dgvs_nonzero(cv) ) {
+      DGVS_FIRSTLOW(w, cv, bw, wq)
+      DGVS_XOR1(cv, bw, wq)
+      szw = size[w];
+      DGVS_XOR1(set[szw], bw, wq) /* delete `w' from `set[szw]' */
+      DGVS_XOR1(set[size[w] = szw + 1], bw, wq) /* add `w' to `set[szw+1]' */
+    }
+    /* seek the next largest cardinality */
+    for (j++; j >= 0 && set[j] == 0; j--)
+      ;
+  }
+}
+
+
+
+/* compute the fill-in graph `f' according to the ordering `a' */
+INLINE void dg_fillin(const dg_t *g, dg_t *f, const int *a, const int *p)
+{
+  static int index[DG_NMAX], follow[DG_NMAX];
+#pragma omp threadprivate(index)
+  int i, w, v, x;
+  dgword_t cw, bv;
+  DGVS_DEFIQ_(vq)
+  DG_DEFN_(g)
+
+  dg_empty(f);
+  for (i = 0; i < DG_N_; i++) {
+    w = a[i];
+    /* `follow[w]' gives the first succeeding neighbor of `w'
+     * in the fill-in graph `f' */
+    follow[w] = w;
+    /* `index[v]' gives the order of the last adjacent neighbor
+     * of `v' in the original graph `g' */
+    index[w] = i;
+    DGVS_CPY(cw, g->c[w])
+    while ( dgvs_nonzero(cw) ) {
+      DGVS_FIRSTLOW(v, cw, bv, vq)
+      DGVS_XOR1(cw, bv, vq)
+      if (p[v] >= i) continue;
+      for (x = v; index[x] < i; x = follow[x] ) {
+        index[x] = i;
+        DG_LINK(f, x, w)
+      }
+      if (follow[x] == x)
+        follow[x] = w;
+    }
+  }
+}
+
+
+
+/* compute the ordering `a' from a maximal cardinality search
+ * and corresponding fill in graph `f' */
+INLINE void dg_mcsorder(const dg_t *g, dg_t *f, int *a)
+{
+  static int p[DG_NMAX]; /* p[k] is the index of vertex k */
+#pragma omp threadprivate(p)
+
+  dg_mcsearch(g, a, p);
+  dg_fillin(g, f, a, p);
+}
+
+
+
 /* rearrange l2[] such that they occupied 0..k-1 positions */
 INLINE int dg_sortlabels(int l2[], dgvs_t unnumbered, int n)
 {
@@ -99,7 +199,7 @@ INLINE void dg_minimalorder(const dg_t *g, dg_t *f, int *a)
      * In this way, these vertices will have relatively larger labels
      * and be readily distinguished from the nonadjacent ones */
 
-    if (a) a[i] = v;
+    a[i] = v;
     /* reach[l] gives the set of vertices with the same label `l'
      * the label `l' is the hierarchy level of the spanning tree
      * Vertices with the same label are treated as the equivalent,
@@ -255,8 +355,10 @@ INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
 
 
 
+#define dg_cliquesep(g) dg_cliquesep0(g, 1)
+
 /* test if a graph has a clique separator */
-INLINE dgvsref_t dg_cliquesep(const dg_t *g)
+INLINE dgvsref_t dg_cliquesep0(const dg_t *g, int method)
 {
   static dgvs_t fs_c[DG_NMAX];
   static dg_t fs[1] = {{0, NULL}}; /* stock fill-in graph */
@@ -271,7 +373,8 @@ INLINE dgvsref_t dg_cliquesep(const dg_t *g)
   DGVS_CLEAR(cl)
 
   /* 1. find a minimal ordering and its fill-in */
-  dg_minimalorder(g, fs, a);
+  if (method & 4 == 2) dg_mcsorder(g, fs, a);
+  else dg_minimalorder(g, fs, a);
 
   /* 2. clique decomposition (stop after the first clique) */
   if ( dg_decompcliqueseplow(g, fs, a, &cl, 1) ) return cl;
@@ -388,6 +491,7 @@ INLINE dgvsref_t dg_csep2(const dg_t *g)
 
 
 
+#if 0
 #define dg_csep(g) dg_cseplow(g, 0)
 
 /* test if a graph has a clique separator
@@ -406,6 +510,27 @@ INLINE dgvsref_t dg_cseplow(const dg_t *g, int ned)
   }
   return dg_cliquesep(g);
 }
+#else
+
+
+#define dg_csep(g) dg_csep0(g, 1)
+
+/* test if a graph has a clique separator
+ * optimized version of dg_cliquesep(g) */
+INLINE dgword_t dg_csep0(const dg_t *g, int method)
+{
+  if (method & 4 == 0) {
+    /* it seems that testing 2-vertex clique separator is
+     * open profitable in real sampling, although it is
+     * not so for a random graph, as those in testcsep() */
+    dgword_t cc = dg_csep2(g);
+    if (cc != 0) return cc;
+  }
+  return dg_cliquesep0(g, method);
+}
+ 
+
+#endif
 
 
 

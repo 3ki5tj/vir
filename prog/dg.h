@@ -520,7 +520,7 @@ INLINE dgvsref_t dgvs_mkbitsmask(dgvs_t vs, int n)
 #define DGVS_MKINVSET(vs, n, i)  \
   DGVS_MKBITSMASK(vs, n) DGVS_REMOVE(vs, i)
 
-INLINE dgvsref_t dgvs_mkinvset(dgvsref_t vs, int n, int i)
+INLINE dgvsref_t dgvs_mkinvset(dgvs_t vs, int n, int i)
 {
   DGVS_MKINVSET(vs, n, i)
   return vs;
@@ -529,7 +529,7 @@ INLINE dgvsref_t dgvs_mkinvset(dgvsref_t vs, int n, int i)
 #define DGVS_MKINVSET2(vs, n, i, j)  \
   DGVS_MKBITSMASK(vs, n) DGVS_REMOVE(vs, i) DGVS_REMOVE(vs, j)
 
-INLINE dgvsref_t dgvs_mkinvset2(dgvsref_t vs, int n, int i, int j)
+INLINE dgvsref_t dgvs_mkinvset2(dgvs_t vs, int n, int i, int j)
 {
   DGVS_MKINVSET2(vs, n, i, j)
   return vs;

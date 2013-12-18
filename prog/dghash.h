@@ -359,12 +359,12 @@ INLINE int dghash_enumiso(dghash_t *h, const dg_t *g,
 
 
 #define dghash_fbnr_lookup(g, nr) \
-  dghash_fbnr_lookup0(NULL, g, nr, 0, NULL, NULL)
+  dghash_fbnr_lookup0(NULL, g, nr, 1, NULL, NULL)
 
 static dghash_t *dghash_[DG_NMAX + 1]; /* default hash, shared */
 
 INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
-    double *nr, int nocsep, int *ned, int *degs)
+    double *nr, int csepmethod, int *ned, int *degs)
 {
   static dgword_t c[DG_CWORDS];
   static dgvs_t ng_c[DG_NMAX];
@@ -418,7 +418,7 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
     }
   }
   if (ls1 != NULL) return fb;
-  fb = dg_hsfb_mixed0(g, nocsep, ned, degs);
+  fb = dg_hsfb_mixed0(g, csepmethod, ned, degs);
 #ifndef DG_NORING
   *nr = dg_nring_mixed0(g, ned, degs);
 #else
