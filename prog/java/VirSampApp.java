@@ -166,8 +166,7 @@ class Diagram {
 
   /** Check if a graph is biconnected
    *  standard algorithm with bitwise operation */
-  boolean biconnectedc(int nn, long cc[])
-  {
+  boolean biconnectedc(int nn, long cc[]) {
     int top, v, par, ppar, id, root = 0;
     long unvisited, gc, bv;
 
@@ -252,7 +251,9 @@ class Diagram {
   }
 
   /** Get the number of edges */
-  int getNumEdges() { return getNumEdgesc(c); }
+  int getNumEdges() {
+    return getNumEdgesc(c);
+  }
 
   /** ====================== Star content ====================== */
 
@@ -1552,7 +1553,7 @@ public class VirSampApp extends JApplet implements ActionListener
 
     //System.out.println( "trigger: " + src.toString() );
 
-    // the user may change the value of some parameters
+    // the user may have changed the value of some parameters
     // but forget to press Enter to trigger an event
     // so we always refresh all parameters when an effect occurs
     int dim = mc.D;
@@ -1579,13 +1580,13 @@ public class VirSampApp extends JApplet implements ActionListener
       tOrder.setText(" " + n);
     }
 
+    int delay_old = timer.getDelay();
     try {
       delay = Integer.parseInt(tDelay.getText().trim());
     } catch (NumberFormatException err) {}
-    if (delay < 1) {
-      delay = 1;
+    if (delay < 1) delay = 1;
+    if (delay != delay_old)
       tDelay.setText(" " + delay);
-    }
 
     try {
       speed = Integer.parseInt(tSpeed.getText().trim());
@@ -1615,12 +1616,11 @@ public class VirSampApp extends JApplet implements ActionListener
     }
     mc.mcAmp = amp / dim;
 
-    if (src == tDelay) {
-      if ( timer.isRunning() ) {
-        timer.stop();
-        timer = new Timer(delay, this);
-        timer.start();
-      }
+    if (src == tDelay || delay != delay_old) {
+      boolean running = timer.isRunning();
+      if ( running ) timer.stop();
+      timer = new Timer(delay, this);
+      if ( running ) timer.start();
     }
 
     if (src == tSampFreq || src == tMCAmp
@@ -1632,6 +1632,7 @@ public class VirSampApp extends JApplet implements ActionListener
       boolean on = bStart.isSelected();
       if (on) {
         timer.restart();
+        System.out.printf("delay %d\n", delay);
         bStart.setText("Pause");
       } else {
         timer.stop();
@@ -1680,7 +1681,8 @@ public class VirSampApp extends JApplet implements ActionListener
 
 /** Panel for drawing the schematic diagram */
 class MyScheme extends JPanel
-    implements MouseListener, MouseMotionListener, MouseWheelListener {
+    implements MouseListener
+{
   Image img;
   Graphics imgG;
   Dimension imgSize;
@@ -1698,8 +1700,6 @@ class MyScheme extends JPanel
   public void start() {
     newImgBuf();
     addMouseListener(this);
-    addMouseMotionListener(this);
-    addMouseWheelListener(this);
   }
 
   public void newImgBuf() {
@@ -1800,8 +1800,11 @@ class MyScheme extends JPanel
       xy0[i][0] = cos(theta);
       xy0[i][1] = sin(theta);
     }
+    
     MDS mds = new MDS(mc.x);
-    mds.min0(xy0, 0);
+    double rcutoff = 2.0; /* cutoff distance for MDS */
+    mds.min(xy0, rcutoff);
+
     int w = getSize().width, h = getSize().height;
     int margin = 5 + rad;
 
@@ -1831,30 +1834,12 @@ class MyScheme extends JPanel
     //prevy = e.getY();
     // consume this event so that it will not be processed
     // in the default manner
-    e.consume();
+    //e.consume();
+    repaint();
   }
   public void mouseReleased(MouseEvent e) { }
   public void mouseEntered(MouseEvent e) { }
   public void mouseExited(MouseEvent e) { }
-
-  public void mouseDragged(MouseEvent e) {
-    //int x = e.getX();
-    //int y = e.getY();
-    //double xtheta = 360.0 * (prevy - y) / getSize().height;
-    //double ytheta = 360.0 * (x - prevx) / getSize().width;
-    repaint();
-    //prevx = x;
-    //prevy = y;
-    e.consume();
-  }
-
-  public void mouseMoved(MouseEvent e) { }
-
-  public void mouseWheelMoved(MouseWheelEvent e) {
-    //int notches = e.getWheelRotation();
-    //repaint();
-    e.consume();
-  }
 }
 
 
@@ -1917,7 +1902,7 @@ class MyCanvas extends JPanel
         r0[n][k] = xlast[k];
 
       MDS mds = new MDS(r0);
-      mds.min0(r, 0);
+      mds.min(r, 0);
     }
     return r;
   }
@@ -2407,10 +2392,13 @@ class MDS {
     }
   }
 
-  int ITER_MAX = 1000;
+  int iterMax = 1000;
+  double deneTol = 1e-4;
+  double eneTol = 0.1;
 
-  /** Get coordinates */
-  double min0(double y[][], double tol) {
+  /** Get best coordinates */
+  double min0(double y[][], double f[][], double yp[][], double fp[][],
+      double cutoff) {
     if (y.length != N) {
       System.out.printf("dimension mismatch %d vs %d\n", y.length, N);
       System.exit(1);
@@ -2418,16 +2406,11 @@ class MDS {
     int D = y[0].length;
     int npr = N * (N - 1) / 2;
 
-    if (tol <= 0) tol = 1e-4;
-
-    double [][] f  = new double [N][D];
-    double [][] yp = new double [N][D];
-    double [][] fp = new double [N][D];
-    double ene = getForce(y, f);
+    double ene = getForce(y, f, cutoff);
     double dt = 0.1;
     int iter;
 
-    for (iter = 0; iter < ITER_MAX; iter++) {
+    for (iter = 0; iter < iterMax; iter++) {
       double enep = ene;
       for (int i = 0; i < N; i++) {
         for (int j = 0; j < D; j++) {
@@ -2439,7 +2422,7 @@ class MDS {
           y[i][j] += f[i][j] * dt;
         }
       }
-      ene = getForce(y, f);
+      ene = getForce(y, f, cutoff);
       if (ene > enep) {
         dt *= 0.7;
         // recover the force
@@ -2450,26 +2433,86 @@ class MDS {
           }
         }
       } else {
-        if (abs(ene - enep) < tol * npr * dt)
+        if (abs(ene - enep) < deneTol * npr * dt || ene < eneTol)
           break;
         dt *= 1.03f; // attempt to increase the step size
       }
     }
-    if (iter >= ITER_MAX) {
+    if (iter >= iterMax) {
       System.out.println("failed to reach convergence in " + iter + " steps");
     }
-    f = null;
-    fp = null;
-    yp = null;
     rmcom(y);
     //print(y);
     return ene;
   }
 
+  int numTrials = 5; // number of different starting positions
+
+  /** Get best coordinates */
+  double min(double ymin[][], double cutoff) {
+    int D = ymin[0].length;
+    double ene0, ene, enemin = 1e99;
+
+    double [][] y = new double [N][D];
+    double [][] f  = new double [N][D];
+    double [][] yp = new double [N][D];
+    double [][] fp = new double [N][D];
+
+    vecCopy(y, ymin);
+    for (int k = 1; k <= numTrials; k++) {
+      ene0 = getForce(y, f, cutoff);
+      ene = min0(y, f, yp, fp, cutoff);
+      if (ene < enemin) {
+        enemin = ene;
+        vecCopy(ymin, y);
+      }
+      //System.out.printf("D %2d, trial %2d: ene %g to %g, min %g\n",
+      //    y[0].length, k, ene0, ene, enemin);
+      if (enemin < eneTol) break; 
+      if (k < numTrials) getRandomPos(y);
+    }
+    y = yp = f = fp = null;
+    return enemin;
+  }
+
+  /** Copy vectors */
+  void vecCopy(double a[][], double b[][]) {
+    int n = a.length, D = a[0].length, i, j;
+    for (i = 0; i < N; i++)
+      for (j = 0; j < D; j++)
+        a[i][j] = b[i][j];
+  }
+
+  Random rng = new Random();
+
+  /** Get a random position */ 
+  void getRandomPos(double y[][]) {
+    int D = y[0].length;
+    double span = 0;
+    
+    for (int j = 0; j < D; j++) {
+      double smx = 0, smx2 = 0;
+      for (int i = 0; i < N; i++) {
+        double yy = y[i][j];
+        smx += yy;
+        smx2 += yy * yy;
+      }
+      smx /= N; // average
+      smx2 = (smx2 / N - smx * smx); // variance
+      span += sqrt(smx2); // standard deviation
+    }
+    span /= D;
+
+    // assign a random gaussian configuration
+    for (int i = 0; i < N; i++)
+      for (int j = 0; j < D; j++)
+        y[i][j] = span * rng.nextGaussian();
+  }
+
   final double DMIN = 1e-6;
 
   /** Compute the force and energy */
-  double getForce(double y[][], double f[][]) {
+  double getForce(double y[][], double f[][], double cutoff) {
     int D = y[0].length;
 
     // clear the force
@@ -2488,6 +2531,7 @@ class MDS {
           dy2 += dy[k] * dy[k];
         }
         double dij = sqrt(dy2);
+        if (dij > cutoff) continue;
         double dref = mat[i][j];
         double dsc = dij/dref - 1;
         ene += dsc * dsc;

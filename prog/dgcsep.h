@@ -373,7 +373,7 @@ INLINE dgvsref_t dg_cliquesep0(const dg_t *g, int method)
   DGVS_CLEAR(cl)
 
   /* 1. find a minimal ordering and its fill-in */
-  if (method & 4 == 2) dg_mcsorder(g, fs, a);
+  if (method % 4 == 2) dg_mcsorder(g, fs, a);
   else dg_minimalorder(g, fs, a);
 
   /* 2. clique decomposition (stop after the first clique) */
@@ -519,7 +519,7 @@ INLINE dgvsref_t dg_cseplow(const dg_t *g, int ned)
  * optimized version of dg_cliquesep(g) */
 INLINE dgword_t dg_csep0(const dg_t *g, int method)
 {
-  if (method & 4 == 0) {
+  if (method / 4 == 0) {
     /* it seems that testing 2-vertex clique separator is
      * open profitable in real sampling, although it is
      * not so for a random graph, as those in testcsep() */
