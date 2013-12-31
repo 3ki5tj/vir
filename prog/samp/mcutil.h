@@ -397,7 +397,7 @@ INLINE int loadBring(int d, int nmin, int nmax, double *B, const char *fn)
       p += next;
     }
   } else {
-    fprintf(stderr, "error in reading line %d\n", i);
+    fprintf(stderr, "error in reading line %d of %s\n", i, fn);
     n = 0;
   }
   fclose(fp);

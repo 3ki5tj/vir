@@ -26,7 +26,7 @@ static void testrtl(void)
   dg_minimalorder(g, f, a);
   dg_print(f);
   dg_linkpairs(f2, fpairs);
-  /* check `f' against the correct fill-in `f2' */
+  /* check the fill-in `f' against the correct result `f2' */
   for (i = 0; i < 9; i++) {
     if ( dgvs_neq(f->c[i], f2->c[i]) ) {
       printf("graph differs at %d\n", i);
@@ -149,7 +149,7 @@ static void speed_cliquesep(int n, int nsamp, int nedmax)
   dg_t *g = dg_open(n);
   clock_t t0;
   int t, k, ned, eql = 1, nequil = 1000, isamp = 0, good = 0, tot = 0;
-  double tsum[3] = {0, 0}, sum[3] = {0, 0};
+  double tsum[4] = {0}, sum[4] = {0};
   double rnp = 0.1; /* rate for moves increasing edges */
 #define LISTSIZE 1000
   dg_t *gls[LISTSIZE] = {NULL};
@@ -183,31 +183,40 @@ static void speed_cliquesep(int n, int nsamp, int nedmax)
 
     t0 = clock();
     for (kk = 0; kk < lscnt; kk++)
-      sum[0] += (dg_cliquesep(gls[kk]) == 0);
+      sum[0] += (dg_csep(gls[kk]) == 0);
     tsum[0] += clock() - t0;
 
     t0 = clock();
     for (kk = 0; kk < lscnt; kk++)
-      sum[1] += (dg_csep(gls[kk]) == 0);
+      sum[1] += (dg_cliquesep0(gls[kk], 1) == 0);
     tsum[1] += clock() - t0;
 
     t0 = clock();
     for (kk = 0; kk < lscnt; kk++)
-      sum[2] += (dg_csep0(gls[kk], 2) == 0);
+      sum[2] += (dg_cliquesep0(gls[kk], 2) == 0);
     tsum[2] += clock() - t0;
+
+    t0 = clock();
+    for (kk = 0; kk < lscnt; kk++)
+      sum[3] += (dg_cliquesep0(gls[kk], 3) == 0);
+    tsum[3] += clock() - t0;
 
     isamp += lscnt;
     lscnt = 0;
     if (isamp >= nsamp) break;
   }
-  for (k = 0; k < 3; k++)
+  for (k = 0; k < 4; k++)
     tsum[k] /= CLOCKS_PER_SEC;
-  printf("dg_cliquesep()/dg_csep(): n %d; nocsep %g%%/%g%%, %g%%; "
-      "time used: %gs/%d = %gmcs, %gs/%d = %gmcs, %gs/%d = %gmcs\n",
+  printf("dg_cliquesep()/dg_csep(): n %d; nocsep %g%%/%g%%, %g%%\n"
+      "time used: %gs/%d = %gmcs (csep), "
+                 "%gs/%d = %gmcs (LEX-M), "
+                 "%gs/%d = %gmcs (MCS-P), "
+                 "%gs/%d = %gmcs (MCS-M)\n",
       n, 100.*sum[0]/nsamp, 100.*sum[1]/nsamp, 100.*sum[2]/nsamp,
       tsum[0], nsamp, tsum[0]/nsamp*1e6,
       tsum[1], nsamp, tsum[1]/nsamp*1e6,
-      tsum[2], nsamp, tsum[2]/nsamp*1e6);
+      tsum[2], nsamp, tsum[2]/nsamp*1e6,
+      tsum[3], nsamp, tsum[3]/nsamp*1e6);
   dg_close(g);
 }
 
@@ -215,13 +224,14 @@ static void speed_cliquesep(int n, int nsamp, int nedmax)
 #ifdef VERIFY
 #include "dgrjw.h"
 
+#ifdef DGMAP_EXISTS
 /* verify all graphs of n vertices with clique separators
  * have zero star content or fb */
 static void verify_allzerofb(int n, int verbose)
 {
   dg_t *g = dg_open(n);
   int ncsep, cnt = 0, *visited;
-  dgword_t c, npr, csw;
+  dgword_t c, npr, cs1, cs2, cs3;
   double fb;
   unqid_t uid;
   int fpos = 0, fneg = 0, cntcsep = 0;
@@ -255,24 +265,42 @@ static void verify_allzerofb(int n, int verbose)
         }
       }
     }
-    if ( dg_connected(g) &&
-        (ncsep != 0) != ((csw = dg_csep0(g, 1)) != 0) ) {
-      fpos += (csw != 0);
-      fneg += (csw == 0);
-      if (fpos) {
+
+    if ( dg_connected(g) ) {
+      /* the maximal cardinality search MCS-M should yield
+       * the same result as LEX-M (default) algorithm */
+      if ( (ncsep != 0) != ((cs3 = dg_csep0(g, 3)) != 0) ) {
         dg_print(g);
-        fprintf(stderr, "csep %#x vs %#x\n",
-          dg_csep0(g, 0), dg_csep0(g, 1));
+        cs1 = dg_csep0(g, 1);
+        dgvs_printn(cs1, "cs1");
+        dgvs_printn(cs3, "cs3");
+        fprintf(stderr, "csep %#x (LEX-M) vs %#x (MCS-M), ncsep %d, %d\n",
+          cs1, cs3, ncsep, dg_ncsep(g));
+        exit(1);
+      }
+      /* the maximal cardinality search MCS-P may yield
+       * false negative results but not false positive ones */
+      if ( (ncsep != 0) != ((cs2 = dg_csep0(g, 2)) != 0) ) {
+        fpos += (cs2 != 0);
+        fneg += (cs2 == 0);
+        if (cs2 != 0) {
+          dg_print(g);
+          dgvs_printn(cs1, "cs1");
+          dgvs_printn(cs2, "cs2");
+          fprintf(stderr, "csep %#x (LEX-M) vs %#x (MCS-P), ncsep %d, %d\n",
+            dg_csep0(g, 1), cs2, ncsep, dg_ncsep(g));
+          exit(1);
+        }
       }
     }
     cnt++;
   }
   dg_close(g);
   printf("verified all zero fb for %d graphs of n = %d\n", cnt, n);
-  printf("maximal cardinality n %d, false positive %d, false negative %d, %d/%d\n",
+  printf("MCS-P: n %d, false positive %d, false negative %d, %d/%d\n",
       n, fpos, fneg, cntcsep, cnt);
 }
-
+#endif /* defined(DGMAP_EXISTS) */
 
 
 
@@ -280,8 +308,8 @@ static void verify_allzerofb(int n, int verbose)
 static void verify_zerofb(int n, int nsteps)
 {
   dg_t *g = dg_open(n);
-  int t, i, j, cnt = 0;
-  dgword_t c;
+  int t, i, j, cnt = 0, fpos = 0, fneg = 0;
+  dgword_t cs1, cs2, cs3;
   double fb;
 
   dg_full(g);
@@ -298,18 +326,40 @@ static void verify_zerofb(int n, int nsteps)
     if (t % 10 != 0) continue;
     /* test if a graph with a clique separator necessarily
      * implies that fb is 0 */
-    if ((c = dg_csep(g)) != 0) {
+    if ((cs1 = dg_csep(g)) != 0) {
       if (fabs(fb = dg_hsfb_mixed(g)) > 0.1) {
-        fprintf(stderr, "n %d, fb %g, c %#x\n",
-            n, fb, (unsigned) c);
+        fprintf(stderr, "n %d, fb %g, cs1 %#x\n",
+            n, fb, (unsigned) cs1);
         dg_print(g);
         exit(1);
       }
     }
+    cs2 = dg_csep0(g, 2);
+    if ((cs2 != 0) != (cs1 != 0)) {
+      fpos += (cs2 != 0);
+      fneg += (cs2 == 0);
+      if (cs2 != 0) { /* false positive */
+        dg_print(g);
+        dgvs_printn(cs1, "cs1");
+        dgvs_printn(cs2, "cs2");
+        fprintf(stderr, "csep %#x (LEX-M) vs %#x (MCS-P) \n",
+            dg_csep0(g, 1), cs2);
+      }
+    }
+    cs3 = dg_csep0(g, 3);
+    if ((cs3 != 0) != (cs1 != 0)) {
+      dg_print(g);
+      dgvs_printn(cs1, "cs1");
+      dgvs_printn(cs3, "cs3");
+      fprintf(stderr, "csep %#x (LEX-M) vs %#x (MCS-M)\n",
+        dg_csep0(g, 1), cs3);
+      exit(1);
+    }
     cnt++;
   }
   dg_close(g);
-  printf("verified zero fb for %d graphs of n = %d\n", cnt, n);
+  printf("verified zero fb for %d graphs of n = %d, LEX-P fneg %g%% (%d)\n",
+      cnt, n, 100.*fneg/cnt, fneg);
 }
 #endif /* defined(VERIFY) */
 
@@ -331,11 +381,11 @@ int main(int argc, char **argv)
   if (argc >= 2) n = atoi(argv[1]);
   if (argc >= 3) nsteps = atoi(argv[2]);
   if (argc >= 4) nedmax = atoi(argv[3]);
-  /* timing on T60 with the default setting
+  /* timing of dg_cliquesep() LEX-M on T60 with the default setting (Dec. 31, 2013)
    * n   generic    with -DN=n
-   * 9    2.1mcs      1.8mcs
-   * 12   3.5mcs      3.3mcs
-   * 16   6.0mcs      5.6mcs
+   * 9    1.7mcs      1.6mcs
+   * 12   2.9mcs      2.8mcs
+   * 16   5.0mcs      4.7mcs
    * */
   speed_cliquesep(n, nsteps, nedmax);
 
@@ -350,7 +400,8 @@ int main(int argc, char **argv)
     for (i = 3; i <= DGMAP_NMAX; i++)
       verify_allzerofb(i, 0);
   }
-#endif
+#endif /* defined(N) */
+
   if (n > DGMAP_NMAX)
     verify_zerofb(n, nsteps);
 #endif /* VERIFY */

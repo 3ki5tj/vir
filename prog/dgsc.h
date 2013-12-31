@@ -128,7 +128,8 @@ INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
 
 
 
-#define dg_rhsc_spec(g, err) dg_rhsc_spec0(g, 1, NULL, NULL, err)
+#define dg_rhsc_spec(g, err) \
+  dg_rhsc_spec0(g, DGCSEP_DEFAULTMETHOD, NULL, NULL, err)
 
 /* compute the star content (SC) of a Ree-Hoover diagram in special cases
  * only use cheap strategies to deduce the SC
@@ -201,7 +202,8 @@ INLINE double dg_rhsc_spec0(const dg_t *g, int csepmethod,
   /* general case: try to find a clique separator */
   if (csepmethod) {
     /* csepmethod can be 1 or 2, in the latter case
-     * we use dg_csep(g, 2), which invokes the maximal cardinality search */
+     * we use dg_csep(g, 2), which invokes the maximal cardinality
+     * search; this may yield false negative result */
     /* if there is a clique separator, dg_csep0() returns nonzero
      * and we know fb == 0, and there is no error */
     *err = !dg_csep0(g, csepmethod);
@@ -240,7 +242,7 @@ INLINE double dg_rhsc_directlow(const dg_t *g)
 
 
 
-#define dg_rhsc_direct(g) dg_rhsc_direct0(g, 1, NULL, NULL)
+#define dg_rhsc_direct(g) dg_rhsc_direct0(g, DGCSEP_DEFAULTMETHOD, NULL, NULL)
 
 /* directly compute the star content (SC) of a Ree-Hoover diagram
  * unconnected edge is treated as a wiggly line
@@ -308,7 +310,7 @@ INLINE double dg_rhsc_lookup(const dg_t *g)
 
 
 
-#define dg_rhsc(g) dg_rhsc0(g, 1, NULL, NULL)
+#define dg_rhsc(g) dg_rhsc0(g, DGCSEP_DEFAULTMETHOD, NULL, NULL)
 
 /* compute the star content (SC) of a Ree-Hoover diagram
  * see the comments of dg_rhsc_direct0() for details */

@@ -233,7 +233,7 @@ int main(int argc, char **argv)
     {-1, {{0, 0}}, 1, 1},
   };
   int n = DG_NMAX, nsteps = 100000;
-  int n1 = 9, nsteps1 = 100000000, method = 0, nedmax = 100000;
+  int n1 = 9, nsteps1 = 100000000, nedmax = 100000;
 
 #ifndef N
   cmpref(3, ref3);

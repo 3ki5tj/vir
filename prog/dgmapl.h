@@ -357,7 +357,8 @@ INLINE void dgmapl_close(dgmapl_t *mapl)
 
 
 
-#define dgmapl_fbnr_lookup(g, nr) dgmapl_fbnr_lookup0(NULL, g, nr, 0, NULL, NULL)
+#define dgmapl_fbnr_lookup(g, nr) \
+  dgmapl_fbnr_lookup0(NULL, g, nr, DGCSEP_DEFAULTMETHOD, NULL, NULL)
 
 static dgmapl_t *dgmapl_[DGMAPL_NMAX + 1]; /* default maps are shared */
 

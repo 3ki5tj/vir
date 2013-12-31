@@ -22,7 +22,7 @@ real rc0 = -1;
 real sr0 = 1;
 double mindata = 100; /* minimal # of data points to make update */
 int updrc = 0;
-int csepmethod = 1; /* method of detecting clique separators */
+int csepmethod = DGCSEP_DEFAULTMETHOD; /* method of detecting clique separators */
 
 /* common and shared file names */
 char *fninp0, *fnZrr0, *fnZr0, *fnZrrtmp = "Zrr.tmp";
@@ -432,7 +432,9 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
               inode, t, nsteps, D, n, ned, ned - n);
           fb = 0;
         } else {
-          fb = dg_hsfb_mixed0(g, 1, &ned, degs);
+          /* don't detect clique separators, for it's already
+           * done by dg_rhsc_spec0() above */
+          fb = dg_hsfb_mixed0(g, DGCSEP_NULLMETHOD, &ned, degs);
         }
       }
       gc->fbsm[n][0] += 1;

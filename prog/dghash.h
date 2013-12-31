@@ -359,10 +359,13 @@ INLINE int dghash_enumiso(dghash_t *h, const dg_t *g,
 
 
 #define dghash_fbnr_lookup(g, nr) \
-  dghash_fbnr_lookup0(NULL, g, nr, 1, NULL, NULL)
+  dghash_fbnr_lookup0(NULL, g, nr, DGCSEP_DEFAULTMETHOD, NULL, NULL)
 
-static dghash_t *dghash_[DG_NMAX + 1]; /* default hash, shared */
+static dghash_t *dghash_[DG_NMAX + 1]; /* default hash table, shared */
 
+/* look up fb and nr simultaneously from the hash table
+ * `csepmethod' is the method of detecting clique separators
+ *    0 means not to detect clique separators */
 INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
     double *nr, int csepmethod, int *ned, int *degs)
 {

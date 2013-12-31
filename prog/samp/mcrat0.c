@@ -32,7 +32,7 @@ int nstrep = 1000000000; /* interval of reporting */
 int lookup = -1; /* if to use the lookup table */
 double ratcr = 0; /* rate of coordinates replacement */
 double r2cr = 0; /* variance of replaced coordinates */
-int csepmethod = 1; /* method of detecting clique separators */
+int csepmethod = DGCSEP_DEFAULTMETHOD; /* method of detecting clique separators */
 char *fnout = NULL;
 char *prefix0 = NULL, prefix[FILENAME_MAX] = "";
 
@@ -532,16 +532,17 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
 #ifdef DGHASH_EXISTS
 /* conditionally use the hash table to compute fb and nr */
-INLINE double hashgetfbnr(dghash_t *hash, const dg_t *g, double *nr, 
+INLINE double hashgetfbnr(dghash_t *hash, const dg_t *g, double *nr,
     int csepmethod, int *ned, int *degs)
 {
 #ifdef DG_NORING
   if ( hash_nocsep ) { /* check if there is a clique separator */
     if ( dg_csep0(g, csepmethod) ) { /* there is a clique separator */
-      *nr = 0;
+      *nr = 0; /* due to defined(DG_NORING) */
       return 0;
     } else { /* there is no clique separator */
-      csepmethod = 0;
+      /* disable future detection of clique separators */
+      csepmethod = DGCSEP_NULLMETHOD;
     }
   }
   return dghash_fbnr_lookup0(hash, g, nr, csepmethod, ned, degs);

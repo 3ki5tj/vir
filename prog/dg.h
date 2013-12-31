@@ -168,6 +168,10 @@ typedef dgword_t dgvsref_t;
 
 #define dgvs_iszero(vs)             ((vs) == 0)
 
+#define dgvs_neq(a, b)              ((a) != (b))
+
+#define dgvs_eq(a, b)               ((a) == (b))
+
 /* vs = ~vs */
 #define DGVS_NOT(a, b)              (a) = ~(b);
 
@@ -264,7 +268,7 @@ typedef dgword_t dgvsref_t;
 #define dgvs_mkbitsmask(vs, n)  ((vs) = MKBITSMASK(n))
 
 #ifdef N
-  #define DGVS_MASKN_ MKBITSMASK(N)
+  #define DGVS_MASKN_             MKBITSMASK(N)
   #define DGVS_DEFMASKN_()
 #else
   #define DGVS_MASKN_             maskn
@@ -314,6 +318,17 @@ INLINE int dgvs_nonzero(dgvs_t vs)
 }
 
 #define dgvs_iszero(vs)   (!dgvs_nonzero(vs))
+
+/* test if two vertex sets are equal */
+INLINE int dgvs_neq(dgvs_t a, dgvs_t b)
+{
+  int i;
+  for (i = 0; i < DG_NW; i++)
+    if (a[i] != b[i]) return 1;
+  return 0;
+}
+
+#define dgvs_eq(a, b)     (!dgvs_neq(a, b))
 
 /* negate a vertex set */
 #define DGVS_NOT(a, b) { int ii_; \

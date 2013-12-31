@@ -21,7 +21,7 @@ double ratn = 0.5; /* frequency of n-moves */
    * configurational sampling, so we should use a larger ratn */
 real rc0 = 0; /* initial rc */
 double mindata = 100; /* minimal # of data points to make update */
-int csepmethod = 1; /* method of detecting clique separators */
+int csepmethod = DGCSEP_DEFAULTMETHOD; /* method of detecting clique separators */
 
 /* shared version of the above variables */
 char *fninp0, *fnout0, *fnZrtmp = "Zrh.tmp";
@@ -613,7 +613,9 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
               inode, t, nsteps, D, n, ned, ned - n);
           fb = 0;
         } else {
-          fb = dg_hsfb_mixed0(g, 1, &ned, degs);
+          /* don't detect clique separators, for it's already
+           * done by dg_rhsc_spec0() above */
+          fb = dg_hsfb_mixed0(g, DGCSEP_NULLMETHOD, &ned, degs);
         }
       }
       gc->fbsm[n][0] += 1;
