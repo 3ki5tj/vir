@@ -358,7 +358,7 @@ class MR:
 
   def clear(me):
     ''' me = 0 '''
-    me.fbsum = [[0, 0],] * 3
+    me.fbsm = [[0, 0],] * 3
     me.nzsm = [0, 0]
     me.nrsm = [0, 0]
     me.tacc = [[0, 0],] * 2
@@ -397,7 +397,7 @@ class MR:
 
   def save(me, fn):
     s = ""
-    if me.tag == 'M': # output of mcrat
+    if me.tag == 'M': # output of mcrat (obsolete)
       info = "#M %d %d 1 %.14e %.14e V0\n" % (
           me.D, me.n, me.Z[1], me.Z[2])
       for k in range(3):
