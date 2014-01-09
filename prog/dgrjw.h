@@ -1,7 +1,8 @@
 #ifndef DGRJW_H__
 #define DGRJW_H__
 /* compute the overall weight of a configuration
- * by the method of Richard J. Wheatley, PRL 110, 200601 (2013) */
+ * by the method of Richard J. Wheatley, PRL 110, 200601 (2013)
+ * iterative, small memory version 1 */
 #include "dgcsep.h"
 #include "dgsc.h"
 #include <time.h>
@@ -22,8 +23,6 @@
   #ifndef RJWNMAX
   #define RJWNMAX 14
   #endif
-  #define DGRJW_FBDIRTY ((dgrjw_fb_t) 0x80808080) /* -2139062144 */
-  #define DGRJW_FBINVALID(c) ((c) == DGRJW_FBDIRTY)
 
 #elif !defined(RJWDBL) && (!defined(N) || N <= 22) /* 64-bit RJW */
   /* this is the default branch for with N > 22
@@ -35,12 +34,10 @@
    *  and 21! cannot be contained in a 64-bit integer
    * The code may however fail before that due to the cancellation
    *  in intermediate steps
-   * Another limit is that memory > 2^(n + 1) * (n + 1) */
+   * Another limit is that memory > 2^(n + 1) */
   #ifndef RJWNMAX
   #define RJWNMAX 22
   #endif /* !defined(RJWNMAX) */
-  #define DGRJW_FBDIRTY ((dgrjw_fb_t) CU64(0x8080808080808080)) /* -9187201950435737472 */
-  #define DGRJW_FBINVALID(c) ((c) == DGRJW_FBDIRTY)
 
 #else /* double RJW */
 
@@ -51,19 +48,60 @@
   typedef double dgrjw_fb_t;
 
   #ifndef RJWNMAX
-  #define RJWNMAX DG_NMAX
+  #define RJWNMAX 26
   #endif
-
-  #define DGRJW_FBDIRTY -1e301
-  #define DGRJW_FBINVALID(c) ((c) < -1e300)
 
 #endif /* RJW32 or RJW64 */
 
 
 
+/* articulation point
+ * an unsigned char is sufficient for N < 256 */
+typedef unsigned char dgrjw_ap_t;
+
+
+
+/* obtain a list of numbers 0..2^n - 1 by the number of bits */
+INLINE void dgrjw_idbybits(int n, unsigned *arr)
+{
+  int m, top, v, id = 0, st[DG_NMAX + 1];
+  unsigned x; /* the number represented by the stack */
+
+  arr[id++] = 0;
+  for (m = 1; m <= n; m++) {
+    x = 0;
+    /* enumerate numbers from 1 to 2^n with m bits */
+    st[top = 0] = 0;
+    while (top >= 0) {
+      //printf("n %d, m %d, top %d, st[top] %d\n", n, m, top, st[top]);
+      if ( st[top] < n ) { /* push */
+        v = st[top++];
+        x ^= 1u << v;
+        /* push if we still have numbers to fill */
+        if (top < m) {
+          /* the number on the next level must be greater than
+           * the number on this level */
+          st[top] = v + 1;
+          continue;
+        } else { /* we are at the top, print and fall through to pop */
+          arr[id++] = x;
+        }
+      }
+      /* pop */
+      if (--top >= 0) {
+        v = st[top];
+        x ^= 1u << v; /* st[top] is no longer available on top */
+        st[top] = v + 1;
+      }
+    }
+  } /* end of the round for m bits */
+}
+
+
+
 /* compute the Boltzmann weight, the sum of all diagrams
   `c' is the connectivity matrix, `vs' is the vertex set */
-INLINE int dg_hsfq_rjwlow(dgvs_t *c, dgword_t vs)
+INLINE int dgrjw_hsfq(dgvs_t *c, dgword_t vs)
 {
   dgword_t w, b;
 
@@ -80,200 +118,175 @@ INLINE int dg_hsfq_rjwlow(dgvs_t *c, dgword_t vs)
 
 
 /* increment ms1 in the limits of bits of (ms1 | ms2) */
-#define DGRJW_INC(ms1, ms2) { dgword_t nms2_, lbit_, hbits_; \
+#define DGRJW_INC(ms1, ms2) DGRJW_INCa(ms1, ms2)
+
+/* version 1 */
+#define DGRJW_INCa(ms1, ms2) { dgword_t nms2_, lbit_, hbits_; \
   nms2_ = (dgword_t) (-(ms2)); /* -ms2 and ms2 share bits higher than the lowest bit of ms2 */ \
   lbit_ = (ms2) & nms2_; /* the & yields the lowest bit lowbit_ */ \
   hbits_ = (ms2) ^ nms2_; /* the collections of bits higher than lbit_ */ \
   (ms1) &= hbits_; /* this wipes out bits lower or equal to lbit_ */ \
   (ms1) |= lbit_;  /* this add the lowest bit */ }
 
-/* here is an alternative versions, which is slower */
-#define DGRJW_INCa(ms1, ms2) { dgword_t lbit_; \
+/* version 2 */
+#define DGRJW_INCb(ms1, ms2) { dgword_t lbit_; \
     lbit_ = (ms2) & (-ms2); /* find the lowest empty bit (first unused variable vertex) */ \
     (ms1) ^= lbit_; /* add this bit */ \
-    (ms1) &= ~(b - 1); /* clear all lower bits */ }
+    (ms1) &= ~(lbit_ - 1); /* clear all lower bits */ }
 
-/* below is another alternative version, which is even slower */
-#define DGRJW_INCb(ms1, ms2) { int i = BITFIRSTNZ(ms2); \
+/* version 3 */
+#define DGRJW_INCc(ms1, ms2) { int i = BITFIRSTNZ(ms2); \
   ms1 >>= i; /* clear the lower bits by shifting i bits */ \
   ms1 ^= 1; /* add the lowest bit, `^' can be replaced by `+' or `|' with little difference */ \
   ms1 <<= i; /* shift back */ }
 
 
 
-/* compute the sum of connected diagrams by
- * Wheatley's recursion formula
- * `c' is the connectivity matrix,  `vs' is the vertex set */
-INLINE dgrjw_fb_t dg_hsfc_rjwlow(dgvs_t *c, dgword_t vs,
-    dgrjw_fb_t * RESTRICT fcarr, dgrjw_fb_t * RESTRICT fqarr)
+/* compute the Boltzmann weight (fq) and the sum of connected diagrams (fc)
+ * also a few values for fa and fb
+ * fqarr extends to faarr, fcarr extends to fbarr
+ * by Wheatley's recursion formula, for all diagrams
+ * `c' is the connectivity matrix */
+INLINE void dgrjw_prepare(const dg_t *g,
+    dgrjw_fb_t *fcarr, dgrjw_fb_t *fqarr,
+    unsigned *idbybits, dgrjw_ap_t *aparr)
 {
-  dgrjw_fb_t fc, fc1, fq2;
-  dgword_t ms1, ms2, b1;
-
-  b1 = vs & (-vs);
-  if ( (vs ^ b1) == 0 ) return 1; /* only one vertex */
-  if ( DGRJW_FBINVALID(fc = fqarr[vs]) )
-    fqarr[vs] = fc = dg_hsfq_rjwlow(c, vs); /* start with fq */
-  vs ^= b1; /* remove vertex b1 from vs, vs = vs - {b1} */
-  /* before the above statement, `vs' is the set of all vertices
-   * since `b1' is fixed, after excluding `b1' in the statement,
-   * `vs' is the set of *variable* vertices
-   * `ms1' is the subset of variable vertices
-   * `ms2' is the complement set of variable vertices */
-  /* loop over subsets ms1 of vs, stops when the complement set ms2 == 0 */
-  for (ms1 = 0; (ms2 = ms1 ^ vs) != 0; ) {
-    if ( DGRJW_FBINVALID(fq2 = fqarr[ms2]) )
-      fqarr[ms2] = fq2 = dg_hsfq_rjwlow(c, ms2); /* fq of the complement set */
-    if (fq2 != 0) {
-      dgword_t vs1 = ms1 | b1; /* vs1 = ms1 + {b1} */
-      if ( DGRJW_FBINVALID(fc1 = fcarr[vs1]) )
-        fcarr[vs1] = fc1 = dg_hsfc_rjwlow(c, vs1, fcarr, fqarr); /* recursion */
-      fc -= fc1 * fq2;
-    }
-    /* update the subset `ms1' */
-    DGRJW_INC(ms1, ms2);
-  }
-  return fc;
-}
-
-
-
-#if 0
-/* compute the sum of connected diagrams by Wheatley's method
- * stand-alone driver */
-INLINE dgrjw_fb_t dg_hsfc_rjw(const dg_t *g)
-{
-  static int nmax;
-  static dgrjw_fb_t *fcarr, *fqarr;
-  int i;
+  dgrjw_fb_t fc;
+  dgword_t vs, vs1, ms, ms1, ms2, b1, id, vsmax;
   DG_DEFN_(g)
-  DG_DEFMASKN_()
 
-  if (fcarr == NULL) {
-    nmax = DG_N_;
-    xnew(fcarr, 1u << (nmax + 1));
-    fqarr = fcarr + (1u << nmax);
-  } else if (DG_N_ > nmax) {
-    nmax = DG_N_;
-    xrenew(fcarr, 1u << (nmax + 1));
-    fqarr = fcarr + (1u << nmax);
-  }
-  for (i = 0; (unsigned) i < (1u << DG_N_); i++) fcarr[i] = DGRJW_FBDIRTY;
-  for (i = 0; (unsigned) i < (1u << DG_N_); i++) fqarr[i] = DGRJW_FBDIRTY;
-  return dg_hsfc_rjwlow(g->c, DG_MASKN_, fcarr, fqarr);
-}
-#endif
+  vsmax = 1u << DG_N_; /* 2^n */
 
-
-
-INLINE dgrjw_fb_t dg_hsfa_rjwlow(dgvs_t *c, int n, int v, dgword_t vs,
-    dgrjw_fb_t * RESTRICT faarr, dgrjw_fb_t * RESTRICT fbarr);
-
-
-
-/* compute the sum of all connected diagrams without the articulation point
-   at vertices lower than `v', `vs' is the vertex set
-   if v = 0, it returns fc; if v = n, it returns fb */
-INLINE dgrjw_fb_t dg_hsfb_rjwlow(dgvs_t *c, int n, int v, dgword_t vs,
-    dgrjw_fb_t * RESTRICT faarr, dgrjw_fb_t * RESTRICT fbarr)
-{
-  int i;
-  dgrjw_fb_t fb, fa;
-  dgword_t r, b, bv = MKBIT(v);
-  size_t id;
-
-  if ((i = bitcount(vs)) <= 1) {
-    return 1;
-  } else if (i == 2) {
-    return (DGVS_FIRSTWORD(c[ BITFIRSTNZ(vs) ]) & vs) ? -1 : 0;
+  /* we loop from smaller subsets to larger ones */
+  /* diagrams with zero or one vertex */
+  for (id = 0; id <= (unsigned) DG_N_; id++) {
+    vs = idbybits[id];
+    die_if (bitcount(vs) > 1, "n %d, id %d, bad count(%#x) = %d\n", DG_N_, id, vs, bitcount(vs));
+    fcarr[vs] = fqarr[vs] = 1;
   }
 
-  /* start with the sum of connected diagrams, the first 2^n numbers of
-   * fbarr and faarr are used for saving fcarr and fqarr, respectively */
-  if ( DGRJW_FBINVALID(fb = fbarr[vs]) ) {
-    fb = dg_hsfc_rjwlow(c, vs, fbarr, faarr);
-    fbarr[vs] = fb;
+  /* diagrams with two vertices */
+  for (; id <= (unsigned) DG_N_ * (DG_N_ + 1) / 2; id++) {
+    int fq;
+    vs = idbybits[id];
+    die_if (bitcount(vs) != 2, "n %d, id %d, bad count(%#x) = %d\n", DG_N_, id, vs, bitcount(vs));
+    fq = dgrjw_hsfq(g->c, vs);
+    fc = -!fq;
+    fqarr[vs] = fq;
+    fcarr[vs] = fc;
   }
-  /* remove diagrams with the lowest articulation points at i < v */
-  for (r = vs & (bv - 1); r; r ^= b) {
-    BITFIRSTLOW(i, r, b);
-    /* (i + 1) * 2^n + vs, `|' is equivalent to `+' */
-#if !defined(N) || N <= 31 || (N <= 63 && ULONG_MAX > 4294967295UL)
-    id = ((size_t) (i + 1) << DG_N_) | vs;
-#else
-    id = 0; /* dummy code to avoid warnings */
-#endif
-    if ( DGRJW_FBINVALID(fa = faarr[id]) ) {
-      fa = dg_hsfa_rjwlow(c, DG_N_, i, vs, faarr, fbarr);
-      faarr[id] = fa;
-    }
-    fbarr[id] = (fb -= fa);
+  /* everything is known for diagrams of two or fewer vertices */
+
+  /* diagrams with three or more vertices */
+  for (; id < vsmax; id++) {
+    vs = idbybits[id];
+    fc = dgrjw_hsfq(g->c, vs);
+    fqarr[vs] = fc; /* start with the Boltzmann weight */
+    if ( !dg_connectedvs(g, vs) ) { /* disconnected subset */
+      fcarr[vs] = 0;
+      aparr[vs] = 0; /* fb(vs) == 0 */
+    } else { /* connected diagram */
+      b1 = vs & (-vs);
+      ms = vs ^ b1;
+      /* loop over proper subsets of `vs'
+       * the first component contains `b1' */
+      for (ms1 = 0; (ms2 = ms1 ^ ms) != 0; ) {
+        fc -= fcarr[ms1 ^ b1] * fqarr[ms2];
+        DGRJW_INCa(ms1, ms2); /* update the subset `ms1' */
+      }
+      fcarr[vs] = fc;
+
+      /* check articulation points */
+      aparr[vs] = (dgrjw_ap_t) (DG_N_ + 1);
+      for ( vs1 = vs; vs1 != 0; ) {
+        b1 = vs1 & (-vs1);
+        vs1 ^= b1;
+        if ( !dg_connectedvs(g, vs ^ b1) ) {
+          /* fb(vs, v) == 0 for v = BIT2ID(b1) + 1 to n - 1 */
+          aparr[vs] = (dgrjw_ap_t) (BIT2ID(b1) + 1);
+          break;
+        }
+      }
+    } /* connected / disconnected diagrams */
   }
-  return fb;
 }
 
 
 
-/* compute the sum of all connected diagrams with the articulation point at v
-   and no articulation point at any vertex lower than v */
-INLINE dgrjw_fb_t dg_hsfa_rjwlow(dgvs_t *c, int n, int v, dgword_t vs,
-    dgrjw_fb_t * RESTRICT faarr, dgrjw_fb_t * RESTRICT fbarr)
+/* return fb, assuming dgrjw_prepare() has been called */
+INLINE dgrjw_fb_t dgrjw_hsfb_iter(const dg_t *g,
+    dgrjw_fb_t *fbarr, unsigned *idbybits, dgrjw_ap_t *aparr)
 {
-  dgrjw_fb_t fa = 0, fb, fa2, fb2;
-  dgword_t ms1, ms2, vs1, bv = MKBIT(v), b1, b1v;
-  size_t id0, id;
+  int v, iold, inew;
+  size_t idold, idnew, jdold, jdnew;
+  dgrjw_fb_t fa;
+  dgword_t vs, vsnew, ms, ms1, ms2, b1, bv, b1v, id, vsmax;
+  DG_DEFN_(g)
 
-  b1 = vs & (-vs); /* lowest vertex */
-  if ( b1 == bv ) { /* if vertex 1 coincide with `v', find the next lowest */
-    b1 = vs ^ bv; /* remove `bv' from the vertex set */
-    b1 = b1 & (-b1);
+  vsmax = 1u << DG_N_; /* 2^n */
+
+  /* one- and two-vertex subsets, biconnected == connected */
+  for ( id = 0; id <= (dgword_t) (DG_N_ * (DG_N_ + 1) / 2); id++ ) {
+    vs = idbybits[id];
+    fbarr[ vsmax | vs ] = fbarr[ vs ];
   }
-  b1v = b1 ^ bv;
-  vs ^= b1v; /* remove the fixed vertices `b1' and `bv' from `vs' */
-  /* `vs' is the set of *variable* vertices from now on */
-  if ( vs == 0 ) return 0; /* no articulated diagram with only two vertices */
-#if !defined(N) || N <= 31 || (N <= 63 && ULONG_MAX > 4294967295UL)
-  id0 = ((size_t) (v + 1) << DG_N_); /* (v + 1) * 2^n */
-#else
-  id0 = 0; /* dummy code to avoid warnings */
-#endif
-  /* `id0' is the offset for vertex v */
-  /* loop over subsets of vs, stops when vs == vs1 */
-  for (ms1 = 0; (ms2 = (ms1 ^ vs)) != 0; ) {
-    vs1 = ms1 | b1v; /* add the two fixed vertices */
-    id = id0 | vs1; /* `|' is equivalent to + */
-    if ( DGRJW_FBINVALID(fb = fbarr[id]) ) { /* compute fb if necessary */
-      fb = dg_hsfb_rjwlow(c, DG_N_, v + 1, vs1, faarr, fbarr);
-      fbarr[id] = fb;
-    }
-    if ( fb != 0 ) {
-      dgword_t vs2 = ms2 | bv; /* unused variable vertices + the articulation point `bv'
-                              * `|' is equivalent to `+' here */
-      id = id0 | vs2; /* `|' is equivalent to + */
-      fb2 = fbarr[id];
-      if ( DGRJW_FBINVALID(fb2 = fbarr[id]) ) {
-        fb2 = dg_hsfb_rjwlow(c, DG_N_, v + 1, vs2, faarr, fbarr);
-        fbarr[id] = fb2; /* save the fb value */
+
+  /* loop over the position of the first clique separator */
+  for ( v = 0; v < DG_N_; v++ ) {
+    iold = v % 2;
+    inew = (v + 1) % 2;
+    idold = iold * vsmax;
+    idnew = inew * vsmax;
+
+    bv = MKBIT(v);
+
+    /* three-vertex subsets */
+    for ( id = DG_N_ * (DG_N_ + 1) / 2 + 1 ; id < vsmax; id++ ) {
+      vs = idbybits[id];
+      vsnew = idnew + vs;
+
+      /* compute fa and fb */
+      if ( aparr[vs] <= v ) {
+        fbarr[vsnew] = 0;
+      } else {
+        fa = 0;
+        /* skip if the vertex set does not contain v */
+        if ( (bv & vs) != 0 ) {
+          ms = vs ^ bv;
+          b1 = ms & (-ms); /* lowest vertex */
+          b1v = b1 ^ bv;
+          ms ^= b1; /* remove the fixed vertices `b1' and `bv' from `vs' */
+
+          jdnew = idnew | b1v;
+          jdold = idold | bv;
+          for ( ms1 = 0; (ms2 = ms1 ^ ms) != 0; ) {
+            fa += fbarr[jdnew | ms1] * fbarr[jdold | ms2];
+            /* update the subset `ms1' */
+            DGRJW_INCa(ms1, ms2);
+          }
+        }
+        fbarr[vsnew] = fbarr[idold | vs] - fa; /* set fb */
       }
-      if ( DGRJW_FBINVALID(fa2 = faarr[id]) ) {
-        fa2 = dg_hsfa_rjwlow(c, DG_N_, v, vs2, faarr, fbarr);
-        faarr[id] = fa2; /* save the fa value */
-      }
-      fa += fb * (fb2 + fa2);
     }
-    /* update the subset `ms1' */
-    DGRJW_INC(ms1, ms2);
   }
-  return fa;
+  return fbarr[vsmax * (DG_N_ % 2) + vsmax - 1];
 }
 
 
 
 static int dgrjw_nmax_;
-static dgrjw_fb_t *dgrjw_faarr_, *dgrjw_fbarr_;
+static dgrjw_fb_t *dgrjw_fbarr_;
 /* every thread needs its own memory to do independent calculation
  * so these variables must be thread private */
-#pragma omp threadprivate(dgrjw_nmax_, dgrjw_faarr_, dgrjw_fbarr_)
+#pragma omp threadprivate(dgrjw_nmax_, dgrjw_fbarr_)
+
+static unsigned *dgrjw_idbybits_;
+static int dgrjw_idn_ = 0;
+#pragma omp threadprivate(dgrjw_idbybits_, dgrjw_idn_)
+
+static dgrjw_ap_t *dgrjw_aparr_;
+#pragma omp threadprivate(dgrjw_aparr_)
+
 
 
 /* compute the sum of biconnected diagrams by Wheatley's method
@@ -281,10 +294,8 @@ static dgrjw_fb_t *dgrjw_faarr_, *dgrjw_fbarr_;
  * is not done here. */
 INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
 {
-
   DG_DEFN_(g)
-  dgword_t maskn;
-  size_t size;
+  size_t size = 0;
 
   /* the memory requirement is 2^(n + 1) * (n + 1) * sizeof(dgrjw_fb_t) */
   if (dgrjw_fbarr_ == NULL) {
@@ -292,48 +303,46 @@ INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
      * because this function might not be called at all
      * in high dimensions */
     dgrjw_nmax_ = DG_N_;
-    size = (size_t) (dgrjw_nmax_ + 1) << dgrjw_nmax_; /* (nmax + 1) * 2^nmax */
-    xnew(dgrjw_faarr_, size * 2);
-    dgrjw_fbarr_ = dgrjw_faarr_ + size;
+    size = (size_t) 1u << dgrjw_nmax_; /* 2^nmax */
+    xnew(dgrjw_fbarr_, size * 2);
+    xnew(dgrjw_idbybits_, size);
+    xnew(dgrjw_aparr_, size);
     fprintf(stderr, "%4d: dgrjw allocated %gMB memory for n %d\n", inode,
-        size * 2. * sizeof(dgrjw_fb_t) / (1024*1024), dgrjw_nmax_);
+        (2. * sizeof(dgrjw_fb_t) + sizeof(unsigned) + sizeof(dgrjw_ap_t))
+        * size / (1024*1024), dgrjw_nmax_);
   }
-#ifndef N /* if N is fixed no need to reallocate */
+#ifndef N /* if N is fixed, no need to reallocate */
   else if (DG_N_ > dgrjw_nmax_) {
     dgrjw_nmax_ = DG_N_;
-    size = (size_t) (dgrjw_nmax_ + 1) << dgrjw_nmax_; /* (nmax + 1) * 2^nmax */
-    xrenew(dgrjw_faarr_, size * 2);
-    dgrjw_fbarr_ = dgrjw_faarr_ + size;
+    size = (size_t) 1u << dgrjw_nmax_; /* 2^nmax */
+    xrenew(dgrjw_fbarr_, size * 2);
+    xrenew(dgrjw_idbybits_, size);
+    xrenew(dgrjw_aparr_, size);
     fprintf(stderr, "%4d: dgrjw reallocated %gMB memory for n %d\n", inode,
-        size * 2. * sizeof(dgrjw_fb_t) / (1024*1024), dgrjw_nmax_);
+        (2. * sizeof(dgrjw_fb_t) + sizeof(unsigned) + sizeof(dgrjw_ap_t))
+        * size / (1024*1024), dgrjw_nmax_);
   }
-#endif /* !defined(N) */
-
-#if !defined(N) || N <= 31 || (N <= 63 && ULONG_MAX > 4294967295UL)
-  size = ((size_t) (DG_N_ + 1) << DG_N_); /* (n + 1) * 2^n */
-#else
-  size = 0; /* dummy code to avoid warnings */
 #endif
 
-#ifdef DGRJW_DOUBLE
-  {
-    size_t i;
-    for (i = 0; i < size; i++) dgrjw_faarr_[i] = DGRJW_FBDIRTY;
-    for (i = 0; i < size; i++) dgrjw_fbarr_[i] = DGRJW_FBDIRTY;
-  }
-#else /* if dgrjw_fb_t is an integer type */
-  /* every byte of DGRJW_FBDIRTY is 0x80, so we can use memset() */
-  memset(dgrjw_faarr_, 0x80, size * sizeof(dgrjw_fb_t));
-  memset(dgrjw_fbarr_, 0x80, size * sizeof(dgrjw_fb_t));
+#if !defined(N) || N < 32
+  size = ((size_t) 1u << DG_N_); /* 2^n */
 #endif
-  die_if (DG_N_ > DG_WORDBITS, "n %d > wordbits %d\n", DG_N_, DG_WORDBITS);
-  maskn = MKBITSMASK(DG_N_);
-  return dg_hsfb_rjwlow(g->c, DG_N_, DG_N_, maskn, dgrjw_faarr_, dgrjw_fbarr_);
+
+  if (dgrjw_idn_ != DG_N_) { /* re-sort diagrams */
+    dgrjw_idbybits(DG_N_, dgrjw_idbybits_);
+    dgrjw_idn_ = DG_N_;
+  }
+
+  /* pre-compute all fc and fq values */
+  dgrjw_prepare(g, dgrjw_fbarr_, dgrjw_fbarr_ + size,
+                   dgrjw_idbybits_, dgrjw_aparr_);
+  return dgrjw_hsfb_iter(g, dgrjw_fbarr_, dgrjw_idbybits_, dgrjw_aparr_);
 }
 
 
 
-#define dg_hsfb_mixed(g) dg_hsfb_mixed0(g, 1, NULL, NULL)
+#define dg_hsfb_mixed(g) \
+  dg_hsfb_mixed0(g, DGCSEP_DEFAULTMETHOD, NULL, NULL)
 
 /* directly compute the sum of biconnected diagrams by various strategies
  * a mixed strategy of dg_hsfb_rjw() and dg_rhsc()
@@ -352,7 +361,7 @@ INLINE double dg_hsfb_mixed0(const dg_t *g,
   sc = dg_rhsc_spec0(g, csepmethod, ned, degs, &err);
   if ( err == 0 ) {
     return DG_SC2FB(sc, *ned);
-  } else if ( *ned <= 2*DG_N_ - 2 || DG_N_ > RJWNMAX) {
+  } else if ( *ned <= 2*DG_N_ - 3 || DG_N_ > RJWNMAX) {
     return DG_SC2FB(dg_rhsc_directlow(g), *ned);
   } else { /* hsfb_rjw() requires 2^(n + 1) * (n + 1) memory */
     return (double) dg_hsfb_rjw(g);
@@ -432,13 +441,18 @@ INLINE void dgrjw_free(void)
       free(dgmap_fb_[k]);
 #endif /* defined(DGMAP_EXISTS) */
 
-  if (dgrjw_faarr_ != NULL) {
-    free(dgrjw_faarr_);
-    dgrjw_faarr_ = NULL;
-  }
-  /* do not free fbarr for it is allocated with faarr */
-  if (dgrjw_fbarr_ != NULL)
+  if (dgrjw_fbarr_ != NULL) {
+    free(dgrjw_fbarr_);
     dgrjw_fbarr_ = NULL;
+  }
+  if (dgrjw_idbybits_ != NULL) {
+    free(dgrjw_idbybits_);
+    dgrjw_idbybits_ = NULL;
+  }
+  if (dgrjw_aparr_ != NULL) {
+    free(dgrjw_aparr_);
+    dgrjw_aparr_ = NULL;
+  }
   dgrjw_nmax_ = 0;
 }
 

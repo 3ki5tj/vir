@@ -6,7 +6,7 @@ LM = -lm
 # if -xHost -O3 is used, also define -DRVN_ALIGN=2 or 4
 # otherwise it causes trouble for mcgcr2.c in D = 15 and odd dimensions
 # for some icc versions
-CX = icc -O2 -march=native -ipo \
+CX = icc -O2 -ipo \
      -Wall -Wremarks -Wcheck -wd11001 -wd11006
 #CX = gcc -O3 -march=native -fwhole-program -Wall -Wextra -Wunused
 LMX =

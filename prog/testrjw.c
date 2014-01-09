@@ -255,7 +255,7 @@ int main(int argc, char **argv)
   if (argc >= 5) method = argv[4][0];
 
   if (nedmax > 0) { /* do the speed test */
-    /* 18ms by default setting */
+    /* 11.3ms by default setting */
     testspeed(n, nsamp, nedmax, method);
     mtsave(NULL);
   } else { /* do the accuracy test for Wheatley's method */
