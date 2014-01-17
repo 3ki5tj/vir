@@ -95,10 +95,10 @@ INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
       if (dg_deg(g, j) <= 2)
         continue;
       //printf("n %d, before removing (%d, %d), bi %x bj %x ci %x, cj %x\n", DG_N_, i, j, bi, bj, g->c[i], g->c[j]);
-      DGVS_ANDNOT1(g->c[j], bi, iq)
+      DGVS_MINUS1(g->c[j], bi, iq) /* remove i from c[j] */
       //g->c[j] &= ~bi;
       DGVS_MKBIT(j, bj, jq)
-      DGVS_ANDNOT1(g->c[i], bj, jq)
+      DGVS_MINUS1(g->c[i], bj, jq) /* remove j from c[i] */
       //dg_print(g);
       //printf("n %d, removing (%d, %d), bi %x bj %x ci %x, cj %x\n", DG_N_, i, j, bi, bj, g->c[i], g->c[j]); getchar();
       //g->c[i] &= ~bj;

@@ -148,7 +148,7 @@ INLINE double dg_nring_direct(const dg_t *g)
      * 2. indices > sttop */
     /* c = ccp & MKINVBITSMASK(sttop + 1); */
     DGVS_MKBITSMASK(masktop, sttop + 1)
-    DGVS_ANDNOT2(c, ccp, masktop)
+    DGVS_MINUS2(c, ccp, masktop) /* exclude vertices in masktop */
     if ( dgvs_nonzero(c) ) {
       DGVS_FIRSTLOW(sttop, c, bi, iq) /* choose `sttop' (or bit `bi') from `c' */
       DGVS_XOR1(unused, bi, iq) /* remove b from the unused vertex set */

@@ -38,7 +38,7 @@ enum {
  * into a routine of finding minimal ordering
  * ``Decomposition by clique separators'' Robert E. Tarjan,
  * Discrete Mathematics 55 (1985) 221-232 */
-INLINE dgvsref_t dg_adjclique(const dg_t *g, const dg_t *f, int v, dgword_t vs)
+INLINE dgvsref_t dg_adjclique(const dg_t *g, const dg_t *f, int v, dgvsref_t vs)
 {
   static dgvs_t c;
 #pragma omp threadprivate(c)
@@ -85,8 +85,8 @@ INLINE void dg_mcsearchp(const dg_t *g, int *a, int *p)
   static int size[DG_NMAX];
 #pragma omp threadprivate(set, size)
   int i, j, v, w, szw;
-  dgvs_t unvisited;
-  dgword_t cv, bv, bw;
+  dgvs_t unvisited, cv;
+  dgword_t bv, bw;
   DGVS_DEFIQ_(vq)
   DGVS_DEFIQ_(wq)
   DG_DEFN_(g)
@@ -131,7 +131,8 @@ INLINE void dg_fillin(const dg_t *g, dg_t *f,
   static int index[DG_NMAX], follow[DG_NMAX];
 #pragma omp threadprivate(index, follow)
   int i, w, v, x;
-  dgword_t cw, bv;
+  dgvs_t cw;
+  dgword_t bv;
   DGVS_DEFIQ_(vq)
   DG_DEFN_(g)
 
@@ -173,7 +174,7 @@ INLINE void dg_fillin(const dg_t *g, dg_t *f,
  *               is 2, find all clique separators in `cl'
  * return the number of clique separators found */
 INLINE int dg_minimalordermcsm(const dg_t *g, dg_t *f, int *a,
-    int csepmode, dgword_t *cl)
+    int csepmode, dgvs_t cl[])
 {
   static dgvs_t set[DG_NMAX];
   static int size[DG_NMAX];
@@ -302,7 +303,7 @@ INLINE int dg_minimalordermcsm(const dg_t *g, dg_t *f, int *a,
         DGVS_FIRSTLOW(w, reachj, bw, iq)
         DGVS_XOR1(reachj, bw, iq) /* remove w from reachj */
         /* loop over unreached vertices adjacent to g->c[w] */
-        DGVS_ANDNOT2(r, g->c[w], reached) /* r = g->c[w] & ~reached */
+        DGVS_MINUS2(r, g->c[w], reached) /* r = g->c[w] & ~reached, exclude reached */
         DGVS_OR(reached, r) /* mark vertices adjacent to `w' as reached */
         while ( dgvs_nonzero( r ) ) {
           DGVS_FIRSTLOW(z, r, bz, iq1) /* pick `z' */
@@ -397,7 +398,7 @@ INLINE int dg_sortlabels(int l2[], dgvs_t unnumbered, int n)
  *               is 2, find all clique separators in `cl'
  * return the number of clique separators found */
 INLINE int dg_minimalorderlexm(const dg_t *g, dg_t *f, int *a,
-    int csepmode, dgword_t *cl)
+    int csepmode, dgvs_t *cl)
 {
   int i, j, k, v = 0, w, z, l;
   dgvs_t unnumbered, reached, r;
@@ -455,7 +456,7 @@ INLINE int dg_minimalorderlexm(const dg_t *g, dg_t *f, int *a,
     /* II. Handle unnumbered vertices `v' adjacent to `v' in the graph `g'
      * The above unnumbered neighbors are the seeds in constructing
      * the hierarchical spanning tree based on the breath-first search */
-    DGVS_ANDNOT2(r, g->c[v], reached) /* r = g->c[v] & ~reached */
+    DGVS_MINUS2(r, g->c[v], reached) /* r = g->c[v] & ~reached */
     /* mark vertices in `r' as `reached' such that the label of
      * these wil not be updated further in this round */
     DGVS_OR(reached, r) /* reached |= r */
@@ -513,7 +514,7 @@ INLINE int dg_minimalorderlexm(const dg_t *g, dg_t *f, int *a,
         DGVS_FIRSTLOW(w, reachj, bw, iq)
         DGVS_XOR1(reachj, bw, iq) /* remove w from reachj */
         /* loop over unreached vertices adjacent to g->c[w] */
-        DGVS_ANDNOT2(r, g->c[w], reached) /* r = g->c[w] & ~reached */
+        DGVS_MINUS2(r, g->c[w], reached) /* r = g->c[w] & ~reached */
         DGVS_OR(reached, r) /* mark vertices adjacent to `w' as reached */
         while ( dgvs_nonzero( r ) ) {
           DGVS_FIRSTLOW(z, r, bz, iq1) /* pick `z' */
@@ -660,7 +661,7 @@ INLINE dgvsref_t dg_cliquesep0(const dg_t *g, int method)
 /* number of nodes in the clique-separator decomposition */
 #define dg_ncsep(g) dg_decompcsep(g, NULL, DGCSEP_DEFAULTMETHOD)
 
-INLINE int dg_decompcsep(const dg_t *g, dgvs_t * RESTRICT cl, int method)
+INLINE int dg_decompcsep(const dg_t *g, dgvs_t *cl, int method)
 {
   static dgvs_t fs_c[DG_NMAX];
   static dg_t fs[1] = {{0, NULL}}; /* stock fill-in graph */
@@ -792,13 +793,13 @@ INLINE dgvsref_t dg_cseplow(const dg_t *g, int ned)
 
 /* test if a graph has a clique separator
  * optimized version of dg_cliquesep(g) */
-INLINE dgword_t dg_csep0(const dg_t *g, int method)
+INLINE dgvsref_t dg_csep0(const dg_t *g, int method)
 {
   if (method / DGCSEP_NBASICMETHODS == 0) {
     /* it seems that testing 2-vertex clique separator is
      * open profitable in real sampling, although it is
      * not so for a random graph, as those in testcsep() */
-    dgword_t cc = dg_csep2(g);
+    dgvsref_t cc = dg_csep2(g);
     if (cc != 0) return cc;
   }
   return dg_cliquesep0(g, method);

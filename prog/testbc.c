@@ -176,7 +176,6 @@ static void speed_biconnected(int n, int nsamp, int nedmax)
 
 
 
-
 int main(int argc, char **argv)
 {
   edges_t ref3[] = {
@@ -259,3 +258,4 @@ int main(int argc, char **argv)
   speed_biconnected(n1, nsteps1, nedmax);
   return 0;
 }
+
