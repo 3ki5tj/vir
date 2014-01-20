@@ -101,7 +101,7 @@ INLINE void dgrjw_idbybits(int n, unsigned *arr)
 
 /* compute the Boltzmann weight, the sum of all diagrams
   `c' is the connectivity matrix, `vs' is the vertex set */
-INLINE int dgrjw_hsfq(dgvs_t *c, dgword_t vs)
+INLINE int dgrjw_fq(dgvs_t *c, dgword_t vs)
 {
   dgword_t w, b;
 
@@ -170,7 +170,7 @@ INLINE void dgrjw_prepare(const dg_t *g,
     int fq;
     vs = idbybits[id];
     die_if (bitcount(vs) != 2, "n %d, id %d, bad count(%#x) = %d\n", DG_N_, id, vs, bitcount(vs));
-    fq = dgrjw_hsfq(g->c, vs);
+    fq = dgrjw_fq(g->c, vs);
     fc = -!fq;
     fqarr[vs] = fq;
     fcarr[vs] = fc;
@@ -180,7 +180,7 @@ INLINE void dgrjw_prepare(const dg_t *g,
   /* diagrams with three or more vertices */
   for (; id < vsmax; id++) {
     vs = idbybits[id];
-    fc = dgrjw_hsfq(g->c, vs);
+    fc = dgrjw_fq(g->c, vs);
     fqarr[vs] = fc; /* start with the Boltzmann weight */
     if ( !dg_connectedvs(g, vs) ) { /* disconnected subset */
       fcarr[vs] = 0;
@@ -214,7 +214,7 @@ INLINE void dgrjw_prepare(const dg_t *g,
 
 
 /* return fb, assuming dgrjw_prepare() has been called */
-INLINE dgrjw_fb_t dgrjw_hsfb_iter(const dg_t *g,
+INLINE dgrjw_fb_t dgrjw_iter(const dg_t *g,
     dgrjw_fb_t *fbarr, unsigned *idbybits, dgrjw_ap_t *aparr)
 {
   int v, iold, inew;
@@ -292,7 +292,7 @@ static dgrjw_ap_t *dgrjw_aparr_;
 /* compute the sum of biconnected diagrams by Wheatley's method
  * This is a low level function and the test of clique separator
  * is not done here. */
-INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
+INLINE dgrjw_fb_t dgrjw_fb(const dg_t *g)
 {
   DG_DEFN_(g)
   size_t size = 0;
@@ -336,95 +336,35 @@ INLINE dgrjw_fb_t dg_hsfb_rjw(const dg_t *g)
   /* pre-compute all fc and fq values */
   dgrjw_prepare(g, dgrjw_fbarr_, dgrjw_fbarr_ + size,
                    dgrjw_idbybits_, dgrjw_aparr_);
-  return dgrjw_hsfb_iter(g, dgrjw_fbarr_, dgrjw_idbybits_, dgrjw_aparr_);
+  return dgrjw_iter(g, dgrjw_fbarr_, dgrjw_idbybits_, dgrjw_aparr_);
 }
 
 
 
-#define dg_hsfb_mixed(g) \
-  dg_hsfb_mixed0(g, DGCSEP_DEFAULTMETHOD, NULL, NULL)
+#define dg_fb(g) \
+  dg_fb0(g, DGCSEP_DEFAULTMETHOD, NULL, NULL)
 
 /* directly compute the sum of biconnected diagrams by various strategies
- * a mixed strategy of dg_hsfb_rjw() and dg_rhsc()
+ * a mixed strategy of dgrjw_fb() and dg_sc()
  * nocsep = 1 means that the graph has been tested with no clique separator
  *        = 0 means it MAY have clique separators
  * *ned: number of edges; degs: degree sequence
  * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
-INLINE double dg_hsfb_mixed0(const dg_t *g,
-    int csepmethod, int *ned, int *degs)
+INLINE double dg_fb0(const dg_t *g, int csepmethod, int *ned, int *degs)
 {
   int err, nedges = -1;
   DG_DEFN_(g)
   double sc;
 
   if ( ned == NULL ) ned = &nedges;
-  sc = dg_rhsc_spec0(g, csepmethod, ned, degs, &err);
+  sc = dgsc_spec0(g, csepmethod, ned, degs, &err);
   if ( err == 0 ) {
     return DG_SC2FB(sc, *ned);
   } else if ( *ned <= 2*DG_N_ - 3 || DG_N_ > RJWNMAX) {
-    return DG_SC2FB(dg_rhsc_directlow(g), *ned);
-  } else { /* hsfb_rjw() requires 2^(n + 1) * (n + 1) memory */
-    return (double) dg_hsfb_rjw(g);
+    return DG_SC2FB(dgsc_do(g), *ned);
+  } else { /* hs_rjw() requires 2^(n + 1) * (n + 1) memory */
+    return (double) dgrjw_fb(g);
   }
-}
-
-
-
-#ifdef DGMAP_EXISTS
-#define dg_hsfb_lookup(g) dg_hsfb_lookuplow(g->n, dg_getmapid(g))
-
-
-static double *dgmap_fb_[DGMAP_NMAX + 1]; /* fb of unique diagrams */
-#pragma omp threadprivate(dgmap_fb_)
-
-
-/* compute the hard sphere weight `fb' by a lookup table
- * the return can always fit into an integer */
-INLINE double dg_hsfb_lookuplow(int n, unqid_t id)
-{
-  if (DG_N_ <= 1) return 1;
-
-  /* initialize the look-up table */
-  if (dgmap_fb_[DG_N_] == NULL) {
-    dg_t *g;
-    dgmap_t *m = dgmap_ + DG_N_;
-    int k, cnt = 0, nz = 0;
-    clock_t t0 = clock();
-
-    dgmap_init(m, DG_N_);
-    xnew(dgmap_fb_[DG_N_], m->ng);
-
-    /* loop over unique diagrams */
-    g = dg_open(DG_N_);
-    for (cnt = 0, k = 0; k < m->ng; k++) {
-      dg_decode(g, &m->first[k]);
-      if ( dg_biconnected(g) ) {
-        dgmap_fb_[DG_N_][k] = (double) (dg_csep(g) ? 0 : dg_hsfb_rjw(g));
-        cnt++;
-        nz += (fabs(dgmap_fb_[DG_N_][k]) > .5);
-      } else dgmap_fb_[DG_N_][k] = 0;
-    }
-    dg_close(g);
-    fprintf(stderr, "%4d: n %d, computed hard sphere weights of %d/%d biconnected diagrams, %gs\n",
-        inode, DG_N_, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
-  }
-  return dgmap_fb_[ DG_N_ ][ id ];
-}
-#endif /* defined(DGMAP_EXISTS) */
-
-
-
-#define dg_hsfb(g) dg_hsfb0(g, 1, NULL, NULL)
-
-/* compute the hard-sphere total weight of a configuration */
-INLINE double dg_hsfb0(dg_t *g, int csepmethod, int *ned, int *degs)
-{
-#ifdef DGMAP_EXISTS
-  if (g->n <= DGMAP_NMAX)
-    return dg_hsfb_lookup(g);
-#endif /* defined(DGMAP_EXISTS) */
-
-  return dg_hsfb_mixed0(g, csepmethod, ned, degs);
 }
 
 
@@ -432,15 +372,6 @@ INLINE double dg_hsfb0(dg_t *g, int csepmethod, int *ned, int *degs)
 /* free all stock objects */
 INLINE void dgrjw_free(void)
 {
-#ifdef DGMAP_EXISTS
-  int k;
-
-  /* dgmap_fb_[] is private */
-  for (k = 0; k <= DGMAP_NMAX; k++)
-    if (dgmap_fb_[k] != NULL)
-      free(dgmap_fb_[k]);
-#endif /* defined(DGMAP_EXISTS) */
-
   if (dgrjw_fbarr_ != NULL) {
     free(dgrjw_fbarr_);
     dgrjw_fbarr_ = NULL;

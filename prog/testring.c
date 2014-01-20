@@ -26,8 +26,8 @@ static void cmpref(int n, edges_t *ref)
       dg_link(g, ref[i].id[j][0], ref[i].id[j][1]);
     if (!dg_biconnected(g))
       continue;
-    nr = dg_nring_direct(g);
-    nr1 = dg_nring_spec0(g, NULL, NULL, &err);
+    nr = dgring_do(g);
+    nr1 = dgring_spec0(g, NULL, NULL, &err);
     if (fabs(nr - ref[i].nr) > 1e-3
       || (err == 0 && fabs(nr - nr1) > 1e-3)) {
       printf("n %d: model %d nr mismatch %g,%g vs %d (ref)\n",
@@ -69,12 +69,12 @@ static void testspeed(int n, int nsamp, int nedmax)
     if ( ned > nedmax ) continue;
 
     t0 = clock();
-    sum += dg_nring_direct(g);
+    sum += dg_ring(g);
     tsum += clock() - t0;
     if (++isamp >= nsamp) break;
   }
   tsum /= CLOCKS_PER_SEC;
-  printf("dg_nring: n %d; ave. %g; time used: %gs/%d = %gmcs\n",
+  printf("dg_ring: n %d; ave. %g; time used: %gs/%d = %gmcs\n",
       n, sum/nsamp, tsum, nsamp, tsum/nsamp*1e6);
   dg_close(g);
 }

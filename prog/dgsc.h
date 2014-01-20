@@ -19,7 +19,7 @@
 
 /* Ree-Hoover formula for the star content of a larger diagram of
  * n vertices from that of a smaller diagram of n-1 vertices */
-INLINE double dg_rhiter(int n, int n0, double sc)
+INLINE double dgsc_rhiter(int n, int n0, double sc)
 {
   int i;
 
@@ -34,8 +34,96 @@ INLINE double dg_rhiter(int n, int n0, double sc)
 
 
 
+#define dgsc_spec(g, err) \
+  dgsc_spec0(g, DGCSEP_DEFAULTMETHOD, NULL, NULL, err)
+
+/* compute the star content (SC) of a Ree-Hoover diagram in special cases
+ * only use cheap strategies to deduce the SC
+ * assuming the diagram is biconnected
+ * if successful, *err = 0, otherwise *err = 1
+ *   if *err = 0, the diagram has a clique separator if the returned
+ *                value of SC is zero
+ *   if *err = 1, the diagram has no clique separator on return
+ * csepmethod = 0 means not to test clique separators
+ *            = 1 means to test clique separators thoroughly
+ *            = 2 means to test clique separators by maximal cardinality search
+ *              which can produce false negatives
+ * *ned: number of edges; degs: unsorted degree sequence
+ * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
+INLINE double dgsc_spec0(const dg_t *g, int csepmethod,
+    int *ned, int *degs, int *err)
+{
+  int i, j, n = g->n, ned0, ned1;
+  static int ldegs[DG_NMAX]; /* local buffer for the degree sequence */
+#pragma omp threadprivate(ldegs)
+
+  *err = 0;
+  /* compute the degrees of all vertices */
+  if (degs == NULL) degs = ldegs;
+  if (ned == NULL || *ned <= 0) {
+    ned0 = dg_degs(g, degs);
+    if (ned) *ned = ned0;
+  } else {
+    ned0 = *ned;
+  }
+
+  /* loosely connected diagrams */
+  if (ned0 <= n + 1) {
+    if (ned0 == n) /* ring diagram or intertwined rings (see below) */
+      return 1;
+
+    /* ned0 == n + 1
+     * (a) if the two deg-3 vertices are mutually connected,
+     * then the additional edge forms a clique that separates the ring
+     * so the star content is zero,
+     * (b) if the two deg-3 vertices are connected to deg-2 vertices
+     * then no subgraph is biconnected, for removing any edge creates
+     * a deg-1 vertex, making the subgraph impossible to be biconnected
+     * we try to find which case by the degree sequence
+     * this should be faster than computing the clique separator */
+    for (i = 0; i < n; i++)
+      if (degs[i] == 3) break;
+    for (j = i + 1; j < n; j++)
+      if (degs[j] == 3) break;
+    /* if j >= n, diagram is not biconnected */
+    return j < n && !dg_linked(g, i, j);
+  }
+
+  /* densely-connected diagrams */
+  ned1 = n * (n - 1) / 2 - ned0;
+  if (ned1 < 3) {
+    if (ned1 == 0) { /* fully connected */
+      return dgsc_rhiter(n, 2, 1);
+    } else if (ned1 == 1) { /* always has a clique separator */
+      return 0;
+    } else { /* ned1 == 2 */
+      /* if there are two wiggly lines, the SC is nonzero only if
+       * the two wiggly lines are not connected to the same vertex */
+      for (i = 0; i < n; i++)
+        if (degs[i] <= n - 3) return 0;
+      return dgsc_rhiter(n, 4, 1);
+    }
+  }
+
+  /* general case: try to find a clique separator */
+  if (csepmethod) {
+    /* csepmethod can be 1 or 2, in the latter case
+     * we use dg_csep(g, 2), which invokes the maximal cardinality
+     * search; this may yield false negative result */
+    /* if there is a clique separator, dg_csep0() returns nonzero
+     * and we know fb == 0, and there is no error */
+    *err = !dg_csep0(g, csepmethod);
+  } else { /* if we don't want to test clique separator */
+    *err = 1; /* simply show failure */
+  }
+  return 0;
+}
+
+
+
+
 /* minimize the diagram of `g' by removing fully-connected vertices */
-INLINE dg_t *dg_mintop(dg_t *g)
+INLINE dg_t *dgsc_mintop(dg_t *g)
 {
   int i;
   dgvs_t vs;
@@ -67,7 +155,7 @@ INLINE dg_t *dg_mintop(dg_t *g)
 
 /* recursively find the star content
  * starting from the edge (i, j + 1) */
-INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
+INLINE double dgsc_recur(dg_t *g, int sgn, int i, int j)
 {
   //dgvs_t avs;
   dgword_t bi, bj;
@@ -112,7 +200,7 @@ INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
       //if ( dg_biconnectedavs(g, avs) ) {
       if ( dg_biconnected(g) ) {
         sc += sgn /* add the diagram without (i, j) */
-            + dg_rhsc_recur(g, -sgn, i, j); /* diagrams without (i, j) */
+            + dgsc_recur(g, -sgn, i, j); /* diagrams without (i, j) */
       }
       //DGVS_XOR1(avs, bj, jq) /* add back `bj' to `avs' */
       /* link back, find subdiagrams with (i, j) */
@@ -128,98 +216,11 @@ INLINE double dg_rhsc_recur(dg_t *g, int sgn, int i, int j)
 
 
 
-#define dg_rhsc_spec(g, err) \
-  dg_rhsc_spec0(g, DGCSEP_DEFAULTMETHOD, NULL, NULL, err)
-
-/* compute the star content (SC) of a Ree-Hoover diagram in special cases
- * only use cheap strategies to deduce the SC
- * assuming the diagram is biconnected
- * if successful, *err = 0, otherwise *err = 1
- *   if *err = 0, the diagram has a clique separator if the returned
- *                value of SC is zero
- *   if *err = 1, the diagram has no clique separator on return
- * csepmethod = 0 means not to test clique separators
- *            = 1 means to test clique separators thoroughly
- *            = 2 means to test clique separators by maximal cardinality search
- *              which can produce false negatives
- * *ned: number of edges; degs: unsorted degree sequence
- * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
-INLINE double dg_rhsc_spec0(const dg_t *g, int csepmethod,
-    int *ned, int *degs, int *err)
-{
-  int i, j, n = g->n, ned0, ned1;
-  static int ldegs[DG_NMAX]; /* local buffer for the degree sequence */
-#pragma omp threadprivate(ldegs)
-
-  *err = 0;
-  /* compute the degrees of all vertices */
-  if (degs == NULL) degs = ldegs;
-  if (ned == NULL || *ned <= 0) {
-    ned0 = dg_degs(g, degs);
-    if (ned) *ned = ned0;
-  } else {
-    ned0 = *ned;
-  }
-
-  /* loosely connected diagrams */
-  if (ned0 <= n + 1) {
-    if (ned0 == n) /* ring diagram or intertwined rings (see below) */
-      return 1;
-
-    /* ned0 == n + 1
-     * (a) if the two deg-3 vertices are mutually connected,
-     * then the additional edge forms a clique that separates the ring
-     * so the star content is zero,
-     * (b) if the two deg-3 vertices are connected to deg-2 vertices
-     * then no subgraph is biconnected, for removing any edge creates
-     * a deg-1 vertex, making the subgraph impossible to be biconnected
-     * we try to find which case by the degree sequence
-     * this should be faster than computing the clique separator */
-    for (i = 0; i < n; i++)
-      if (degs[i] == 3) break;
-    for (j = i + 1; j < n; j++)
-      if (degs[j] == 3) break;
-    /* if j >= n, diagram is not biconnected */
-    return j < n && !dg_linked(g, i, j);
-  }
-
-  /* densely-connected diagrams */
-  ned1 = n * (n - 1) / 2 - ned0;
-  if (ned1 < 3) {
-    if (ned1 == 0) { /* fully connected */
-      return dg_rhiter(n, 2, 1);
-    } else if (ned1 == 1) { /* always has a clique separator */
-      return 0;
-    } else { /* ned1 == 2 */
-      /* if there are two wiggly lines, the SC is nonzero only if
-       * the two wiggly lines are not connected to the same vertex */
-      for (i = 0; i < n; i++)
-        if (degs[i] <= n - 3) return 0;
-      return dg_rhiter(n, 4, 1);
-    }
-  }
-
-  /* general case: try to find a clique separator */
-  if (csepmethod) {
-    /* csepmethod can be 1 or 2, in the latter case
-     * we use dg_csep(g, 2), which invokes the maximal cardinality
-     * search; this may yield false negative result */
-    /* if there is a clique separator, dg_csep0() returns nonzero
-     * and we know fb == 0, and there is no error */
-    *err = !dg_csep0(g, csepmethod);
-  } else { /* if we don't want to test clique separator */
-    *err = 1; /* simply show failure */
-  }
-  return 0;
-}
-
-
-
 /* compute the star content (SC) of a Ree-Hoover diagram
  * unconnected edge is treated as a wiggly line
  * SC = # of biconnected subgraphs with even edges removed
  *    - # of biconnected subgraphs with odd edges removed */
-INLINE double dg_rhsc_directlow(const dg_t *g)
+INLINE double dgsc_do(const dg_t *g)
 {
   double sc;
   static dgvs_t g0_c[DG_NMAX];
@@ -232,17 +233,17 @@ INLINE double dg_rhsc_directlow(const dg_t *g)
   g0->c = g0_c;
   dg_copy(g0, g);
 #ifndef N /* mintop is disabled for fixed-size graphs */
-  dg_mintop(g0);
+  dgsc_mintop(g0);
 #endif
-  sc = 1 + dg_rhsc_recur(g0, -1, 0, 0);
+  sc = 1 + dgsc_recur(g0, -1, 0, 0);
   /* use the Ree-Hoover formula to go from n0 to n */
-  sc = dg_rhiter(g->n, g0->n, sc);
+  sc = dgsc_rhiter(g->n, g0->n, sc);
   return sc;
 }
 
 
 
-#define dg_rhsc_direct(g) dg_rhsc_direct0(g, DGCSEP_DEFAULTMETHOD, NULL, NULL)
+#define dg_sc(g) dg_sc0(g, DGCSEP_DEFAULTMETHOD, NULL, NULL)
 
 /* directly compute the star content (SC) of a Ree-Hoover diagram
  * unconnected edge is treated as a wiggly line
@@ -251,62 +252,17 @@ INLINE double dg_rhsc_directlow(const dg_t *g)
  * nocsep = 1 means if the graph has been tested with no clique separator
  *        = 0 means it MAY have clique separators
  * *ned: number of edges; degs: degree sequence */
-INLINE double dg_rhsc_direct0(const dg_t *g, int csepmethod,
+INLINE double dg_sc0(const dg_t *g, int csepmethod,
     int *ned, int *degs)
 {
   double sc;
   int err;
 
   /* detect special cases when possible */
-  sc = dg_rhsc_spec0(g, csepmethod, ned, degs, &err);
+  sc = dgsc_spec0(g, csepmethod, ned, degs, &err);
   if (err == 0) return sc;
-  else return dg_rhsc_directlow(g);
+  else return dgsc_do(g);
 }
-
-
-
-#ifdef DGMAP_EXISTS
-/* compute the star content by a look up table */
-INLINE double dg_rhsc_lookup(const dg_t *g)
-{
-  static double *sc[DGMAP_NMAX + 1];
-#pragma omp threadprivate(sc)
-  DG_DEFN_(g)
-  dgmap_t *m = dgmap_ + DG_N_;
-  dgword_t c;
-
-  if (DG_N_ <= 1) return 1;
-
-  if (sc[DG_N_] == NULL) {
-    dg_t *g1;
-    int k, cnt = 0, nz = 0;
-    clock_t t0 = clock(), t1;
-
-    if (DG_N_ >= 8) fprintf(stderr, "n %d: initializing...\n", DG_N_);
-    dgmap_init(m, DG_N_); /* compute the permutation mapping */
-    xnew(sc[DG_N_], m->ng);
-
-    t1 = clock();
-    if (DG_N_ >= 8) fprintf(stderr, "n %d: diagram-map initialized %gs\n",
-        DG_N_, 1.*(t1 - t0)/CLOCKS_PER_SEC);
-    /* loop over unique diagrams */
-    g1 = dg_open(DG_N_);
-    for (cnt = 0, k = 0; k < m->ng; k++) {
-      dg_decode(g1, &m->first[k]);
-      if ( dg_biconnected(g1) ) {
-        sc[DG_N_][k] = dg_rhsc_direct(g1);
-        cnt++;
-        nz += (fabs(sc[DG_N_][k]) > 0.5);
-      } else sc[DG_N_][k] = 0;
-    }
-    dg_close(g1);
-    fprintf(stderr, "n %d, computed star contents of %d/%d biconnected diagrams, %gs\n",
-        DG_N_, cnt, nz, 1.*(clock() - t1)/CLOCKS_PER_SEC);
-  }
-  dg_encode(g, &c);
-  return sc[DG_N_][ m->map[c] ]; /* m->map[c] is the id of the unique diagram */
-}
-#endif /* defined(DGMAP_EXISTS) */
 
 
 
@@ -320,14 +276,9 @@ INLINE double dg_rhsc0(const dg_t *g, int csepmethod,
   double sc;
   int err;
 
-#ifdef DGMAP_EXISTS
-  if (g->n <= DGMAP_NMAX)
-    return dg_rhsc_lookup(g);
-#endif /* defined(DGMAP_EXISTS) */
-
-  sc = dg_rhsc_spec0(g, csepmethod, ned, degs, &err);
+  sc = dgsc_spec0(g, csepmethod, ned, degs, &err);
   if (err == 0) return sc;
-  else return dg_rhsc_directlow(g);
+  else return dgsc_do(g);
 }
 
 

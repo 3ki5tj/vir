@@ -1,6 +1,7 @@
 #ifndef DGMAP_H__
 #define DGMAP_H__
-#include "dg.h"
+#include "dgring.h"
+
 
 
 /* the regular lookup table for n <= DGMAP_NMAX */
@@ -203,7 +204,7 @@ INLINE unqid_t dg_getmapid(const dg_t *g)
 
 
 /* the macro is slower than the direct version (due to dg_getmapid()) */
-#define dg_biconnected_lookup(g) dg_biconnected_lookuplow(DG_GN_(g), dg_getmapid(g))
+#define dgmap_biconnected(g) dgmap_biconnected0(DG_GN_(g), dg_getmapid(g))
 
 /* biconnectivity of unique diagrams
  * unique diagrams are few enough to allow private memories */
@@ -213,7 +214,7 @@ static int *dgmap_bc_[DGMAP_NMAX + 1] = {NULL};
 
 /* check if a diagram is biconnected (lookup version)
  * use it only if `id' is known, otherwise it is slower */
-INLINE int dg_biconnected_lookuplow(int n, unqid_t id)
+INLINE int dgmap_biconnected0(int n, unqid_t id)
 {
   if (dgmap_bc_[DG_N_] == NULL) {
     /* initialize the look-up table */
@@ -232,7 +233,146 @@ INLINE int dg_biconnected_lookuplow(int n, unqid_t id)
   }
   return dgmap_bc_[ DG_N_ ][ id ];
 }
+
+
+
+/* this array is shared due to its large size */
+static char *dgcsep_ncl_[DGMAP_NMAX + 1];
+
+
+/* compute the number of nodes the clique-separator decomposition */
+INLINE int dgmap_ncsep0(const dg_t *g, dgword_t c)
+{
+  int ncs;
+  DG_DEFN_(g)
+
+  /* initialize the lookup table */
+  if (dgcsep_ncl_[DG_N_] == NULL) {
+#pragma omp critical
+    {
+      /* we test the pointer again because another thread
+       * might have allocated the space now */
+      if (dgcsep_ncl_[DG_N_] == NULL) {
+        int ipr, npr = 1u << (DG_N_ * (DG_N_ - 1) / 2);
+        xnew(dgcsep_ncl_[DG_N_], npr);
+        for (ipr = 0; ipr < npr; ipr++)
+          dgcsep_ncl_[DG_N_][ipr] = (char) (-1);
+      }
+    }
+  }
+
+  ncs = dgcsep_ncl_[DG_N_][c];
+  if (ncs < 0) {
+    ncs = dg_ncsep(g);
+#pragma omp critical
+    {
+      dgcsep_ncl_[DG_N_][c] = (char) ncs; /* save the value */
+    }
+  }
+  return ncs;
+}
+
+
+
+/* compute the number of nodes the clique-separator decomposition */
+INLINE int dgmap_ncsep(const dg_t *g)
+{
+  dgword_t code;
+
+  die_if (g->n > DGMAP_NMAX, "n %d too large\n", g->n);
+  dg_encode(g, &code);
+  return dgmap_ncsep0(g, code);
+}
+
+
+
+
+#define dgmap_fb(g) dgmap_fb0(g->n, dg_getmapid(g))
+
+
+static double *dgmap_fb_[DGMAP_NMAX + 1]; /* fb of unique diagrams */
+#pragma omp threadprivate(dgmap_fb_)
+
+
+
+/* compute the hard sphere weight `fb' by a lookup table
+ * the return can always fit into an integer */
+INLINE double dgmap_fb0(int n, unqid_t id)
+{
+  if (DG_N_ <= 1) return 1;
+
+  /* initialize the look-up table */
+  if (dgmap_fb_[DG_N_] == NULL) {
+    dg_t *g;
+    dgmap_t *m = dgmap_ + DG_N_;
+    int k, cnt = 0, nz = 0;
+    clock_t t0 = clock();
+
+    dgmap_init(m, DG_N_);
+    xnew(dgmap_fb_[DG_N_], m->ng);
+
+    /* loop over unique diagrams */
+    g = dg_open(DG_N_);
+    for (cnt = 0, k = 0; k < m->ng; k++) {
+      dg_decode(g, &m->first[k]);
+      if ( dg_biconnected(g) ) {
+        dgmap_fb_[DG_N_][k] = (double) dg_fb(g);
+        cnt++;
+        nz += (fabs(dgmap_fb_[DG_N_][k]) > .5);
+      } else dgmap_fb_[DG_N_][k] = 0;
+    }
+    dg_close(g);
+    fprintf(stderr, "%4d: n %d, computed hard sphere weights of %d/%d biconnected diagrams, %gs\n",
+        inode, DG_N_, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+  }
+  return dgmap_fb_[ DG_N_ ][ id ];
+}
+
+
+
+#define dgmap_ring(g) dgmap_ring0(g->n, dg_getmapid(g))
+
+static double *dgmap_nr_[DGMAP_NMAX + 1]; /* nr of unique diagrams */
+#pragma omp threadprivate(dgmap_nr_)
+
+/* compute the number of ring subgraphs by a look up table */
+INLINE double dgmap_ring0(int n, unqid_t id)
+{
+  if (DG_N_ <= 1) return 1;
+
+  /* initialize the look-up table */
+  if (dgmap_nr_[DG_N_] == NULL) {
+    dg_t *g;
+    dgmap_t *m = dgmap_ + DG_N_;
+    int k, cnt = 0, nz = 0;
+    clock_t t0 = clock();
+
+    dgmap_init(m, DG_N_);
+    xnew(dgmap_nr_[DG_N_], m->ng);
+
+    /* loop over unique diagrams */
+    g = dg_open(DG_N_);
+    for (cnt = 0, k = 0; k < m->ng; k++) {
+      dg_decode(g, &m->first[k]);
+      if ( dg_biconnected(g) ) {
+        dgmap_nr_[DG_N_][k] = dg_ring(g);
+        cnt++;
+        nz++;
+      } else dgmap_nr_[DG_N_][k] = 0;
+    }
+    dg_close(g);
+    fprintf(stderr, "%4d: n %d, computed # of subrings of %d/%d biconnected diagrams, %gs\n",
+          inode, DG_N_, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+  }
+  return dgmap_nr_[ DG_N_ ][ id ];
+}
+
+
+
 #endif /* defined(DGMAP_EXISTS) */
+
+
+
 
 
 
@@ -252,6 +392,21 @@ INLINE void dgmap_free(void)
   for (k = 0; k <= DGMAP_NMAX; k++)
     if (dgmap_bc_[k] != NULL)
       free(dgmap_bc_[k]);
+
+#pragma omp critical
+  {
+    int i;
+    for (i = 0; i <= DGMAP_NMAX; i++)
+      if (dgcsep_ncl_[i] != NULL) {
+        free(dgcsep_ncl_[i]);
+        dgcsep_ncl_[i] = NULL;
+      }
+  }
+
+  /* dgmap_nr_[] is private */
+  for (k = 0; k <= DGMAP_NMAX; k++)
+    if (dgmap_nr_[k] != NULL)
+      free(dgmap_nr_[k]);
 #endif /* defined(DGMAP_EXISTS) */
 }
 

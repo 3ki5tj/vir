@@ -6,7 +6,7 @@
 
 /* compute the number of ring subgraphs
  * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
-INLINE double dg_nring_spec0(const dg_t *g,
+INLINE double dgring_spec0(const dg_t *g,
     int *ned, int *degs, int *err)
 {
   int i, j, ned0, ned1;
@@ -108,7 +108,7 @@ INLINE int dg_fbnr_spec0(const dg_t *g, double *fb, double *nr,
   if (ned1 == 0) { /* full diagram nr = n!/(2*n), fb */
     for (x = 1, i = 3; i < DG_N_; i++) x *= i;
     *nr = x;
-    *fb = DG_SC2FB(dg_rhiter(DG_N_, 2, 1), ned0);
+    *fb = DG_SC2FB(dgsc_rhiter(DG_N_, 2, 1), ned0);
     return 0;
   }
   return -1;
@@ -116,8 +116,11 @@ INLINE int dg_fbnr_spec0(const dg_t *g, double *fb, double *nr,
 
 
 
+#define dgring_do(g) dgring_iter(g)
+
+
 /* return the number of ring subgraphs */
-INLINE double dg_nring_direct(const dg_t *g)
+INLINE double dgring_iter(const dg_t *g)
 {
   DG_DEFN_(g)
   int st[DG_NMAX], top, sttop, root = 0;
@@ -182,90 +185,25 @@ INLINE double dg_nring_direct(const dg_t *g)
 
 
 
-#define dg_nring_mixed(g) dg_nring_mixed0(g, NULL, NULL)
+#define dg_ring(g) dg_ring0(g, NULL, NULL)
 
 /* return the number of ring subgraphs
  * use various techniques to accelerate the calculation
  * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
-INLINE double dg_nring_mixed0(const dg_t *g, int *ned, int *degs)
+INLINE double dg_ring0(const dg_t *g, int *ned, int *degs)
 {
   int err;
   double nr;
 
-  nr = dg_nring_spec0(g, ned, degs, &err);
+  nr = dgring_spec0(g, ned, degs, &err);
   if (err == 0) return nr;
-  else return dg_nring_direct(g);
-}
-
-
-
-#ifdef DGMAP_EXISTS
-#define dg_nring_lookup(g) dg_nring_lookuplow(g->n, dg_getmapid(g))
-
-static double *dgmap_nr_[DGMAP_NMAX + 1]; /* nr of unique diagrams */
-#pragma omp threadprivate(dgmap_nr_)
-
-/* compute the number of ring subgraphs by a look up table */
-INLINE double dg_nring_lookuplow(int n, unqid_t id)
-{
-  if (DG_N_ <= 1) return 1;
-
-  /* initialize the look-up table */
-  if (dgmap_nr_[DG_N_] == NULL) {
-    dg_t *g;
-    dgmap_t *m = dgmap_ + DG_N_;
-    int k, cnt = 0, nz = 0;
-    clock_t t0 = clock();
-
-    dgmap_init(m, DG_N_);
-    xnew(dgmap_nr_[DG_N_], m->ng);
-
-    /* loop over unique diagrams */
-    g = dg_open(DG_N_);
-    for (cnt = 0, k = 0; k < m->ng; k++) {
-      dg_decode(g, &m->first[k]);
-      if ( dg_biconnected(g) ) {
-        dgmap_nr_[DG_N_][k] = dg_nring_mixed(g);
-        cnt++;
-        nz++;
-      } else dgmap_nr_[DG_N_][k] = 0;
-    }
-    dg_close(g);
-    fprintf(stderr, "%4d: n %d, computed # of subrings of %d/%d biconnected diagrams, %gs\n",
-          inode, DG_N_, cnt, nz, 1.*(clock() - t0)/CLOCKS_PER_SEC);
-  }
-  return dgmap_nr_[ DG_N_ ][ id ];
-}
-#endif /* defined(DGMAP_EXISTS) */
-
-
-#define dg_nring(g) dg_nring0(g, NULL, NULL)
-
-/* return the number of ring subgraphs
- * using various techniques to accelerate the calculation */
-INLINE double dg_nring0(const dg_t *g, int *ned, int *degs)
-{
-#ifdef DGMAP_EXISTS
-  if (g->n <= DGMAP_NMAX)
-    return dg_nring_lookup(g);
-#endif /* defined(DGMAP_EXITS) */
-  return dg_nring_mixed0(g, ned, degs);
+  else return dgring_do(g);
 }
 
 
 
 /* free all stock objects */
-INLINE void dgring_free(void)
-{
-#ifdef DGMAP_EXISTS
-  int k;
-
-  /* dgmap_nr_[] is private */
-  for (k = 0; k <= DGMAP_NMAX; k++)
-    if (dgmap_nr_[k] != NULL)
-      free(dgmap_nr_[k]);
-#endif /* defined(DGMAP_EXISTS) */
-}
+INLINE void dgring_free(void) { }
 
 
 

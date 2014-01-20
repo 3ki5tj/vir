@@ -358,15 +358,15 @@ INLINE int dghash_enumiso(dghash_t *h, const dg_t *g,
 
 
 
-#define dghash_fbnr_lookup(g, nr) \
-  dghash_fbnr_lookup0(NULL, g, nr, DGCSEP_DEFAULTMETHOD, NULL, NULL)
+#define dghash_fbnr(g, nr) \
+  dghash_fbnr0(NULL, g, nr, DGCSEP_DEFAULTMETHOD, NULL, NULL)
 
 static dghash_t *dghash_[DG_NMAX + 1]; /* default hash table, shared */
 
 /* look up fb and nr simultaneously from the hash table
  * `csepmethod' is the method of detecting clique separators
  *    0 means not to detect clique separators */
-INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
+INLINE double dghash_fbnr0(dghash_t *h, const dg_t *g,
     double *nr, int csepmethod, int *ned, int *degs)
 {
   static dgword_t c[DG_CWORDS];
@@ -421,9 +421,9 @@ INLINE double dghash_fbnr_lookup0(dghash_t *h, const dg_t *g,
     }
   }
   if (ls1 != NULL) return fb;
-  fb = dg_hsfb_mixed0(g, csepmethod, ned, degs);
+  fb = dg_fb0(g, csepmethod, ned, degs);
 #ifndef DG_NORING
-  *nr = dg_nring_mixed0(g, ned, degs);
+  *nr = dg_ring0(g, ned, degs);
 #else
   *nr = 0;
 #endif

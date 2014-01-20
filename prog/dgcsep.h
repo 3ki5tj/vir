@@ -7,7 +7,7 @@
 
 
 
-#include "dgmap.h"
+#include "dg.h"
 
 
 
@@ -805,78 +805,12 @@ INLINE dgvsref_t dg_csep0(const dg_t *g, int method)
   return dg_cliquesep0(g, method);
 }
 
-
 #endif
 
 
 
-#ifdef DGMAP_EXISTS
-
-/* this array is shared due to its large size */
-static char *dgcsep_ncl_[DGMAP_NMAX + 1];
-
-
-/* compute the number of nodes the clique-separator decomposition */
-INLINE int dg_ncsep_lookuplow(const dg_t *g, dgword_t c)
-{
-  int ncs;
-  DG_DEFN_(g)
-
-  /* initialize the lookup table */
-  if (dgcsep_ncl_[DG_N_] == NULL) {
-#pragma omp critical
-    {
-      /* we test the pointer again because another thread
-       * might have allocated the space now */
-      if (dgcsep_ncl_[DG_N_] == NULL) {
-        int ipr, npr = 1u << (DG_N_ * (DG_N_ - 1) / 2);
-        xnew(dgcsep_ncl_[DG_N_], npr);
-        for (ipr = 0; ipr < npr; ipr++)
-          dgcsep_ncl_[DG_N_][ipr] = (char) (-1);
-      }
-    }
-  }
-
-  ncs = dgcsep_ncl_[DG_N_][c];
-  if (ncs < 0) {
-    ncs = dg_ncsep(g);
-#pragma omp critical
-    {
-      dgcsep_ncl_[DG_N_][c] = (char) ncs; /* save the value */
-    }
-  }
-  return ncs;
-}
-
-
-
-/* compute the number of nodes the clique-separator decomposition */
-INLINE int dg_ncsep_lookup(const dg_t *g)
-{
-  dgword_t code;
-
-  die_if (g->n > DGMAP_NMAX, "n %d too large\n", g->n);
-  dg_encode(g, &code);
-  return dg_ncsep_lookuplow(g, code);
-}
-#endif /* defined(DGMAP_EXISTS) */
-
-
-
-INLINE void dgcsep_free(void)
-{
-#ifdef DGMAP_EXISTS
-#pragma omp critical
-  {
-    int i;
-    for (i = 0; i <= DGMAP_NMAX; i++)
-      if (dgcsep_ncl_[i] != NULL) {
-        free(dgcsep_ncl_[i]);
-        dgcsep_ncl_[i] = NULL;
-      }
-  }
-#endif /* defined(DGMAP_EXISTS) */
-}
+/* free all stock objects */
+INLINE void dgcsep_free(void) { }
 
 
 

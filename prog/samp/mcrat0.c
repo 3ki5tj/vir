@@ -8,6 +8,7 @@
 #define ZCOM_RVN
 #define ZCOM_AV
 #include "zcom.h"
+#include "dgmap.h"
 #include "dgmapl.h" /* larger lookup table */
 #include "dghash.h"
 /* dg.h, ..., dgring.h are included in dgmapl.h or dghash.h if they exist
@@ -418,14 +419,14 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
     BCSTEP(acc, i, DG_N_, g, ng, x, xi, amp, gdisp);
   printf("%4d: equilibrated at t %g, nedges %d, rng: %p, %#x\n",
       inode, nequil, dg_nedges(g), mr_->arr, (unsigned) mr_->arr[0]);
-  /* call _lookup function first, to initialize the table */
-  die_if (!dg_biconnected_lookup(g),
+  /* call a dgmap function first, to initialize the table */
+  die_if (!dgmap_biconnected(g),
       "initial graph (n = %d) is not biconnected\n", DG_N_);
   dg_encode(g, &code); /* initialize the code */
   gmapid = dgmap_[DG_N_].map[code];
-  fb = dg_hsfb_lookuplow(DG_N_, gmapid);
+  fb = dgmap_fb0(DG_N_, gmapid);
 #ifndef DG_NORING
-  nr = dg_nring_lookuplow(DG_N_, gmapid);
+  nr = dgmap_ring0(DG_N_, gmapid);
 #endif /* !defined(DG_NORING) */
 
   /* main loop */
@@ -439,9 +440,9 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
       acc = grepl0(x, nx, g, ng, r2cr);
       if ( acc ) {
         dg_encode(g, &code);
-        fb = dg_hsfb_lookup(g);
+        fb = dgmap_fb(g);
 #ifndef DG_NORING
-        nr = dg_nring_lookup(g);
+        nr = dgmap_ring(g);
 #endif /* !defined(DG_NORING) */
       }
       av0_add(&racc, acc);
@@ -473,13 +474,13 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
         rvn_copy(x[i], xi);
       } else {
         gmapid = dgmap_[DG_N_].map[ncode];
-        acc = dg_biconnected_lookuplow(DG_N_, gmapid);
+        acc = dgmap_biconnected0(DG_N_, gmapid);
         if ( acc ) { /* accept the move */
           rvn_copy(x[i], xi);
           code = ncode;
-          fb = dg_hsfb_lookuplow(DG_N_, gmapid);
+          fb = dgmap_fb0(DG_N_, gmapid);
 #ifndef DG_NORING
-          nr = dg_nring_lookuplow(DG_N_, gmapid);
+          nr = dgmap_ring0(DG_N_, gmapid);
 #endif /* !defined(DG_NORING) */
         }
       }
@@ -492,7 +493,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
       if (fmod(t, NSTCHECK) < 0.1) {
         double fb1;
         dg_decode(g, &code);
-        fb1 = dg_hsfb(g);
+        fb1 = dg_fb(g);
         if (fabs(fb - fb1) > 1e-3) {
           printf("%d: t %g, fb %g vs %g\n", inode, t, fb, fb1);
           dg_print(g);
@@ -500,7 +501,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
         }
 #ifndef DG_NORING
         double nr1;
-        nr1 = dg_nring(g);
+        nr1 = dg_ring(g);
         if (fabs(nr - nr1) > 1e-3) {
           printf("%d: t %g, nr %g vs %g\n", inode, t, nr, nr1);
           dg_print(g);
@@ -545,10 +546,10 @@ INLINE double hashgetfbnr(dghash_t *hash, const dg_t *g, double *nr,
       csepmethod = DGCSEP_NULLMETHOD;
     }
   }
-  return dghash_fbnr_lookup0(hash, g, nr, csepmethod, ned, degs);
+  return dghash_fbnr0(hash, g, nr, csepmethod, ned, degs);
 #else /* !defined(DG_NORING) */
-  /* if both fb and nr are needed, call dghash_fbnr_lookup0() directly */
-  return dghash_fbnr_lookup0(hash, g, nr, csepmethod, ned, degs);
+  /* if both fb and nr are needed, call dghash_fbnr0() directly */
+  return dghash_fbnr0(hash, g, nr, csepmethod, ned, degs);
 #endif /* defined(DG_NORING) */
 }
 #endif /* defined(DGHASH_EXISTS) */
@@ -625,9 +626,9 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
       inode, nequil, dg_nedges(g), nstfb, mr_->arr, (unsigned) mr_->arr[0]);
   die_if (!dg_biconnected(g),
       "%d, initial diagram not biconnected D %d\n", inode, D);
-  fb = dg_hsfb_mixed(g);
+  fb = dg_fb(g);
 #ifndef DG_NORING
-  nr = dg_nring_mixed(g);
+  nr = dg_ring(g);
 #endif /* !defined(DG_NORING) */
   hasfb = 1;
 
@@ -635,14 +636,14 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
 #ifdef CHECK
     if (fmod(t, NSTCHECK) < 0.1 && hasfb) {
-      double fb1 = dg_hsfb(g);
+      double fb1 = dg_fb(g);
       if ( fabs(fb - fb1) > 1e-3 ) {
         printf("%d: PRE1 t %g, fb %g (%g)\n", inode, t, fb, fb1);
         dg_print(g);
         exit(1);
       }
 #ifndef DG_NORING
-      double nr1 = dg_nring(g);
+      double nr1 = dg_ring(g);
       if ( fabs(nr - nr1) > 1e-3 ) {
         printf("%d: PRE1 t %g, nr %g (%g)\n", inode, t, nr, nr1);
         dg_print(g);
@@ -681,7 +682,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         if (dg_fbnr_spec0(g, &fb, &nr, &ned, degs) != 0) {
 #ifdef DGMAPL_EXISTS
           if ( mapl_on && mapl != NULL ) { /* use the larger lookup table */
-            fb = dgmapl_fbnr_lookup0(mapl, g, &nr, 0, &ned, degs);
+            fb = dgmapl_fbnr0(mapl, g, &nr, 0, &ned, degs);
           } else
 #endif /* defined(DGMAPL_EXISTS) */
           {
@@ -691,9 +692,9 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
             } else
 #endif /* defined(DGHASH_EXISTS) */
             {
-              fb = dg_hsfb_mixed0(g, csepmethod, &ned, degs);
+              fb = dg_fb0(g, csepmethod, &ned, degs);
 #ifndef DG_NORING
-              nr = dg_nring_mixed0(g, &ned, degs);
+              nr = dg_ring0(g, &ned, degs);
 #endif /* !defined(DG_NORING) */
               neval++;
             }
@@ -718,7 +719,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
           exit(1);
         }
 #ifndef DG_NORING
-        double nr1 = dg_nring(g);
+        double nr1 = dg_ring(g);
         if (fabs(nr - nr1) > 1e-3) {
           printf("%d: t %g, acc %d, nr %g (%g)\n", inode, t, acc, nr, nr1);
           dg_print(g);

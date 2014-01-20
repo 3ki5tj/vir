@@ -1,3 +1,4 @@
+#include "dgmap.h"
 #include "dgrjw.h"
 #include "testutil.h"
 
@@ -22,7 +23,7 @@ static void cmpref(int n, edges_t *ref)
     dg_full(g);
     for (j = 0; j < ref[i].npr; j++)
       dg_unlink(g, ref[i].id[j][0], ref[i].id[j][1]);
-    fb = dg_hsfb(g);
+    fb = dg_fb(g);
     if ( !dg_biconnected(g) )
       continue;
     if (fabs(fb - ref[i].fb) > 1e-3) {
@@ -31,8 +32,8 @@ static void cmpref(int n, edges_t *ref)
       dg_print(g);
       exit(1);
     }
-    fb1 = 1.*dg_hsfb_rjw(g);
-    fb2 = DG_SC2FB(dg_rhsc_directlow(g), dg_nedges(g));
+    fb1 = 1.*dg_fb(g);
+    fb2 = DG_SC2FB(dgsc_do(g), dg_nedges(g));
     if (fabs(fb1 - fb) > 1e-3 || fabs(fb2 - fb) > 1e-3) {
       printf("n %d: model %d fb mismatch %g(rjw), %g(sc) vs %g (ref)\n",
           n, i, fb1, fb2, fb);
@@ -63,7 +64,7 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
   method = ctolower(method);
   if (method == 'l') { /* lookup */
     t0 = clock();
-    dg_hsfb(g); /* initialization */
+    dgmap_fb(g); /* initialization */
     printf("hard-sphere weight, n %d, initialization: %gs\n",
       n, 1.*(clock() - t0) / CLOCKS_PER_SEC);
   }
@@ -89,16 +90,14 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
 
     t0 = clock();
     if (method == 'l') {
-      /* the default function dg_hsfb() automatically invokes
-       * the lookup table when possible */
-      fb = dg_hsfb(g);
+      fb = dgmap_fb(g);
     } else if (method == 's' || method == 'r') { /* Ree-Hoover star content*/
-      fb = DG_SC2FB( dg_rhsc_directlow(g), ned );
+      fb = DG_SC2FB( dgsc_do(g), ned );
     } else if (method == 'w') { /* Wheatley */
-      fb = (double) dg_hsfb_rjw(g);
+      fb = (double) dgrjw_fb(g);
     } else if (method == 'p') { /* comparison */
-      double fb1 = (double) dg_hsfb_rjw(g);
-      double fb2 = DG_SC2FB( dg_rhsc_directlow(g), ned );
+      double fb1 = (double) dgrjw_fb(g);
+      double fb2 = DG_SC2FB( dgsc_do(g), ned );
       if (fabs(fb1 - fb2) > 1e-6) {
         fprintf(stderr, "fb %g (rjw) vs %g (sc)\n", fb1, fb2);
         dg_print(g);
@@ -106,7 +105,7 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
       }
       fb = fb1;
     } else { /* default */
-      fb = dg_hsfb_mixed(g);
+      fb = (double) dg_fb(g);
     }
     tsum += clock() - t0;
     sum += fb;
@@ -114,8 +113,8 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
     printf("i %d, t %d, ned %d, fb %g\n", isamp, t, ned, fb);
 #endif
 #if 0
-    if (dg_hsfb_mixed(g) != dg_hsfb_rjw(g)) {
-      printf("corruption %d vs %d csep %d\n", dg_hsfb_mixed(g), dg_hsfb_rjw(g), dg_cliquesep(g));
+    if (dg_fb(g) != dgrjw_fb(g)) {
+      printf("corruption %d vs %d csep %d\n", dg_fb(g), dgrjw_fb(g), dg_cliquesep(g));
       dg_print(g);
       exit(1);
     }
@@ -172,10 +171,10 @@ static void testaccuracy(int n, int nsamp, int nedmin)
     if ( dg_cliquesep(g) ) continue; /* avoid clique separable */
 
     t0 = clock();
-    fb = (double) dg_hsfb_rjw(g);
+    fb = (double) dg_fb(g);
     tsum += clock() - t0;
 
-    sc = dg_rhsc_spec(g, &err);
+    sc = dgsc_spec(g, &err);
     if (err == 0) {
       double fb1 = DG_SC2FB(sc, ned);
       die_if (fabs(fb - fb1) > 0.01, "fb %g, fb1 %g\n", fb, fb1);

@@ -149,7 +149,7 @@ static void speed_biconnected(int n, int nsamp, int nedmax)
     if (n <= DGMAP_NMAX) {
       t0 = clock();
       for (kk = 0; kk < lscnt; kk++)
-        sum[2] += dg_biconnected_lookup(gls[kk]);
+        sum[2] += dgmap_biconnected(gls[kk]);
       tsum[2] += clock() - t0;
     }
 #endif

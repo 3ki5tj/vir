@@ -1,3 +1,4 @@
+#include "dgmap.h"
 #include "dgsc.h"
 #include "dgrjw.h"
 #include "testutil.h"
@@ -26,7 +27,7 @@ static void cmpref(int n, edges_t *ref)
       dg_unlink(g, ref[i].id[j][0], ref[i].id[j][1]);
     if (!dg_biconnected(g))
       continue;
-    sc = dg_rhsc_direct(g);
+    sc = dgsc_do(g);
     if (fabs(sc - ref[i].sc) > 0.001) {
       printf("n %d: model %d sc mismatch %g vs %d (ref)\n",
           n, i, sc, ref[i].sc);
@@ -58,7 +59,7 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
     dg_t *g2;
 
     t0 = clock();
-    dg_rhsc(g); /* automatically activate the look up table */
+    dg_sc(g); /* automatically activate the look up table */
     printf("star content, n %d, initialization: %gs\n",
       n, 1.*(clock() - t0) / CLOCKS_PER_SEC);
     /* compare with the RJW result */
@@ -66,8 +67,8 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
     for (ig = 0; ig < dgmap_[n].ng; ig++) {
       dgword_t code = dgmap_[n].first[ig];
       dg_decode(g2, &code);
-      sc1 = dg_rhsc(g2);
-      sc2 = dg_hsfb(g2);
+      sc1 = dg_sc(g2);
+      sc2 = dg_fb(g2);
       if (dg_nedges(g2) % 2 == 1) sc2 *= -1;
       if (fabs(sc1 - sc2) > 1e-3) {
         printf("sc1 %g, sc2 %g\n", sc1, sc2);
@@ -96,12 +97,7 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
     if ( dg_cliquesep(g) ) continue;
 
     t0 = clock();
-    if (method == 'l') {
-      /* this function invokes the lookup table when possible */
-      sum += dg_rhsc(g);
-    } else {
-      sum += dg_rhsc_direct(g);
-    }
+    sum += dg_sc(g);
     tsum += clock() - t0;
     if (++isamp >= nsamp) break;
   }

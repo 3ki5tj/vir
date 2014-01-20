@@ -4,7 +4,7 @@
 #define ZCOM_ARGOPT
 #define ZCOM_RVN
 #include "zcom.h"
-#include "dgrjw.h"
+#include "dgmap.h"
 #include "dgring.h"
 #include "mcutil.h"
 
@@ -401,17 +401,17 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       dgmap_t *m = dgmap_ + n;
 
       dg_encode(g, &code);
-      ncs = (dg_ncsep_lookuplow(g, code) == 0);
+      ncs = (dgmap_ncsep0(g, code) == 0);
       dgmap_init(m, n);
       uid = m->map[code];
-      fb = dg_hsfb_lookuplow(n, uid);
-      nr = dg_nring_lookuplow(n, uid);
+      fb = dgmap_fb0(n, uid);
+      nr = dgmap_ring0(n, uid);
       err = errnr = 0;
 #endif
     } else {
       /* this function implicitly computes the clique separator
        * with a very small overhead */
-      sc = dg_rhsc_spec0(g, csepmethod, &ned, degs, &err);
+      sc = dgsc_spec0(g, csepmethod, &ned, degs, &err);
       if (err == 0) {
         ncs = (fabs(sc) > 1e-3);
         fb = DG_SC2FB(sc, ned);
@@ -434,7 +434,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
         } else {
           /* don't detect clique separators, for it's already
            * done by dg_rhsc_spec0() above */
-          fb = dg_hsfb_mixed0(g, DGCSEP_NULLMETHOD, &ned, degs);
+          fb = dg_fb0(g, DGCSEP_NULLMETHOD, &ned, degs);
         }
       }
       gc->fbsm[n][0] += 1;
@@ -443,8 +443,8 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
 
       /* compute the ring content */
       if (errnr) {
-        nr = dg_nring_spec0(g, &ned, degs, &errnr);
-        if (errnr) nr = dg_nring_direct(g);
+        nr = dgring_spec0(g, &ned, degs, &errnr);
+        if (errnr) nr = dgring_do(g);
       }
       gc->ring[n][0] += 1;
       gc->ring[n][1] += nr;
