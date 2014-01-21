@@ -751,6 +751,12 @@ INLINE char *fnappend(const char *fn, int i)
 
 
 
+#ifdef DGMAP_EXISTS
+  #define DGMAP_FREEMEMORIES() dgmap_free()
+#else
+  #define DGMAP_FREEMEMORIES()
+#endif
+
 #ifdef DGMAPL_EXISTS
   #define DGMAPL_FREEMEMORIES() dgmapl_free()
 #else
@@ -765,11 +771,13 @@ INLINE char *fnappend(const char *fn, int i)
 
 /* free memories */
 #define DG_FREEMEMORIES() { \
+    dgcsep_free(); \
     dgrjw_free(); \
     dgring_free(); \
+    DGMAP_FREEMEMORIES(); \
     DGMAPL_FREEMEMORIES(); \
     DGHASH_FREEMEMORIES(); \
-    dgmap_free(); }
+    }
 
 
 

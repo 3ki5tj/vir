@@ -189,7 +189,7 @@ typedef struct {
   double *Zr1; /* alternative buffer for Zr */
   real *rc1, *sr1; /* alternative buffer for rc and sr */
   double (*nedg)[2]; /* number of edges */
-  double (*ncsp)[2]; /* no clique separator */
+  double (*nocs)[2]; /* no clique separator */
   double (*fbsm)[3]; /* hard-sphere weight */
   double (*ring)[2]; /* # of ring subgraphs */
   double *B; /* virial coefficients */
@@ -221,8 +221,8 @@ static void gc_cleardata(gc_t *gc)
   for (n = 0; n <= gc->nmax; n++) {
     gc->nedg[n][0] = 1e-20;
     gc->nedg[n][1] = 0;
-    gc->ncsp[n][0] = 1e-20;
-    gc->ncsp[n][1] = 0;
+    gc->nocs[n][0] = 1e-20;
+    gc->nocs[n][1] = 0;
     gc->fbsm[n][0] = 1e-20;
     gc->fbsm[n][1] = gc->fbsm[n][2] = 0;
     gc->ring[n][0] = 1e-20;
@@ -260,7 +260,7 @@ INLINE gc_t *gc_open(int nmin, int nmax, int m,
   xnew(gc->rc1, nensmax);
   xnew(gc->sr1, nensmax);
   xnew(gc->nedg, nmax + 1);
-  xnew(gc->ncsp, nmax + 1);
+  xnew(gc->nocs, nmax + 1);
   xnew(gc->fbsm, nmax + 1);
   xnew(gc->ring, nmax + 1);
   xnew(gc->B, nmax + 1);
@@ -351,7 +351,7 @@ INLINE void gc_close(gc_t *gc)
   free(gc->rc1);
   free(gc->sr1);
   free(gc->nedg);
-  free(gc->ncsp);
+  free(gc->nocs);
   free(gc->fbsm);
   free(gc->ring);
   free(gc->B);
@@ -401,9 +401,9 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       dgmap_t *m = dgmap_ + n;
 
       dg_encode(g, &code);
-      ncs = (dgmap_ncsep0(g, code) == 0);
       dgmap_init(m, n);
       uid = m->map[code];
+      ncs = dgmap_nocs0(n, uid);
       fb = dgmap_fb0(n, uid);
       nr = dgmap_ring0(n, uid);
       err = errnr = 0;
@@ -420,8 +420,8 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       }
       errnr = 1; /* indicate we don't have nr */
     }
-    gc->ncsp[n][0] += 1;
-    gc->ncsp[n][1] += ncs;
+    gc->nocs[n][0] += 1;
+    gc->nocs[n][1] += ncs;
 
     if (nstfb <= 0) return;
     if (n <= nlookup || rnd0() * nstfb/nstcs < 1) {
@@ -442,10 +442,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       gc->fbsm[n][2] += fabs(fb);
 
       /* compute the ring content */
-      if (errnr) {
-        nr = dgring_spec0(g, &ned, degs, &errnr);
-        if (errnr) nr = dgring_do(g);
-      }
+      if (errnr) nr = dg_ring0(g, &ned, degs);
       gc->ring[n][0] += 1;
       gc->ring[n][1] += nr;
     }
@@ -605,7 +602,7 @@ static void gc_print(const gc_t *gc, int compact,
         int n = gc->n[i];
         printf("%6.3f %8.6f %+9.7f %+9.7f %+.6e %+.6e",
           gc->nedg[n][1] / gc->nedg[n][0],
-          gc->ncsp[n][1] / gc->ncsp[n][0],
+          gc->nocs[n][1] / gc->nocs[n][0],
           gc->ring[n][1] / gc->ring[n][0],
           gc->fbsm[n][1] / gc->fbsm[n][0],
           gc->B[n], gc->B2[n]);
@@ -648,8 +645,8 @@ static int gc_saveZr(gc_t *gc, const char *fn)
         gc->nup[i-1][1] / gc->nup[i-1][0],
         gc->ndown[i][1] / gc->ndown[i][0],
         gc->ring[n][0], gc->ring[n][1] / gc->ring[n][0],
-        gc->nedg[n][0], gc->ncsp[n][0], gc->fbsm[n][0],
-        gc->nedg[n][1] / gc->nedg[n][0], gc->ncsp[n][1] / gc->ncsp[n][0],
+        gc->nedg[n][0], gc->nocs[n][0], gc->fbsm[n][0],
+        gc->nedg[n][1] / gc->nedg[n][0], gc->nocs[n][1] / gc->nocs[n][0],
         gc->fbsm[n][2] / gc->fbsm[n][0], gc->fbsm[n][1] / gc->fbsm[n][0],
         gc->B[n], gc->B2[n]);
     tot += gc->hist[i];
@@ -680,10 +677,10 @@ INLINE double gc_fprintZrr(gc_t *gc, FILE *fp,
       fprintf(fp, "%14.0f %17.14f ", gc->ring[n][0],
         gc->ring[n][1] / gc->ring[n][0]);
       fprintf(fp, "%14.0f %14.0f %14.0f ",
-        gc->nedg[n][0], gc->ncsp[n][0], gc->fbsm[n][0]);
+        gc->nedg[n][0], gc->nocs[n][0], gc->fbsm[n][0]);
       fprintf(fp, "%18.14f %16.14f %16.14f %+17.14f %+20.14e %+20.14e ",
         gc->nedg[n][1] / gc->nedg[n][0],
-        gc->ncsp[n][1] / gc->ncsp[n][0],
+        gc->nocs[n][1] / gc->nocs[n][0],
         gc->fbsm[n][2] / gc->fbsm[n][0], /* < |fb| > */
         gc->fbsm[n][1] / gc->fbsm[n][0], /* <  fb  > */
         gc->B[n], gc->B2[n]);
@@ -780,17 +777,17 @@ static int gc_fscanZrr(gc_t *gc, FILE *fp, int loaddata,
     }
 
     if (7 != sscanf(p, "%lf%lf%lf%lf%lf%lf%lf",
-          &gc->nedg[n][0], &gc->ncsp[n][0], &gc->fbsm[n][0],
-          &gc->nedg[n][1], &gc->ncsp[n][1],
+          &gc->nedg[n][0], &gc->nocs[n][0], &gc->fbsm[n][0],
+          &gc->nedg[n][1], &gc->nocs[n][1],
           &gc->fbsm[n][2], &gc->fbsm[n][1]) ) {
       fprintf(stderr, "%s(%d) corrupted on line %d\n%s", fn, tag, i, s);
       break;
     }
     if (gc->nedg[n][0] <= 0) gc->nedg[n][0] = 1e-20;
-    if (gc->ncsp[n][0] <= 0) gc->ncsp[n][0] = 1e-20;
+    if (gc->nocs[n][0] <= 0) gc->nocs[n][0] = 1e-20;
     if (gc->fbsm[n][0] <= 0) gc->fbsm[n][0] = 1e-20;
     gc->nedg[n][1] *= gc->nedg[n][0];
-    gc->ncsp[n][1] *= gc->ncsp[n][0];
+    gc->nocs[n][1] *= gc->nocs[n][0];
     gc->fbsm[n][1] *= gc->fbsm[n][0];
     gc->fbsm[n][2] *= gc->fbsm[n][0];
   }

@@ -161,7 +161,7 @@ typedef struct {
   real rc1[DG_NMAX + 1]; /* alternative buffer of rc */
   double ngpr[DG_NMAX + 1][2]; /* number of good pairs */
   double nedg[DG_NMAX + 1][2]; /* number of edges */
-  double ncsp[DG_NMAX + 1][2]; /* no clique separator */
+  double nocs[DG_NMAX + 1][2]; /* no clique separator */
   double fbsm[DG_NMAX + 1][3]; /* hard-sphere weight */
   double ring[DG_NMAX + 1][2]; /* # of ring subgraphs */
   double B[DG_NMAX + 1]; /* virial coefficients */
@@ -192,8 +192,8 @@ static void gc_cleardata(gc_t *gc)
     gc->ngpr[i][1] = 0;
     gc->nedg[i][0] = 1e-20;
     gc->nedg[i][1] = 0;
-    gc->ncsp[i][0] = 1e-20;
-    gc->ncsp[i][1] = 0;
+    gc->nocs[i][0] = 1e-20;
+    gc->nocs[i][1] = 0;
     gc->fbsm[i][0] = 1e-20;
     gc->fbsm[i][1] = gc->fbsm[i][2] = 0;
     gc->ring[i][0] = 1e-20;
@@ -354,7 +354,7 @@ static void gc_printZr(const gc_t *gc, const double *Zr, const real *rc)
         gc->ndown[i][1] / gc->ndown[i][0],
         gc->ngpr[i][1] / gc->ngpr[i][0],
         gc->nedg[i][1] / gc->nedg[i][0],
-        gc->ncsp[i][1] / gc->ncsp[i][0],
+        gc->nocs[i][1] / gc->nocs[i][0],
         gc->ring[i][1] / gc->ring[i][0],
         gc->fbsm[i][1] / gc->fbsm[i][0],
         gc->B[i], gc->B2[i]);
@@ -382,9 +382,9 @@ INLINE double gc_fprintZr(gc_t *gc, FILE *fp,
         gc->ring[i][1] / gc->ring[i][0]); /* 14 numbers */
     fprintf(fp, "%14.0f %14.0f %14.0f %18.14f %16.14f %16.14f %+17.14f "
         "%+20.14e %+20.14e\n",
-        gc->nedg[i][0], gc->ncsp[i][0], gc->fbsm[i][0],
+        gc->nedg[i][0], gc->nocs[i][0], gc->fbsm[i][0],
         gc->nedg[i][1] / gc->nedg[i][0],
-        gc->ncsp[i][1] / gc->ncsp[i][0],
+        gc->nocs[i][1] / gc->nocs[i][0],
         gc->fbsm[i][2] / gc->fbsm[i][0],
         gc->fbsm[i][1] / gc->fbsm[i][0],
         gc->B[i], gc->B2[i]); /* 23 numbers */
@@ -487,17 +487,17 @@ static int gc_fscanZr(gc_t *gc, FILE *fp, int loaddata,
     }
 
     if ( 7 != sscanf(p, "%lf%lf%lf%lf%lf%lf%lf",
-           &gc->nedg[i][0], &gc->ncsp[i][0], &gc->fbsm[i][0],
-           &gc->nedg[i][1], &gc->ncsp[i][1],
+           &gc->nedg[i][0], &gc->nocs[i][0], &gc->fbsm[i][0],
+           &gc->nedg[i][1], &gc->nocs[i][1],
            &gc->fbsm[i][2], &gc->fbsm[i][1]) ) {
       fprintf(stderr, "%s(%d): corrupted(III) on line %d\n%s", fn, tag, i, s);
       break;
     }
     if (gc->nedg[i][0] <= 0) gc->nedg[i][0] = 1e-20;
-    if (gc->ncsp[i][0] <= 0) gc->ncsp[i][0] = 1e-20;
+    if (gc->nocs[i][0] <= 0) gc->nocs[i][0] = 1e-20;
     if (gc->fbsm[i][0] <= 0) gc->fbsm[i][0] = 1e-20;
     gc->nedg[i][1] *= gc->nedg[i][0];
-    gc->ncsp[i][1] *= gc->ncsp[i][0];
+    gc->nocs[i][1] *= gc->nocs[i][0];
     gc->fbsm[i][1] *= gc->fbsm[i][0];
     gc->fbsm[i][2] *= gc->fbsm[i][0];
   }
@@ -582,9 +582,9 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       unqid_t uid;
       dgmap_t *m = dgmap_ + n;
       dg_encode(g, &code);
-      ncs = (dgmap_ncsep0(g, code) == 0);
       dgmap_init(m, n);
       uid = m->map[code];
+      ncs = dgmap_nocs0(n, uid);
       fb = dgmap_fb0(n, uid);
       nr = dgmap_ring0(n, uid);
       err = errnr = 0;
@@ -601,8 +601,8 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       }
       errnr = 1; /* indicate we don't have nr */
     }
-    gc->ncsp[n][0] += 1;
-    gc->ncsp[n][1] += ncs;
+    gc->nocs[n][0] += 1;
+    gc->nocs[n][1] += ncs;
 
     if (nstfb <= 0) return;
     if (n <= nlookup || (nstfb > 0 && (int) fmod(t + .5, nstfb) == 0)) {
@@ -623,10 +623,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       gc->fbsm[n][2] += fabs(fb);
 
       /* compute the ring content */
-      if (errnr) {
-        nr = dgring_spec0(g, &ned, degs, &errnr);
-        if (errnr) nr = dgring_do(g);
-      }
+      if (errnr) nr = dg_ring0(g, &ned, degs);
       gc->ring[n][0] += 1;
       gc->ring[n][1] += nr;
     }

@@ -52,17 +52,16 @@ int mapl_kdepth = 0; /* number of links to search in the larger lookup table */
 
 int hash_on = -1; /* 1: on, 0: off, -1: default */
 int hash_bits = 0;
-unsigned hash_blksz = 0;
 int hash_blkmem = 0;
 double hash_memmax = 0;
-int hash_initls = 0; /* TODO: currently turn off initls by default mainly for compatibility
-                      * Turning on initls improves the performance of memory allocation
-                      * but this assumes the hash_bits and other parameters are set properly
-                      * So it is safer to turn it off by default */
 int auto_level = -1;
 int hash_isoenum = -1;
 int hash_isomax = 0; /* default value */
 int hash_nocsep = 0; /* test clique separators before passing it to the hash table */
+
+/* obsolete options */
+int hash_initls = 1;
+unsigned hash_blksz = 4;
 
 int dostat = 0; /* applies to mapl and hash */
 

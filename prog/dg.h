@@ -86,9 +86,9 @@ int inode = MASTER, nnodes = 1;
 
 /* now that we have define DG_WORDBITS, we can use
  * the proper set of bitwise operations in zcom.h */
-#define WORDBITS_ DG_WORDBITS
 #define ZCOM_PICK
 #define ZCOM_UTIL
+#define WORDBITS_ DG_WORDBITS
 #define ZCOM_BITS
 #define ZCOM_RV3
 #include "zcom.h"
@@ -140,6 +140,7 @@ int inode = MASTER, nnodes = 1;
 #define DG_GN_(g) ((g)->n)
 #define DG_DEFN_(g) int n = (g)->n;
 #endif
+#define DG_NPR_ (DG_N_*(DG_N_ - 1)/2)
 
 
 
