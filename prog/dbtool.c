@@ -94,8 +94,13 @@ static int checkitem(dgdbitem_t *it, dg_t *g, int level,
 
   /* check if the fb and nr values are valid */
   if (level >= 2) {
-    double fb;
-    fb = dg_fb(g);
+    double fb, nr = 0, *nrptr;
+#ifdef DG_NORING
+    nrptr = NULL;
+#else
+    nrptr = &nr;
+#endif
+    fb = dg_fbnr(g, nrptr);
     if (fabs(fb - it->fb) > 0.1) {
       fprintf(stderr, "id %.0f: fb %g mismatch %g\n",
           1.*id, fb, 1.*it->fb);
@@ -105,7 +110,6 @@ static int checkitem(dgdbitem_t *it, dg_t *g, int level,
     }
 #ifndef DG_NORING
     if (db->hasnr) {
-      double nr = dg_ring(g);
       if (fabs(nr - it->nr) > 0.1) {
         fprintf(stderr, "id %.0f: nr %g mismatch %g\n",
             1.*id, nr, 1.*it->nr);

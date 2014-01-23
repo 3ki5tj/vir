@@ -1,6 +1,9 @@
 #ifndef DGMAP_H__
 #define DGMAP_H__
-#include "dgring.h"
+
+
+
+#include "dgrjw.h"
 
 
 
@@ -183,7 +186,7 @@ INLINE void dgmap_done(dgmap_t *m)
 
 
 /* retrieve the diagram id */
-INLINE unqid_t dg_getmapidx(const dg_t *g, dgword_t *c)
+INLINE unqid_t dgmap_getuidx(const dg_t *g, dgword_t *c)
 {
   DG_DEFN_(g)
 
@@ -194,11 +197,11 @@ INLINE unqid_t dg_getmapidx(const dg_t *g, dgword_t *c)
 
 
 
-/*  retrieve the diagram id */
-INLINE unqid_t dg_getmapid(const dg_t *g)
+/* retrieve the diagram id */
+INLINE unqid_t dgmap_getuid(const dg_t *g)
 {
   dgword_t c;
-  return dg_getmapidx(g, &c);
+  return dgmap_getuidx(g, &c);
 }
 
 
@@ -237,38 +240,38 @@ INLINE unqid_t dg_getmapid(const dg_t *g)
 /* unique diagrams are few enough to allow private memories */
 static int *dgmap_bc_[DGMAP_NMAX + 1] = {NULL}; /* biconnected */
 #pragma omp threadprivate(dgmap_bc_)
-/* dgmap_biconnected() can be slower than dg_biconnected (due to dg_getmapid())
+/* dgmap_biconnected() can be slower than dg_biconnected (due to dgmap_getuid())
  * however, dgmap_biconnected0() is fast */
-#define dgmap_biconnected(g) dgmap_biconnected0(DG_GN_(g), dg_getmapid(g))
+#define dgmap_biconnected(g) dgmap_biconnected0(DG_GN_(g), dgmap_getuid(g))
 DGMAP_MAKEFUNC(dgmap_biconnected0, int, 1, dgmap_bc_)
 
 
 static int *dgmap_nocs_[DGMAP_NMAX + 1]; /* if there are clique separators in unique diagrams */
 #pragma omp threadprivate(dgmap_nocs_)
-#define dgmap_nocs(g) dgmap_nocs0(g->n, dg_getmapid(g))
-DGMAP_MAKEFUNC(dgmap_nocs0, int, (dg_csep(g) != 0), dgmap_nocs_)
+#define dgmap_nocs(g) dgmap_nocs0(g->n, dgmap_getuid(g))
+DGMAP_MAKEFUNC(dgmap_nocs0, int, (dg_csep(g) == 0), dgmap_nocs_)
 
 
-#ifdef DGMAP_NEEDSC
+#ifdef DGMAP_NEEDSSC
 /* normally we don't need the lookup function for the star content
  * for we have an equivalent fb array */
-static double *dgmap_sc_[DGMAP_NMAX + 1]; /* sc of unique diagrams */
-#pragma omp threadprivate(dgmap_sc_)
-#define dgmap_sc(g) dgmap_sc0(g->n, dg_getmapid(g))
-DGMAP_MAKEFUNC(dgmap_sc0, double, dg_sc(g), dgmap_sc_)
+static double *dgmap_ssc_[DGMAP_NMAX + 1]; /* sc of unique diagrams */
+#pragma omp threadprivate(dgmap_ssc_)
+#define dgmap_ssc(g) dgmap_ssc0(g->n, dgmap_getuid(g))
+DGMAP_MAKEFUNC(dgmap_ssc0, double, dg_ssc(g), dgmap_ssc_)
 #endif
 
-  
+
 static double *dgmap_fb_[DGMAP_NMAX + 1]; /* fb of unique diagrams */
 #pragma omp threadprivate(dgmap_fb_)
-#define dgmap_fb(g) dgmap_fb0(g->n, dg_getmapid(g))
+#define dgmap_fb(g) dgmap_fb0(g->n, dgmap_getuid(g))
 DGMAP_MAKEFUNC(dgmap_fb0, double, dg_fb(g), dgmap_fb_)
 
 
 static double *dgmap_nr_[DGMAP_NMAX + 1]; /* nr of unique diagrams */
 #pragma omp threadprivate(dgmap_nr_)
-#define dgmap_ring(g) dgmap_ring0(g->n, dg_getmapid(g))
-DGMAP_MAKEFUNC(dgmap_ring0, double, dg_ring(g), dgmap_nr_)
+#define dgmap_nr(g) dgmap_nr0(g->n, dgmap_getuid(g))
+DGMAP_MAKEFUNC(dgmap_nr0, double, dgring_nr(g), dgmap_nr_)
 
 
 
@@ -281,8 +284,8 @@ INLINE void dgmap_free(void)
   for (k = 0; k <= DGMAP_NMAX; k++) {
     if (dgmap_bc_[k] != NULL) free(dgmap_bc_[k]);
     if (dgmap_nocs_[k] != NULL) free(dgmap_nocs_[k]);
-#ifdef DGMAP_NEEDSC
-    if (dgmap_sc_[k] != NULL) free(dgmap_sc_[k]);
+#ifdef DGMAP_NEEDSSC
+    if (dgmap_ssc_[k] != NULL) free(dgmap_ssc_[k]);
 #endif
     if (dgmap_fb_[k] != NULL) free(dgmap_fb_[k]);
     if (dgmap_nr_[k] != NULL) free(dgmap_nr_[k]);

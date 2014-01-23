@@ -560,12 +560,32 @@ INLINE void dg_unlink(dg_t *g, int i, int j)
 INLINE int dg_degvs(const dg_t *g, int i, dgvs_t vs)
 {
   dgvs_t vs1;
-
-  DGVS_AND2(vs1, g->c[i], vs)
-  return dgvs_count(vs1);
+  return dgvs_count( dgvs_and2(vs1, g->c[i], vs) );
 }
 
 #endif /* DGVS_ONEWORD */
+
+
+
+/* static variables for the degree sequence */
+static int dg_nedges_;
+static int dg_degs_[DG_NMAX];
+#pragma omp threadprivate(dg_nedges_, dg_degs_)
+
+/* compute the degrees of all vertices if needed
+ * `ned' is (int *), if it is NULL on input, we point it to `&ned_local'
+ * `degs' is (int *), if it is NULL on input, we point it to `degs_local'
+ * if `ned' == NULL or if `*ned' <= 0, compute the degree sequence
+ * otherwise, we assume that the values in `*ned' and `degs' are valid
+ * and the two local variables are unused.
+ * An example call:
+ *  DG_CALC_DEGS(ned, degs, dg_nedges_, dg_degs_)
+ * */
+#define DG_CALC_DEGS(ned, degs, ned_local, degs_local) { \
+  if ( ned == NULL ) { ned = &ned_local, ned_local = -1; } \
+  if ( degs == NULL ) degs = degs_local; \
+  if ( *ned <= 0 ) *ned = dg_degs(g, degs); \
+}
 
 
 
@@ -597,6 +617,7 @@ INLINE int dg_nedges(const dg_t *g)
 
 #define dg_print0(g, nm)  dg_fprint0(g, stdout, nm)
 #define dg_print(g)       dg_print0(g, NULL)
+#define dg_fprint(g, fp)  dg_fprint0(g, fp, NULL)
 
 INLINE void dg_fprint0(const dg_t *g, FILE *fp, const char *nm)
 {
@@ -772,7 +793,7 @@ INLINE int dg_biconnectedvs_simple(const dg_t *g, dgvs_t vs)
 
 
 #ifndef DGBC_SIMPLE
-#define dg_biconnected(g)         dg_biconnected_std(g)
+#define dg_biconnected(g)         dg_biconnected_std(g, 0)
 #else
 #define dg_biconnected(g)         dg_biconnected_simple(g)
 #endif
@@ -782,9 +803,9 @@ INLINE int dg_biconnectedvs_simple(const dg_t *g, dgvs_t vs)
 
 /* check if a graph is biconnected
  * standard algorithm with bitwise operation */
-INLINE int dg_biconnected_std(const dg_t *g)
+INLINE int dg_biconnected_std(const dg_t *g, int root)
 {
-  int top, v, par, ppar, id, root = 0;
+  int top, v, par, ppar, id;
   DG_DEFN_(g)
   static int stack[DG_NMAX + 1], dfn[DG_NMAX], low[DG_NMAX];
 #pragma omp threadprivate(stack, dfn, low)

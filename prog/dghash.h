@@ -29,7 +29,7 @@
 #include "zcom.h"
 #include "dg.h"
 #include "dgaut.h"
-#include "dgring.h"
+#include "dgrjw.h"
 #include "dgdb.h"
 
 
@@ -329,7 +329,7 @@ INLINE int dghash_enumiso(dghash_t *h, const dg_t *g,
   int i, cnt, icnt, pos;
   int cwords = h->cwords, hbits = h->bits;
   dgword_t id, *c;
-  dgls_t *ls, *ls1;
+  dgls_t *ls;
 
   if (cwords * h->isomax > dghash_isocap_) {
     if (dghash_isocodes_) free(dghash_isocodes_);
@@ -347,7 +347,7 @@ INLINE int dghash_enumiso(dghash_t *h, const dg_t *g,
       c = dghash_isocodes_ + i * cwords;
       DGHASH_GETID(id, c, cwords, hbits);
       ls = h->ls + id;
-      if ((ls1 = dgls_find(ls, c, cwords, &pos)) != NULL) /* item exists */
+      if (dgls_find(ls, c, cwords, &pos) != NULL) /* item exists */
         continue;
       dgls_add(ls, c, fb, nr, h);
       icnt++;
@@ -366,8 +366,8 @@ static dghash_t *dghash_[DG_NMAX + 1]; /* default hash table, shared */
 /* look up fb and nr simultaneously from the hash table
  * `csepmethod' is the method of detecting clique separators
  *    0 means not to detect clique separators */
-INLINE double dghash_fbnr0(dghash_t *h, const dg_t *g,
-    double *nr, int csepmethod, int *ned, int *degs)
+INLINE double dghash_fbnr0(dghash_t *h, const dg_t *g, double *nr,
+    int csepmethod, int *ned, int *degs)
 {
   static dgword_t c[DG_CWORDS];
   static dgvs_t ng_c[DG_NMAX];
@@ -378,7 +378,7 @@ INLINE double dghash_fbnr0(dghash_t *h, const dg_t *g,
   int pos;
   dgword_t hashid;
   dgls_t *ls, *ls1;
-  double fb = 0;
+  double fb = 0, *nrptr;
 
   if (h == NULL) { /* initialize the stock hash table */
     die_if (DG_N_ > DG_NMAX, "n %d is too large %d\n", DG_N_, DG_NMAX);
@@ -421,12 +421,13 @@ INLINE double dghash_fbnr0(dghash_t *h, const dg_t *g,
     }
   }
   if (ls1 != NULL) return fb;
-  fb = dg_fb0(g, csepmethod, ned, degs);
-#ifndef DG_NORING
-  *nr = dg_ring0(g, ned, degs);
-#else
+#ifdef DG_NORING
+  nrptr = NULL;
   *nr = 0;
+#else
+  nrptr = nr;
 #endif
+  fb = dg_fbnr0(g, nrptr, DGSC_DEFAULTMETHOD, csepmethod, ned, degs);
   if (h->isoenum) {
     /* omp critical region will be limited in dghash_enum() */
     dghash_enumiso(h, g, fb, *nr, ng);

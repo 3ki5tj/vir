@@ -23,6 +23,7 @@ from math import *
 verbose = 1 # verbose level
 rmbad = 0 # detect and remove bad data that significantly deviate from the average
 mulsig = 3 # multiple of standard deviation for the above exclusion
+dirnamecheck = True
 
 
 
@@ -1201,7 +1202,7 @@ def checkdirfn(dir, fn):
     mfn = re.search(r"D([0-9]+)", fn)
     if mfn:
       fnd = int( mfn.group(1) )
-      if dird != fnd:
+      if dirnamecheck and dird != fnd:
         print "file name %s (D = %d) incompatible with the dir name %s (D = %d)" % (
             fn, fnd, dir, dird)
         return 1
@@ -1215,7 +1216,7 @@ def checkdirfn(dir, fn):
     mfn = re.search("n([0-9]+)", fn)
     if mfn:
       fnn = int( mfn.group(1) )
-      if dirn != fnn:
+      if dirnamecheck and dirn != fnn:
         print "file name %s (n = %d) incompatible with the dir name %s (n = %d)" % (
             fn, fnn, dir, dirn)
         return 1
@@ -1295,7 +1296,22 @@ def usage():
    -d:     input are directories to aggregate
    -t:     use the total instead of the inverse variance to weight individual
            simulations during the above aggregation
-  """
+   -N:     no check for the directory name
+
+  EXAMPLES:
+  1. aggregrate data of mrD2n10.dat, mrD2n10.dat1, ...
+    $PROG  mrD2n10.dat
+
+  2. aggregate directories dir1, dir2, ... of order n = 10
+    $PROG -d -n 10 dir1 dir2 dir3
+
+  3. search directories for order 10 and aggregate them
+    $PROG -n 10
+
+  4. scan directories of all orders and gregrates them by orders
+    $PROG -s
+
+  """.replace("$PROG", sys.argv[0])
   exit(1)
 
 
@@ -1303,14 +1319,14 @@ def usage():
 def doargs():
   ''' Handle common parameters from command line options '''
   try:
-    opts, args = getopt.gnu_getopt(sys.argv[1:], "sdn:xy:",
-         ["scan", "dir", "rmbad", "order=", "help",])
+    opts, args = getopt.gnu_getopt(sys.argv[1:], "sdn:xy:N",
+        ["scan", "dir", "rmbad", "order=", "verbose=", "help",])
   except getopt.GetoptError, err:
     # print help information and exit:
     print str(err) # will print something like "option -a not recognized"
     usage()
 
-  global rmbad, mulsig
+  global verbose, rmbad, mulsig, dirnamecheck
   n = 0
   isdir = 0
 
@@ -1326,6 +1342,10 @@ def doargs():
       rmbad = 1
     elif o in ("-y",):
       mulsig = float(a)
+    elif o in ("-N",):
+      dirnamecheck = False
+    elif o in ("--verbose=",):
+      verbose = int(a)
     elif o in ("-h", "--help",):
       usage()
 

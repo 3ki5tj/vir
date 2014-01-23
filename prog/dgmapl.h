@@ -29,15 +29,10 @@
 #undef DGMAPL_EXISTS
 #endif /* !defined(DGVS_ONEWORD) */
 
-#endif /* defined(DGMAPL_EXISTS) */
 
 
-
-
-#ifdef DGMAPL_EXISTS
-
-/* including dgring.h also implicitly include dgrjw.h and dgsc.h, etc. */
-#include "dgring.h"
+/* implicitly include dgring.h and dgsc.h, etc. */
+#include "dgrjw.h"
 
 
 
@@ -415,8 +410,8 @@ INLINE double dgmapl_fbnr0(dgmapl_t *m, const dg_t *g,
   }
 
   if (c == 0) { /* the lookup table is not applicable, do it directly */
-    *nr = 0;
-    fb = dg_fb0(g, csepmethod, ned, degs);
+    *nr = 0; /* we are certain there is no ring */
+    fb = dg_fb0(g, DGSC_DEFAULTMETHOD, csepmethod, ned, degs);
     return fb;
   }
 
@@ -424,7 +419,7 @@ INLINE double dgmapl_fbnr0(dgmapl_t *m, const dg_t *g,
   if (ifbnr[0] != DGMAPL_BAD) {
     fb = ifbnr[0];
   } else {
-    fb = dg_fb0(g, csepmethod, ned, degs);
+    fb = dg_fb0(g, DGSC_DEFAULTMETHOD, csepmethod, ned, degs);
     if (fabs(fb) < DGMAPL_MAX) {
       ifbnr[0] = (dgmapl_int_t) ((fb < 0) ? (fb - .5) : (fb + .5));
       hasnew = 1;
@@ -434,7 +429,7 @@ INLINE double dgmapl_fbnr0(dgmapl_t *m, const dg_t *g,
   if (ifbnr[1] != DGMAPL_BAD) {
     *nr = ifbnr[1];
   } else {
-    *nr = dg_ring0(g, ned, degs);
+    *nr = dgring_nr0(g, ned, degs);
     if (*nr < DGMAPL_MAX) {
       /* the ring content is nonnegative */
       ifbnr[1] = (dgmapl_int_t) (*nr + .5);
@@ -489,22 +484,10 @@ INLINE void dgmapl_printstat(dgmapl_t *m, FILE *fp)
 }
 
 
-#else
-
-
-#define ZCOM_PICK
-#define ZCOM_UTIL
-#include "zcom.h"
-
-
-#endif /* defined(DGMAPL_EXISTS) */
-
-
 
 /* free all stock pointers */
 INLINE void dgmapl_free(void)
 {
-#ifdef DGMAPL_EXISTS
   int k;
 
 #pragma omp critical
@@ -515,8 +498,8 @@ INLINE void dgmapl_free(void)
         dgmapl_[k] = NULL;
       }
   }
-#endif /* defined(DGMAPL_EXISTS) */
 }
+#endif /* defined(DGMAPL_EXISTS) */
 
 
 

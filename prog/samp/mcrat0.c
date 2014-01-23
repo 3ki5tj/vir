@@ -60,8 +60,8 @@ int hash_isomax = 0; /* default value */
 int hash_nocsep = 0; /* test clique separators before passing it to the hash table */
 
 /* obsolete options */
-int hash_initls = 1;
 unsigned hash_blksz = 4;
+int hash_initls = 1;
 
 int dostat = 0; /* applies to mapl and hash */
 
@@ -89,7 +89,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-G", "%b", &gdisp, "normally-distributed displacement");
   argopt_add(ao, "-H", "%lf", &ratcr, "rate of coordinates replacement");
   argopt_add(ao, "-U", "%lf", &r2cr, "squared radius of replaced coordinates");
-  argopt_add(ao, "-p", "%d", &csepmethod, "method of detecting clique separators, 0: disable, 1: full detection, 2: mcs detection");
+  argopt_add(ao, "-p", "%d", &csepmethod, "method of detecting clique separators, 0: disable, 1: LEX-M, 2: MCS-P, 3: MCS-M");
   argopt_add(ao, "-o", NULL, &fnout, "output file");
   argopt_add(ao, "-P", NULL, &prefix0, "directory to save data");
   argopt_add(ao, "-B", "%b", &bsim0, "discard data in previous simulations");
@@ -113,7 +113,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--auto-level",  "%d",   &auto_level,  "automorphism level, -1: canonical label, 0: no transformation, 1: degree sequence, 2 or 3: first automorphism in the searching tree");
   argopt_add(ao, "--hash-isoenum","%d",   &hash_isoenum,"enumerate isomorphic graphs after a new graph is found, 1: yes, 0: no, -1: default");
   argopt_add(ao, "--hash-isomax", "%d",   &hash_isomax, "maximal number of items to used in the above enumeration");
-  argopt_add(ao, "--hash-nocsep", "%b",   &hash_nocsep, "only pass graphs with no clique separator to the hash table");
+  argopt_add(ao, "--hash-nocsep", "%b",   &hash_nocsep, "only pass graphs with no clique separator to the hash table, 0: disable, 1: full detection, 2: mcs detection");
 
   argopt_add(ao, "--stat",        "%b",   &dostat,      "compute statistics");
 
@@ -248,11 +248,11 @@ static void doargs(int argc, char **argv)
   if (inode == MASTER) {
     argopt_dump(ao);
     printf("D %d, n %d, %g steps, amp %g, nstfb %d, %d-bit, "
-      "%s, %s disp, Bring %g, Z %g, dbfninp %s, dbfnout %s(%s)\n",
+      "%s, %s disp, Bring %g, Z %g, dbfninp %s, dbfnout %s(%s), RJWNMAX %d\n",
       D, n, 1.*nsteps, mcamp, nstfb,
       (int) sizeof(dgword_t) * 8, lookup ? "lookup" : "direct",
       gdisp ? "Gaussian" : "uniform", Bring, Zn,
-      dbfninp, dbfnout, dbfnbak);
+      dbfninp, dbfnout, dbfnbak, RJWNMAX);
   } else { /* change file names for slave nodes */
     if (fnout) fnout = fnappend(fnout, inode);
   }
@@ -425,7 +425,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   gmapid = dgmap_[DG_N_].map[code];
   fb = dgmap_fb0(DG_N_, gmapid);
 #ifndef DG_NORING
-  nr = dgmap_ring0(DG_N_, gmapid);
+  nr = dgmap_nr0(DG_N_, gmapid);
 #endif /* !defined(DG_NORING) */
 
   /* main loop */
@@ -441,7 +441,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
         dg_encode(g, &code);
         fb = dgmap_fb(g);
 #ifndef DG_NORING
-        nr = dgmap_ring(g);
+        nr = dgmap_nr(g);
 #endif /* !defined(DG_NORING) */
       }
       av0_add(&racc, acc);
@@ -479,7 +479,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
           code = ncode;
           fb = dgmap_fb0(DG_N_, gmapid);
 #ifndef DG_NORING
-          nr = dgmap_ring0(DG_N_, gmapid);
+          nr = dgmap_nr0(DG_N_, gmapid);
 #endif /* !defined(DG_NORING) */
         }
       }
@@ -500,7 +500,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
         }
 #ifndef DG_NORING
         double nr1;
-        nr1 = dg_ring(g);
+        nr1 = dgring_nr(g);
         if (fabs(nr - nr1) > 1e-3) {
           printf("%d: t %g, nr %g vs %g\n", inode, t, nr, nr1);
           dg_print(g);
@@ -532,16 +532,20 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
 #ifdef DGHASH_EXISTS
 /* conditionally use the hash table to compute fb and nr */
-INLINE double hashgetfbnr(dghash_t *hash, const dg_t *g, double *nr,
-    int csepmethod, int *ned, int *degs)
+INLINE double hashgetfbnr(dghash_t *hash, const dg_t *g,
+   int csepmethod, double *nr, int *ned, int *degs)
 {
 #ifdef DG_NORING
+  /* if the ring content is not needed and the hash table contains
+   * no diagram of clique separators, we will test if the diagram
+   * has clique separator before requesting the fb value */
   if ( hash_nocsep ) { /* check if there is a clique separator */
     if ( dg_csep0(g, csepmethod) ) { /* there is a clique separator */
       *nr = 0; /* due to defined(DG_NORING) */
       return 0;
     } else { /* there is no clique separator */
-      /* disable future detection of clique separators */
+      /* disable the detection of clique separators in
+       * dghash_fbnr0() */
       csepmethod = DGCSEP_NULLMETHOD;
     }
   }
@@ -625,10 +629,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
       inode, nequil, dg_nedges(g), nstfb, mr_->arr, (unsigned) mr_->arr[0]);
   die_if (!dg_biconnected(g),
       "%d, initial diagram not biconnected D %d\n", inode, D);
-  fb = dg_fb(g);
-#ifndef DG_NORING
-  nr = dg_ring(g);
-#endif /* !defined(DG_NORING) */
+  fb = dg_fbnr(g, &nr);
   hasfb = 1;
 
   /* main loop */
@@ -642,7 +643,7 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
         exit(1);
       }
 #ifndef DG_NORING
-      double nr1 = dg_ring(g);
+      double nr1 = dgring_nr(g);
       if ( fabs(nr - nr1) > 1e-3 ) {
         printf("%d: PRE1 t %g, nr %g (%g)\n", inode, t, nr, nr1);
         dg_print(g);
@@ -675,26 +676,33 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 
     if (it % nstfb == 0) {
       if ( !hasfb ) {
+        int err;
         ned = -1;
         /* detect special cases, including the ring diagram
          * but it does not detect clique separators */
-        if (dg_fbnr_spec0(g, &fb, &nr, &ned, degs) != 0) {
+        fb = dg_fbnr_spec0(g, &nr, &ned, degs, &err);
+        if ( err ) {
 #ifdef DGMAPL_EXISTS
           if ( mapl_on && mapl != NULL ) { /* use the larger lookup table */
-            fb = dgmapl_fbnr0(mapl, g, &nr, 0, &ned, degs);
+            fb = dgmapl_fbnr0(mapl, g, &nr, csepmethod, &ned, degs);
           } else
 #endif /* defined(DGMAPL_EXISTS) */
           {
 #ifdef DGHASH_EXISTS
             if ( hash_on && hash != NULL) {
-              fb = hashgetfbnr(hash, g, &nr, csepmethod, &ned, degs);
+              fb = hashgetfbnr(hash, g, csepmethod, &nr, &ned, degs);
             } else
 #endif /* defined(DGHASH_EXISTS) */
             {
-              fb = dg_fb0(g, csepmethod, &ned, degs);
-#ifndef DG_NORING
-              nr = dg_ring0(g, &ned, degs);
+              /* if either the hash table is unavailable or it is
+               * not turned on, we go to here */
+              double *nrptr = &nr;
+#ifdef DG_NORING
+              nr = 0;
+              nrptr = NULL;
 #endif /* !defined(DG_NORING) */
+              fb = dg_fbnr0(g, nrptr, DGSC_DEFAULTMETHOD|DGSC_NOSPEC,
+                  csepmethod, &ned, degs);
               neval++;
             }
           }
@@ -711,16 +719,16 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
     if (fmod(t, NSTCHECK) < 0.1) {
       /* check if fb and nr have been correctly computed */
       if (hasfb) {
-        double fb1 = dg_hsfb(g);
+        double fb1 = dg_fb(g);
         if (fabs(fb - fb1) > 1e-3) {
-          printf("%d: t %g, acc %d, fb %g (%g)\n", inode, t, acc, fb, fb1);
+          printf("%d: t %g, acc %d, fb %g (ref. %g)\n", inode, t, acc, fb, fb1);
           dg_print(g);
           exit(1);
         }
 #ifndef DG_NORING
-        double nr1 = dg_ring(g);
+        double nr1 = dgring_nr(g);
         if (fabs(nr - nr1) > 1e-3) {
-          printf("%d: t %g, acc %d, nr %g (%g)\n", inode, t, acc, nr, nr1);
+          printf("%d: t %g, acc %d, nr %g (ref. %g)\n", inode, t, acc, nr, nr1);
           dg_print(g);
           exit(1);
         }
@@ -800,7 +808,7 @@ int main(int argc, char **argv)
     inode = omp_get_thread_num();
 #endif
     /* scramble the random number generator */
-    mtscramble(inode * 2038074743u + nnodes * time(NULL) + rngseed);
+    mtscramble(inode * 2038074743u + nnodes * (unsigned) time(NULL) + rngseed);
 
 #ifdef DGMAP_EXISTS
     if (lookup) {

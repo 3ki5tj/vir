@@ -368,9 +368,8 @@ INLINE void gc_close(gc_t *gc)
 static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
     int nstcs, int nstfb)
 {
-  int ned = -1, n = g->n, ncs, err, errnr;
-  double sc, fb = 0;
-  double nr = 0;
+  int ned = -1, n = g->n, nocs, errfb, errnr;
+  double fb = 0, nr = 0;
   static int degs[DG_NMAX], nlookup = 0;
 
   if (nlookup <= 0)
@@ -390,8 +389,8 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
      * but in special cases, fb and nr are computed as well */
     if (n <= 3) { /* assuming biconnectivity */
       static double fbarr[4] = {1, 1, -1, -1};
-      err = errnr = 0;
-      ncs = 1;
+      errfb = errnr = 0;
+      nocs = 1;
       fb = fbarr[n];
       nr = 1;
 #ifdef DGMAP_EXISTS
@@ -403,46 +402,52 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
       dg_encode(g, &code);
       dgmap_init(m, n);
       uid = m->map[code];
-      ncs = dgmap_nocs0(n, uid);
+      nocs = dgmap_nocs0(n, uid);
       fb = dgmap_fb0(n, uid);
-      nr = dgmap_ring0(n, uid);
-      err = errnr = 0;
+      nr = dgmap_nr0(n, uid);
+      errfb = errnr = 0;
 #endif
     } else {
       /* this function implicitly computes the clique separator
        * with a very small overhead */
-      sc = dgsc_spec0(g, csepmethod, &ned, degs, &err);
-      if (err == 0) {
-        ncs = (fabs(sc) > 1e-3);
-        fb = DG_SC2FB(sc, ned);
-      } else { /* no clique separator */
-        ncs = 1;
+      fb = dg_fbnr_spec0(g, &nr, &ned, degs, &errfb);
+      if (errfb == 0) {
+        nocs = (fabs(fb) > 1e-3);
+        errnr = 0;
+      } else {
+        nocs = (dg_csep0(g, csepmethod) == 0);
+        if ( !nocs ) fb = 0, errfb = 0;
+        errnr = 1; /* indicate we don't have nr */
       }
-      errnr = 1; /* indicate we don't have nr */
     }
     gc->nocs[n][0] += 1;
-    gc->nocs[n][1] += ncs;
+    gc->nocs[n][1] += nocs;
 
     if (nstfb <= 0) return;
     if (n <= nlookup || rnd0() * nstfb/nstcs < 1) {
       /* compute fb, if it is cheap */
-      if ( err ) { /* if dg_rhsc_spec0() fails, no clique separator */
+      if ( errfb ) { /* if dg_rhsc_spec0() fails, no clique separator */
         if (ned > n + nedxmax && n > nedxmax + 2) {
           fprintf(stderr, "%d: t %.6e/%g D %d assume fb = 0 n %d ned %d, del %d\n",
               inode, t, nsteps, D, n, ned, ned - n);
           fb = 0;
         } else {
-          /* don't detect clique separators, for it's already
-           * done by dg_rhsc_spec0() above */
-          fb = dg_fb0(g, DGCSEP_NULLMETHOD, &ned, degs);
+          /* don't detect clique separators and special cases,
+           * for they are already done above */
+          fb = dg_fbnr0(g, &nr, DGSC_DEFAULTMETHOD | DGSC_NOSPEC,
+              DGCSEP_NULLMETHOD, &ned, degs);
+          /* the above function computes nr when necessary */
+          errnr = 0;          
         }
       }
       gc->fbsm[n][0] += 1;
       gc->fbsm[n][1] += fb;
       gc->fbsm[n][2] += fabs(fb);
 
-      /* compute the ring content */
-      if (errnr) nr = dg_ring0(g, &ned, degs);
+      /* compute the ring content
+       * if the graph has a clique separator, then we know fb = 0
+       * but don't know nr, so we compute nr separately */
+      if (errnr) nr = dgring_nr0(g, &ned, degs);
       gc->ring[n][0] += 1;
       gc->ring[n][1] += nr;
     }

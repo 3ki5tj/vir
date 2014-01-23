@@ -23,7 +23,7 @@ static void cmpref(int n, edges_t *ref)
       dg_link(g, ref[i].id[j][0], ref[i].id[j][1]);
     cn = dg_connected(g);
     bc = dg_biconnected(g);
-    bc1 = dg_biconnected_std(g);
+    bc1 = dg_biconnected_std(g, 0);
     if (cn != ref[i].cn || bc != ref[i].bc || bc1 != ref[i].bc) {
       printf("n %d: model %d, connected %d vs %d, biconnected %d, %d vs %d (ref)\n",
           n, i, cn, ref[i].cn, bc, bc1, ref[i].bc);
@@ -87,7 +87,7 @@ static void verify_biconnected(int n, int nsteps)
     if (dg_linked(g, i, j)) dg_unlink(g, i, j);
     else dg_link(g, i, j);
     bc1 = dg_biconnected(g);
-    bc2 = dg_biconnected_std(g);
+    bc2 = dg_biconnected_std(g, 0);
     if (bc1 != bc2) {
       printf("bc1 %d vs bc2 %d\n", bc1, bc2);
       dg_print(g);
@@ -142,7 +142,7 @@ static void speed_biconnected(int n, int nsamp, int nedmax)
 
     t0 = clock();
     for (kk = 0; kk < lscnt; kk++)
-      sum[1] += dg_biconnected_std(gls[kk]);
+      sum[1] += dg_biconnected_std(gls[kk], 0);
     tsum[1] += clock() - t0;
 
 #ifdef DGMAP_EXISTS

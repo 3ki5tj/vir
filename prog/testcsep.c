@@ -42,6 +42,7 @@ static void testrtl(void)
   }
   dg_close(g);
   dg_close(f);
+  dg_close(f2);
 }
 
 
@@ -144,6 +145,34 @@ static void testfillin(void)
 
 
 
+/* test clique separators of diagrams against the reference values */
+static void cmpref(int n, dgref_t *ref)
+{
+  int i, cs1, cs2, cs3;
+  dg_t *g;
+
+  g = dg_open(n);
+  for (i = 0; ref[i].npr != DGREF_NPRMAX; i++) {
+    dgref_build(g, ref + i);
+    if ( !dg_biconnected(g) )
+      continue;
+    cs1 = (dg_cliquesep0(g, DGCSEP_LEXM) != 0);
+    cs2 = (dg_cliquesep0(g, DGCSEP_MCSP) != 0);
+    cs3 = (dg_cliquesep0(g, DGCSEP_MCSM) != 0);
+    if ( cs1 != ref[i].cs || cs3 != ref[i].cs
+      || (cs2 != cs1 && cs2 == 1) ) {
+      printf("n %d, case %d, cs mismatch %d, %d, %d vs %d\n",
+          n, i, cs1, cs2, cs3, ref[i].cs);
+      dg_print(g);
+      exit(1);
+    }
+  }
+  dg_close(g);
+  printf("n %d, clique separators of %d reference diagrams verified\n", n, i);
+}
+
+
+
 static void speed_cliquesep(int n, int nsamp, int nedmax)
 {
   dg_t *g = dg_open(n);
@@ -223,6 +252,8 @@ static void speed_cliquesep(int n, int nsamp, int nedmax)
 
 #ifdef VERIFY
 #include "dgrjw.h"
+
+
 
 #ifdef DGMAP_EXISTS
 /* verify all graphs of n vertices with clique separators
@@ -371,11 +402,11 @@ int main(int argc, char **argv)
 
 #ifdef N
   n = N;
-#endif
-#ifndef N
+#else
   testrtl();
   testcsep();
   testfillin();
+  for (n = DGREF_NMIN; n <= DGREF_NMAX; n++) cmpref(n, dgrefs[n]);
 #endif
 
   if (argc >= 2) n = atoi(argv[1]);
@@ -391,20 +422,22 @@ int main(int argc, char **argv)
 
 #ifdef VERIFY
   printf("\n\n\n");
-#ifdef N
+
+  #ifdef N
   if (N <= DGMAP_NMAX)
     verify_allzerofb(N, 0);
-#else
+  #else
   {
     int i;
     for (i = 3; i <= DGMAP_NMAX; i++)
       verify_allzerofb(i, 0);
   }
-#endif /* defined(N) */
+  #endif /* defined(N) */
 
   if (n > DGMAP_NMAX)
     verify_zerofb(n, nsteps);
 #endif /* VERIFY */
+
   return 0;
 }
 

@@ -161,7 +161,6 @@ int main(int argc, char **argv)
 #else
   testfoo(6);
   testequipart();
-  exit(1);
   if (argc >= 2) n = atoi(argv[1]);
 #endif
 

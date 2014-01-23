@@ -1,3 +1,4 @@
+#define DGMAP_NEEDSSC 1
 #include "dgmap.h"
 #include "dgsc.h"
 #include "dgrjw.h"
@@ -5,61 +6,111 @@
 
 
 
-typedef struct {
-  int npr; /* number of wiggly lines */
-  int id[64][2]; /* vertex pairs in wiggly lines */
-  int sc; /* the correct sc */
-} edges_t;
-
-
-
 /* test the star contents of diagrams against the reference values */
-static void cmpref(int n, edges_t *ref)
+static void cmpref(int n, dgref_t *ref)
 {
-  int i, j;
-  double sc;
+  int i, err;
+  double fb0, nr0, fb1, nr1, fb2, nr2, fb3, nr3;
   dg_t *g;
 
   g = dg_open(n);
-  for (i = 0; ref[i].npr >= 0; i++) {
-    dg_full(g);
-    for (j = 0; j < ref[i].npr; j++)
-      dg_unlink(g, ref[i].id[j][0], ref[i].id[j][1]);
-    if (!dg_biconnected(g))
+  printf("n %d: ", n);
+  for (i = 0; ref[i].npr != DGREF_NPRMAX; i++) {
+    printf("%d ", i);
+    dgref_build(g, ref + i); /* build the reference graph */
+    if (!dg_biconnected(g)) {
+      fprintf(stderr, "test case %d of n = %d is not connected\n", i, n);
       continue;
-    sc = dgsc_do(g);
-    if (fabs(sc - ref[i].sc) > 0.001) {
-      printf("n %d: model %d sc mismatch %g vs %d (ref)\n",
-          n, i, sc, ref[i].sc);
-      dg_print(g);
+    }
+    nr0 = nr1 = nr2 = -1;
+    fb0 = dg_fbnr_spec0(g, &nr0, NULL, NULL, &err);
+    fb1 = dgsc_fbnr0(g, &nr1, DGSC_ITER, NULL, NULL);
+    fb2 = dgsc_fbnr0(g, &nr2, DGSC_RECUR, NULL, NULL);
+    fb3 = (double) dgrjw_fb(g);
+    nr3 = dgring_nr(g);
+    if ( (err == 0 && (fabs(fb0 - ref[i].fb) > 0.001 || fabs(nr0 - ref[i].nr) > 0.001))
+      || fabs(fb1 - ref[i].fb) > 0.001 || fabs(nr1 - ref[i].nr) > 0.001
+      || fabs(fb2 - ref[i].fb) > 0.001 || fabs(nr2 - ref[i].nr) > 0.001
+      || fabs(fb3 - ref[i].fb) > 0.001 || fabs(nr3 - ref[i].nr) > 0.001) {
+      fprintf(stderr, "n %d: model %d mismatch, "
+          "fb: %g, %g, %g, %g vs %d (ref), nr: %g, %g, %g, %g vs %d (ref)\n",
+          n, i, fb0, fb1, fb2, fb3, ref[i].fb, nr0, nr1, nr2, nr3, ref[i].nr);
+      dg_fprint(g, stderr);
       exit(1);
     }
   }
   dg_close(g);
-  printf("n %d, star contents of %d reference diagrams verified\n", n, i);
+  printf("\nn %d, star contents of %d reference diagrams verified\n", n, i);
 }
 
 
 
-/* test the speed of computing star content
- * see the function with the same name for a more advanced version */
+static void verifyall(int n)
+{
+  dg_t *g = dg_open(n);
+  dg_full(g);
+
+#if DGMAP_EXISTS
+  if (n <= DGMAP_NMAX) {
+    int ig, err;
+    double fb0, fb1, fb2, fb3, nr0, nr1, nr2, nr3;
+    clock_t t0;
+
+    printf("verifying the star contents of all diagrams\n");
+    t0 = clock();
+    dgmap_getuid(g); /* automatically activate the look up table */
+    printf("star content, n %d, initialization: %gs\n",
+      n, 1.*(clock() - t0) / CLOCKS_PER_SEC);
+    /* compare with the RJW result */
+    g = dg_open(g->n);
+    for (ig = 0; ig < dgmap_[n].ng; ig++) {
+      dgword_t code = dgmap_[n].first[ig];
+      dg_decode(g, &code);
+      /* skip disconnected diagrams */
+      if ( !dg_connected(g) ) continue;
+      /* check results from different methods */
+      fb0 = dg_fbnr_spec(g, &nr0, &err);
+      fb1 = dgsc_fbnr0(g, &nr1, DGSC_ITER, NULL, NULL);
+      fb2 = dgsc_fbnr0(g, &nr2, DGSC_RECUR, NULL, NULL);
+      fb3 = (double) dgrjw_fb(g);
+      nr3 = dgring_nr(g);
+      if ( fabs(fb1 - fb2) > 1e-3 || fabs(fb1 - fb3) > 1e-3
+          || (err == 0 && fabs(fb1 - fb0) > 1e-3) ) {
+        printf("fb: mismatch %g, %g, %g, %g, err %d\n", fb0, fb1, fb2, fb3, err);
+        dg_print(g);
+        exit(1);
+      }
+      if ( fabs(nr1 - nr2) > 1e-3 || fabs(nr1 - nr3) > 1e-3
+          || (err == 0 && fabs(nr1 - nr0) > 1e-3) ) {
+        printf("nr: mismatch %g, %g, %g, %g, err %d\n", nr0, nr1, nr2, nr3, err);
+        dg_print(g);
+        exit(1);
+      }
+    }
+  }
+#endif
+  dg_close(g);
+}
+
+/* test the speed of computing star content */
 static void testspeed(int n, int nsamp, int nedmax, char method)
 {
   int t, ned, nequil = 1000, eql = 1, isamp = 0, good = 0, tot = 0;
   dg_t *g;
   clock_t t0;
-  double sum, tsum = 0, rnp = 0.1;
+  double sum = 0, tsum = 0, rnp = 0.1;
 
   g = dg_open(n);
   dg_full(g);
-#ifdef DGMAP_EXISTS
+#if DGMAP_EXISTS
   if (method == 'l' && n < DGMAP_NMAX) {
-    int ig;
-    double sc1, sc2;
+    int ig, err;
+    double fb0, fb1, fb2, fb3, nr0, nr1, nr2, nr3;
     dg_t *g2;
 
+    printf("verifying the ring contents of all diagrams\n");
     t0 = clock();
-    dg_sc(g); /* automatically activate the look up table */
+    dgmap_getuid(g); /* automatically activate the look up table */
     printf("star content, n %d, initialization: %gs\n",
       n, 1.*(clock() - t0) / CLOCKS_PER_SEC);
     /* compare with the RJW result */
@@ -67,11 +118,23 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
     for (ig = 0; ig < dgmap_[n].ng; ig++) {
       dgword_t code = dgmap_[n].first[ig];
       dg_decode(g2, &code);
-      sc1 = dg_sc(g2);
-      sc2 = dg_fb(g2);
-      if (dg_nedges(g2) % 2 == 1) sc2 *= -1;
-      if (fabs(sc1 - sc2) > 1e-3) {
-        printf("sc1 %g, sc2 %g\n", sc1, sc2);
+      /* skip disconnected diagrams */
+      if ( !dg_connected(g2) ) continue;
+      /* check results from different methods */
+      fb0 = dg_fbnr_spec(g2, &nr0, &err);
+      fb1 = dgsc_fbnr0(g2, &nr1, DGSC_ITER, NULL, NULL);
+      fb2 = dgsc_fbnr0(g2, &nr2, DGSC_RECUR, NULL, NULL);
+      fb3 = (double) dgrjw_fb(g2);
+      nr3 = dgring_nr(g2);
+      if ( fabs(fb1 - fb2) > 1e-3 || fabs(fb1 - fb3) > 1e-3
+          || (err == 0 && fabs(fb1 - fb0) > 1e-3) ) {
+        printf("fb: mismatch %g, %g, %g, %g, err %d\n", fb0, fb1, fb2, fb3, err);
+        dg_print(g2);
+        exit(1);
+      }
+      if ( fabs(nr1 - nr2) > 1e-3 || fabs(nr1 - nr3) > 1e-3
+          || (err == 0 && fabs(nr1 - nr0) > 1e-3) ) {
+        printf("nr: mismatch %g, %g, %g, %g, err %d\n", nr0, nr1, nr2, nr3, err);
         dg_print(g2);
         exit(1);
       }
@@ -97,7 +160,7 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
     if ( dg_cliquesep(g) ) continue;
 
     t0 = clock();
-    sum += dg_sc(g);
+    sum += dgsc_fbnr0(g, NULL, (method == 'r' ? DGSC_RECUR : DGSC_ITER), NULL, NULL);
     tsum += clock() - t0;
     if (++isamp >= nsamp) break;
   }
@@ -111,35 +174,22 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
 
 int main(void)
 {
-  edges_t ref5[] = { /* edges are wiggly lines */
-    {0, {{0, 0}}, -6},
-    {1, {{0, 1}}, 0},
-    {2, {{0, 1}, {2, 3}}, 3},
-    {2, {{0, 1}, {1, 3}}, 0},
-    {3, {{0, 1}, {2, 3}, {3, 4}}, -2},
-    {3, {{0, 1}, {1, 3}, {2, 4}}, -2},
-    {3, {{0, 1}, {1, 3}, {1, 4}}, 0},
-    {4, {{0, 1}, {2, 3}, {3, 4}, {2, 4}}, 1},
-    {5, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}}, 1},
-    {-1, {{0, 0}}, 0},
-  };
-  edges_t ref6[] = {
-    {0, {{0, 0}}, 24},
-    {1, {{0, 1}}, 0},
-    {2, {{0, 1}, {2, 3}}, -12},
-    {3, {{0, 1}, {2, 3}, {3, 4}}, 8},
-    {4, {{0, 1}, {2, 3}, {3, 4}, {2, 4}}, -4},
-    {5, {{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 0}}, -4},
-    {-1, {{0, 0}}, 0},
-  };
-  int nedmax = 1000;
+  int i, n, nedmax = 10000000;
 
-  cmpref(5, ref5);
-  cmpref(6, ref6);
-  testspeed(5, 100000,  nedmax, 'l');
-  testspeed(6, 100000,  nedmax, 'l');
-  testspeed(7, 100000,  nedmax, 'l');
-  testspeed(8, 1000000, nedmax, 'l');
-  testspeed(8, 1000,    nedmax, 'd');
+#ifndef N
+  /* n = 8 cases are difficult for direct methods, so we stop at n = 7 */
+  for (i = DGREF_NMIN; i <= DGREF_NMAX; i++)
+    cmpref(i, dgrefs[i]);
+  for (i = 4; i <= DGMAP_NMAX; i++)
+    verifyall(i);
+  n = 8;
+#else
+#if N <= DGREF_NMAX
+  if (dgrefs[N] != NULL) cmpref(N, dgrefs[N]);
+#endif
+  n = N;
+#endif
+  verifyall(n);
+  testspeed(n, 100000,  nedmax, 'd');
   return 0;
 }

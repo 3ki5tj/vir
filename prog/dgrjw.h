@@ -3,8 +3,10 @@
 /* compute the overall weight of a configuration
  * by the method of Richard J. Wheatley, PRL 110, 200601 (2013)
  * iterative, small memory version 1 */
+#include "dgutil.h"
 #include "dgcsep.h"
 #include "dgsc.h"
+#include "dgring.h"
 #include <time.h>
 #include <limits.h>
 
@@ -25,8 +27,7 @@
   #endif
 
 #elif !defined(RJWDBL) && (!defined(N) || N <= 22) /* 64-bit RJW */
-  /* this is the default branch for with N > 22
-   * there is usually a memory problem */
+  /* this is the default branch for undefined N and N <= 22 */
 
   typedef int64_t dgrjw_fb_t;
   /* for n <= 22, max |fb(n)| = 20! = 2.4e18 < |DGRJW_FBDIRTY| */
@@ -61,51 +62,13 @@ typedef unsigned char dgrjw_ap_t;
 
 
 
-/* obtain a list of numbers 0..2^n - 1 by the number of bits */
-INLINE void dgrjw_idbybits(int n, unsigned *arr)
-{
-  int m, top, v, id = 0, st[DG_NMAX + 1];
-  unsigned x; /* the number represented by the stack */
-
-  arr[id++] = 0;
-  for (m = 1; m <= n; m++) {
-    x = 0;
-    /* enumerate numbers from 1 to 2^n with m bits */
-    st[top = 0] = 0;
-    while (top >= 0) {
-      //printf("n %d, m %d, top %d, st[top] %d\n", n, m, top, st[top]);
-      if ( st[top] < n ) { /* push */
-        v = st[top++];
-        x ^= 1u << v;
-        /* push if we still have numbers to fill */
-        if (top < m) {
-          /* the number on the next level must be greater than
-           * the number on this level */
-          st[top] = v + 1;
-          continue;
-        } else { /* we are at the top, print and fall through to pop */
-          arr[id++] = x;
-        }
-      }
-      /* pop */
-      if (--top >= 0) {
-        v = st[top];
-        x ^= 1u << v; /* st[top] is no longer available on top */
-        st[top] = v + 1;
-      }
-    }
-  } /* end of the round for m bits */
-}
-
-
-
 /* compute the Boltzmann weight, the sum of all diagrams
   `c' is the connectivity matrix, `vs' is the vertex set */
-INLINE int dgrjw_fq(dgvs_t *c, dgword_t vs)
+INLINE int dgrjw_fq(const dgvs_t *c, dgword_t vs)
 {
   dgword_t w, b;
 
-  /* if there is a bond, i.e., r(i, j) < 1, then Eq = 0 */
+  /* if there is a bond, i.e., r(i, j) < 1, then fq = 0 */
   for (w = vs; w; w ^= b) {
     /* if c[i] share vertices with vs, there is bond
      * the Boltzmann weight = \prod_(ij) e_ij, and it allows no clash
@@ -117,36 +80,10 @@ INLINE int dgrjw_fq(dgvs_t *c, dgword_t vs)
 
 
 
-/* increment ms1 in the limits of bits of (ms1 | ms2) */
-#define DGRJW_INC(ms1, ms2) DGRJW_INCa(ms1, ms2)
-
-/* version 1 */
-#define DGRJW_INCa(ms1, ms2) { dgword_t nms2_, lbit_, hbits_; \
-  nms2_ = (dgword_t) (-(ms2)); /* -ms2 and ms2 share bits higher than the lowest bit of ms2 */ \
-  lbit_ = (ms2) & nms2_; /* the & yields the lowest bit lowbit_ */ \
-  hbits_ = (ms2) ^ nms2_; /* the collections of bits higher than lbit_ */ \
-  (ms1) &= hbits_; /* this wipes out bits lower or equal to lbit_ */ \
-  (ms1) |= lbit_;  /* this add the lowest bit */ }
-
-/* version 2 */
-#define DGRJW_INCb(ms1, ms2) { dgword_t lbit_; \
-    lbit_ = (ms2) & (-ms2); /* find the lowest empty bit (first unused variable vertex) */ \
-    (ms1) ^= lbit_; /* add this bit */ \
-    (ms1) &= ~(lbit_ - 1); /* clear all lower bits */ }
-
-/* version 3 */
-#define DGRJW_INCc(ms1, ms2) { int i = BITFIRSTNZ(ms2); \
-  ms1 >>= i; /* clear the lower bits by shifting i bits */ \
-  ms1 ^= 1; /* add the lowest bit, `^' can be replaced by `+' or `|' with little difference */ \
-  ms1 <<= i; /* shift back */ }
-
-
-
 /* compute the Boltzmann weight (fq) and the sum of connected diagrams (fc)
  * also a few values for fa and fb
  * fqarr extends to faarr, fcarr extends to fbarr
- * by Wheatley's recursion formula, for all diagrams
- * `c' is the connectivity matrix */
+ * by Wheatley's recursion formula, for all diagrams */
 INLINE void dgrjw_prepare(const dg_t *g,
     dgrjw_fb_t *fcarr, dgrjw_fb_t *fqarr,
     unsigned *idbybits, dgrjw_ap_t *aparr)
@@ -167,21 +104,19 @@ INLINE void dgrjw_prepare(const dg_t *g,
 
   /* diagrams with two vertices */
   for (; id <= (unsigned) DG_N_ * (DG_N_ + 1) / 2; id++) {
-    int fq;
     vs = idbybits[id];
     die_if (bitcount(vs) != 2, "n %d, id %d, bad count(%#x) = %d\n", DG_N_, id, vs, bitcount(vs));
-    fq = dgrjw_fq(g->c, vs);
-    fc = -!fq;
-    fqarr[vs] = fq;
-    fcarr[vs] = fc;
+    fqarr[vs] = dgrjw_fq(g->c, vs);
+    fcarr[vs] = -!fqarr[vs];
   }
-  /* everything is known for diagrams of two or fewer vertices */
 
   /* diagrams with three or more vertices */
   for (; id < vsmax; id++) {
     vs = idbybits[id];
+
     fc = dgrjw_fq(g->c, vs);
     fqarr[vs] = fc; /* start with the Boltzmann weight */
+
     if ( !dg_connectedvs(g, vs) ) { /* disconnected subset */
       fcarr[vs] = 0;
       aparr[vs] = 0; /* fb(vs) == 0 */
@@ -192,7 +127,7 @@ INLINE void dgrjw_prepare(const dg_t *g,
        * the first component contains `b1' */
       for (ms1 = 0; (ms2 = ms1 ^ ms) != 0; ) {
         fc -= fcarr[ms1 ^ b1] * fqarr[ms2];
-        DGRJW_INCa(ms1, ms2); /* update the subset `ms1' */
+        DGVS_INCa(ms1, ms2); /* update the subset `ms1' */
       }
       fcarr[vs] = fc;
 
@@ -201,7 +136,7 @@ INLINE void dgrjw_prepare(const dg_t *g,
       for ( vs1 = vs; vs1 != 0; ) {
         b1 = vs1 & (-vs1);
         vs1 ^= b1;
-        if ( !dg_connectedvs(g, vs ^ b1) ) {
+        if ( !fcarr[vs ^ b1] ) { // if ( !dg_connectedvs(g, vs ^ b1) ) {
           /* fb(vs, v) == 0 for v = BIT2ID(b1) + 1 to n - 1 */
           aparr[vs] = (dgrjw_ap_t) (BIT2ID(b1) + 1);
           break;
@@ -262,7 +197,7 @@ INLINE dgrjw_fb_t dgrjw_iter(const dg_t *g,
           for ( ms1 = 0; (ms2 = ms1 ^ ms) != 0; ) {
             fa += fbarr[jdnew | ms1] * fbarr[jdold | ms2];
             /* update the subset `ms1' */
-            DGRJW_INCa(ms1, ms2);
+            DGVS_INCa(ms1, ms2);
           }
         }
         fbarr[vsnew] = fbarr[idold | vs] - fa; /* set fb */
@@ -281,8 +216,8 @@ static dgrjw_fb_t *dgrjw_fbarr_;
 #pragma omp threadprivate(dgrjw_nmax_, dgrjw_fbarr_)
 
 static unsigned *dgrjw_idbybits_;
-static int dgrjw_idn_ = 0;
-#pragma omp threadprivate(dgrjw_idbybits_, dgrjw_idn_)
+static int dgrjw_idn_ = -1, dgrjw_idnmax_ = -1;
+#pragma omp threadprivate(dgrjw_idbybits_, dgrjw_idn_, idrjw_idnmax_)
 
 static dgrjw_ap_t *dgrjw_aparr_;
 #pragma omp threadprivate(dgrjw_aparr_)
@@ -291,11 +226,16 @@ static dgrjw_ap_t *dgrjw_aparr_;
 
 /* compute the sum of biconnected diagrams by Wheatley's method
  * This is a low level function and the test of clique separator
- * is not done here. */
+ * is not done here.
+ * The memory requirement is 2^(n-20)*21MB */
 INLINE dgrjw_fb_t dgrjw_fb(const dg_t *g)
 {
   DG_DEFN_(g)
   size_t size = 0;
+
+#if !defined(N) || N < 32
+  size = ((size_t) 1u << DG_N_); /* 2^n */
+#endif
 
   /* the memory requirement is 2^(n + 1) * (n + 1) * sizeof(dgrjw_fb_t) */
   if (dgrjw_fbarr_ == NULL) {
@@ -303,35 +243,22 @@ INLINE dgrjw_fb_t dgrjw_fb(const dg_t *g)
      * because this function might not be called at all
      * in high dimensions */
     dgrjw_nmax_ = DG_N_;
-    size = (size_t) 1u << dgrjw_nmax_; /* 2^nmax */
     xnew(dgrjw_fbarr_, size * 2);
-    xnew(dgrjw_idbybits_, size);
     xnew(dgrjw_aparr_, size);
     fprintf(stderr, "%4d: dgrjw allocated %gMB memory for n %d\n", inode,
         (2. * sizeof(dgrjw_fb_t) + sizeof(unsigned) + sizeof(dgrjw_ap_t))
         * size / (1024*1024), dgrjw_nmax_);
-  }
-#ifndef N /* if N is fixed, no need to reallocate */
-  else if (DG_N_ > dgrjw_nmax_) {
+  } else if (DG_N_ > dgrjw_nmax_) {
     dgrjw_nmax_ = DG_N_;
-    size = (size_t) 1u << dgrjw_nmax_; /* 2^nmax */
     xrenew(dgrjw_fbarr_, size * 2);
-    xrenew(dgrjw_idbybits_, size);
     xrenew(dgrjw_aparr_, size);
     fprintf(stderr, "%4d: dgrjw reallocated %gMB memory for n %d\n", inode,
         (2. * sizeof(dgrjw_fb_t) + sizeof(unsigned) + sizeof(dgrjw_ap_t))
         * size / (1024*1024), dgrjw_nmax_);
   }
-#endif
 
-#if !defined(N) || N < 32
-  size = ((size_t) 1u << DG_N_); /* 2^n */
-#endif
-
-  if (dgrjw_idn_ != DG_N_) { /* re-sort diagrams */
-    dgrjw_idbybits(DG_N_, dgrjw_idbybits_);
-    dgrjw_idn_ = DG_N_;
-  }
+  dgrjw_idbybits_ = dg_prep_idbybits(DG_N_, dgrjw_idbybits_,
+      &dgrjw_idn_, &dgrjw_idnmax_);
 
   /* pre-compute all fc and fq values */
   dgrjw_prepare(g, dgrjw_fbarr_, dgrjw_fbarr_ + size,
@@ -341,30 +268,61 @@ INLINE dgrjw_fb_t dgrjw_fb(const dg_t *g)
 
 
 
-#define dg_fb(g) \
-  dg_fb0(g, DGCSEP_DEFAULTMETHOD, NULL, NULL)
+#define dg_fb(g) dg_fbnr(g, NULL)
+#define dg_fb0(g, method, csepmethod, ned, degs) \
+    dg_fbnr0(g, NULL, method, csepmethod, ned, degs)
+#define dg_fbnr(g, nr) dg_fbnr0(g, nr, \
+    DGSC_DEFAULTMETHOD, DGCSEP_DEFAULTMETHOD, NULL, NULL)
 
-/* directly compute the sum of biconnected diagrams by various strategies
- * a mixed strategy of dgrjw_fb() and dg_sc()
- * nocsep = 1 means that the graph has been tested with no clique separator
- *        = 0 means it MAY have clique separators
+/* compute the sum of biconnected diagrams by various strategies
+ * a mixed strategy of dgrjw_fb() and dgsc_fb()
+ * `method': method of directly computing the star content
+ * `csepmethod': method of detecting clique separators
+ *    0 means not to detect clique separators
  * *ned: number of edges; degs: degree sequence
  * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
-INLINE double dg_fb0(const dg_t *g, int csepmethod, int *ned, int *degs)
+INLINE double dg_fbnr0(const dg_t *g, double *nr, int method,
+    int csepmethod, int *ned, int *degs)
 {
   int err, nedges = -1;
+  double fb;
   DG_DEFN_(g)
-  double sc;
+
+#ifndef DGFB_NEDA
+#define DGFB_NEDA 2
+#endif
+#ifndef DGFB_NEDB
+#define DGFB_NEDB (-3)
+#endif
 
   if ( ned == NULL ) ned = &nedges;
-  sc = dgsc_spec0(g, csepmethod, ned, degs, &err);
-  if ( err == 0 ) {
-    return DG_SC2FB(sc, *ned);
-  } else if ( *ned <= 2*DG_N_ - 3 || DG_N_ > RJWNMAX) {
-    return DG_SC2FB(dgsc_do(g), *ned);
-  } else { /* hs_rjw() requires 2^(n + 1) * (n + 1) memory */
-    return (double) dgrjw_fb(g);
+
+  /* 1. special cases: very loose and very dense graphs */
+  if ( !(method & DGSC_NOSPEC) ) {
+    fb = dg_fbnr_spec0(g, nr, ned, degs, &err);
+    if ( err == 0 ) return fb;
   }
+
+  /* 2. detect clique separators */
+  if ( csepmethod != DGCSEP_NULLMETHOD && dg_csep0(g, csepmethod) != 0 ) {
+    /* if there is a clique separator, fb = 0
+     * directly compute the ring content if needed */
+    if (nr != NULL) *nr = dgring_nr0(g, ned, degs);
+    return 0;
+  }
+
+  /* 3. if the graph is not very dense,
+   * use the direct method */
+  if ( *ned <= DGFB_NEDA*DG_N_ + DGFB_NEDB
+    || DG_N_ > RJWNMAX ) {
+    /* ring content is guaranteed to be available here */
+    return dgsc_fbnr0(g, nr, method, ned, degs);
+  }
+
+  /* 4. finally call the RJW method compute fb,
+   * and the direct method for nr */
+  if (nr != NULL) *nr = dgring_nr0(g, ned, degs);
+  return (double) dgrjw_fb(g);
 }
 
 
@@ -372,13 +330,14 @@ INLINE double dg_fb0(const dg_t *g, int csepmethod, int *ned, int *degs)
 /* free all stock objects */
 INLINE void dgrjw_free(void)
 {
-  if (dgrjw_fbarr_ != NULL) {
-    free(dgrjw_fbarr_);
-    dgrjw_fbarr_ = NULL;
-  }
   if (dgrjw_idbybits_ != NULL) {
     free(dgrjw_idbybits_);
     dgrjw_idbybits_ = NULL;
+  }
+  dgrjw_idn_ = dgrjw_idnmax_ = -1;
+  if (dgrjw_fbarr_ != NULL) {
+    free(dgrjw_fbarr_);
+    dgrjw_fbarr_ = NULL;
   }
   if (dgrjw_aparr_ != NULL) {
     free(dgrjw_aparr_);

@@ -797,7 +797,7 @@ INLINE dgvsref_t dg_csep0(const dg_t *g, int method)
 {
   if (method / DGCSEP_NBASICMETHODS == 0) {
     /* it seems that testing 2-vertex clique separator is
-     * open profitable in real sampling, although it is
+     * often profitable in real sampling, although it is
      * not so for a random graph, as those in testcsep() */
     dgvsref_t cc = dg_csep2(g);
     if (cc != 0) return cc;
