@@ -1,0 +1,38 @@
+bak: old programs
+~~~~~~~~~~~~~~~~~~~
+dgcnt.c     count the number of the biconnected diagrams
+
+dgmc.c      calculate the virial coefficients by Monte Carlo sampling
+            this program directly samples over diagrams without using
+            the Ree-Hoover star contents. So it is not very efficient
+
+mcrepl.c    coordinate replacement as a Monte Carlo move
+
+mcrat.c     sampling biconnected configurations, coupled with a sampler
+            that samples configurations without clique separators and an
+            importance sampler that samples configurations for fb
+
+mcratn.c    sampling along the number of clique separators
+
+mcwt.c      prototype code for mcrat.c sampling in three ensembles
+            biconnected, nonzero fb, and importance sampling
+
+mcnz.c      prototype code for sampling in two ensembles
+            biconnected and nonzero fb
+
+mcgcx.c     supposed to be a better version than mcgcr.c
+            involves a scaling of diagrams
+            developed before mcgcr.c
+
+mcgcr.v1.c  Metropolis and heat-bath algorithms for mcgcr
+mcgcr2.v1.c very few differences
+
+mcrat0L.c   a variant of mcrat0.c for the larger lookup table (dgmapl.h)
+
+mcrat1.c    a variant of mcrat0.c, simpler coding
+
+mcrat0ed.c  a variant of mcrat0.c that uses tempering on the number of edges
+
+
+
+

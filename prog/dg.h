@@ -163,6 +163,7 @@ int inode = MASTER, nnodes = 1;
 typedef dgword_t dgvs_t;
 typedef dgword_t dgvsref_t;
 #define DGVS_GETPTR(vs)   (&(vs)) /* dgvs_t --> (dgword_t *) */
+#define DGVS_W2VS(w)      (w)     /* dgword_t --> dgvs_t */
 
 #define DGVS_CLEAR(vs)              (vs) = 0;
 
@@ -291,7 +292,8 @@ typedef dgword_t dgvsref_t;
 /* multiple-word vertex set */
 typedef dgword_t dgvs_t[DG_NW];
 typedef dgword_t *dgvsref_t;
-#define DGVS_GETPTR(vs) (vs) /* dgvs_t --> (dgword_t *) */
+#define DGVS_GETPTR(vs) (vs)    /* dgvs_t --> (dgword_t *) */
+#define DGVS_W2VS(w)    (&(w))  /* dgword_t --> dgvs_t */
 
 /* define a variable `iq' to be used in DGVS_FIRSTBIT() or DGVS_FIRSTLOW() */
 #define DGVS_DEFIQ_(iq) int iq;
@@ -314,7 +316,7 @@ typedef dgword_t *dgvsref_t;
 #define dgvs_count(vs)    bits_count(vs, DG_NW)
 
 /* negate a vertex set */
-#define DGVS_NOT(a, b)    BITS_NINV(a, b, DG_NMAX, DG_NW_)
+#define DGVS_NOT(a, b)    BITS_NINV(a, b, DG_NMAX, DG_NW)
 
 #define DGVS_FIRSTWORD(vs)  (vs)[0]
 
@@ -935,12 +937,14 @@ INLINE dgword_t *dg_encode(const dg_t *g, dgword_t *code)
   dgword_t *c = code;
   DG_DEFN_(g)
 
+  *c = 0;
   for (i = 0; i < DG_N_ - 1; i++) {
     for (j = i + 1; j < DG_N_; j++) {
-      *c |= MKBIT(ib);
+      if ( dg_linked(g, i, j) )
+        *c |= MKBIT(ib);
       if (++ib == DG_WORDBITS) {
         ib = 0;
-        c++;
+        *(++c) = 0;
       }
     }
   }

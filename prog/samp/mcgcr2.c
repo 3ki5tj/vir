@@ -8,6 +8,8 @@
 #include "dgring.h"
 #include "mcutil.h"
 
+#define EPS 1e-30
+
 
 
 int nmin = 1; /* the minimal order of virial coefficients */
@@ -20,6 +22,7 @@ double ratn = 0.5;
 int gaussdisp = 0;
 real rc0 = -1;
 real sr0 = 1;
+double xi0 = 1;
 double mindata = 100; /* minimal # of data points to make update */
 int updrc = 0;
 int csepmethod = DGCSEP_DEFAULTMETHOD; /* method of detecting clique separators */
@@ -33,6 +36,7 @@ char *fninp, *fnZrr, *fnZr;
 
 char *fnBring = NULL; /* ring contribution file */
 
+int nthreads = 1;
 unsigned rngseed = 0;
 
 int nstcom = 10000;
@@ -55,8 +59,8 @@ int neql = -1; /* number of equilibration stages
 int nstsave = 1000000000; /* interval of saving data */
 int nstcheck = 0;
 
-int restart = 0; /* restartable simulation */
-int bsim0 = 0; /* first simulation */
+int restart = 0; /* restartable simulation, no parameter update */
+int bsim0 = 0; /* first productive simulation: delete previous data */
 
 /* nmove type, 0: Metropolis, 1: heat-bath */
 int nmvtype = 1;
@@ -79,6 +83,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-r",    "%lf",  &ratn,    "rate of particle moves");
   argopt_add(ao, "-c",    "%r",   &rc0,     "radius of particle insertion");
   argopt_add(ao, "-s",    "%r",   &sr0,     "default scaling of distance between the constrained vertex pair");
+  argopt_add(ao, "-x",    "%lf",  &xi0,     "default xi for vertex addition");
   argopt_add(ao, "-i",    NULL,   &fninp0,  "input file");
   argopt_add(ao, "-o",    NULL,   &fnZrr0,  "output file");
   argopt_add(ao, "-O",    NULL,   &fnZr0,   "output file (compact)");
@@ -95,10 +100,11 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-0",    "%lf",  &nequil,  "number of equilibration steps per round");
   argopt_add(ao, "-M",    "%d",   &nstcom,  "interval of centering the structure");
   argopt_add(ao, "-K",    "%d",   &nstcheck,"interval of checking");
-  argopt_add(ao, "-R",    "%b",   &restart, "run a restartable simulation");
-  argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation");
+  argopt_add(ao, "-R",    "%b",   &restart, "run a restartable simulation, no parameter update");
+  argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation, delete previous data");
   argopt_add(ao, "-W",    "%d",   &nmvtype, "nmove type, 0: Metropolis, 1: heat-bath");
-  argopt_add(ao, "-p",    "%d",   &csepmethod, "method of detecting clique separators, 0: disable, 1: full detection, 2: mcs detection");
+  argopt_add(ao, "-p",    "%d",   &csepmethod, "method of detecting clique separators, 0: disable, 1: LEX-M, 2: MCS-P, 3: MCS-M");
+  argopt_add(ao, "--nt",  "%d",   &nthreads,  "number of threads");
   argopt_add(ao, "--rng", "%u",   &rngseed, "set the RNG seed offset");
 
   argopt_parse(ao, argc, argv);
@@ -186,6 +192,8 @@ typedef struct {
   double *Zr; /* Z[iens] / Z[iens - 1] */
   real *rc; /* radius of the vertex insertion */
   real *sr; /* scaling between the special pair of vertices */
+  /* rc[] and sr[] are `real' instead of `double', for they are
+   * involved in transforming the coordinates, which are of type `real' */
   double *Zr1; /* alternative buffer for Zr */
   real *rc1, *sr1; /* alternative buffer for rc and sr */
   double (*nedg)[2]; /* number of edges */
@@ -215,17 +223,17 @@ static void gc_cleardata(gc_t *gc)
 
   for (i = 0; i < gc->nens; i++) {
     gc->hist[i] = 0;
-    gc->nup[i][0] = gc->ndown[i][0] = 1e-20;
+    gc->nup[i][0] = gc->ndown[i][0] = EPS;
     gc->nup[i][1] = gc->ndown[i][1] = 0;
   }
   for (n = 0; n <= gc->nmax; n++) {
-    gc->nedg[n][0] = 1e-20;
+    gc->nedg[n][0] = EPS;
     gc->nedg[n][1] = 0;
-    gc->nocs[n][0] = 1e-20;
+    gc->nocs[n][0] = EPS;
     gc->nocs[n][1] = 0;
-    gc->fbsm[n][0] = 1e-20;
+    gc->fbsm[n][0] = EPS;
     gc->fbsm[n][1] = gc->fbsm[n][2] = 0;
-    gc->ring[n][0] = 1e-20;
+    gc->ring[n][0] = EPS;
     gc->ring[n][1] = 0;
   }
 }
@@ -233,7 +241,7 @@ static void gc_cleardata(gc_t *gc)
 
 
 INLINE gc_t *gc_open(int nmin, int nmax, int m,
-    real rc0, real sr0)
+    real rc0, real sr0, real xi0)
 {
   gc_t *gc;
   int i, n, nensmax;
@@ -291,9 +299,11 @@ INLINE gc_t *gc_open(int nmin, int nmax, int m,
     }
     gc->rc[i] = (real) rc;
 
-    if (gc->type[i] == GCX_PURE && n >= 1)
+    if ( gc->type[i] == GCX_PURE && n >= 1 ) {
       gc->Zr[i] = 1.0/n; /* inverse number of non-articulation pairs */
-    else gc->Zr[i] = 1;
+    } else if ( gc->type[i] == GCX_PURE + 1 ) {
+      gc->Zr[i] = xi0;
+    } else gc->Zr[i] = 1;
     gc->Z[i] = 1; /* absolute partition function */
   }
 
@@ -437,7 +447,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
           fb = dg_fbnr0(g, &nr, DGSC_DEFAULTMETHOD | DGSC_NOSPEC,
               DGCSEP_NULLMETHOD, &ned, degs);
           /* the above function computes nr when necessary */
-          errnr = 0;          
+          errnr = 0;
         }
       }
       gc->fbsm[n][0] += 1;
@@ -572,13 +582,13 @@ static void gc_computeZ(gc_t *gc,
     gc->Z[i] = z;
     if (gc->type[i] == GCX_PURE) {
       if (n >= 2) fac *= 2./n;
-      fbav = (n <= 2) ? 1 : gc->fbsm[n][1] / gc->fbsm[n][0];
+      fbav = (n <= 2) ? 1 : gc->fbsm[n][1] / (gc->fbsm[n][0] + EPS);
       /* Bn/B2^(n-1) = (1 - n) 2^(n - 1) / n! Zn/Z2^(n-1) < fb > */
       gc->B[n] = (1. - n) * fac * z * fbav;
       gc->Zn[n] = gc->Z[i];
       gc->ZZ[n] = gc->Zn[n] / prevZ;
       prevZ = gc->Zn[n];
-      nr = gc->ring[n][1] / gc->ring[n][0];
+      nr = gc->ring[n][1] / (gc->ring[n][0] + EPS);
       if (nr > 0)
         gc->B2[n] = -fbav / nr * gc->Bring[n];
     }
@@ -597,7 +607,7 @@ static void gc_print(const gc_t *gc, int compact,
   if (rc == NULL) rc = gc->rc;
   if (sr == NULL) sr = gc->sr;
   for (i = gc->ens0; i < gc->nens; i++) {
-    printf("%3d %2d %9.6f %8.6f %8.6f ",
+    printf("%4d %3d %9.6f %8.6f %8.6f ",
        i, gc->n[i], Zr[i], rc[i], sr[i]);
     if ( !compact ) {
       printf("%12.0f %.5f %.5f ", gc->hist[i],
@@ -761,8 +771,8 @@ static int gc_fscanZrr(gc_t *gc, FILE *fp, int loaddata,
       break;
     }
     *tot += gc->hist[i];
-    if (gc->nup[i-1][0] <= 0) gc->nup[i-1][0] = 1e-20;
-    if (gc->ndown[i][0] <= 0) gc->ndown[i][0] = 1e-20;
+    if (gc->nup[i-1][0] <= 0) gc->nup[i-1][0] = EPS;
+    if (gc->ndown[i][0] <= 0) gc->ndown[i][0] = EPS;
     gc->nup[i-1][1] *= gc->nup[i-1][0];
     gc->ndown[i][1] *= gc->ndown[i][0];
 
@@ -777,7 +787,7 @@ static int gc_fscanZrr(gc_t *gc, FILE *fp, int loaddata,
         break;
       }
       p += next;
-      if (gc->ring[n][0] <= 0) gc->ring[n][0] = 1e-20;
+      if (gc->ring[n][0] <= 0) gc->ring[n][0] = EPS;
       gc->ring[n][1] *= gc->ring[n][0];
     }
 
@@ -788,9 +798,9 @@ static int gc_fscanZrr(gc_t *gc, FILE *fp, int loaddata,
       fprintf(stderr, "%s(%d) corrupted on line %d\n%s", fn, tag, i, s);
       break;
     }
-    if (gc->nedg[n][0] <= 0) gc->nedg[n][0] = 1e-20;
-    if (gc->nocs[n][0] <= 0) gc->nocs[n][0] = 1e-20;
-    if (gc->fbsm[n][0] <= 0) gc->fbsm[n][0] = 1e-20;
+    if (gc->nedg[n][0] <= 0) gc->nedg[n][0] = EPS;
+    if (gc->nocs[n][0] <= 0) gc->nocs[n][0] = EPS;
+    if (gc->fbsm[n][0] <= 0) gc->fbsm[n][0] = EPS;
     gc->nedg[n][1] *= gc->nedg[n][0];
     gc->nocs[n][1] *= gc->nocs[n][0];
     gc->fbsm[n][1] *= gc->fbsm[n][0];
@@ -1107,7 +1117,7 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
   dgvs_t vs;
   const char *smove = "undefined";
 
-  gc = gc_open(nmin, nmax, mtiers, rc0, sr0);
+  gc = gc_open(nmin, nmax, mtiers, rc0, sr0, xi0);
   loaddata = restart && !bsim0;
   gc_loadZrr(gc, fninp, loaddata);
 #ifdef MPI
@@ -1348,10 +1358,15 @@ int main(int argc, char **argv)
   doargs(argc, argv);
 
 #ifdef _OPENMP
-  nnodes = omp_get_num_threads();
-  if (nnodes == 1) {
-    nnodes = omp_get_max_threads();
+  if (nthreads > 1) {
+    nnodes = nthreads;
     omp_set_num_threads(nnodes);
+  } else {
+    nnodes = omp_get_num_threads();
+    if (nnodes == 1) {
+      nnodes = omp_get_max_threads();
+      omp_set_num_threads(nnodes);
+    }
   }
   printf("set up %d OpenMP threads\n", nnodes);
 

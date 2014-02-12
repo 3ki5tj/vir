@@ -125,7 +125,7 @@ INLINE dgword_t dgmapl_encode(const dg_t *g, int k, int *st)
 
   for (pb = 1, c = 0, i = 2; i < DG_N_; i++) {
     jmax = (i <= k) ? (i - 1) : i;
-    ci = g->c[st[i]];
+    ci = DGVS_FIRSTWORD( g->c[st[i]] );
     for (j = 0; j < jmax; j++, pb <<= 1)
       if ( ci & MKBIT(st[j]) )
         c |= pb;
@@ -145,7 +145,7 @@ INLINE dgword_t dgmapl_getchain(const dg_t *g, int k, int *st)
   dgword_t vs, c, b, ms[DGMAPL_NMAX + 1];
 
   top = 0;
-  ms[top] = vs = DG_MASKN_;
+  ms[top] = vs = DGVS_FIRSTWORD( DG_MASKN_ );
   while (1) {
     if (ms[top] != 0) { /* push */
       BITFIRSTLOW(st[top], ms[top], b);
@@ -155,7 +155,7 @@ INLINE dgword_t dgmapl_getchain(const dg_t *g, int k, int *st)
         goto LOOPEND;
       }
       /* remaining vertices and neighbors of top */
-      ms[top + 1] = vs & g->c[ st[top] ];
+      ms[top + 1] = DGVS_FIRSTWORD( g->c[ st[top] ] ) & vs;
       top++;
     } else { /* pop */
       if (--top < 0) break;
@@ -198,14 +198,14 @@ INLINE int dgmapl_save2full(
   int lscnt = 0, j;
   dgmapl_int_t iarr[2];
 
-  vs = ms[0] = DG_MASKN_;
+  vs = ms[0] = DGVS_FIRSTWORD( DG_MASKN_ );
   if (top != 0) {
     die_if (k != top, "top %d must be %d\n", top, k);
     /* reconstruct the stack from st[] */
     for (i = 0; i < top; i++) {
       b = MKBIT(st[i]);
       vs ^= b; /* remove b from the stack */
-      ci = g->c[ st[i] ];
+      ci = DGVS_FIRSTWORD( g->c[ st[i] ] );
       ms[i + 1] = vs & ci;
       if ( !(ci & MKBIT(st[i+1])) ) {
         fprintf(stderr, "i %d, no edge between %d and %d\n", i, st[i], st[i+1]);
@@ -225,7 +225,7 @@ INLINE int dgmapl_save2full(
       BITFIRSTLOW(st[top], ms[top], b);
       ms[top + 1] = vs ^ b;
       if (top < k) /* enforcing the connectivity top-(top+1) */
-        ms[top + 1] &= g->c[ st[top] ];
+        ms[top + 1] &= DGVS_FIRSTWORD( g->c[ st[top] ] );
       if (top + 1 < DG_N_) { /* to the next step to avoid popping */
         vs ^= b;
         top++;

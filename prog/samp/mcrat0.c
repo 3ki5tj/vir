@@ -96,7 +96,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-V", "%lf", &Bring, "value of the ring integral");
   argopt_add(ao, "-I", NULL, &fnBring, "name of the virial series file");
   argopt_add(ao, "-Z", "%lf", &Zn, "partition function");
-  argopt_add(ao, "--nthr", "%d", &nthreads, "number of threads");
+  argopt_add(ao, "--nt", "%d", &nthreads, "number of threads");
   argopt_add(ao, "--rng", "%u", &rngseed, "set the RNG seed offset");
 
   /* we allow options for mapl and hash, even if they are unavailable */

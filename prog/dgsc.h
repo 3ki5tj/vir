@@ -192,46 +192,32 @@ INLINE double dgsc_recur(dg_t *g, double *nr, int ned, int i, int j)
 
   /* find the pair after (i, j) with i < j */
   if (++j >= n) j = (++i) + 1;
-  //DGVS_MKBITSMASK(avs, DG_N_)
-  //dg_print(g); printf("n %d\n", DG_N_); getchar();
   /* loop over the first vertex i */
   for (; i < n - 1; j = (++i) + 1) {
     /* if the degree <= 2, removing an edge connecting i
      * makes the biconnectivity impossible */
     if (dg_deg(g, i) < 3) continue;
     DGVS_MKBIT(i, bi, iq)
-    //DGVS_XOR1(avs, bi, iq) /* remove `bi' from `avs' */
     /* loop over the second vertex j */
     for (; j < DG_N_; j++) {
       /* try to remove the edge i-j */
       if ( !DGVS_HASBIT(g->c[j], bi, iq) || dg_deg(g, j) < 3 )
         continue;
-      //printf("n %d, before removing (%d, %d), bi %x bj %x ci %x, cj %x\n", DG_N_, i, j, bi, bj, g->c[i], g->c[j]);
       DGVS_MINUS1(g->c[j], bi, iq) /* remove i from c[j] */
-      //g->c[j] &= ~bi;
       DGVS_MKBIT(j, bj, jq)
       DGVS_MINUS1(g->c[i], bj, jq) /* remove j from c[i] */
-      //dg_print(g);
-      //printf("n %d, removing (%d, %d), bi %x bj %x ci %x, cj %x\n", DG_N_, i, j, bi, bj, g->c[i], g->c[j]); getchar();
-      //g->c[i] &= ~bj;
       /* It is certain that neither i or j is an articulation points (*)
        * we will only test the connectivity of g without other vertices
        * Prove (*):
        * Since `g' with (i, j) is biconnected, g\{i} is connected
        * so g'\{i} where g' is g \ {(i, j)} is also connected,
        * hence i is not an articulation point of g'  */
-      //DGVS_XOR1(avs, bj, jq) /* remove `bj' from `avs' */
-      //if ( dg_biconnectedavs(g, avs) ) {
       if ( dg_biconnected(g) )
         fb += dgsc_recur(g, nr, ned - 1, i, j); /* diagrams without (i, j) */
-      //DGVS_XOR1(avs, bj, jq) /* add back `bj' to `avs' */
       /* link back, find subdiagrams with (i, j) */
       DGVS_OR1(g->c[i], bj, jq)
       DGVS_OR1(g->c[j], bi, iq)
-      //g->c[i] |= bj;
-      //g->c[j] |= bi;
     }
-    //DGVS_XOR1(avs, bi, iq) /* add `bi' back to `avs' */
   }
   return fb;
 }
@@ -328,7 +314,7 @@ INLINE double dgsc_fbnr0(const dg_t *g, double *nr, int method,
     int *ned, int *degs)
 {
   double fb = 0, ring;
-  static dgword_t g0_c[DG_NMAX];
+  static dgvs_t g0_c[DG_NMAX];
   static dg_t g0[1] = {{0, NULL}};
 #pragma omp threadprivate(g0_c, g0)
 

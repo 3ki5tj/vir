@@ -44,11 +44,13 @@ $(bins_mp) : %_mp: %.c $(deps)
 $(bins_mpi) : %_mpi: %.c $(deps)
 	$(MPICC) -o $@ $< $(MPLM)
 
-sync::
+syncipo:
 	rsync -avL *.[ch] cz1@129.109.88.204:lwork/vir
 	rsync -avL *.py cz1@129.109.88.204:lwork/vir
 	rsync -avL *.ma cz1@129.109.88.204:lwork/vir
 	rsync -avL Z.dat cz1@129.109.88.204:lwork/vir
+
+sync: syncipo
 	rsync -avL *.[ch] oo1@stampede.tacc.utexas.edu:/work/02464/oo1/vir
 	rsync -avL *.py oo1@stampede.tacc.utexas.edu:/work/02464/oo1/vir
 	rsync -avL Bring.dat oo1@stampede.tacc.utexas.edu:/work/02464/oo1/vir

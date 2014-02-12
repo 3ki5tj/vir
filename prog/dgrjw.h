@@ -64,7 +64,7 @@ typedef unsigned char dgrjw_ap_t;
 
 /* compute the Boltzmann weight, the sum of all diagrams
   `c' is the connectivity matrix, `vs' is the vertex set */
-INLINE int dgrjw_fq(const dgvs_t *c, dgword_t vs)
+INLINE int dgrjw_fq(dgvs_t *c, dgword_t vs)
 {
   dgword_t w, b;
 
@@ -117,7 +117,7 @@ INLINE void dgrjw_prepare(const dg_t *g,
     fc = dgrjw_fq(g->c, vs);
     fqarr[vs] = fc; /* start with the Boltzmann weight */
 
-    if ( !dg_connectedvs(g, vs) ) { /* disconnected subset */
+    if ( !dg_connectedvs(g, DGVS_W2VS(vs)) ) { /* disconnected subset */
       fcarr[vs] = 0;
       aparr[vs] = 0; /* fb(vs) == 0 */
     } else { /* connected diagram */
@@ -217,7 +217,7 @@ static dgrjw_fb_t *dgrjw_fbarr_;
 
 static unsigned *dgrjw_idbybits_;
 static int dgrjw_idn_ = -1, dgrjw_idnmax_ = -1;
-#pragma omp threadprivate(dgrjw_idbybits_, dgrjw_idn_, idrjw_idnmax_)
+#pragma omp threadprivate(dgrjw_idbybits_, dgrjw_idn_, dgrjw_idnmax_)
 
 static dgrjw_ap_t *dgrjw_aparr_;
 #pragma omp threadprivate(dgrjw_aparr_)

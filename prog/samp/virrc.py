@@ -140,7 +140,10 @@ def getrcZr(fn):
     print "only %d lines, bad nmin %d, nmax %d" % (
         len(lines), nmin, nmax)
     raise Exception
-  lines = lines[nmin - 1: nmax]
+  if nmax > 0:
+    lines = lines[nmin - 1: nmax]
+  else:
+    lines = lines[nmin - 1: ]
   n = len(lines)
   # parse each line
   for i in range(n):
@@ -257,7 +260,7 @@ def huntrc(d, nmin, nmax):
     print line,
     if verbose: raw_input("press Enter to continue")
     n += 1
-    if n > nmax: break
+    if nmax > 0 and n > nmax: break
   fnout = "fbnr.dat"
   open(fnout, "w").write(src)
   print "writing %s" % fnout
@@ -273,7 +276,7 @@ def usage():
   Compute the radius of convergence from a grand canonical ensemble simulation
     mcgc2.c, mcgcr2.c
   The input are something like
-    ZrhD8n64.dat, ZrrD100r4n64.dat
+    ZrhD8n64.dat, ZrD100r4n64.dat
   Without the input, the program will try search proper input dat files
 
   OPTIONS:
@@ -336,7 +339,6 @@ def doargs():
       dim = int(m.group(1))
     print "hunting mode for D = %s" % dim
     if nmin <= 0: nmin = 4
-    if nmax <= 0: nmax = 64
   else: # normal mode
     if len(args):
       fn = args[0]
@@ -349,7 +351,6 @@ def doargs():
           usage()
       fn = fn[0]
     if nmin <= 0: nmin = 20
-    if nmax <= 0: nmax = 64
 
   return fn
 

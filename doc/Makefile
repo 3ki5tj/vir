@@ -12,3 +12,10 @@ $(prj)doc.zip: $(prj)doc.pdf $(prj)text.doc $(prj)supp.doc $(prj).enl $(prj).Dat
 	zip -r $@ $^
 
 zip: $(prj)doc.zip
+
+mobi: $(prj)text.mobi
+	cp $< /media/Kindle/documents
+
+$(prj)text.mobi: $(prj)text.htm
+	kindlegen -c1 -verbose $<
+

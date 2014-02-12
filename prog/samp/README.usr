@@ -1,40 +1,62 @@
+Computing the virial coefficients by Monte Carlo sampling
+==========================================================
+
+
+
 Files
 -----
 
-mcrat0.c    calculate the virial coefficients
-            Ree-Hoover star contents are used, so no need to sample
-            over diagrams
+mcrat0.c    main source code of the program [mcrat0]
+            calculates the virial coefficient of a fixed dimension D
+            and a fixed order N.
 
-mcgc2.c     grand canonical simulation
-            no intermediate states, with heat-bath algorithm
+mcgc2.c     main source code of the program [mcgc]
+            grand canonical simulation
+            computes the virial coefficient for a fixed dimension D
+            and a range of orders.
+            This program implements algorithms G1 and G2 in the manuscript
+            It uses no intermediate states.
+            But it uses the heat-bath technique in algorithm G2.
 
-mcgcr2.c    grand canonical simulation, multiple intermediate states
-            with a distance restraint between a pair of special vertices
-            with heat-bath algorithm
+mcgcr2.c    main source code of the program [mcgcr2]
+            grand canonical simulation with multiple intermediate states
+            between two successive orders N and N + 1.
+            A distance constraint between a pair of special vertices is used.
+            The heat-bath algorithm is used.
+            The active pulling along the reaction coordinate is used.
 
-dbtool.c    check and combine database .bdb files
+dbtool.c    checks and/or combines database .bdb files
+            (which are produced by Hash-table in mcrat0).
 
-pyhs2.ma    exact solution of PY closure in odd dimensions
+virsum.py   mcrat0, mcgc, mcgcr2 all allow parallelism.  They will generate
+            data with .dat (master core), .dat1, .dat2, ... in this case.
+            The Python script aggregates the data from these files
+            and writes a corresponding .data file which also estimates the error.
+            For mcrat0, the program can also aggregrate independent simulations
+            with the same dimension and order.
+
+virrc.py    estimates the radius of convergence.
+            mainly for mcgc and mcgcr2
+            It calls virsum.py to aggregate data.
+
+pyhs2.ma    exact solution of the PY closure in odd dimensions
             (Mathematica script)
 
 ring.ma     computes the ring integrals (Mathematica script)
 
-lsvir.ma    list the exact partition function virial coefficients
+lsvir.ma    lists the exact partition function virial coefficients
             for n = 4 and D <= 12 (Mathematica script)
 
-virsum.py   combine data for MPI/OpenMP runs, estimate error
-            (Python script)
-
-virrc.py    estimate radius of convergence
-
-Ring.dat    values of the ring integrals
+Bring.dat   values of the ring integrals
 
 Z.dat       values of the partition functions
 
 
 
-mcrat0 usage
--------------
+
+
+Usage of mcrat0
+---------------
 
 Compiling
 ~~~~~~~~~
@@ -69,4 +91,179 @@ to exclude diagrams with clique separators (more memory-efficient).
 Further, specify database to save the warm-up time
   --dbez --hash-memmax=1e10
 the second command asks about 10G memory
+
+
+
+mcrat0: Methods of computing the hard-sphere weights
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For n <= 8, we use the regular lookup table (command line option -L1).
+
+For n >= 9, we switch to the "direct" branch by default.
+To use this branch by smaller n, set `-L0' on command line.
+
+The default method for n == 9 is the larger lookup table
+To use this method for n = 10, use --mapl-mode=1
+
+The default method for n > 9 is the hash table
+To use this method for n == 9, use --hash-mode=1
+
+
+
+
+Usage of mcgc and mcgcr2
+------------------------
+
+* mcgc and mcgcr2 need to be compiled for a fixed dimension D before use.
+
+  To use mcgc2 to compute the first 64 virial coefficients for D = 20
+
+    mpicc -DMPI=1 -DD=20 -DNMAX=64 mcgc2.c && mpirun -np 4 ./a.out -o a.dat
+
+  To use mcgcr2 to compute the first 8 coefficients for D = 50
+
+    mpicc -DMPI=1 -DD=50 mcgcr2.c && mpirun -np 4 ./a.out -n 8 -o a.dat -m 3 -c 0.4
+
+* -DD=20 means the dimensionality is 20.
+
+* -DNMAX=64 if the maximal order is greater than 64.
+
+* -DMPI=1 if an MPI version is needed
+
+* Alternative to the MPI versions, OpenMP versions are recommended.
+  Although the stability is to be more thoroughly tested.
+  This is done by
+    icc -openmp
+  or
+    gcc -fopenmp
+  For example, the above two examples
+    icc -openmp -DD=20 -DNMAX=64 mcgc2.c && OMP_NUM_THREADS=4 ./a.out -o a.dat
+  or
+    icc -openmp -DD=50 mcgcr2.c && OMP_NUM_THREADS=4 ./a.out -n 8 -m 3 -c 0.4 -o a.dat
+
+* Before each production run, a preliminary run are needed to
+  adjust parameters.
+  To do this, use -E (see below) to specify the number of iterations
+  for parameter adjustment.
+  Only single-processor runs are supported,
+  and do not run the MPI or OpenMP version.
+
+  -E specifies the number of parameter iterations
+     e.g., '-E 10' means 10 iterations
+  -0 specifies the number of steps in each iteration
+     e.g., '-0 1e6' means 10^6 MC steps in each iteration
+     Parameters are updated at the end of each iteration.
+  -1 specifies the numbers of step for the production run,
+     Parameters are updated at the end of the simulation.
+  -A specifies the interval of computing clique separators
+     and the default interval of computing fb,
+     -A0 to disable the computation of clique separators.
+
+  The result output file `Zr*.dat' will have a `dirty' flag
+  on the first line.  So the previous data will not be loaded
+  on input. But the parameters will always be used.
+
+* For mcgcr2.
+  -m 3: means three intermediate ensembles
+        between any two N and N + 1.
+  -C: means to update the radius of point insertion.
+  -c: specifies the initial radius of insertion
+      instead of using the default value.
+
+* In the first production run, use the switch `-R -B' or `-RB'.
+  The flag `-R' means that no parameters will be updated.
+  The flag `-B' means to clear all data from the previous run
+    (which is presumably a preliminary preparation run
+     with unrefined parameters).
+  In recent versions, the flag `-B' is unnecessary, for the
+    output `Zr*.dat' from the preparation run has a `dirty' flag,
+    which achieves the same effect.
+
+* In successive production runs, use the switch -R,
+  which means not to update parameters.
+  The data in the previous `Zr*.dat' will be loaded.
+
+
+
+Format of the mcgcr2 output Zrr*.dat
+------------------------------------
+The format is subject to change, always see the functions
+gc_saveZrr() and gc_fprintZrr() for the updated information.
+
+The first line (information)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  #R D nens ens0 nmin nmax M V4 1 nedxmax dirty
+
+The first letter is 'S' if the Metropolis-like move,
+  instead of teh heat-bath move, is used
+The second number is the dimensionality.
+The third number is the index of the last ensemble.
+The fourth number is the index of the first ensemble.
+The fifth number is the order n of the first ensemble.
+The sixth number is the order n of the last ensemble.
+The seventh number is the number of ensembles per order n.
+The next is the file version (V4).
+The next number is "1" (meaning unclear).
+The tenth number is the threshold of the number of edges
+  for computing fb.
+The last word, if any, is "dirty", which means that
+  the data, e.g., histogram, transition rates, etc.,
+  in the file were produced by a different set of parameters.
+
+
+
+The rest lines (data)
+~~~~~~~~~~~~~~~~~~~~~~
+
+column    meaning
+1:        ensemble id
+2:        m
+3:        n
+4:        Zr (parameter)
+          Zr != 1 only for m = 0 or 1
+          For m = 0,
+            Zr(i) is a parameter |Nf| for the transition
+            between ensemble i - 1 and i (in the transition type II).
+              Zr(i) = 1/n
+            where n is |Nf| in the paper (in transition type II).
+          For m = 1,
+            Zr(i) is the parameter xi for the transition
+            between ensemble i - 1 and i.
+            It is adjusted as
+              Zr(i) *= accup(i - 1 -> i) / accdown(i -> i - 1).
+5:        Z (output not parameter)
+6:        rc (parameter)
+          for m = 0,
+            rc(i) = 1
+          otherwise
+            rc(i) = m/M
+7:        sr (parameter)
+          for m = 0
+            sr(i) = 1
+          for m = 1, 2, ..., M
+            sr(i) = rc(i + 1) / rc(i)
+          where i is the ensemble index
+          In the last case, sr(i) to be adjusted by
+            sr(i) *= [ accup(i -> i + 1) / accdown(i + 1 -> i) ]^(1/D)
+          for m = 1, 2, ..., M
+8:        histogram, or the number of visits
+9:        nup, number of transitions to next ensemble
+10:       ndown, number of transitions to the previous ensemble
+11:       accup, acceptance ratio of transitions to the next ensemble
+12:       accdown, acceptance ratio of transitions to the previous ensemble
+
+(the rest columns only apply to ensembles with m == 0)
+
+13:       number of data points for the ring content
+14:       average ring content
+15:       number of data points for the number of edges
+16:       number of data points for the clique separators
+17:       number of data points for fb
+18:       average number of edges
+19:       ratio of graphs with no clique separators
+20:       average |fb|
+21:       average fb
+22:       virial coefficient Bn/B2^(n-1) from the partition function route
+22:       virial coefficient Bn/B2^(n-1) from the ring route
 

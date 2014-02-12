@@ -214,7 +214,8 @@ INLINE double dgring_inv(const dg_t *g)
 
 
 
-/* the ring content */
+/* the ring content
+ * because of the memory limit, we must have n < 32 */
 INLINE double dgring_dplow(const dg_t *g, double *arr, unsigned *idbybits)
 {
   int n1, i, j, root;
@@ -244,7 +245,8 @@ INLINE double dgring_dplow(const dg_t *g, double *arr, unsigned *idbybits)
       i = BIT2ID(b);
       ms = vs ^ b;
       /* count paths to i passing all vertices in ms */
-      for ( nr = 0, ms1 = g->c[i] & ms; ms1 != 0; ) {
+      ms1 = DGVS_FIRSTWORD(g->c[i]) & ms;
+      for ( nr = 0; ms1 != 0; ) {
         ms1 ^= (bj = ms1 & (-ms1));
         j = BIT2ID(bj);
         nr += arr[ms * n1 + j];
@@ -254,7 +256,7 @@ INLINE double dgring_dplow(const dg_t *g, double *arr, unsigned *idbybits)
   }
 
   /* sum over the last link */
-  for ( nr = 0, vs1 = g->c[root]; vs1 != 0; ) {
+  for ( nr = 0, vs1 = DGVS_FIRSTWORD(g->c[root]); vs1 != 0; ) {
     vs1 ^= (b = vs1 & (-vs1));
     i = BIT2ID(b);
     nr += arr[(vsmax - 1) * n1 + i];
@@ -300,14 +302,15 @@ INLINE double dgring_dp(const dg_t *g)
 
 /* compute the ring content by Karp's algorithm
  * Richard K. Karp, Operations Research Letters
- * Vol. 1, No. 2, April 1982 */
+ * Vol. 1, No. 2, April 1982
+ * we can safely assume n <= 32, otherwise way too slow */
 INLINE double dgring_karp(const dg_t *g)
 {
   DG_DEFN_(g)
   int s = DG_N_ - 1, t, r, k;
   dgword_t bs, bt, br;
   dgword_t ms, ms1, ms2, vs;
-  double nr, nr1, nr2, ps[2][DG_NMAX] = {0};
+  double nr, nr1, nr2, ps[2][DG_NMAX] = {{0}};
 
   bs = (unsigned) 1 << s;
   for ( nr = 0, ms = 1; ms < bs; ms++ ) {
@@ -319,7 +322,8 @@ INLINE double dgring_karp(const dg_t *g)
       for ( ms1 = vs; ms1 != 0; ) { /* loop over the t */
         BITFIRSTLOW(t, ms1, bt)
         ms1 ^= bt;
-        for ( nr2 = 0, ms2 = vs & g->c[t]; ms2 != 0; ) { /* loop over r */
+        ms2 = DGVS_FIRSTWORD(g->c[t]) & vs;
+        for ( nr2 = 0; ms2 != 0; ) { /* loop over r */
           BITFIRSTLOW(r, ms2, br)
           ms2 ^= br;
           nr2 += ps[(k - 1) % 2][r];
@@ -327,7 +331,8 @@ INLINE double dgring_karp(const dg_t *g)
         ps[k % 2][t] = nr2;
       }
     }
-    for ( nr1 = 0, ms1 = g->c[s] & ms; ms1 != 0; ) { /* loop over t */
+    ms1 = DGVS_FIRSTWORD(g->c[s]) & ms;
+    for ( nr1 = 0; ms1 != 0; ) { /* loop over t */
       BITFIRSTLOW(t, ms1, bt)
       ms1 ^= bt;
       nr1 += ps[(DG_N_ - 1) % 2][t];

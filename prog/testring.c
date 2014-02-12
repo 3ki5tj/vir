@@ -166,11 +166,11 @@ int main(int argc, char **argv)
   verifyall(n);
 
   /* with default setting, nedmax = inf, N not predefined
-   * T60 timing Feb. 4 2013
-   * 2.7mcs, n = 7
-   * 7.8mcs, n = 8
-   * 19mcs, n = 9
-   * 52mcs, n = 10
+   * T60 timing Feb. 12 2013
+   * 2.6mcs, n = 7
+   * 6.6mcs, n = 8
+   * 18.4mcs, n = 9
+   * 53mcs, n = 10
    * 128mcs, n = 11 */
   testspeed(n, nsamp, nedmax, nedmin, method);
 

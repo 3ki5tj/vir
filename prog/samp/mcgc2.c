@@ -9,6 +9,8 @@
 #include "dgring.h"
 #include "mcutil.h"
 
+#define EPS 1e-30
+
 
 
 int nmin = 1; /* the minimal order of virial coefficients */
@@ -31,6 +33,7 @@ char *fninp, *fnout;
 
 char *fnBring = NULL; /* ring contribution file */
 
+int nthreads = 1;
 unsigned rngseed = 0;
 
 int nstcom = 10000;
@@ -93,7 +96,8 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation");
   argopt_add(ao, "-C",    "%b",   &norc,    "do not update rc");
   argopt_add(ao, "-W",    "%d",   &nmvtype, "nmove type, 0: Metropolis, 1: heat-bath");
-  argopt_add(ao, "-p",    "%d",   &csepmethod, "method of detecting clique separators");
+  argopt_add(ao, "-p",    "%d",   &csepmethod, "method of detecting clique separators, 0: disable, 1: LEX-M, 2: MCS-P, 3: MCS-M");
+  argopt_add(ao, "--nt",  "%d",   &nthreads,  "number of threads");
   argopt_add(ao, "--rng", "%u",   &rngseed, "set the RNG seed offset");
 
   argopt_parse(ao, argc, argv);
@@ -186,17 +190,17 @@ static void gc_cleardata(gc_t *gc)
 
   for (i = 0; i <= nmax; i++) {
     gc->hist[i] = 0;
-    gc->nup[i][0] = gc->ndown[i][0] = 1e-20;
+    gc->nup[i][0] = gc->ndown[i][0] = EPS;
     gc->nup[i][1] = gc->ndown[i][1] = 0;
-    gc->ngpr[i][0] = 1e-20;
+    gc->ngpr[i][0] = EPS;
     gc->ngpr[i][1] = 0;
-    gc->nedg[i][0] = 1e-20;
+    gc->nedg[i][0] = EPS;
     gc->nedg[i][1] = 0;
-    gc->nocs[i][0] = 1e-20;
+    gc->nocs[i][0] = EPS;
     gc->nocs[i][1] = 0;
-    gc->fbsm[i][0] = 1e-20;
+    gc->fbsm[i][0] = EPS;
     gc->fbsm[i][1] = gc->fbsm[i][2] = 0;
-    gc->ring[i][0] = 1e-20;
+    gc->ring[i][0] = EPS;
     gc->ring[i][1] = 0;
   }
 }
@@ -328,12 +332,12 @@ static void gc_computeZ(gc_t *gc, const double *Zr, const double *rc)
       }
     }
     fac *= 2./i;
-    fbav = gc->fbsm[i][1] / gc->fbsm[i][0];
+    fbav = gc->fbsm[i][1] / (gc->fbsm[i][0] + EPS);
     gc->Z[i] = z;
     /* B(i)/B(2)^(i-1) = (1 - i) 2^(i-1) / i! Z(i)/Z(2)^(i-1) <fb(i)> */
     gc->B[i] = (1 - i) * fac * z * fbav;
     gc->ZZ[i] = gc->Z[i] / gc->Z[i - 1];
-    nr = gc->ring[i][1] / gc->ring[i][0];
+    nr = gc->ring[i][1] / (gc->ring[i][0] + EPS);
     if (nr > 0)
       gc->B2[i] = -fbav / nr * gc->Bring[i];
   }
@@ -458,8 +462,8 @@ static int gc_fscanZr(gc_t *gc, FILE *fp, int loaddata,
       break;
     }
     *tot += gc->hist[i];
-    if (gc->nup[i-1][0] <= 0) gc->nup[i-1][0] = 1e-20;
-    if (gc->ndown[i][0] <= 0) gc->ndown[i][0] = 1e-20;
+    if (gc->nup[i-1][0] <= 0) gc->nup[i-1][0] = EPS;
+    if (gc->ndown[i][0] <= 0) gc->ndown[i][0] = EPS;
     gc->nup[i-1][1] *= gc->nup[i-1][0];
     gc->ndown[i][1] *= gc->ndown[i][0];
     p += next;
@@ -471,7 +475,7 @@ static int gc_fscanZr(gc_t *gc, FILE *fp, int loaddata,
         break;
       }
       p += next;
-      if (gc->ngpr[i][0] <= 0) gc->ngpr[i][0] = 1e-20;
+      if (gc->ngpr[i][0] <= 0) gc->ngpr[i][0] = EPS;
       gc->ngpr[i][1] *= gc->ngpr[i][0];
     }
 
@@ -482,7 +486,7 @@ static int gc_fscanZr(gc_t *gc, FILE *fp, int loaddata,
         break;
       }
       p += next;
-      if (gc->ring[i][0] <= 0) gc->ring[i][0] = 1e-20;
+      if (gc->ring[i][0] <= 0) gc->ring[i][0] = EPS;
       gc->ring[i][1] *= gc->ring[i][0];
     }
 
@@ -493,9 +497,9 @@ static int gc_fscanZr(gc_t *gc, FILE *fp, int loaddata,
       fprintf(stderr, "%s(%d): corrupted(III) on line %d\n%s", fn, tag, i, s);
       break;
     }
-    if (gc->nedg[i][0] <= 0) gc->nedg[i][0] = 1e-20;
-    if (gc->nocs[i][0] <= 0) gc->nocs[i][0] = 1e-20;
-    if (gc->fbsm[i][0] <= 0) gc->fbsm[i][0] = 1e-20;
+    if (gc->nedg[i][0] <= 0) gc->nedg[i][0] = EPS;
+    if (gc->nocs[i][0] <= 0) gc->nocs[i][0] = EPS;
+    if (gc->fbsm[i][0] <= 0) gc->fbsm[i][0] = EPS;
     gc->nedg[i][1] *= gc->nedg[i][0];
     gc->nocs[i][1] *= gc->nocs[i][0];
     gc->fbsm[i][1] *= gc->fbsm[i][0];
@@ -866,10 +870,15 @@ int main(int argc, char **argv)
   doargs(argc, argv);
 
 #ifdef _OPENMP
-  nnodes = omp_get_num_threads();
-  if (nnodes == 1) {
-    nnodes = omp_get_max_threads();
+  if (nthreads > 1) {
+    nnodes = nthreads;
     omp_set_num_threads(nnodes);
+  } else {
+    nnodes = omp_get_num_threads();
+    if (nnodes == 1) {
+      nnodes = omp_get_max_threads();
+      omp_set_num_threads(nnodes);
+    }
   }
   printf("set up %d OpenMP threads\n", nnodes);
 
