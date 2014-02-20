@@ -470,7 +470,7 @@ INLINE int dgdb_detectbinary(const char *fn)
   int bin;
 
   if ((fp = fopen(fn, "rb")) == NULL) {
-    fprintf(stderr, "cannot open database %s\n", fn);
+    fprintf(stderr, "dgdb_detectbinary: cannot open database %s\n", fn);
     return 0; /* assume text file */
   }
   /* text file starts with '#' */

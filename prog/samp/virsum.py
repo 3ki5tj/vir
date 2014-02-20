@@ -36,15 +36,19 @@ def errarr(arr):
   n = len(arr[0])
   err = [0] * n
   for i in range(n): # loop over arrays
-    smx = smx2 = 0
-    xb = arr[0][i]
+    smx = smabsx = smx2 = 0
     for k in range(m): # loop over copies
-      x = arr[k][i] - xb
-      smx += x
-      smx2 += x * x
+      smx += arr[k][i]
+      smabsx += fabs(arr[k][i])
     avx = smx / m
-    smx2 = max(smx2 / m - avx * avx, 0)
-    err[i] = sqrt(smx2 / (m - 1))
+    avabsx = smabsx / m
+    # the array elements may be very large, upto 1e300
+    # so we need to be careful in computing the standard deviation
+    if avabsx == 0: avabsx = 1
+    for k in range(m): # loop over copies
+      x = fabs(arr[k][i] - avx)/avabsx
+      smx2 += x * x
+    err[i] = sqrt(smx2 / m / (m - 1)) * avabsx
   return err
 
 
@@ -1090,7 +1094,7 @@ def guessdirs(n):
   # try to search directories of order n
   dirs = [d for d in glob.glob("n%d*" % n) if os.path.isdir(d)]
   dirs += [d for d in glob.glob("n%d*/mic*" % n) if os.path.isdir(d)]
-  dirs += [d for d in glob.glob("n%d*/n%dmic*" % (n, n)) if os.path.isdir(d)]
+  dirs += [d for d in glob.glob("n%d*/*n%dmic*" % (n, n)) if os.path.isdir(d)]
   dirs = list( set( dirs ) )
   dirs.sort()
   if len(dirs) == 0:
@@ -1196,10 +1200,11 @@ def checkdirfn(dir, fn):
   ''' check if the directory name and file name fn represent
       the same simulation '''
   # check dimensions
-  mdir = re.search(r"D([0-9]+)", dir)
+  # we first reverse the string dir[::-1], and search backwards
+  mdir = re.search(r"([0-9]+)D", dir[::-1])
   if mdir:
     dird = int( mdir.group(1) )
-    mfn = re.search(r"D([0-9]+)", fn)
+    mfn = re.search(r"([0-9]+)D", fn[::-1])
     if mfn:
       fnd = int( mfn.group(1) )
       if dirnamecheck and dird != fnd:
@@ -1208,12 +1213,12 @@ def checkdirfn(dir, fn):
         return 1
 
   # check orders
-  mdir = re.search("n([0-9]+)mic", dir)
+  mdir = re.search("cim([0-9]+)n", dir[::-1])
   if not mdir:
-    mdir = re.search("n([0-9]+)", dir)
+    mdir = re.search("([0-9]+)n", dir[::-1])
   if mdir:
     dirn = int( mdir.group(1) )
-    mfn = re.search("n([0-9]+)", fn)
+    mfn = re.search("([0-9]+)n", fn[::-1])
     if mfn:
       fnn = int( mfn.group(1) )
       if dirnamecheck and dirn != fnn:

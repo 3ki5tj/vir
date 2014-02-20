@@ -213,14 +213,13 @@ INLINE unqid_t dgmap_getuid(const dg_t *g)
     if (DG_N_ <= 1) return 1; \
     /* initialize the look-up table */ \
     if (arr[DG_N_] == NULL) { \
-      dg_t *g; \
-      dgmap_t *m = dgmap_ + DG_N_; \
       int k, cnt = 0; \
       clock_t t0 = clock(); \
+      dg_t *g = dg_open(DG_N_); \
+      dgmap_t *m = dgmap_ + DG_N_; \
       dgmap_init(m, DG_N_); \
       xnew(arr[DG_N_], m->ng); \
       /* loop over unique diagrams */ \
-      g = dg_open(DG_N_); \
       for (cnt = 0, k = 0; k < m->ng; k++) { \
         dg_decode(g, &m->first[k]); \
         if ( dg_biconnected(g) ) { \

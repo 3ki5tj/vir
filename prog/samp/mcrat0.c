@@ -194,13 +194,16 @@ static void doargs(int argc, char **argv)
         dbbinary = 0;
     }
     if (dbbinary < 0 && dbfninp != NULL) { /* same as the input */
-      dbbinary = dgdb_detectbinary(dbfninp);
+      if ( fexists(dbfninp) )
+        dbbinary = dgdb_detectbinary(dbfninp);
+      else
+        dbbinary = (strstr(dbfninp, ".bin") || strstr(dbfninp, ".bdb"));
     }
     if (dbbinary < 0) /* text file by default */
       dbbinary = 0;
     if (inode == MASTER)
-      fprintf(stderr, "assume output database is %s\n",
-          dbbinary ? "binary" : "text");
+      fprintf(stderr, "assume the output database %s is %s\n",
+          dbfnout, dbbinary ? "binary" : "text");
   }
 
   /* interval of computing fb */

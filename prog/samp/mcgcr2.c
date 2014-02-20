@@ -841,7 +841,7 @@ static int gc_loadZrr(gc_t *gc, const char *fn, int loaddata)
   }
   ver = atoi(sver[0] == 'V' ? sver + 1 : sver); /* strip V */
   if ( loaddata && (ver <= 0 || strstr(s, "dirty") || strstr(s, "DIRTY")) ) {
-    fprintf(stderr, "%s: %s has no restartable data\n", fn, sver);
+    fprintf(stderr, "will not load data from %s, %s\n", fn, sver);
     loaddata = 0;
   }
   i = gc_fscanZrr(gc, fp, loaddata, fn, -1, ver, &tot);

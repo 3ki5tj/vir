@@ -56,8 +56,8 @@ int neql = -1; /* number of equilibration stages
                  <  0: Zr, sr are not updated, one round */
 int nstsave = 1000000000; /* interval of saving data */
 
-int restart = 0; /* restartable simulation */
-int bsim0 = 0; /* first simulation */
+int restart = 0; /* restartable simulation, no parameter update */
+int bsim0 = 0; /* first productive simulation: delete previous data */
 int updrc = 1; /* update rc */
 
 /* nmove type, 0: Metropolis, 1: heat-bath */
@@ -92,8 +92,8 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-E",    "%d",   &neql,    "number of equilibration rounds");
   argopt_add(ao, "-0",    "%lf",  &nequil,  "number of equilibration steps per round");
   argopt_add(ao, "-M",    "%d",   &nstcom,  "interval of centering the structure");
-  argopt_add(ao, "-R",    "%b",   &restart, "run a restartable simulation (do not overwrite Zr & rc on output)");
-  argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation");
+  argopt_add(ao, "-R",    "%b",   &restart, "run a restartable simulation, no parameter update");
+  argopt_add(ao, "-B",    "%b",   &bsim0,   "start a restartable simulation, delete previous data");
   argopt_add(ao, "-C",    "%b",   &norc,    "do not update rc");
   argopt_add(ao, "-W",    "%d",   &nmvtype, "nmove type, 0: Metropolis, 1: heat-bath");
   argopt_add(ao, "-p",    "%d",   &csepmethod, "method of detecting clique separators, 0: disable, 1: LEX-M, 2: MCS-P, 3: MCS-M");
@@ -538,7 +538,7 @@ static int gc_loadZr(gc_t *gc, const char *fn, int loaddata)
   }
   ver = atoi(sver[0] == 'V' ? sver + 1 : sver); /* strip V */
   if (loaddata && (ver <= 2 || strstr(s, "dirty") || strstr(s, "DIRTY")) ) {
-    fprintf(stderr, "%s: %s has no restartable data\n", fn, sver);
+    fprintf(stderr, "will not load data from %s, %s\n", fn, sver);
     loaddata = 0;
   }
   i = gc_fscanZr(gc, fp, loaddata, fn, -1, ver, &tot);
