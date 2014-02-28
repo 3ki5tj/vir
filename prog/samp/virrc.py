@@ -17,6 +17,8 @@ hunt = 0
 Rorder = 3
 Zorder = 2
 verbose = 0
+nmultiple = 1 # only orders that are multiples of this
+              # are printed in the verbose mode
 nmin = -1
 nmax = -1
 
@@ -191,11 +193,36 @@ def getrcZr(fn):
 
   if verbose:
     for i in range(n):
-      print "%3d: vir %+20.10e (%9.2e)" % (
-          narr[i], BRarr[i], BRerr[i])
+      if narr[i] % nmultiple == 0:
+        niceprint(BRarr[i], BRerr[i], narr[i], hist[i])
 
   return getRc(narr, fbarr, fberr, fbnrarr, fbnrerr, Zrarr, Zrerr,
         Rorder, Zorder, hist = avhist)
+
+
+
+def niceprint(x, err, n = 0, strtot = ""):
+  ''' print the number with error aligned on the second line
+      n is the order  '''
+  ox = floor(log10(fabs(x)))
+  oy = floor(log10(err))
+  if ox >= oy:
+    padding = int(ox - oy + .5)
+  else:
+    padding = int(ox - oy - .5)
+  if padding <= 0: padding -= 1
+  if err/pow(10, oy - 1) >= 50:
+    digits = 1
+  else:
+    digits = 2
+  xneat = round(x, -int(oy) + digits - 1)
+  ierr = int(err/pow(10, oy - digits + 1) + .5)
+  if ierr == 10 and ierr > err/pow(10, oy - digits + 1):
+    ierradj = 1
+  else:
+    ierradj = 0
+  print "%4d: %+18.8e %+20.10e %9.2e\n" % (n, xneat, x, strtot) + " " * (
+        padding + 11 - ierradj) + "%-17d%s %9.2e" % (ierr, " "*ierradj, err)
 
 
 
@@ -206,7 +233,9 @@ def huntmr(d, n, root = "."):
     # try to use virsum because it produces error estimates
     import virsum
     virsum.verbose = verbose
-    (x, err, tot, strtot) = virsum.dodirs(None, n, sum3 = 1)
+    # use need to use the option `usehidden'
+    # because some simulations that use algorithm R are hidden
+    (x, err, tot, strtot) = virsum.dodirs(None, n, sum3 = 1, usehidden = True)
     if x == None: return None, None, None, None, None
     else: return x[1], err[1], x[2], err[2], tot
   except ImportError:
@@ -294,15 +323,15 @@ def usage():
 def doargs():
   ''' Handle common parameters from command line options '''
   try:
-    opts, args = getopt.gnu_getopt(sys.argv[1:], "vmd:n:N:o:O:",
-         ["hunt", "dim=", "nmin=", "nmax=",
+    opts, args = getopt.gnu_getopt(sys.argv[1:], "vmd:n:N:o:O:M:",
+         ["hunt", "dim=", "nmin=", "nmax=", "multiple=",
            "order=", "Order=", "help",])
   except getopt.GetoptError, err:
     # print help information and exit:
     print str(err) # will print something like "option -a not recognized"
     usage()
 
-  global dim, nmin, nmax, verbose, Rorder, Zorder, hunt
+  global dim, nmin, nmax, verbose, nmultiple, Rorder, Zorder, hunt
 
   fn = None
 
@@ -319,6 +348,8 @@ def doargs():
       Rorder = int(a)
     elif o in ("-o", "--order"):
       Zorder = int(a)
+    elif o in ("-M", "--multiple"):
+      nmultiple = int(a)
     elif o in ("-v",):
       verbose += 1
     elif o in ("-h", "--help",):
@@ -330,7 +361,9 @@ def doargs():
     if re.search(r"D[0-9]+$", curdir):
       hunt = 1
 
-  if hunt: # hunting mode
+  if hunt:
+    # hunting mode, collect regular simulations
+    # on individual orders
     if dim == 0: # guess the dimension
       m = re.match(".*D([0-9]+)", os.getcwd())
       if not m:
@@ -339,7 +372,8 @@ def doargs():
       dim = int(m.group(1))
     print "hunting mode for D = %s" % dim
     if nmin <= 0: nmin = 4
-  else: # normal mode
+  else:
+    # normal mode, for grand simulations
     if len(args):
       fn = args[0]
     else:
@@ -350,7 +384,11 @@ def doargs():
           print "cannot find data file"
           usage()
       fn = fn[0]
-    if nmin <= 0: nmin = 20
+    if nmin <= 0:
+      if nmultiple != 1:
+        nmin = nmultiple
+      else:
+        nmin = 20
 
   return fn
 

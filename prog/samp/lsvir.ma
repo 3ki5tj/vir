@@ -42,7 +42,7 @@ diam = {-14/3,
   -8 + 972*Sqrt[3]/55/Pi - 182221984415/10188962784/Pi^2
 };
 
-star = {0,
+star = {4,
   8 - 12*Sqrt[3]/Pi + 8/Pi^2,
   (-89/280 - 219*Sqrt[2]/1120/Pi + 4131/2240ArcCos[1/3]/Pi)*4,
   8 - 18*Sqrt[3]/Pi + 238/9/Pi^2,
@@ -56,12 +56,12 @@ star = {0,
   8 - 1458*Sqrt[3]/55/Pi + 88060381669/1344697200/Pi^2
 };
 
-For [ dim = 2, dim <= 12, dim++,
+For [ dim = 1, dim <= 12, dim++,
   Z = Apart[ (ring[[dim]]*3 - star[[dim]]*2) / 8 ];
   Print["D ", dim, ", Z4/V^3 ", (Z // InputForm), " == ", N[Z, 20]];
 ];
 
-For [ dim = 2, dim <= 12, dim++,
+For [ dim = 1, dim <= 12, dim++,
   B = Apart[ -3*(ring[[dim]]/8 + diam[[dim]]/4 + star[[dim]]/24) ];
   Print["D ", dim, ", B4/B2^3 ", (B // InputForm), " == ", N[B, 20]];
 ];

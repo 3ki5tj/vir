@@ -201,7 +201,7 @@ INLINE double B4rat_full(int d)
 {
   /* Even: Clisby and McCoy, J. Stat. Phys. 114 1343 (2004)
    * Odd: Lyberg J. Stat. Phys. 119 747 (2005) */
-  static const double tab[] = {0, 0,
+  static const double tab[] = {0, 4,
     8 - 12*SQRT3OVERPI + 8 * ONEOVERPISQR,
     (-89./280 - 219./1120*SQRT2OVERPI + 4131./2240*ACOS13OVERPI) * 4,
     8 - 18*SQRT3OVERPI + 238./9 * ONEOVERPISQR,

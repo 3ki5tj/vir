@@ -987,7 +987,8 @@ class GC:
 
 
 def niceprint(x, err, n = 0, i = 0, strtot = ""):
-  ''' print the number with error aligned on the second line '''
+  ''' print the number with error aligned on the second line
+      n is the order, i is the quantity id '''
   ox = floor(log10(fabs(x)))
   oy = floor(log10(err))
   if ox >= oy:
@@ -995,9 +996,20 @@ def niceprint(x, err, n = 0, i = 0, strtot = ""):
   else:
     padding = int(ox - oy - .5)
   if padding <= 0: padding -= 1
+  if err/pow(10, oy - 1) >= 50:
+    digits = 1
+  else:
+    digits = 2
+  xneat = round(x, -int(oy) + digits - 1)
+  ierr = int(err/pow(10, oy - digits + 1) + .5)
+  if ierr == 10 and ierr > err/pow(10, oy - digits + 1):
+    ierradj = 1
+  else:
+    ierradj = 0
   if verbose:
-    print "%4d/%4d: %+20.10e   %s\n" % (n, i, x, strtot) + " " * (
-        padding + 15) + "%9.2e" % (err)
+    print "%4d/%4d: %+18.8e %+20.10e   %s\n" % (n, i, xneat, x, strtot
+        ) + " " * (padding + 16 - ierradj) + "%-17d%s %9.2e" % (
+        ierr, " "*ierradj, err)
 
 
 
@@ -1090,11 +1102,15 @@ def getlserr(ls, n, usetot = 0):
 
 
 
-def guessdirs(n):
+def guessdirs(n, usehidden = False):
   # try to search directories of order n
   dirs = [d for d in glob.glob("n%d*" % n) if os.path.isdir(d)]
   dirs += [d for d in glob.glob("n%d*/mic*" % n) if os.path.isdir(d)]
   dirs += [d for d in glob.glob("n%d*/*n%dmic*" % (n, n)) if os.path.isdir(d)]
+  if usehidden:
+    dirs += [d for d in glob.glob("_n%d*" % n) if os.path.isdir(d)]
+    dirs += [d for d in glob.glob("_n%d*/mic*" % n) if os.path.isdir(d)]
+    dirs += [d for d in glob.glob("_n%d*/*n%dmic*" % (n, n)) if os.path.isdir(d)]
   dirs = list( set( dirs ) )
   dirs.sort()
   if len(dirs) == 0:
@@ -1104,10 +1120,10 @@ def guessdirs(n):
 
 
 
-def dodirs(dirs, n, sum3 = 0):
-  ''' handle data for the same order '''
+def dodirs(dirs, n, sum3 = 0, usehidden = False):
+  ''' handle data for the same order n '''
   if dirs == None or len(dirs) == 0:
-    dirs = guessdirs(n)
+    dirs = guessdirs(n, usehidden)
     if dirs == None:
       return None, None, None, None
   # dictionary of list with different nstfb,
@@ -1137,7 +1153,8 @@ def dodirs(dirs, n, sum3 = 0):
     ls = dicls[nstfb]
     # combine data directories with the same nstfb
     av, err, tot, strtot = getlserr(ls, n, usetot = 1)
-    if av == None: continue;
+    if av == None: continue
+    if len(dicls) == 1: return av, err, tot, strtot
     newls += [ (av, err, tot, "w" + str(nstfb)), ]
   # combine data with different nstfb
   return getlserr(newls, n, usetot = 0)

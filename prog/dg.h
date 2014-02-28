@@ -395,7 +395,7 @@ typedef dgword_t *dgvsref_t;
 
 
 #define DGVS_MASKN_       maskn
-#define DGVS_DEFMASKN_()  dgvs_t maskn; DGVS_MKBITSMASK(maskn, DG_NMAX)
+#define DGVS_DEFMASKN_()  dgvs_t maskn; DGVS_MKBITSMASK(maskn, DG_N_)
 
 #define DGVS_MKINVSET(vs, n, i) BITS_MKINVSET(vs, n, DG_NW, i)
 #define dgvs_mkinvset(vs, n, i) bits_mkinvset(vs, n, DG_NW, i)
@@ -740,6 +740,7 @@ INLINE int dg_connectedvs(const dg_t *g, dgvs_t vs0)
 /* check if a diagram is connected */
 INLINE int dg_connected(const dg_t *g)
 {
+  DG_DEFN_(g)
   DGVS_DEFMASKN_()
   return dg_connectedvs(g, maskn);
 }

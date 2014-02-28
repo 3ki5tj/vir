@@ -117,7 +117,7 @@ INLINE void dg_mcsearchp(const dg_t *g, int *a, int *p)
       DGVS_XOR1(set[size[w] = szw + 1], bw, wq) /* add `w' to `set[szw+1]' */
     }
     /* seek the next largest cardinality */
-    for (j++; j >= 0 && set[j] == 0; j--)
+    for (j++; j >= 0 && dgvs_iszero( set[j] ); j--)
       ;
   }
 }
@@ -730,12 +730,11 @@ INLINE dgvsref_t dg_csep2(const dg_t *g)
 
   DGVS_CPY(maski, DG_MASKN_)
   DGVS_CLEAR(maskci)
-  maskci[0] = 1;
+  maskci[0] = 1; /* all vertices lower than i */
 
   /* loop for the first vertex */
   for (i = 1; i < DG_N_; i++) {
     DGVS_MKBIT(i, bi, iq) /* bi = MKBIT(i); */
-    /* the next two statements; maski = DG_MASKN_ ^ bi; */
     DGVS_XOR1(maski, bi, iq)
     /* maskci: vertices connected to `i', and with indices less than `i' */
     DGVS_AND2(ci, g->c[i], maskci)

@@ -32,10 +32,10 @@ set ylabel "Probability of forming a biconnected cluster" offset .5, 0
 #set key left bottom Left reverse width -0 font "Arial, 12"
 
 plot [:45][1e-8:] \
-  "bcacc.txt" u ($1):($5)     w lp ls 1 t "n = 5", \
-  ""          u ($1):($10)    w lp ls 2 t "n = 10", \
-  ""          u ($1):($15)    w lp ls 3 t "n = 15", \
-  ""          u ($1):($20)    w lp ls 4 t "n = 20"
+  "bcacc.txt" u ($1):($5)     w lp ls 1 t "{/Arial-Italic n} = 5", \
+  ""          u ($1):($10)    w lp ls 2 t "{/Arial-Italic n} = 10", \
+  ""          u ($1):($15)    w lp ls 3 t "{/Arial-Italic n} = 15", \
+  ""          u ($1):($20)    w lp ls 4 t "{/Arial-Italic n} = 20"
 
 unset output
 

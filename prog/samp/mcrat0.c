@@ -18,6 +18,7 @@
 #include "mcutil.h"
 
 
+
 #ifdef N
 int n = N;
 #else
@@ -36,6 +37,10 @@ double r2cr = 0; /* variance of replaced coordinates */
 int csepmethod = DGCSEP_DEFAULTMETHOD; /* method of detecting clique separators */
 char *fnout = NULL;
 char *prefix0 = NULL, prefix[FILENAME_MAX] = "";
+
+/* output the position */
+char *fnpos = NULL; /* output name */
+int nstpos = 0; /* interval of writing coordinates */
 
 int bsim0 = 0;
 
@@ -72,6 +77,7 @@ int dbbinary = -1; /* binary database */
 int dbnobak = 0; /* do not backup the database */
 
 
+
 /* handle arguments */
 static void doargs(int argc, char **argv)
 {
@@ -98,6 +104,9 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-Z", "%lf", &Zn, "partition function");
   argopt_add(ao, "--nt", "%d", &nthreads, "number of threads");
   argopt_add(ao, "--rng", "%u", &rngseed, "set the RNG seed offset");
+
+  argopt_add(ao, "--fnpos", NULL, &fnpos, "output file for coordinates");
+  argopt_add(ao, "--nstpos", "%d", &nstpos, "frequency of writing the coordinate file");
 
   /* we allow options for mapl and hash, even if they are unavailable */
   argopt_add(ao, "--mapl-mode",   "%d", &mapl_on,      "turn on/off the larger lookup table");
@@ -228,6 +237,11 @@ static void doargs(int argc, char **argv)
 #endif
   }
 
+  if (fnpos == NULL) {
+    fnpos = ssnew(256);
+    sprintf(fnpos, "D%dn%d.pos", D, n);
+  }
+
   if (prefix0) { /* handle the prefix */
     char *p;
     sprintf(prefix, "%s/", prefix0);
@@ -238,9 +252,11 @@ static void doargs(int argc, char **argv)
     }
     if (dbfnout) {
       p = ssdup(prefix);
-      sscat(p, dbfnout);
-      dbfnout = p;
+      dbfnout = sscat(p, dbfnout);
     }
+
+    p = ssdup(prefix);
+    fnpos = sscat(p, fnpos);
   }
 
   if (dbfnout != NULL) {
@@ -263,6 +279,29 @@ static void doargs(int argc, char **argv)
 #ifdef MPI
   MPI_Barrier(comm);
 #endif
+}
+
+
+
+/* write the position */
+static int writepos(const char *fn, real x[][D], int n, int frame)
+{
+  int i, j;
+  FILE *fp;
+
+  if (frame == 0) {
+    xfopen(fp, fn, "w", return -1);
+    fprintf(fp, "# %d %d\n", D, n);
+  } else {
+    xfopen(fp, fn, "a", return -1);
+  }
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < D; j++)
+      fprintf(fp, "%10.6f ", x[i][j]);
+    fprintf(fp, "%d\n", frame);
+  }
+  fclose(fp);
+  return 0;
 }
 
 
@@ -742,6 +781,11 @@ INLINE void mcrat_direct(int n, double nequil, double nsteps,
 
     if (it % nstcom == 0)
       rvn_rmcom(x, DG_N_); /* remove the origin to the center of mass */
+
+    if (nstpos > 0 && it % nstpos == 0) { /* write coordinates */
+      static int posfr = 0;
+      writepos(fnpos, x, DG_N_, posfr++);
+    }
 
     if (it % nstrep == 0 || t > nsteps - .5) {
       it = 0;

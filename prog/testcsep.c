@@ -1,4 +1,7 @@
 #include "dgcsep.h"
+#ifdef VERIFY
+#include "dgmap.h"
+#endif
 #include "testutil.h"
 
 
@@ -161,7 +164,7 @@ static void cmpref(int n, dgref_t *ref)
     cs3 = (dg_cliquesep0(g, DGCSEP_MCSM) != 0);
     if ( cs1 != ref[i].cs || cs3 != ref[i].cs
       || (cs2 != cs1 && cs2 == 1) ) {
-      printf("n %d, case %d, cs mismatch %d, %d, %d vs %d\n",
+      printf("n %d, case %d, cs mismatch %d(LEX-M), %d(MCS-P), %d(MCS-M) vs %d\n",
           n, i, cs1, cs2, cs3, ref[i].cs);
       dg_print(g);
       exit(1);
@@ -261,36 +264,37 @@ static void speed_cliquesep(int n, int nsamp, int nedmax)
 static void verify_allzerofb(int n, int verbose)
 {
   dg_t *g = dg_open(n);
-  int ncsep, cnt = 0, *visited;
-  dgword_t c, npr, cs1, cs2, cs3;
+  int nocs, cnt = 0, *visited;
+  dgword_t c, npr;
+  int cs1, cs2, cs3;
   double fb;
   unqid_t uid;
   int fpos = 0, fneg = 0, cntcsep = 0;
 
   die_if(n > DGMAP_NMAX, "n %d is too large\n", n);
-  dg_biconnected_lookup(g); /* initialize the lookup table */
+  dgmap_biconnected(g); /* initialize the lookup table */
   xnew(visited, dgmap_[n].ng); /* number of unique diagrams */
   npr = (dgword_t) 1u << (n * (n - 1) / 2);
   for (c = 0; c < npr; c++) {
     dg_decode(g, &c);
     uid = dgmap_[n].map[c];
-    if ( !dg_biconnected_lookuplow(n, uid) )
+    if ( !dgmap_biconnected0(n, uid) )
       continue;
-    ncsep = dg_ncsep_lookuplow(g, c);
+    nocs = dgmap_nocs(g);
     /* test if a graph with a clique separator necessarily
      * implies that fb is 0 */
-    if (ncsep > 0) { /* has at least one clique separator */
+    if (nocs == 0) { /* has at least one clique separator */
       cntcsep += 1;
-      if (fabs(fb = dg_hsfb_lookuplow(n, uid)) > 0.1) {
+      if (fabs(fb = dgmap_fb0(n, uid)) > 0.1) {
         fprintf(stderr, "n %d, fb %g, c %#x\n",
             n, fb, (unsigned) c);
         dg_print(g);
         exit(1);
       }
     } else if (verbose) {
-      if (fabs(fb = dg_hsfb_lookuplow(n, uid)) < 0.1) {
+      if (fabs(fb = dgmap_fb0(n, uid)) < 0.1) {
         if ( !visited[uid] ) {
-          fprintf(stderr, "special: n %d, fb %g, ncsep %d\n", n, fb, ncsep);
+          fprintf(stderr, "special: n %d, fb %g, nocs %d\n", n, fb, nocs);
           visited[uid] = 1;
           dg_print(g);
         }
@@ -300,26 +304,22 @@ static void verify_allzerofb(int n, int verbose)
     if ( dg_connected(g) ) {
       /* the maximal cardinality search MCS-M should yield
        * the same result as LEX-M (default) algorithm */
-      if ( (ncsep != 0) != ((cs3 = dg_csep0(g, 3)) != 0) ) {
+      if ( !nocs != (cs3 = (dg_csep0(g, DGCSEP_MCSM) != 0)) ) {
         dg_print(g);
-        cs1 = dg_csep0(g, 1);
-        dgvs_printn(cs1, "cs1");
-        dgvs_printn(cs3, "cs3");
-        fprintf(stderr, "csep %#x (LEX-M) vs %#x (MCS-M), ncsep %d, %d\n",
-          cs1, cs3, ncsep, dg_ncsep(g));
+        cs1 = (dg_csep0(g, DGCSEP_LEXM) != 0);
+        fprintf(stderr, "csep-allzero %#x (LEX-M) vs %#x (MCS-M), nocs %d, %d\n",
+          cs1, cs3, nocs, dg_ncsep(g));
         exit(1);
       }
       /* the maximal cardinality search MCS-P may yield
        * false negative results but not false positive ones */
-      if ( (ncsep != 0) != ((cs2 = dg_csep0(g, 2)) != 0) ) {
-        fpos += (cs2 != 0);
-        fneg += (cs2 == 0);
-        if (cs2 != 0) {
+      if ( !nocs != (cs2 = (dg_csep0(g, DGCSEP_MCSP) != 0)) ) {
+        fpos += cs2;
+        fneg += !cs2;
+        if ( cs2 ) {
           dg_print(g);
-          dgvs_printn(cs1, "cs1");
-          dgvs_printn(cs2, "cs2");
           fprintf(stderr, "csep %#x (LEX-M) vs %#x (MCS-P), ncsep %d, %d\n",
-            dg_csep0(g, 1), cs2, ncsep, dg_ncsep(g));
+            dg_csep0(g, 1), cs2, nocs, dg_ncsep(g));
           exit(1);
         }
       }
@@ -340,7 +340,7 @@ static void verify_zerofb(int n, int nsteps)
 {
   dg_t *g = dg_open(n);
   int t, i, j, cnt = 0, fpos = 0, fneg = 0;
-  dgword_t cs1, cs2, cs3;
+  int cs1, cs2, cs3;
   double fb;
 
   dg_full(g);
@@ -357,31 +357,27 @@ static void verify_zerofb(int n, int nsteps)
     if (t % 10 != 0) continue;
     /* test if a graph with a clique separator necessarily
      * implies that fb is 0 */
-    if ((cs1 = dg_csep(g)) != 0) {
-      if (fabs(fb = dg_hsfb_mixed(g)) > 0.1) {
+    if ( (cs1 = (dg_csep(g) != 0)) ) {
+      if (fabs(fb = dg_fb(g)) > 0.1) {
         fprintf(stderr, "n %d, fb %g, cs1 %#x\n",
             n, fb, (unsigned) cs1);
         dg_print(g);
         exit(1);
       }
     }
-    cs2 = dg_csep0(g, 2);
+    cs2 = (dg_csep0(g, DGCSEP_MCSP) != 0);
     if ((cs2 != 0) != (cs1 != 0)) {
       fpos += (cs2 != 0);
       fneg += (cs2 == 0);
       if (cs2 != 0) { /* false positive */
         dg_print(g);
-        dgvs_printn(cs1, "cs1");
-        dgvs_printn(cs2, "cs2");
         fprintf(stderr, "csep %#x (LEX-M) vs %#x (MCS-P) \n",
             dg_csep0(g, 1), cs2);
       }
     }
-    cs3 = dg_csep0(g, 3);
+    cs3 = (dg_csep0(g, DGCSEP_MCSM) != 0);
     if ((cs3 != 0) != (cs1 != 0)) {
       dg_print(g);
-      dgvs_printn(cs1, "cs1");
-      dgvs_printn(cs3, "cs3");
       fprintf(stderr, "csep %#x (LEX-M) vs %#x (MCS-M)\n",
         dg_csep0(g, 1), cs3);
       exit(1);
