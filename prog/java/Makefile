@@ -1,6 +1,10 @@
 VirSampApp.class: VirSampApp.java
 	javac $<
 
+VirSampApp.java: VirSampApp.0.java MyScheme.java MyCanvas.java Diagram.java \
+                 Bits.java Ave.java XYZModel.java Atom.java
+	python comb.py
+
 classes=$(wildcard *.class)
 
 run: $(classes)

@@ -15,6 +15,12 @@ prep::
 
 htmls = $(wildcard *.html)
 
+remote = cz1@he.host.utmb.edu
+
+Bossman: $(htmls) prep VirSampApp.jar 
+	rsync -avzL *.html *.jar css js images data \
+	  $(remote):/Bossman/cz1/vir/web/
+
 check: $(htmls)
 	for d in $(htmls); do (aspell -H check $$d ); done
 

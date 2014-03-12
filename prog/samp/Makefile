@@ -27,8 +27,9 @@ bins = mcrat0 mcgc2 mcgcr2 dbtool
 bins_d = $(patsubst %, %_d, $(bins))
 bins_mp = $(patsubst %, %_mp, $(bins))
 bins_mpi = $(patsubst %, %_mpi, $(bins))
+xbins = mds.c draw.c
 
-exe: $(bins)
+exe: $(bins) $(xbins)
 
 all: $(bins) $(bins_d) $(bins_mp) $(bins_mpi)
 
@@ -43,6 +44,12 @@ $(bins_mp) : %_mp: %.c $(deps)
 
 $(bins_mpi) : %_mpi: %.c $(deps)
 	$(MPICC) -o $@ $< $(MPLM)
+
+mds: mds.c
+	$(CX) -o $@ $< $(LMX)
+
+draw: draw.c
+	$(CX) -DIMLIB2=1 -o $@ $< $(LMX) -lglut -lImlib2
 
 syncipo:
 	rsync -avL *.[ch] cz1@129.109.88.204:lwork/vir
@@ -64,7 +71,8 @@ sync2::
 	rsync -e gsissh -avL Z.dat kraken-gsi.nics.xsede.org:work/vir
 
 clean:
-	rm -rf $(bins) $(bins_d) $(bins_mp) $(bins_mpi) *~ a.out gmon.out \
+	rm -rf $(bins) $(bins_d) $(bins_mp) $(bins_mpi) $(xbins) *~ a.out gmon.out \
+	  mds*.pos mds*.png D*n*.pos \
 	  *.his MTSEED bin obj r[0-9][0-9][0-9][a-z]* mr* Zr*
 
 usb:

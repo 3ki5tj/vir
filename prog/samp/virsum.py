@@ -989,27 +989,10 @@ class GC:
 def niceprint(x, err, n = 0, i = 0, strtot = ""):
   ''' print the number with error aligned on the second line
       n is the order, i is the quantity id '''
-  ox = floor(log10(fabs(x)))
-  oy = floor(log10(err))
-  if ox >= oy:
-    padding = int(ox - oy + .5)
-  else:
-    padding = int(ox - oy - .5)
-  if padding <= 0: padding -= 1
-  if err/pow(10, oy - 1) >= 50:
-    digits = 1
-  else:
-    digits = 2
-  xneat = round(x, -int(oy) + digits - 1)
-  ierr = int(err/pow(10, oy - digits + 1) + .5)
-  if ierr == 10 and ierr > err/pow(10, oy - digits + 1):
-    ierradj = 1
-  else:
-    ierradj = 0
+  import scifmt
   if verbose:
-    print "%4d/%4d: %+18.8e %+20.10e   %s\n" % (n, i, xneat, x, strtot
-        ) + " " * (padding + 16 - ierradj) + "%-17d%s %9.2e" % (
-        ierr, " "*ierradj, err)
+    print "%4d/%4d: %24s %+20.10e %9.2e %s" % (
+        n, i, scifmt.scifmt(x, err), x, err, strtot)
 
 
 

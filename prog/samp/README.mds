@@ -1,0 +1,23 @@
+Using mds.c and draw.c
+==========================
+
+
+Method 1
+---------
+
+Step 1: generate D50n64.pos
+  icc -DD=50 -DN=64 mcrat0.c && ./a.out -L0 --nstpos=1000000
+
+Step 2: generate mdsD50n64d3.pos
+  icc mds.c && ./a.out D50n64.pos
+or two-dimensional scaling
+  icc mds.c && ./a.out D50n64.pos -d 2
+
+Step 3: draw the coordinates in mdsD50n64d3.pos
+  icc draw.c && ./a.out mdsD50n64d3.pos
+
+
+Method 2
+---------
+Simply run
+  python mdsdraw.py -D 50 -n 64 -d 3

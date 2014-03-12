@@ -3,7 +3,11 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
 <title>Virial coefficients of hard-sphere fluids</title>
+<script type="text/javascript" src="js/jquery.js"></script>
+<script type="text/javascript" src="js/jquery-ui.js"></script>
 <script type="text/javascript" src="js/default.js"></script>
+<script type="text/javascript">
+</script> 
 <link type="text/css" rel="stylesheet" href="css/default.css">
 </head>
 <body>
@@ -11,38 +15,32 @@
 
 <h1>Virial coefficients of hard-sphere fluids</h1>
 
-<!--
-<div class="p">
-  This page is about an algorithm of computing
-  the virial coefficients of hard-sphere fluids.
-</div>
--->
-
-
+<div id="accordion-whole">
 
 <h2>Introduction</h2>
 
 <div class="p">
-  To be constructed
+  This project aims at computing the virial coefficients
+  of hard-sphere fluids by the Mayer sampling method.
+  We have shown that this method is particular useful
+  in handling high-dimensional fluids.
 </div>
 
 
-<h2>Programs</h2>
+<h2>Demonstration</h2>
 
-
-<h3>Java demonstration</h3>
-
+<div> <!-- wrapper of <h2>Demonstration</h2> -->
 
 <div class="p">
-  <img class="javaimg" src="virsampjava.png"
-    alt="VirSampApp" width="801" height="525">
+  <img class="javaimg" src="images/virsampjava.png"
+  alt="VirSampApp" width="801" height="525"><br>
   <!--
   <applet code = 'VirSampApp'
     archive = 'VirSampApp.jar' width = 801 height = 525>
   </applet>
   -->
   Notes and tips:
-  <ul>
+  <ul id="demo-notes">
     <li>
       A red ball represents a failed Monte Carlo (MC) trial;
       a green ball represents a successful one.
@@ -59,7 +57,9 @@
       in the left and right panels.
       In modes 1 and 3, the left panel uses multidimensional scaling.
       In modes 2 and 3, the right panel uses multidimensional scaling.
-      Multidimensional scaling is a way of squeezing high-dimensional
+      <a href="http://en.wikipedia.org/wiki/Multidimensional_scaling">
+        Multidimensional scaling
+      </a> is a way of squeezing high-dimensional
       objects in lower dimensions, and thus is useful in visualizing
       high-dimensional clusters here.
     </li>
@@ -67,9 +67,19 @@
       Click the right panel and scroll the mouse to change the scale
       there; drag the mouse to rotate the structure.
     </li>
+    <li>On using Java.
+      You can
+      <a href="http://java.com/en/download/index.jsp">
+        download Java here.
+      </a>
+      If you run into a security problem in Windows, please
+      try <a href="javafix.html">this fix</a>
+      (special thanks to Dr. Gillian Lynch).
+    </li>
   </ul>
-
 </div>
+
+
 <div class="p">
   The source code of the above applet can be downloaded here
   <a href="prog/java/VirSampApp.java">VirSampApp.java</a>.
@@ -77,7 +87,160 @@
   Although not fully-optimized, it offers a convenient tool for making rough estimates.
 </div>
 
+</div> <!-- wrapper for <h2>Demonstration</h2> -->
 
+
+
+<h2>Gallery</h2>
+
+<div> <!-- wrapper of <h2>Gallery</h2> -->
+<p>The following pictures were obtained from
+<a href="http://en.wikipedia.org/wiki/Multidimensional_scaling">
+  multidimensional scaling
+</a> 
+of typical high-dimensional cluster.
+
+<p>The color of each bead encodes the correctness
+  of multidimensional scaling in mapping the high-dimensional cluster
+  to the low-dimensional one.
+  The color goes from blue to green to red,
+  with blue meaning the most-correct dimensional mapping (on a relative scale),
+  and red meaning the least-correct dimensional mapping.
+
+
+<table class="datatable">
+  <thead>
+    <tr>
+      <th width="40">
+        D
+      </th>
+      <th>
+        D &rarr; 2
+      </td>
+      <th>
+        D &rarr; 3
+      </td>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>3</td>
+      <td>
+        <img src="images/mds/mdsD3n64d2.png" class="demo" width="320">
+      </td>
+      <td>
+        <img src="images/mds/mdsD3n64d3.png" class="demo" width="320">
+      </td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>
+        <img src="images/mds/mdsD5n64d2.png" class="demo" width="320">
+      </td>
+      <td>
+        <img src="images/mds/mdsD5n64d3.png" class="demo" width="320">
+      </td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>
+        <img src="images/mds/mdsD7n64d2.png" class="demo" width="320">
+      </td>
+      <td>
+        <img src="images/mds/mdsD7n64d3.png" class="demo" width="320">
+      </td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td>
+        <img src="images/mds/mdsD9n64d2.png" class="demo" width="320">
+      </td>
+      <td>
+        <img src="images/mds/mdsD9n64d3.png" class="demo" width="320">
+      </td>
+    </tr>
+    <tr>
+      <td>11</td>
+      <td>
+        <img src="images/mds/mdsD11n64d2.png" class="demo" width="320">
+      </td>
+      <td>
+        <img src="images/mds/mdsD11n64d3.png" class="demo" width="320">
+      </td>
+    </tr>
+    <tr>
+      <td>13</td>
+      <td>
+        <img src="images/mds/mdsD13n64d2.png" class="demo" width="320">
+      </td>
+      <td>
+        <img src="images/mds/mdsD13n64d3.png" class="demo" width="320">
+      </td>
+    </tr>
+    <tr>
+      <td>15</td>
+      <td>
+        <img src="images/mds/mdsD15n64d2.png" class="demo" width="320">
+      </td>
+      <td>
+        <img src="images/mds/mdsD15n64d3.png" class="demo" width="320">
+      </td>
+    </tr>
+    <tr>
+      <td>17</td>
+      <td>
+        <img src="images/mds/mdsD17n64d2.png" class="demo" width="320">
+      </td>
+      <td>
+        <img src="images/mds/mdsD17n64d3.png" class="demo" width="320">
+      </td>
+    </tr>
+    <tr>
+      <td>19</td>
+      <td>
+        <img src="images/mds/mdsD19n64d2.png" class="demo" width="320">
+      </td>
+      <td>
+        <img src="images/mds/mdsD19n64d3.png" class="demo" width="320">
+      </td>
+    </tr>
+    <tr>
+      <td>25</td>
+      <td>
+        <img src="images/mds/mdsD25n64d2.png" class="demo" width="320">
+      </td>
+      <td>
+        <img src="images/mds/mdsD25n64d3.png" class="demo" width="320">
+      </td>
+    </tr>
+    <tr>
+      <td>50</td>
+      <td>
+        <img src="images/mds/mdsD50n64d2.png" class="demo" width="320">
+      </td>
+      <td>
+        <img src="images/mds/mdsD50n64d3.png" class="demo" width="320">
+      </td>
+    </tr>
+    <tr>
+      <td>100</td>
+      <td>
+        <img src="images/mds/mdsD100n64d2.png" class="demo" width="320">
+      </td>
+      <td>
+        <img src="images/mds/mdsD100n64d3.png" class="demo" width="320">
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+</div> <!-- wrapper of <h2>Gallery</h2> -->
+
+
+
+<h2>Programs</h2>
+
+<div> <!-- wrapper for <h2>Programs</h2> -->
 
 <h3>Complete source code</h3>
 
@@ -87,10 +250,208 @@
   The package also contains several auxiliary Mathematica and Python scripts.
 </div>
 
+</div> <!-- wrapper for <h2>Programs</h2> -->
+
+
+
+<h2>Data</h2>
+
+<div> <!-- wrapper of <h2>Data</h2> -->
+
+
+<h3>Percus-Yevick closure</h3>
+
+<div class="p">
+  The exact equations of state and virial coefficients from
+  the Percus-Yevick closure are listed below.
+  The polynomial are expressed in terms of the packing fraction.
+</div>
+
+<table id="PYdata" class="datatable">
+  <thead>
+  <tr>
+    <th>Dimension</th>
+    <th>Radius of convergence</th>
+    <th width="30%">
+      Compressibility route
+      <br>
+      <span style="font-size: small; font-weight: normal;">
+        Equation of state<sup>&dagger;</sup><hr>
+        Virial coefficients
+      </span>
+    </th>
+    <th width="30%">Virial route
+      <br>
+      <span style="font-size: small; font-weight: normal;">
+        Equation of state<sup>&ddagger;</sup><hr>
+        Virial coefficients
+      </span>
+    </th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr>
+    <td>3</td>
+    <td>
+      <a href="data/pydata/tconv3.txt">tconv3.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Xt3c.txt">Xt3c.txt</a>
+      <hr>
+      <a href="data/pydata/vir3c.txt">vir3c.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Zt3p.txt">Zt3p.txt</a>
+      <hr>
+      <a href="data/pydata/vir3p.txt">vir3p.txt</a>
+    </td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td>
+      <a href="data/pydata/tconv5.txt">tconv5.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Xt5c.txt">Xt5c.txt</a>
+      <hr>
+      <a href="data/pydata/vir5c.txt">vir5c.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Zt5p.txt">Zt5p.txt</a>
+      <hr>
+      <a href="data/pydata/vir5p.txt">vir5p.txt</a>
+    </td>
+  </tr>
+  <tr>
+    <td>7</td>
+    <td>
+      <a href="data/pydata/tconv7.txt">tconv7.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Xt7c.txt">Xt7c.txt</a>
+      <hr>
+      <a href="data/pydata/vir7c.txt">vir7c.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Zt7p.txt">Zt7p.txt</a>
+      <hr>
+      <a href="data/pydata/vir7p.txt">vir7p.txt</a>
+    </td>
+  </tr>
+  <tr>
+    <td>9</td>
+    <td>
+      <a href="data/pydata/tconv9.txt">tconv9.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Xt9c.txt">Xt9c.txt</a>
+      <hr>
+      <a href="data/pydata/vir9c.txt">vir9c.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Zt9p.txt">Zt9p.txt</a>
+      <hr>
+      <a href="data/pydata/vir9p.txt">vir9p.txt</a>
+    </td>
+  </tr>
+  <tr>
+    <td>11</td>
+    <td>
+      <a href="data/pydata/tconv11.txt">tconv11.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Xt11c.txt">Xt11c.txt</a>
+      <hr>
+      <a href="data/pydata/vir11c.txt">vir11c.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Zt11p.txt">Zt11p.txt</a>
+      <hr>
+      <a href="data/pydata/vir11p.txt">vir11p.txt</a>
+    </td>
+  </tr>
+  <tr>
+    <td>13</td>
+    <td>
+      <a href="data/pydata/tconv13.txt">tconv13.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Xt13c.txt">Xt13c.txt</a>
+      <hr>
+      <a href="data/pydata/vir13c.txt">vir13c.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Zt13p.txt">Zt13p.txt</a>
+      <hr>
+      <a href="data/pydata/vir13p.txt">vir13p.txt</a>
+    </td>
+  </tr>
+  <tr>
+    <td>15</td>
+    <td>
+      <a href="data/pydata/tconv15.txt">tconv15.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Xt15c.txt">Xt15c.txt</a>
+      <hr>
+      <a href="data/pydata/vir15c.txt">vir15c.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Zt15p.txt">Zt15p.txt</a>
+      <hr>
+      <a href="data/pydata/vir15p.txt">vir15p.txt</a>
+    </td>
+  </tr>
+  <tr>
+    <td>17</td>
+    <td>
+      <a href="data/pydata/tconv17.txt">tconv17.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Xt17c.txt">Xt17c.txt</a>
+      <hr>
+      <a href="data/pydata/vir17c.txt">vir17c.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Zt17p.txt">Zt17p.txt</a>
+      <hr>
+      <a href="data/pydata/vir17p.txt">vir17p.txt</a>
+    </td>
+  </tr>
+  <tr>
+    <td>19</td>
+    <td>
+      <a href="data/pydata/tconv19.txt">tconv19.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Xt19c.txt">Xt19c.txt</a>
+      <hr>
+      <a href="data/pydata/vir19c.txt">vir19c.txt</a>
+    </td>
+    <td>
+      <a href="data/pydata/Zt19p.txt">Zt19p.txt</a>
+      <hr>
+      <a href="data/pydata/vir19p.txt">vir19p.txt</a>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="4" style="text-align: left">
+      <sup>&dagger;</sup>
+    </td>
+  </tr>
+  </tbody>
+</table>
+
+</div> <!-- the wrapper of <h2>Data</h2> -->
+
 
 
 
 <h2>References</h2>
+
+<div> <!-- the wrapper of <h2>References</h2> -->
+
+<div id="accordion-refs">
 
 <h3>Background</h3>
 
@@ -172,8 +533,15 @@
 
 {{ prim_ref }}
 
+</div> <!-- accordion of References -->
+
+</div> <!-- the wrapper of <h2>References</h2> -->
+
+</div>  <!-- accordion -->
+
 {{ go_home }}
 {{ last_update }}
+
 
 </body>
 </html>

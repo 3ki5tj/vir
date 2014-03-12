@@ -11,8 +11,8 @@ handlers:
 - url: /js
   static_dir: js
 
-- url: /img
-  static_dir: img
+- url: /images
+  static_dir: images
 
 - url: /doc
   static_dir: doc
@@ -26,6 +26,10 @@ handlers:
 - url: /(.*\.(jar|class|png|zip))
   static_files: \1
   upload: (.*\.(jar|class|png|zip))
+
+- url: /javafix.html
+  static_files: \1
+  upload: javafix.html
 
 - url: /.*
   script: hsvirial.app

@@ -15,7 +15,7 @@ class MainPage(webapp2.RequestHandler):
         'prim_ref': '''<h3>Primary reference</h3>
 <ul>
 <li>C. Zhang and B. M. Pettitt,
-<i>...</i>,
+<i>Molecular Physics</i>,
 </li>
 </ul>''',
 
@@ -27,7 +27,7 @@ class MainPage(webapp2.RequestHandler):
         </ul></div>''',
 
         'last_update':
-        '<p>Last updated on Nov. 25, 2013',
+        '<p>Last updated on Mar. 12, 2014',
     }
     self.response.write(template.render(template_values))
 
