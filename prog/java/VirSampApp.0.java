@@ -20,10 +20,10 @@ public class VirSampApp extends JApplet implements ActionListener
   int speed = 10000; // mc steps per frame
   Timer timer;
 
-  MyCanvas canvas; // 3D animation
-  MyScheme scheme; // schematic plot
+  XYZCanvas canvas; // 3D animation
+  XYScheme scheme; // schematic plot
 
-  JPanel cpnl, spnl, mpnl;
+  JPanel cpnl, spnl, mpnl, mpnl2;
   JTextField      tDim     = new JTextField("    " + mc.D);
   JTextField      tOrder   = new JTextField("    " + mc.N);
   JTextField      tDelay   = new JTextField("   " + delay);
@@ -32,13 +32,14 @@ public class VirSampApp extends JApplet implements ActionListener
   JTextField      tSampFreq = new JTextField("   " + mc.sampFreq);
   JToggleButton   bStart   = new JToggleButton("Start", false);
   JButton         bReset   = new JButton("Reset");
-  JButton         bMDS     = new JButton("MDS mode 0");
   JButton         bClear   = new JButton("Clear");
   JLabel          lStatus  = new JLabel("Status");
   JTextField      tVir     = new JTextField("   0");
   JTextField      tAvStar  = new JTextField("   0");
   JTextField      tAvRing  = new JTextField("   0");
   JTextField      tAcc     = new JTextField("   0");
+  JCheckBox       chkMDS2D = new JCheckBox("Use multi-dimensional scaling (2D)");
+  JCheckBox       chkMDS3D = new JCheckBox("Use multi-dimensional scaling (3D)");
   public static final long serialVersionUID = 1L;
 
   /** initialize the handler */
@@ -98,17 +99,8 @@ public class VirSampApp extends JApplet implements ActionListener
     tAcc.setEditable(false);
     cpnl.add(tAcc);
 
-    cpnl.add(bMDS);
-    bMDS.addActionListener(this);
-
     cpnl.add(bClear);
     bClear.addActionListener(this);
-
-    // spnl is the panel at the bottom
-    spnl = new JPanel(); // create a panel for status
-    box.add(spnl, BorderLayout.SOUTH);
-    lStatus.setFont(new Font("Courier", Font.BOLD, 14));
-    spnl.add(lStatus);
 
     // create a panel for animation and schematic plot
     mpnl = new JPanel();
@@ -116,24 +108,44 @@ public class VirSampApp extends JApplet implements ActionListener
     box.add(mpnl, BorderLayout.CENTER);
 
     // scheme is the schematic diagram
-    scheme = new MyScheme();
+    scheme = new XYScheme();
     scheme.setMC(mc);
     mpnl.add(scheme);
 
     // canvas is the place for 3D animation
-    canvas = new MyCanvas();
-    canvas.setMC(mc);
+    canvas = new XYZCanvas();
     mpnl.add(canvas);
+
+    // a thin bar below `scheme' and `canvas'
+    mpnl2 = new JPanel();
+    mpnl2.setLayout(new GridLayout(1, 2));
+    mpnl2.add(chkMDS2D);
+    mpnl2.add(chkMDS3D);
+    chkMDS2D.addActionListener(this);
+    chkMDS3D.addActionListener(this);
+
+    lStatus.setFont(new Font("Courier", Font.BOLD, 14));
+
+    // spnl is the panel at the bottom
+    spnl = new JPanel(); // create a panel for status
+    box.add(spnl, BorderLayout.SOUTH);
+
+    // add mpnl2 and the status bar
+    spnl.setLayout(new GridLayout(2, 1));
+    spnl.add(mpnl2, BorderLayout.NORTH);
+    spnl.add(lStatus);
 
     Font font = new Font("Arial", Font.BOLD, 14);
     tVir.setFont(font);
 
     timer = new Timer(delay, this);
-    timer.start(); timer.stop();
+    timer.start();
+    timer.stop();
   }
 
   public void start() {
     scheme.start();
+    canvas.gauge(mc.x, mc.N);
     canvas.start();
   }
 
@@ -141,11 +153,8 @@ public class VirSampApp extends JApplet implements ActionListener
     paint(g);
   }
 
-  //int frame = 0;
-
   /** paint the applet */
   public void paint(Graphics g) {
-    //System.out.println("frame: " + (frame++));
     double vir = mc.getVir();
     lStatus.setText("steps = " + mc.step + ", "
          + "D = " + mc.D + ", "
@@ -160,7 +169,10 @@ public class VirSampApp extends JApplet implements ActionListener
     tAcc.setText(" " + String.format("%g", mc.mctot > 0 ? 1.0*mc.mcacc/mc.mctot : 0.0));
     scheme.repaint();
     if (canvas.model != null) {
-      canvas.update();
+      mc.rmcom();
+      canvas.update(mc.x, mc.N,
+                    mc.moveAcc ? mc.xo : mc.xi,
+                    mc.moveAtom, mc.moveAcc);
       canvas.repaint();
     }
     cpnl.repaint();
@@ -277,31 +289,25 @@ public class VirSampApp extends JApplet implements ActionListener
         bStart.setText("Start");
       }
       mc.init(dim, n);
-      canvas.amat.unit(); // reset the view
+      canvas.viewMatrix.unit(); // reset the view
       canvas.bStarted = false;
     }
 
     // change the mode of multidimensional scaling
-    if (src == bMDS) {
-      int mdsmode = 0;
-      mdsmode = Integer.parseInt( bMDS.getText().substring(9) );
-      mdsmode = (mdsmode + 1) % 4;
-      //System.out.println("" + mdsmode);
-      bMDS.setText( String.format("MDS mode %d", mdsmode) );
-      scheme.useMDS = ((mdsmode & 0x1) != 0);
-      canvas.useMDS = ((mdsmode & 0x2) != 0);
-    }
+    if (src == chkMDS2D)
+      scheme.useMDS = chkMDS2D.isSelected();
 
-    // in case the schematic diagram has not been initialized
+    if (src == chkMDS3D)
+      canvas.useMDS = chkMDS3D.isSelected();
+
+    // if the schematic diagram has not been initialized,
     // initialize it
-    if ( !scheme.bStarted ) {
+    if ( !scheme.bStarted )
       scheme.newImgBuf();
-    }
 
-    // in case the canvas has not been initialized, initialize it
-    if ( !canvas.bStarted ) {
-      canvas.gauge();
-    }
+    // if the canvas has not been initialized, initialize it
+    if ( !canvas.bStarted )
+      canvas.gauge(mc.x, mc.N);
     repaint();
   }
 }

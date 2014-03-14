@@ -1,4 +1,4 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<!DOCTYPE html>
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
@@ -7,10 +7,30 @@
 <script type="text/javascript" src="js/jquery-ui.js"></script>
 <script type="text/javascript" src="js/default.js"></script>
 <script type="text/javascript">
-</script> 
+$(document).ready(function () {
+  // http://jqueryui.com/accordion/
+  $('#accordion-whole').accordion({
+    active: 0,
+    collapsible: true,
+    heightStyle: "content",
+    animate: 1000
+  });
+  $('.accordion-active0').accordion({
+    active: 0,
+    collapsible: true,
+    heightStyle: "content"
+  });
+  $('.accordion-notes').accordion({
+    active: false,
+    collapsible: true,
+    heightStyle: "content"
+  });
+});
+</script>
 <link type="text/css" rel="stylesheet" href="css/default.css">
 </head>
 <body>
+
 
 
 <h1>Virial coefficients of hard-sphere fluids</h1>
@@ -19,27 +39,202 @@
 
 <h2>Introduction</h2>
 
-<div class="p">
-  This project aims at computing the virial coefficients
-  of hard-sphere fluids by the Mayer sampling method.
-  We have shown that this method is particular useful
-  in handling high-dimensional fluids.
+<div class="accordion-active0"> <!-- BEGINNING of <h2>Introduction</h2> -->
+
+<h3>Virial coefficients and hard-sphere fluids</h3>
+
+<div> <!-- BEGINNING of <h3>Virial coefficients and hard-sphere fluids</h3> -->
+<p>This project aims at computing the virial coefficients
+of hard-sphere fluids by the Mayer sampling method.
+The <em>virial coefficients</em>
+  <span class="eq"><i>B<sub>n</sub></i></span>
+are coefficients in the density expansion of virial series
+</p>
+
+<div class="eq">
+<i>&beta;P</i> = &Sigma; <i>B<sub>n</sub> &rho;<sup>n</sup></i>.
 </div>
 
 
-<h2>Demonstration</h2>
+<p>A <em>hard-sphere</em> fluid is a model fluid in which spherical particles
+interact with one another through only infinite repulsion.
 
-<div> <!-- wrapper of <h2>Demonstration</h2> -->
+If we assume that the radius of the particles is &frac12;,
+then no two particles can get closer than a unit distance.
 
-<div class="p">
-  <img class="javaimg" src="images/virsampjava.png"
-  alt="VirSampApp" width="801" height="525"><br>
-  <!--
-  <applet code = 'VirSampApp'
-    archive = 'VirSampApp.jar' width = 801 height = 525>
-  </applet>
-  -->
-  Notes and tips:
+Mathematically, this model is appealing due to its simplicity.
+
+Since the model has no attractive energy term, the virial coefficients
+are numbers that independent of the temperature.
+</p>
+
+<p>If the terms are not familiar to you, have a look at
+<a href="#sec_javademo">Demonstration</a> below.
+</p>
+
+</div> <!-- END of <h3>Virial coefficients and hard-sphere fluids</h3> -->
+
+
+
+<h3>Monte Carlo integration</h3>
+
+<div> <!-- BEGINNING of <h3>Monte Carlo integration</h3> -->
+
+<p>Traditionally, the virial coefficients were computed
+by the <em>Monte Carlo (MC) integration method</em> pioneered by Metropolis
+<i>et al</i> in their groundbreaking paper.
+
+The MC integration method had been later refined by Ree and Hoover, McCoy and Clisby,
+among other developers, and its application had been extended to
+more realistic fluid models.
+</p>
+
+<canvas id="mcpi" width="240px" height="240px" style="float:right; margin: 10px 10px;">
+</canvas>
+
+<p>A classic example of the MC integration method is the following:
+if you randomly mark points in a unit square, then the fraction of
+points that fall in the inscribed circle is precise
+<span class="eq"><i>&pi;</i>/4</span>.
+This is a way of estimating
+<span class="eq"><i>&pi;</i></span>.
+Click the &ldquo;Estimate&rdquo; button below to see how it works.
+</p>
+
+
+
+<!-- Form for computing Pi from MC integration -->
+<div style="margin: 0px 0px 50px 20px; padding: 0px 0px 0px 0px;">
+  How many random points?
+  <input type="text" value="10000" size="10" id="numSamps" />
+  <br>
+  <input type="submit" value="Estimate" onClick="mcgetPi()" />
+  <span class="eq"><i>&pi;</i> &asymp; </span>
+  <span class="eq" id="PiEstimate"></span>
+  <span id="PiComment"></span>.
+</div>
+
+<!-- JavaScript of computing Pi by MC integration -->
+<script type="text/javascript">
+function mcgetPi() {
+  var c = document.getElementById("mcpi");
+  var ctx = c.getContext("2d");
+  var w = c.width;
+  var h = c.height;
+  var r = Math.min(w/2, h/2) - 1;
+
+  // draw the background
+  ctx.fillStyle = "#f0f0f0";
+  ctx.fillRect(0, 0, w, h);
+
+  // fill the circle
+  ctx.beginPath();
+  ctx.arc(w/2, h/2, r, 0, Math.PI*2);
+  ctx.closePath();
+  ctx.fillStyle = "#c0c0c0";
+  ctx.fill();
+
+  // draw random dots
+  ctx.fillStyle = "black";
+  var s = document.getElementById("numSamps").value;
+  if ( !isNaN(s) ) num = s; else num = 1;
+  var maxNumDraw = w*h;
+  var cnt = 0;
+  document.getElementById("PiEstimate").innerHTML = "";
+  document.getElementById("PiComment").innerHTML = num > maxNumDraw ? " (visualization disabled)" : "";
+
+  for ( i = 0; i < num; i++ ) {
+    var x = Math.random();
+    var y = Math.random();
+    if ((2*x - 1)*(2*x - 1) + (2*y - 1)*(2*y - 1) < 1)
+      cnt += 1;
+    // a dot === a one-by-one rectangle
+    if ( num <= maxNumDraw )
+      ctx.fillRect( x * w, y * h, 1, 1);
+  }
+  // write the output
+  document.getElementById("PiEstimate").innerHTML = 4.0*cnt/num;
+}
+
+mcgetPi();
+</script>
+
+</div> <!-- END of <h3>Monte Carlo integration</h3> -->
+
+
+
+<h3>Monte Carlo importance sampling</h3>
+
+<div> <!-- BEGINNING of <h3>Monte Carlo importance sampling</h3> -->
+
+<p>In the Metropolis paper mentioned above, the authors introduced
+another MC method called the <em>importance sampling method</em>, which is
+different from the above MC integration method.
+It was in fact the importance sampling method that made the paper famous.
+For the virial coefficients, however, Metropolis <i>et al.</i> did not use
+the MC sampling method, possibly because the virial coefficients
+were only used for verification of the equation of states,
+so they wanted a more conservative (older) method for this purpose.
+</p>
+
+<p>More recently, people realized that the Metropolis importance sampling method
+can also be applied directly to compute the virial coefficients.
+This method was unused for a very long time possibly due to a technical difficulty,
+that is, to find a reference integral, without which the result
+of MC sampling is meaningless.
+The method was called the <i>Mayer sampling method</i> by Singh and Kofke.
+</p>
+
+<p>The main idea of the MC importance sampling is the following.
+We will use the above
+<span class="eq"><i>&pi;</i></span>
+example.
+Instead of randomly placing points in the square,
+we start with a point in the circle, and only try to make small displacements.
+We will reject a move that tries to go outside of the circle.
+Then, by measuring the rate of acceptance, or by other means,
+we can compute
+<span class="eq"><i>&pi;</i></span>
+more efficiently.
+</p>
+
+<p>This modified method is extremely useful in high dimensions.
+Because then, the ratio of the volume of the hypersphere (which is the generalization of the circle)
+to the volume of the hypercube becomes very small.
+So the MC integration method is no longer a good choice
+  (that's probably another reason that Metropolis <i>et al.</i> only used
+  it for the two and three dimensional cases.)
+Nevertheless, the main objective of our study is to show that
+the Mayer sampling method is a method of choice
+for computing the virial coefficients in high dimensional cases.
+</p>
+
+<p>To see how this method works go to the
+  <a href="#sec_javademo">Demonstration</a> below.
+</p>
+
+</div> <!-- END of <h3> of the Introduction -->
+
+</div> <!-- END of <h2>Introduction</h2> -->
+
+
+
+
+
+<h2 id="sec_javademo"><a name="sec_javademo"></a>Demonstration</h2>
+
+<div> <!-- BEGINING of <h2>Demonstration</h2> -->
+
+<img class="javaimg" src="images/virsampjava.png"
+     alt="VirSampApp" width="801" height="550"><br>
+<!--
+<applet code = 'VirSampApp'
+  archive = 'VirSampApp.jar' width = 801 height = 550>
+</applet>
+-->
+
+<div class="accordion-notes">
+  <h3>Notes and tips</h3>
   <ul id="demo-notes">
     <li>
       A red ball represents a failed Monte Carlo (MC) trial;
@@ -53,10 +248,8 @@
       to make sure it takes effect.
     </li>
     <li>
-      Click &ldquo;<code>MDS mode 0</code>&rdquo; to change the representations
-      in the left and right panels.
-      In modes 1 and 3, the left panel uses multidimensional scaling.
-      In modes 2 and 3, the right panel uses multidimensional scaling.
+      Check the &ldquo;<code>Use multidimensional scaling</code>&rdquo; boxes
+      to change the representations in the left and right panels.
       <a href="http://en.wikipedia.org/wiki/Multidimensional_scaling">
         Multidimensional scaling
       </a> is a way of squeezing high-dimensional
@@ -77,28 +270,26 @@
       (special thanks to Dr. Gillian Lynch).
     </li>
   </ul>
-</div>
+
+  <h3>Java source code</h3>
+  <p>
+    The source code of the above applet can be downloaded here
+    <a href="prog/java/VirSampApp.java">VirSampApp.java</a>.
+    It was adapted from the C-based source code below.
+    Although not fully-optimized, it offers a convenient tool for making rough estimates.
+  </p>
 
 
-<div class="p">
-  The source code of the above applet can be downloaded here
-  <a href="prog/java/VirSampApp.java">VirSampApp.java</a>.
-  It was adapted from the C-based source code below.
-  Although not fully-optimized, it offers a convenient tool for making rough estimates.
-</div>
+<h3>Gallery</h3>
 
-</div> <!-- wrapper for <h2>Demonstration</h2> -->
+<div> <!-- BEGINNING of the wrapper <h3>Gallery</h3> -->
 
-
-
-<h2>Gallery</h2>
-
-<div> <!-- wrapper of <h2>Gallery</h2> -->
 <p>The following pictures were obtained from
 <a href="http://en.wikipedia.org/wiki/Multidimensional_scaling">
   multidimensional scaling
-</a> 
+</a>
 of typical high-dimensional cluster.
+</p>
 
 <p>The color of each bead encodes the correctness
   of multidimensional scaling in mapping the high-dimensional cluster
@@ -106,166 +297,158 @@ of typical high-dimensional cluster.
   The color goes from blue to green to red,
   with blue meaning the most-correct dimensional mapping (on a relative scale),
   and red meaning the least-correct dimensional mapping.
-
+</p>
 
 <table class="datatable">
   <thead>
     <tr>
-      <th width="40">
-        D
-      </th>
-      <th>
-        D &rarr; 2
-      </td>
-      <th>
-        D &rarr; 3
-      </td>
+      <th width="40"> D </th>
+      <th> D &rarr; 2 </td>
+      <th> D &rarr; 3 </td>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>3</td>
-      <td>
-        <img src="images/mds/mdsD3n64d2.png" class="demo" width="320">
-      </td>
-      <td>
-        <img src="images/mds/mdsD3n64d3.png" class="demo" width="320">
-      </td>
+      <td> <img src="images/mds/mdsD3n64d2.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD3n64d3.png" class="demo" width="320"> </td>
     </tr>
     <tr>
       <td>5</td>
-      <td>
-        <img src="images/mds/mdsD5n64d2.png" class="demo" width="320">
-      </td>
-      <td>
-        <img src="images/mds/mdsD5n64d3.png" class="demo" width="320">
-      </td>
+      <td> <img src="images/mds/mdsD5n64d2.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD5n64d3.png" class="demo" width="320"> </td>
     </tr>
     <tr>
       <td>7</td>
-      <td>
-        <img src="images/mds/mdsD7n64d2.png" class="demo" width="320">
-      </td>
-      <td>
-        <img src="images/mds/mdsD7n64d3.png" class="demo" width="320">
-      </td>
+      <td> <img src="images/mds/mdsD7n64d2.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD7n64d3.png" class="demo" width="320"> </td>
     </tr>
     <tr>
       <td>9</td>
-      <td>
-        <img src="images/mds/mdsD9n64d2.png" class="demo" width="320">
-      </td>
-      <td>
-        <img src="images/mds/mdsD9n64d3.png" class="demo" width="320">
-      </td>
+      <td> <img src="images/mds/mdsD9n64d2.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD9n64d3.png" class="demo" width="320"> </td>
     </tr>
     <tr>
       <td>11</td>
-      <td>
-        <img src="images/mds/mdsD11n64d2.png" class="demo" width="320">
-      </td>
-      <td>
-        <img src="images/mds/mdsD11n64d3.png" class="demo" width="320">
-      </td>
+      <td> <img src="images/mds/mdsD11n64d2.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD11n64d3.png" class="demo" width="320"> </td>
     </tr>
     <tr>
       <td>13</td>
-      <td>
-        <img src="images/mds/mdsD13n64d2.png" class="demo" width="320">
-      </td>
-      <td>
-        <img src="images/mds/mdsD13n64d3.png" class="demo" width="320">
-      </td>
+      <td> <img src="images/mds/mdsD13n64d2.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD13n64d3.png" class="demo" width="320"> </td>
     </tr>
     <tr>
       <td>15</td>
-      <td>
-        <img src="images/mds/mdsD15n64d2.png" class="demo" width="320">
-      </td>
-      <td>
-        <img src="images/mds/mdsD15n64d3.png" class="demo" width="320">
-      </td>
+      <td> <img src="images/mds/mdsD15n64d2.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD15n64d3.png" class="demo" width="320"> </td>
     </tr>
     <tr>
       <td>17</td>
-      <td>
-        <img src="images/mds/mdsD17n64d2.png" class="demo" width="320">
-      </td>
-      <td>
-        <img src="images/mds/mdsD17n64d3.png" class="demo" width="320">
-      </td>
+      <td> <img src="images/mds/mdsD17n64d2.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD17n64d3.png" class="demo" width="320"> </td>
     </tr>
     <tr>
       <td>19</td>
-      <td>
-        <img src="images/mds/mdsD19n64d2.png" class="demo" width="320">
-      </td>
-      <td>
-        <img src="images/mds/mdsD19n64d3.png" class="demo" width="320">
-      </td>
+      <td> <img src="images/mds/mdsD19n64d2.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD19n64d3.png" class="demo" width="320"> </td>
     </tr>
     <tr>
       <td>25</td>
-      <td>
-        <img src="images/mds/mdsD25n64d2.png" class="demo" width="320">
-      </td>
-      <td>
-        <img src="images/mds/mdsD25n64d3.png" class="demo" width="320">
-      </td>
+      <td> <img src="images/mds/mdsD25n64d2.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD25n64d3.png" class="demo" width="320"> </td>
     </tr>
     <tr>
       <td>50</td>
-      <td>
-        <img src="images/mds/mdsD50n64d2.png" class="demo" width="320">
-      </td>
-      <td>
-        <img src="images/mds/mdsD50n64d3.png" class="demo" width="320">
-      </td>
+      <td> <img src="images/mds/mdsD50n64d2.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD50n64d3.png" class="demo" width="320"> </td>
     </tr>
     <tr>
       <td>100</td>
-      <td>
-        <img src="images/mds/mdsD100n64d2.png" class="demo" width="320">
-      </td>
-      <td>
-        <img src="images/mds/mdsD100n64d3.png" class="demo" width="320">
-      </td>
+      <td> <img src="images/mds/mdsD100n64d2.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD100n64d3.png" class="demo" width="320"> </td>
     </tr>
   </tbody>
 </table>
 
-</div> <!-- wrapper of <h2>Gallery</h2> -->
+</div> <!-- END of the wrapper of <h3>Gallery</h3> -->
+
+
+</div> <!-- END of accordion-notes -->
+
+
+
+</div> <!-- END for <h2>Demonstration</h2> -->
+
+
 
 
 
 <h2>Programs</h2>
 
-<div> <!-- wrapper for <h2>Programs</h2> -->
+<div> <!-- BEGINNING for <h2>Programs</h2> -->
 
 <h3>Complete source code</h3>
 
-<div class="p">
-  The complete C-based source code can be downloaded here
-  <a href="vircode.zip">vircode.zip</a>.
-  The package also contains several auxiliary Mathematica and Python scripts.
+<div class="p">The complete C-based source code can be downloaded here:<br>
+<a href="vircode.zip"
+style="color: white; background-color: #7090c0;
+      font-size: 24pt; font-weight: bold;
+      margin: auto; height: 50px; width: 300px;
+      display: block; text-indent: 0px;
+      padding-top: 16px; text-align: center;
+      border: 10px double white; border-radius: 20px;">
+vircode.zip
+</a>
 </div>
 
-</div> <!-- wrapper for <h2>Programs</h2> -->
+<h3>Notes</h3>
+<ol>
+  <li>
+  The package also contains several auxiliary Mathematica and Python scripts.
+  </li>
+  <li>
+  The code in this package can handle virial coefficients of an arbitrary order
+     <i class="eq">n</i>.
+  If you prefer a (presummably) more stable code that can only handle
+     <span class="eq"><i>n</i> &le; 64</span>, download this version instead.
+  <div>
+    <a href="vircode_oneword.zip"
+       style="color: white; background-color: #7090a0;
+              font-size: 18pt; font-weight: bold;
+              height: 40px; width: 400px; display: block;
+	      margin: auto; padding-top: 10px; text-align: center;
+              border: 6px double white; border-radius: 20px;">
+      vircode_oneword.zip
+    </a>
+  </div>
+  </li>
+</ol>
+
+
+</div> <!-- END for <h2>Programs</h2> -->
 
 
 
 <h2>Data</h2>
 
-<div> <!-- wrapper of <h2>Data</h2> -->
+<div> <!-- BEGINNING of <h2>Data</h2> -->
 
 
 <h3>Percus-Yevick closure</h3>
 
-<div class="p">
-  The exact equations of state and virial coefficients from
-  the Percus-Yevick closure are listed below.
-  The polynomial are expressed in terms of the packing fraction.
-</div>
+<p>
+  The exact equations of state and virial coefficients
+  from the Percus-Yevick closure for
+  <span class="eq"><i>D</i>=2<i>k</i>+1</span>-dimensional
+  hard-sphere fluids are listed below.
+  The polynomial are expressed in terms of the packing fraction
+  <span class="eq">
+  <i>&eta;</i> = (2 &pi;)<sup><i>k</i></sup>/<i>D</i>!!
+  </span>
+  (or the variable <span class="code">t</span> in the data files).
+</p>
+
 
 <table id="PYdata" class="datatable">
   <thead>
@@ -436,22 +619,28 @@ of typical high-dimensional cluster.
   </tr>
   <tr>
     <td colspan="4" style="text-align: left">
-      <sup>&dagger;</sup>
+      <sup>&dagger;</sup> The variable <span class="code">X</span>
+      in the compressibility equation of state is defined as
+      <span class="eq"><i>X</i> &equiv; &radic;[&part;(<i>&beta;P</i>)/&part;<i>&rho;</i>]</span>.
+      <br>
+      <sup>&dagger;</sup> The variable <span class="code">Z</span>
+      in the virial equation of state is defined as
+      <span class="eq"><i>Z</i> &equiv; <i>&beta;P</i>/<i>&rho;</i></span>.
+      <br>
     </td>
   </tr>
   </tbody>
 </table>
 
-</div> <!-- the wrapper of <h2>Data</h2> -->
+</div> <!-- END of <h2>Data</h2> -->
 
 
 
 
 <h2>References</h2>
 
-<div> <!-- the wrapper of <h2>References</h2> -->
 
-<div id="accordion-refs">
+<div class="accordion-notes"> <!-- BEGINNING of <h2>References</h2> -->
 
 <h3>Background</h3>
 
@@ -527,20 +716,26 @@ of typical high-dimensional cluster.
     <i>Exact solution of the Percus-Yevick equation for a hard-core fluid in odd dimensions</i>,
     Physica, <b>127A</b>, 667-676, 1984.
   </li>
+</ul>
 
+<h3>Primary reference</h3>
+
+<ul>
+  <li>C. Zhang and B. M. Pettitt,
+    <i>Computation of high-order virial coefficients in high-dimensional
+       hard-sphere fluids by Mayer sampling</i>,
+       unpublished.
+    <!-- Molecular Physics. -->
+  </li>
 </ul>
 
 
-{{ prim_ref }}
+</div> <!-- accordion of references, also END of <h2>References</h2> -->
 
-</div> <!-- accordion of References -->
+<!-- end of the document -->
 
-</div> <!-- the wrapper of <h2>References</h2> -->
+</div> <!-- accordion of the entire document -->
 
-</div>  <!-- accordion -->
-
-{{ go_home }}
-{{ last_update }}
 
 
 </body>

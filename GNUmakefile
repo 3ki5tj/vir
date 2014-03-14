@@ -6,7 +6,7 @@ $(prj)pack.zip::
 	zip $@ GNUmakefile \
 	  	prog/*.[ch] prog/README prog/Makefile \
 	  	prog/intg/*.c prog/intg/README prog/intg/Makefile \
-		prog/samp/*.c prog/samp/README prog/samp/Makefile \
+		prog/samp/*.c prog/samp/README* prog/samp/Makefile \
 	  	prog/samp/*.py prog/samp/bak/*.c \
 		prog/java/*.java prog/java/*.html prog/java/Makefile \
 		prog/java/default* \

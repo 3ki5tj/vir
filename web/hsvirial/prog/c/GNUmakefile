@@ -44,12 +44,18 @@ $(bins_mp) : %_mp: %.c $(deps)
 $(bins_mpi) : %_mpi: %.c $(deps)
 	$(MPICC) -o $@ $< $(MPLM)
 
+mds: mds.c
+	$(CX) -o $@ $< $(LMX)
+
+draw: draw.c
+	$(CX) -DIMLIB2=1 -o $@ $< $(LMX) -lglut -lImlib2
+
 clean:
 	rm -rf $(bins) $(bins_d) $(bins_mp) $(bins_mpi) *~ a.out gmon.out \
 	  *.his MTSEED bin obj r[0-9][0-9][0-9][a-z]* mr* Zr*
 
 vircode.zip: $(deps) Bring.dat Z.dat
-	zip vircode.zip *.[ch] *.ma *.dat *.py README.usr GNUmakefile
+	zip vircode.zip *.[ch] *.ma *.dat *.py README.usr README.mds GNUmakefile
 
 zip: vircode.zip
 

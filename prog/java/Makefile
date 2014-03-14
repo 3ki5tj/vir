@@ -1,18 +1,25 @@
-VirSampApp.class: VirSampApp.java
+prj=VirSamp
+
+javas = $(prj)App.0.java MCSamp.java \
+	Diagram.java DiagramMap.java Bits.java \
+  	XYScheme.java XYZCanvas.java \
+	XYZModel.java Atom.java \
+        Ave.java MDS.java
+
+$(prj)App.class: $(prj)App.java
 	javac $<
 
-VirSampApp.java: VirSampApp.0.java MyScheme.java MyCanvas.java Diagram.java \
-                 Bits.java Ave.java XYZModel.java Atom.java
+$(prj)App.java: $(javas)
 	python comb.py
 
 classes=$(wildcard *.class)
 
-run: $(classes)
+run: $(classes) $(prj)App.java
 	appletviewer virsamp.html
 
-jar: VirSampApp.jar
+jar: $(prj)App.jar
 
-VirSampApp.jar: VirSampApp.class $(classes) Makefile
+$(prj)App.jar: $(prj)App.class $(classes) $(javas) Makefile
 	jar cf $@ $< $(classes)
 
 clean:

@@ -27,7 +27,7 @@ bins = mcrat0 mcgc2 mcgcr2 dbtool
 bins_d = $(patsubst %, %_d, $(bins))
 bins_mp = $(patsubst %, %_mp, $(bins))
 bins_mpi = $(patsubst %, %_mpi, $(bins))
-xbins = mds.c draw.c
+xbins = mds draw
 
 exe: $(bins) $(xbins)
 

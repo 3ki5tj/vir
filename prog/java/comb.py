@@ -9,10 +9,11 @@ proj = "VirSamp"
 ls = [proj + "App.0.java",
       "MCSamp.java",
       "Diagram.java",
+      "DiagramMap.java",
       "Bits.java",
       "Ave.java",
-      "MyScheme.java",
-      "MyCanvas.java",
+      "XYScheme.java",
+      "XYZCanvas.java",
       "XYZModel.java",
       "Atom.java",
       "Matrix3D.java",
@@ -24,9 +25,10 @@ def trim(s):
       s[i] = ""
 
 src = []
-for fn in ls:
+for i in range(len(ls)):
+  fn = ls[i]
   s = open(fn).readlines()
-  if not fn.startswith(proj): trim(s)
+  if i > 0: trim(s)
   src += s
 
 fnout = proj + "App.java"

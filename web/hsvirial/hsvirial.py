@@ -11,21 +11,9 @@ class MainPage(webapp2.RequestHandler):
 
     template = JINJA_ENVIRONMENT.get_template(fnhtml)
 
+    # the template values are no longer used
+    # the code is kept here simply for references
     template_values = {
-        'prim_ref': '''<h3>Primary reference</h3>
-<ul>
-<li>C. Zhang and B. M. Pettitt,
-<i>Molecular Physics</i>,
-</li>
-</ul>''',
-
-        'go_home':
-        '''<div class="linkenv">
-        <ul class="links">
-        <li class="linkhead">Links:
-        <li><a href="/">Home</a>,
-        </ul></div>''',
-
         'last_update':
         '<p>Last updated on Mar. 12, 2014',
     }

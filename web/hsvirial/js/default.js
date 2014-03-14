@@ -1,21 +1,6 @@
 /* Copyright (c) Cheng Zhang 2010-2014 */
 window.onload = init;
 
-$(document).ready(function () {
-  // http://jqueryui.com/accordion/
-  $('#accordion-whole').accordion({
-    active: 1,
-    collapsible: true,
-    heightStyle: "content",
-    animate: 1000
-  });
-  $('#accordion-refs').accordion({
-    active: false,
-    collapsible: true,
-    heightStyle: "content"
-  });
-});
-
 function init()
 {
   //appendspaces(); // at spaces at the bottom of the page

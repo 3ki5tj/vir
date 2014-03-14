@@ -1,12 +1,14 @@
 /* Copyright (c) Cheng Zhang 2010-2013 */
 body {
-  font: 90% "MS Trebunchet", "Lucida Grande", 'Verdana', 'Tahoma',
+  font: 100% "MS Trebunchet", "Lucida Grande", 'Verdana', 'Tahoma',
     sans-serif;
-  width: 820px; margin: auto;
+  width: 820px;
+  margin: auto;
+  text-indent: 0px;
 }
 
 /* Table-of-contents sidebar
- * `width' is to be adjusted by the javascript */
+ * `width' is to be adjusted by the JavaScript */
 div#tocbox {
   position: fixed; top: 50px; left: 0px; width: 200px;
   background-color: #ffffff; font: 80%/120% sans-serif;
@@ -37,11 +39,21 @@ h3 {
   border-bottom: 1px dashed; border-left: 2px solid; border-color: #b0b0b0;
 }
 
-p, div.p {
+em {
+  color: #102060;
+  padding-right: 2px;
+}
+
+p, .p {
+  text-indent: 50px;
   margin-bottom: 2.0em;
   line-height: 150%;
 }
-div.center { text-align: center; }
+
+.center {
+  text-align: center; 
+}
+
 code, pre.code, div.code, span.code {
   font: 120% monospace;
   color: #005500;
@@ -56,13 +68,13 @@ a:visited { color: #808080; font-weight: normal; }
 a:link { color: #000080; text-decoration: none; }
 a:hover { color: #ffffff; background-color: #808080; }
 .eq {
-  font-family: "Times", "Times New Roman", serif;
+  font-family: "FreeSerif", "Times New Roman", serif;
   font-variant: normal;
 }
-div.eq { text-align: center; font-size: 120% }
+div.eq { text-align: center; font-size: 140% }
 span.eq { font-size: 110%; padding: 0px; }
-.eq sub { font-size: 60%; }
-.eq sup { font-size: 60%; padding: 1px; }
+.eq sub { font-size: 65%; }
+.eq sup { font-size: 65%; padding: 1px; }
 
 .linkenv {
   padding: 5px 0px; margin: 25px 0px;

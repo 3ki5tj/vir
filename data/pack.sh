@@ -1,8 +1,14 @@
 #!/bin/bash
 
-# pack data
 
-bkdir="cz1@129.109.88.204:/Bossman/cz1/vir"
+
+# pack data first to a local directory
+# then deliver some of them to Bossman, Pettitt's group directory
+
+
+
+#bkdir="cz1@129.109.88.204:/Bossman/cz1/vir"
+bkdir="cz1@he.host.utmb.edu:/Bossman/cz1/vir"
 
 bk_data="$bkdir/data"
 bk_web="$bkdir/web"
@@ -16,7 +22,7 @@ rsync -avzL ../web/hsvirial/virsampjava.png $bk_web/
 make -C ../web/hsvirial/prog/java jar
 rsync -avzL ../web/hsvirial/VirSampApp.jar $bk_web/
 make -C ../web/hsvirial/prog/c zip
-rsync -avzL ../web/hsvirial/vircode.zip $bk_web/
+rsync -avzL ../web/hsvirial/vircode.zip $bk_prog/
 
 make -C ../doc zip
 rsync -avz ../doc/virdoc.zip $bk_doc/

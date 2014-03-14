@@ -35,8 +35,7 @@ class MDS {
   double eneTol = 0.1;
 
   /** Get best coordinates */
-  double min0(double y[][], double f[][], double yp[][], double fp[][],
-      double cutoff) {
+  double min0(double y[][], double f[][], double yp[][], double fp[][]) {
     if (y.length != N) {
       System.out.printf("dimension mismatch %d vs %d\n", y.length, N);
       System.exit(1);
@@ -44,7 +43,7 @@ class MDS {
     int D = y[0].length;
     int npr = N * (N - 1) / 2;
 
-    double ene = getForce(y, f, cutoff);
+    double ene = getForce(y, f);
     double dt = 0.1;
     int iter;
 
@@ -60,36 +59,38 @@ class MDS {
           y[i][j] += f[i][j] * dt;
         }
       }
-      ene = getForce(y, f, cutoff);
+      ene = getForce(y, f);
+      //System.out.printf("iter %d, ene %g --> %g\n", iter, enep, ene);
       if (ene > enep) {
         dt *= 0.7;
-        // recover the force
+        // recover the coordinates and force
         for (int i = 0; i < N; i++) {
           for (int j = 0; j < D; j++) {
             y[i][j] = yp[i][j];
             f[i][j] = fp[i][j];
           }
         }
+        ene = enep;
       } else {
         if (abs(ene - enep) < deneTol * npr * dt || ene < eneTol)
           break;
         dt *= 1.03f; // attempt to increase the step size
       }
     }
-    if (iter >= iterMax) {
-      System.out.println("failed to reach convergence in " + iter + " steps");
-    }
+    if (iter >= iterMax)
+      System.out.printf("MDS failed to reach convergence in %d steps",
+          iter);
     rmcom(y);
     //print(y);
     return ene;
   }
 
-  int numTrials = 5; // number of different starting positions
+  int numTrials = 10; // number of different starting positions
 
   /** Get best coordinates */
-  double min(double ymin[][], double cutoff) {
+  double min(double ymin[][]) {
     int D = ymin[0].length;
-    double ene0, ene, enemin = 1e99;
+    double ene0, ene, eneMin = 1e99;
 
     double [][] y = new double [N][D];
     double [][] f  = new double [N][D];
@@ -98,19 +99,19 @@ class MDS {
 
     vecCopy(y, ymin);
     for (int k = 1; k <= numTrials; k++) {
-      ene0 = getForce(y, f, cutoff);
-      ene = min0(y, f, yp, fp, cutoff);
-      if (ene < enemin) {
-        enemin = ene;
+      ene0 = getForce(y, f);
+      ene = min0(y, f, yp, fp);
+      if (ene < eneMin) {
+        eneMin = ene;
         vecCopy(ymin, y);
       }
-      //System.out.printf("D %2d, trial %2d: ene %g to %g, min %g\n",
-      //    y[0].length, k, ene0, ene, enemin);
-      if (enemin < eneTol) break; 
+      //System.out.printf("D %d, trial %2d: ene %g to %g, min %g\n",
+      //    y[0].length, k, ene0, ene, eneMin);
+      if (eneMin < eneTol) break;
       if (k < numTrials) getRandomPos(y);
     }
     y = yp = f = fp = null;
-    return enemin;
+    return eneMin;
   }
 
   /** Copy vectors */
@@ -123,11 +124,11 @@ class MDS {
 
   Random rng = new Random();
 
-  /** Get a random position */ 
+  /** Get a random position */
   void getRandomPos(double y[][]) {
     int D = y[0].length;
     double span = 0;
-    
+
     for (int j = 0; j < D; j++) {
       double smx = 0, smx2 = 0;
       for (int i = 0; i < N; i++) {
@@ -150,7 +151,7 @@ class MDS {
   final double DMIN = 1e-6;
 
   /** Compute the force and energy */
-  double getForce(double y[][], double f[][], double cutoff) {
+  double getForce(double y[][], double f[][]) {
     int D = y[0].length;
 
     // clear the force
@@ -169,7 +170,6 @@ class MDS {
           dy2 += dy[k] * dy[k];
         }
         double dij = sqrt(dy2);
-        if (dij > cutoff) continue;
         double dref = mat[i][j];
         double dsc = dij/dref - 1;
         ene += dsc * dsc;

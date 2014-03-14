@@ -17,8 +17,9 @@ htmls = $(wildcard *.html)
 
 remote = cz1@he.host.utmb.edu
 
-Bossman: $(htmls) prep VirSampApp.jar 
+Bossman: $(htmls) prep VirSampApp.jar
 	rsync -avzL *.html *.jar css js images data \
+	  --exclude=*~ \
 	  $(remote):/Bossman/cz1/vir/web/
 
 check: $(htmls)
