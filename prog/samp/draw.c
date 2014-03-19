@@ -64,7 +64,7 @@ static void load(const char *fn)
 {
   FILE *fp;
   char s[1024], *p;
-  int ln, i = 0, j, next;
+  int ln, i, j, next;
 
   xfopen(fp, fn, "r", return);
   if ( fgets(s, sizeof s, fp) == NULL
@@ -78,7 +78,7 @@ static void load(const char *fn)
         &dim0, &energy, &disdiffmax, &disdiffmin);
   xnew(xyz, n * dim);
   xnew(disdiff, n);
-  for ( i = 0; i < n; i++ ) {
+  for ( ln = 2, i = 0; i < n; i++, ln++ ) {
     fgets(s, sizeof s, fp);
     for ( p = s, j = 0; j < dim; j++, p += next ) {
       if ( sscanf(p, "%lf%n", &xyz[i*dim + j], &next) != 1 ) {

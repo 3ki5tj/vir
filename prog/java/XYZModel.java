@@ -7,61 +7,72 @@ class XYZModel {
   double realXYZ[][]; // 3D real coordinates [np][3]
   int screenXYZ[][];  // 3D screen coordinates in pixels [np][3]
                     // only the first two dimensions are used in drawing
-  int zorder[]; // z-order, larger is closer to the viewer
+  int zOrder[]; // z-order, larger is closer to the viewer
   int np = -1;
 
   boolean transformed;
-  Matrix3D mat; // rotation/scaling/translation matrix for the conversion
-                // from realXYZ[] to screenXYZ[]
-  double real2Screen = 100.0; // real size --> screen size
+  // rotation/scaling/translation matrix for the conversion from realXYZ[] to screenXYZ[]
+  Matrix3D mat = new Matrix3D();
+  double real2Screen = 54.321; // real size --> screen size
   double ballSize = 0.5; // ball size (radius) in terms of the real coordinates
-                          // it is 0.5 because we are simulating hard spheres
-  int moveAtom = -1;
-  boolean moveAcc = false;
+                         // 0.5 for hard spheres
 
-  // various atom types
-  static Atom atomNormal = new Atom(  0,   0, 255);
-  // failed move
-  static Atom atomTrial  = new Atom(255,   0,   0);  // failed trial postion
-  static Atom atomFailed = new Atom( 50,   0, 100);  // new and old position
-  // successful move
-  static Atom atomMoved  = new Atom(  0, 255,   0);  // trial and new position
-  static Atom atomOldpos = new Atom(  0, 100, 100);  // old position
+  Atom atomDefault = new Atom(0.5, 0.5, 0.5);
+  Atom atoms[]; // for colors of atoms
 
   /** Constructor from the real coordinates
-   *  r[][3] is a three-dimensional vector */
-  XYZModel(double r[][], boolean centering) {
-    mat = new Matrix3D();
-    updateXYZ(r, centering);
+   *  x[][3] is a three-dimensional vector
+   *  `n' can be less than x.length */
+  XYZModel(double x[][], int n, boolean center) {
+    //System.out.printf("XYZModel.Constructor: n %d, (%g, %g, %g) (%g, %g, %g)\n", n, x[0][0], x[0][1], x[0][2], x[n-1][0], x[n-1][1], x[n-1][2]);
+    updateXYZ(x, n, center);
+  }
+
+  XYZModel() {
+  }
+
+  /** Set the color of a particular atom */
+  void setAtom(int i, Atom atom) {
+    if ( i >= 0 && i < atoms.length )
+      atoms[i] = atom;
+  }
+
+  /** Set the color of the default atom */
+  void setAtomDefault(Atom atom) {
+    atomDefault = atom;
   }
 
   /** Refresh coordinates
-   *  r[][3] is a three-dimensional vector */
-  void updateXYZ(double r[][], boolean centering) {
-    int n = r.length;
+   *  x[0..n-1][3] is a three-dimensional vector
+   *  n can be less than x.length */
+  void updateXYZ(double x[][], int n, boolean center) {
     if (n != np) {
+      //System.out.printf("XYZModel.updateXYZ n %d --> %d, (%g, %g, %g) (%g, %g, %g)\n", np, n, x[0][0], x[0][1], x[0][2], x[n-1][0], x[n-1][1], x[n-1][2]);
       np = n;
-      realXYZ = new double[np][3];
-      screenXYZ = new int[np][3];
-      zorder = new int[np];
+      realXYZ = new double [np][3];
+      screenXYZ = new int [np][3];
+      zOrder = new int [np];
+      atoms = new Atom [np];
+      for (int i = 0; i < np; i++)
+        atoms[i] = atomDefault;
     }
 
     for (int d = 0; d < 3; d++) {
       double xc = 0;
-      if ( centering ) {
+      if ( center ) {
         for (int i = 0; i < np; i++)
-          xc += r[i][d];
+          xc += x[i][d];
         xc /= np;
       }
       for (int i = 0; i < np; i++)
-        realXYZ[i][d] = r[i][d] - xc;
+        realXYZ[i][d] = x[i][d] - xc;
     }
 
     transformed = false;
   }
 
-  /** Set of the view matrix
-   *  s is the scaling factor of translating real coordinates
+  /** Set the view matrix
+   *  `s' is the scaling factor of translating real coordinates
    *    to the screen coordinates
    *  (x0, y0) the screen coordinates of the center */
   void setMatrix(Matrix3D amat, double s, double x0, double y0) {
@@ -73,10 +84,43 @@ class XYZModel {
     transformed = false;
   }
 
-  /** Paint this model to the graphics context `g' */
-  void paint(Graphics g) {
-    if (realXYZ == null || np <= 0) return;
+  /** Get the span of the model
+   *  `n' may be less than x.length */
+  double getSpan(double x[][], int n) {
+    int dim = x[0].length;
+    double realSpan = 0, del, fw, fh;
 
+    for (int d = 0; d < dim; d++) {
+      double xmin = 1e30, xmax = -1e30;
+      for (int i = 0; i < n; i++)
+        if ( x[i][d] < xmin ) xmin = x[i][d];
+        else if ( x[i][d] > xmax ) xmax = x[i][d];
+      if ( (del = xmax - xmin) > realSpan )
+        realSpan = del;
+    }
+    return realSpan;
+  }
+
+  /** Translate a given span, return the real-to-screen ratio
+   *  `w' and `h' are the width and height of the screen in pixels */
+  double getScaleFromSpan(double realSpan, int w, int h) {
+    realSpan += ballSize * 2; // add two radii
+    double fw = w / realSpan;
+    double fh = h / realSpan;
+    double facShrink = 0.9; // shrink a bit for the margin
+    return (fw < fh ? fw : fh) * facShrink;
+  }
+
+  /** Estimte the ratio from real to screen
+   *  `n' may be less than x.length
+   *  `w' and `h' are the width and height of the screen in pixels */
+  double getReal2Screen(double x[][], int n, int w, int h) {
+    double realSpan = getSpan(x, n);
+    return getScaleFromSpan(realSpan, w, h);
+  }
+
+  /** Compute the Z-order */
+  void getZOrder() {
     // transform the coordinates
     if ( !transformed ) {
       mat.transform(realXYZ, screenXYZ, np);
@@ -84,57 +128,46 @@ class XYZModel {
     }
 
     // bubble sort z-order
-    // zorder[0] is the fartherest from the viewer
-    // zorder[np - 1] is the nearest to the viewer
+    // zOrder[0] is the fartherest from the viewer
+    // zOrder[np - 1] is the nearest to the viewer
     for (int i = 0; i < np; i++)
-      zorder[i] = i;
+      zOrder[i] = i;
     for (int i = 0; i < np; i++) {
       // find the particle with the smallest z
       int jm = i, k;
       for (int j = i + 1; j < np; j++)
-        if (screenXYZ[zorder[j]][2] < screenXYZ[zorder[jm]][2])
+        if (screenXYZ[zOrder[j]][2] < screenXYZ[zOrder[jm]][2])
           jm = j;
       if (jm != i) {
-        k = zorder[i];
-        zorder[i] = zorder[jm];
-        zorder[jm] = k;
+        k = zOrder[i];
+        zOrder[i] = zOrder[jm];
+        zOrder[jm] = k;
       }
-    }
-
-    double zmin = screenXYZ[zorder[0]][2];
-    double zmax = screenXYZ[zorder[np - 1]][2];
-    //System.out.println("" + zmin + " " + zmax);
-
-    // radius in pixels
-    double radius = real2Screen * ballSize;
-
-    for (int iz = 0; iz < np; iz++) {
-      int i = zorder[iz], greyScale;
-      if (zmin == zmax) { // two-dimensional case
-        greyScale = 15;
-      } else {
-        greyScale = (int) (15.999 * (screenXYZ[i][2] - zmin) / (zmax - zmin));
-      }
-      // screenXYZ[3*i] and screenXYZ[3*i + 1] are the (x, y) coordinates on screen
-      Atom atom = atomNormal;
-      if ( i == moveAtom )
-        atom = moveAcc ? atomMoved : atomFailed;
-      if ( i == np - 1 ) {
-        if ( moveAtom < 0 ) {
-          atom = null;
-        } else if ( moveAcc ) { // the original position before pos
-          atom = atomOldpos;
-        } else { // the failed trial position
-          atom = atomTrial;
-        }
-      }
-      if ( atom != null )
-        atom.paint(g, screenXYZ[i][0], screenXYZ[i][1],
-                   greyScale, radius);
     }
   }
+
+  /** Draw atom */
+  void drawAtom(Graphics g, int iz) {
+    int i = zOrder[iz];
+    Atom atom = atoms[i];
+    if (atom == null) return;
+    double zMin = screenXYZ[zOrder[0]][2]; // fartherest from the viewer
+    double zMax = screenXYZ[zOrder[np - 1]][2]; // closest to the viewer
+    int greyScale = Atom.nBalls - 1;
+    if (zMin != zMax) // zMin == zMax means the two-dimensional case
+      greyScale = (int) (Atom.nBalls * (screenXYZ[i][2] - zMin) / (zMax - zMin) - 1e-6);
+    // the atom closest to the viewer has a greyScale of Atom.nBalls - 1
+    // the atom fartherest from the viewer has a greyScale of 0
+    double radius = ballSize * atom.relRadius * real2Screen;
+    atom.paint(g, screenXYZ[i][0], screenXYZ[i][1], greyScale, radius);
+  }
+
+  /** Paint this model to the graphics context `g' */
+  void paint(Graphics g) {
+    if (realXYZ == null || np <= 0) return;
+    getZOrder();
+    for (int iz = 0; iz < np; iz++)
+      drawAtom(g, iz);
+  }
 }
-
-
-
 

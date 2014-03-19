@@ -71,7 +71,7 @@ typedef struct {
 
 
 /* read an item from a binary file */
-INLINE int dgdbitem_fread(dgdbitem_t *it, FILE *fp, const char *fn,
+static int dgdbitem_fread(dgdbitem_t *it, FILE *fp, const char *fn,
     int fbtype, int cwords, int hasnr)
 {
   if ((size_t) cwords != fread(it->c, sizeof(dgword_t), cwords, fp)) {
@@ -126,7 +126,7 @@ INLINE int dgdbitem_fread(dgdbitem_t *it, FILE *fp, const char *fn,
 
 
 /* write an item to a binary file */
-INLINE int dgdbitem_fwrite(dgdbitem_t *it, FILE *fp, const char *fn,
+static int dgdbitem_fwrite(dgdbitem_t *it, FILE *fp, const char *fn,
     int fbtype, int cwords, int hasnr)
 {
   if ((size_t) cwords != fwrite(it->c, sizeof(dgword_t), cwords, fp)) {
@@ -179,7 +179,7 @@ INLINE int dgdbitem_fwrite(dgdbitem_t *it, FILE *fp, const char *fn,
 
 
 /* read an item from a text file */
-INLINE int dgdbitem_fscan(dgdbitem_t *it, FILE *fp, const char *fn,
+static int dgdbitem_fscan(dgdbitem_t *it, FILE *fp, const char *fn,
     int fbtype, int cwords, int hasnr)
 {
   int i;
@@ -273,7 +273,7 @@ typedef struct {
 
 
 /* create a database according to the default setting */
-INLINE dgdb_t *dgdb_open(int dim, int n)
+static dgdb_t *dgdb_open(int dim, int n)
 {
   dgdb_t *db;
 
@@ -312,7 +312,7 @@ INLINE dgdb_t *dgdb_open(int dim, int n)
  * if `check' is 0, just read in the information
  * if `check' is 1, check the information against `db'
  * */
-INLINE int dgdb_freadhead(dgdb_t *db, FILE *fp, const char *fn,
+static int dgdb_freadhead(dgdb_t *db, FILE *fp, const char *fn,
     int dim, int n, int check)
 {
   db->binary = 1;
@@ -385,7 +385,7 @@ INLINE int dgdb_freadhead(dgdb_t *db, FILE *fp, const char *fn,
 
 
 /* write the header part of a binary database */
-INLINE int dgdb_fwritehead(dgdb_t *db, FILE *fp, const char *fn)
+static int dgdb_fwritehead(dgdb_t *db, FILE *fp, const char *fn)
 {
   if (1 != fwrite(&db->version, sizeof(int), 1, fp)) goto ERR;
   if (1 != fwrite(&db->dim, sizeof(int), 1, fp)) goto ERR;
@@ -404,7 +404,7 @@ ERR:
 
 
 /* scan the header of a text database */
-INLINE int dgdb_fscanhead(dgdb_t *db, FILE *fp, const char *fn,
+static int dgdb_fscanhead(dgdb_t *db, FILE *fp, const char *fn,
     int dim, int n, int check)
 {
   if (8 != fscanf(fp, "# V%d%d%d%d%d%d%d%d",

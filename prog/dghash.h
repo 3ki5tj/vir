@@ -122,7 +122,7 @@ typedef struct {
  *            but useful if the degree sequence is used (level == 1)
  * `isomax'   is the maximal number of isomorphic graphs in the above search
  *            for each newly discovered graph */
-INLINE dghash_t *dghash_open(int n, int bits, size_t blkmem, size_t memmax,
+static dghash_t *dghash_open(int n, int bits, size_t blkmem, size_t memmax,
     int level, int isoenum, int isomax)
 {
   /* generally blksz should be large enough to avoid too many linked lists */
@@ -211,7 +211,7 @@ INLINE dghash_t *dghash_open(int n, int bits, size_t blkmem, size_t memmax,
 
 
 /* in thread case this function should not be called for safety */
-INLINE void dghash_close(dghash_t *h)
+static void dghash_close(dghash_t *h)
 {
 #if 0 /* to print allocation statistics */
   blkmem_print(h->blkmem_ls, "dgls");
@@ -227,7 +227,7 @@ INLINE void dghash_close(dghash_t *h)
  * This function do not have to be placed an omp critical block
  * This, however, requires that we add items sequentially
  * and we will use linear search instead of binary search */
-INLINE dgls_t *dgls_find(dgls_t *ls, dgword_t *c, int cn, int *pos)
+static dgls_t *dgls_find(dgls_t *ls, dgword_t *c, int cn, int *pos)
 {
   int i, lscnt;
 
@@ -250,7 +250,7 @@ INLINE dgls_t *dgls_find(dgls_t *ls, dgword_t *c, int cn, int *pos)
 
 /* go to the end of the linked list, where we can add a new item
  * allocate memory if needed */
-INLINE dgls_t *dgls_seekend(dgls_t *ls, int *lscnt, dghash_t *h)
+static dgls_t *dgls_seekend(dgls_t *ls, int *lscnt, dghash_t *h)
 {
   /* loop till the end of the linked list */
   while (ls->next != NULL)
@@ -275,7 +275,7 @@ INLINE dgls_t *dgls_seekend(dgls_t *ls, int *lscnt, dghash_t *h)
 
 /* add the new entry the list `ls'
  * this function is expected to be included in a omp critical block */
-INLINE int dgls_add(dgls_t *ls, const dgword_t *c,
+static int dgls_add(dgls_t *ls, const dgword_t *c,
     double fb, double nr, dghash_t *h)
 {
   dgdbitem_t *item;
@@ -297,7 +297,7 @@ INLINE int dgls_add(dgls_t *ls, const dgword_t *c,
 
 
 /* add an new item `it' to the list `ls' */
-INLINE int dgls_additem(dgls_t *ls, dgdbitem_t *it, dghash_t *h,
+static int dgls_additem(dgls_t *ls, dgdbitem_t *it, dghash_t *h,
     int nr)
 {
   dgdbitem_t *item;
@@ -323,7 +323,7 @@ static dgword_t *dghash_isocodes_;
 #pragma omp threadprivate(dghash_isocodes_, dghash_isocap_)
 
 /* add other keys compatible with the automorphism level into the hash list */
-INLINE int dghash_enumiso(dghash_t *h, const dg_t *g,
+static int dghash_enumiso(dghash_t *h, const dg_t *g,
     double fb, double nr, dg_t *ng)
 {
   int i, cnt, icnt, pos;
@@ -443,7 +443,7 @@ INLINE double dghash_fbnr0(dghash_t *h, const dg_t *g, double *nr,
 
 
 /* compute and print statistics of the usage of the hash table */
-INLINE void dghash_printstat(dghash_t *h, FILE *fp)
+static void dghash_printstat(dghash_t *h, FILE *fp)
 {
   size_t i, nz = 0;
   int x, xm, hmax = 0, hmin = 10000, ip;
@@ -591,14 +591,9 @@ ERR:
 
 
 
-#endif /* defined(DGHASH_EXISTS) */
-
-
-
 /* clean up stock objects */
-INLINE void dghash_free(void)
+static void dghash_free(void)
 {
-#ifdef DGHASH_EXISTS
   int k;
 
 #pragma omp critical
@@ -620,8 +615,8 @@ INLINE void dghash_free(void)
     dgaut_perms_ = NULL;
     dgaut_nperms_ = 0;
   }
-#endif /* defined(DGHASH_EXISTS) */
 }
+#endif /* defined(DGHASH_EXISTS) */
 
 
 

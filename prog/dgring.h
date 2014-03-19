@@ -15,7 +15,7 @@
 
 
 /* directly count the number of ring subgraphs */
-INLINE double dgring_perm0(const dg_t *g, int root)
+static double dgring_perm0(const dg_t *g, int root)
 {
   int st[DG_NMAX], top, sttop;
   dgvs_t unused, ccp, ccp0, croot, c, masktop, vstmp;
@@ -83,7 +83,7 @@ INLINE double dgring_perm0(const dg_t *g, int root)
 
 /* compute the ring content by using combinatorical techniques
  * on the complementary graph */
-INLINE double dgring_inv(const dg_t *g)
+static double dgring_inv(const dg_t *g)
 {
   static int degs[DG_NMAX];
   static int chain[DG_NMAX], nb[DG_NMAX][2];
@@ -216,7 +216,7 @@ INLINE double dgring_inv(const dg_t *g)
 
 /* the ring content
  * because of the memory limit, we must have n < 32 */
-INLINE double dgring_dplow(const dg_t *g, double *arr, unsigned *idbybits)
+static double dgring_dplow(const dg_t *g, double *arr, unsigned *idbybits)
 {
   int n1, i, j, root;
   dgword_t vs, vs1, vsmax, ms, ms1, id, b, bj;
@@ -274,7 +274,7 @@ static int dgring_nmax_;
 #pragma omp threadprivate(dgring_nrarr_, dgring_nmax_)
 
 /* compute the ring content by dynamic programming */
-INLINE double dgring_dp(const dg_t *g)
+static double dgring_dp(const dg_t *g)
 {
   size_t size = 0;
   DG_DEFN_(g)
@@ -304,7 +304,7 @@ INLINE double dgring_dp(const dg_t *g)
  * Richard K. Karp, Operations Research Letters
  * Vol. 1, No. 2, April 1982
  * we can safely assume n <= 32, otherwise way too slow */
-INLINE double dgring_karp(const dg_t *g)
+static double dgring_karp(const dg_t *g)
 {
   DG_DEFN_(g)
   int s = DG_N_ - 1, t, r, k;
@@ -347,7 +347,7 @@ INLINE double dgring_karp(const dg_t *g)
 #define dgring_nr(g) dgring_nr0(g, NULL, NULL)
 
 /* best strategy of computing the ring content */
-INLINE double dgring_nr0(const dg_t *g, int *ned, int *degs)
+static double dgring_nr0(const dg_t *g, int *ned, int *degs)
 {
   int method = 0;
   DG_DEFN_(g)
@@ -384,13 +384,14 @@ INLINE double dgring_nr0(const dg_t *g, int *ned, int *degs)
 
   if (method == 0) return dgring_perm(g);
   else if (method == 1) return dgring_dp(g);
-  else return dgring_inv(g);
+  else if (method == 2) return dgring_inv(g);
+  else return dgring_karp(g); // unused currently
 }
 
 
 
 /* free all stock objects */
-INLINE void dgring_free(void)
+static void dgring_free(void)
 {
   if (dgring_idbybits_ != NULL) {
     free(dgring_idbybits_);

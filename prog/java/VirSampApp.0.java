@@ -146,7 +146,7 @@ public class VirSampApp extends JApplet implements ActionListener
   public void start() {
     scheme.start();
     canvas.gauge(mc.x, mc.N);
-    canvas.start();
+    repaint();
   }
 
   public void update(Graphics g) {

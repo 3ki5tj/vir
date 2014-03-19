@@ -154,7 +154,7 @@ static void doargs(int argc, char **argv)
 
 
 /* append node ids after the file names */
-INLINE void appendfns(const char *fninp0, const char *fnZrr0,
+static void appendfns(const char *fninp0, const char *fnZrr0,
     const char *fnZr0)
 {
   if (inode != MASTER) {
@@ -240,7 +240,7 @@ static void gc_cleardata(gc_t *gc)
 
 
 
-INLINE gc_t *gc_open(int nmin, int nmax, int m,
+static gc_t *gc_open(int nmin, int nmax, int m,
     real rc0, real sr0, real xi0)
 {
   gc_t *gc;
@@ -346,7 +346,7 @@ INLINE gc_t *gc_open(int nmin, int nmax, int m,
 
 
 
-INLINE void gc_close(gc_t *gc)
+static void gc_close(gc_t *gc)
 {
   free(gc->type);
   free(gc->n);
@@ -674,7 +674,7 @@ static int gc_saveZr(gc_t *gc, const char *fn)
 
 
 /* print Zrr data to file */
-INLINE double gc_fprintZrr(gc_t *gc, FILE *fp,
+static double gc_fprintZrr(gc_t *gc, FILE *fp,
     const double *Zr, const real *rc, const real *sr)
 {
   double tot = 0;
@@ -854,7 +854,7 @@ static int gc_loadZrr(gc_t *gc, const char *fn, int loaddata)
 
 
 /* single-vertex move with a distance restraint */
-INLINE int bcrstep(int i0, int j0, dg_t *g, dg_t *ng,
+static int bcrstep(int i0, int j0, dg_t *g, dg_t *ng,
     rvn_t *x, real *xi, real r2ij[][DG_NMAX], real r2i[],
     real rc, real amp, int gauss)
 {
@@ -896,7 +896,7 @@ INLINE int bcrstep(int i0, int j0, dg_t *g, dg_t *ng,
 
 #if 0
 /* change the distance-restrained pair */
-INLINE int changenapair_simple(int *i, int *j, const dg_t *g,
+static int changenapair_simple(int *i, int *j, const dg_t *g,
     real r2ij[][DG_NMAX], real rc)
 {
   int tmp;
@@ -909,7 +909,7 @@ INLINE int changenapair_simple(int *i, int *j, const dg_t *g,
 
 
 /* change the distance-restrained pair */
-INLINE int changenapair_metro(int *i, int *j, const dg_t *g,
+static int changenapair_metro(int *i, int *j, const dg_t *g,
     real r2ij[][DG_NMAX], real rc)
 {
   int ni, nj;
@@ -940,7 +940,7 @@ INLINE int changenapair_metro(int *i, int *j, const dg_t *g,
  *    bc(r^n) step(Rc - R_{i0, n}) bc(R^{n+1}) dR^{n+1}
  *  since bc(r^n) implies c(r^n\{i0}) == c(R^{n+1}\{i0, n})
  * and the transition probability is < bc(R^{n+1}) > */
-INLINE int nmove_pureup2restrained(int *i0, dg_t *g,
+static int nmove_pureup2restrained(int *i0, dg_t *g,
     rvn_t *x, real r2ij[][DG_NMAX], real rc, double Zr)
 {
   int i, n = g->n, deg = 0;
@@ -977,7 +977,7 @@ INLINE int nmove_pureup2restrained(int *i0, dg_t *g,
  *  transition state:
  *    bc(r^{n-1}) step(Rc - R_{i0, j0}) bc(R^n) dR^n
  * and the transition probability is < bc(r^{n-1}) > */
-INLINE int nmove_restraineddown2pure(int i0, int j0,
+static int nmove_restraineddown2pure(int i0, int j0,
     dg_t *g, rvn_t *x, real r2ij[][DG_NMAX], double Zr)
 {
   int i, n = g->n, j, k;
@@ -1008,7 +1008,7 @@ INLINE int nmove_restraineddown2pure(int i0, int j0,
 
 
 /* scale the distance between x[i0] and x[j0] and test the biconnectivity */
-INLINE int nmove_scale(int i0, int j0, dg_t *g, dg_t *ng,
+static int nmove_scale(int i0, int j0, dg_t *g, dg_t *ng,
     rvn_t *x, real *xj0, real r2ij[][DG_NMAX], real *r2i, real sr,
     int extra, double aved) /* correction for pair generation */
 {

@@ -84,7 +84,7 @@ INLINE int dgrjw_fq(dgvs_t *c, dgword_t vs)
  * also a few values for fa and fb
  * fqarr extends to faarr, fcarr extends to fbarr
  * by Wheatley's recursion formula, for all diagrams */
-INLINE void dgrjw_prepare(const dg_t *g,
+static void dgrjw_prepare(const dg_t *g,
     dgrjw_fb_t *fcarr, dgrjw_fb_t *fqarr,
     unsigned *idbybits, dgrjw_ap_t *aparr)
 {
@@ -149,7 +149,7 @@ INLINE void dgrjw_prepare(const dg_t *g,
 
 
 /* return fb, assuming dgrjw_prepare() has been called */
-INLINE dgrjw_fb_t dgrjw_iter(const dg_t *g,
+static dgrjw_fb_t dgrjw_iter(const dg_t *g,
     dgrjw_fb_t *fbarr, unsigned *idbybits, dgrjw_ap_t *aparr)
 {
   int v, iold, inew;
@@ -228,7 +228,7 @@ static dgrjw_ap_t *dgrjw_aparr_;
  * This is a low level function and the test of clique separator
  * is not done here.
  * The memory requirement is 2^(n-20)*21MB */
-INLINE dgrjw_fb_t dgrjw_fb(const dg_t *g)
+static dgrjw_fb_t dgrjw_fb(const dg_t *g)
 {
   DG_DEFN_(g)
   size_t size = 0;
@@ -281,7 +281,7 @@ INLINE dgrjw_fb_t dgrjw_fb(const dg_t *g)
  *    0 means not to detect clique separators
  * *ned: number of edges; degs: degree sequence
  * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
-INLINE double dg_fbnr0(const dg_t *g, double *nr, int method,
+static double dg_fbnr0(const dg_t *g, double *nr, int method,
     int csepmethod, int *ned, int *degs)
 {
   int err, nedges = -1;
@@ -328,7 +328,7 @@ INLINE double dg_fbnr0(const dg_t *g, double *nr, int method,
 
 
 /* free all stock objects */
-INLINE void dgrjw_free(void)
+static void dgrjw_free(void)
 {
   if (dgrjw_idbybits_ != NULL) {
     free(dgrjw_idbybits_);

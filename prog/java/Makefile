@@ -2,8 +2,9 @@ prj=VirSamp
 
 javas = $(prj)App.0.java MCSamp.java \
 	Diagram.java DiagramMap.java Bits.java \
-  	XYScheme.java XYZCanvas.java \
-	XYZModel.java Atom.java \
+  	XYScheme.java XYZCanvas.java XYZModel.java \
+	XYZModelMC.java \
+	Atom.java \
         Ave.java MDS.java
 
 $(prj)App.class: $(prj)App.java
@@ -14,7 +15,7 @@ $(prj)App.java: $(javas)
 
 classes=$(wildcard *.class)
 
-run: $(classes) $(prj)App.java
+run: $(classes) $(prj)App.class
 	appletviewer virsamp.html
 
 jar: $(prj)App.jar

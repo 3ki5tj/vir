@@ -199,6 +199,5 @@ INLINE unsigned *dg_prep_idbybits(int n, unsigned *arr,
 
 
 
-
 #endif /* DGUTIL_H__ */
 

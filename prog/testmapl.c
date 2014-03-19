@@ -71,6 +71,8 @@ int main(int argc, char **argv)
   printf("short %d, %x \n", (int16_t) 0x8080, 32639);
   testspeed(k, n, nsamp, nedmax);
 #endif
+
+  DG_FREEMEMORIES()
   return 0;
 }
 

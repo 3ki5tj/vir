@@ -14,7 +14,7 @@
 
 
 /* canonical label */
-INLINE dg_t *dg_canlabel(dg_t *gout, const dg_t *gin)
+static dg_t *dg_canlabel(dg_t *gout, const dg_t *gin)
 {
   static dgword_t g0[DG_NMAX*DG_NW], gc[DG_NMAX*DG_NW];
   static int lab[DG_NMAX], ptn[DG_NMAX], orbits[DG_NMAX];
@@ -74,7 +74,7 @@ INLINE void dgpart_unit(dgpart_t *part, int n)
 #define dgpart_errprint(p) dgpart_fprint(p, stderr)
 
 /* print out the partition */
-INLINE void dgpart_fprint(const dgpart_t *part, FILE *fp)
+static void dgpart_fprint(const dgpart_t *part, FILE *fp)
 {
   int ic, k;
   dgvs_t vs;
@@ -148,7 +148,6 @@ INLINE int dgpart_check(const dgpart_t *part, int equitable, const dg_t *g)
         /* loop over vertices in the cell jc */
         DGVS_CPY(vsj, part->cs[jc])
         while ( dgvs_nonzero(vsj) ) {
-          //BITFIRSTLOW(k, vsj, b);
           DGVS_FIRSTLOW(k, vsj, b, iq) /* first vertex `k' in `vsj' */
           DGVS_XOR1(vsj, b, iq) /* remove `b' from `vsj' */
           deg = dg_degvs(g, k, vsi); /* degree of `k' w.r.t. cell `i' */
@@ -445,7 +444,6 @@ INLINE dg_t *dg_permutate(dg_t * RESTRICT gout, const dg_t * RESTRICT gin, const
     for (j = 0; j < DG_N_; j++) {
       if ( DGVS_HAS(ci, j) ) {
         DGVS_ADD(ci_out, perm[j])
-        //ci_out |= MKBIT(perm[j]);
       }
     }
     DGVS_CPY(gout->c[ perm[i] ], ci_out);
@@ -519,7 +517,7 @@ INLINE dg_t *dg_repiso(dg_t *gout, const dg_t *gin, int level)
 
 
 /* enumerate all permutations compatible with a partition  */
-INLINE int dg_part2permls(int *perms, int nmax, dgpart_t *part)
+static int dg_part2permls(int *perms, int nmax, dgpart_t *part)
 {
   int i, ic, k, pcnt, n = part->n, nc = part->nc;
   dgvs_t vs, vs1, unused;
@@ -632,9 +630,7 @@ INLINE int dg_repisocodels(dgword_t *codes, int cwords, int nmax,
   ncnt = dg_part2permls(dgaut_perms_, nmax, &part);
   /* convert each permutation to a code */
   for (ic = 0, i = 0; i < ncnt; i++) {
-    //printf("i %d, ", i); dg_printperm(dgaut_perms_ + i * n, n);
     dg_permutate(ng, g, dgaut_perms_ + i * n);
-    //dg_print(gout);
     dg_encode(ng, codes + ic * cwords);
     /* avoid duplicated codes see if the code is new */
     for (j = 0; j < ic; j++)
@@ -643,7 +639,6 @@ INLINE int dg_repisocodels(dgword_t *codes, int cwords, int nmax,
     /* increment ic only if the code is new */
     if (j >= ic) ic++;
   }
-  //getchar();
   return ic;
 }
 

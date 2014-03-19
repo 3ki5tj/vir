@@ -8,7 +8,7 @@
 #define ZCOM_RVN
 #define ZCOM_SS
 #include "zcom.h"
-#include "dg.h"
+#include "dgutil.h"
 
 
 
@@ -97,6 +97,7 @@ INLINE void shiftr2ij(const dg_t *g, rvn_t *x, real r2ij[][DG_NMAX])
 #define ACOS13OVERPI  0.3918265520306073
 #define SQRT3OVERPI   0.5513288954217921
 #define ONEOVERPISQR  0.10132118364233778
+
 
 
 /* return B3/B2^2 for d-dimensional system
@@ -286,6 +287,7 @@ INLINE int loadZrat(int d, int n, double *Z, const char *fn)
 
 
 
+#if 0
 /* return the sum of biconnected configurations for the d-dimensional
  * hard-sphere system */
 INLINE double getZrat(int d, int n, const char *fn)
@@ -303,6 +305,7 @@ INLINE double getZrat(int d, int n, const char *fn)
   loadZrat(d, n, &Z, fn);
   return Z;
 }
+#endif
 
 
 
@@ -408,6 +411,7 @@ INLINE int loadBring(int d, int nmin, int nmax, double *B, const char *fn)
 
 
 
+#if 0
 /* initialize a random, but fully-connected configuration */
 INLINE void initx(rvn_t *x, int n)
 {
@@ -417,6 +421,8 @@ INLINE void initx(rvn_t *x, int n)
   for (i = 0; i < n; i++)
     rvn_rnd(x[i], -a, a);
 }
+#endif
+
 
 
 /* initialize a ring */
@@ -529,6 +535,7 @@ INLINE void initxring(rvn_t *x, int n)
 
 
 
+#if 0
 /* TODO: suggest the interval of computing fb */
 INLINE int getnstfb(int n)
 {
@@ -552,6 +559,7 @@ INLINE int getnstfb(int n)
   return (n <= DG_NMAX) ? 1 : 10;
 #endif
 }
+#endif
 
 
 

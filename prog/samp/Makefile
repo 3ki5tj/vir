@@ -49,7 +49,10 @@ mds: mds.c
 	$(CX) -o $@ $< $(LMX)
 
 draw: draw.c
-	$(CX) -DIMLIB2=1 -o $@ $< $(LMX) -lglut -lImlib2
+	$(CC) -DIMLIB2=1 -o $@ $< $(LM) -lglut -lImlib2
+
+%: %.c
+	$(CC) -o $@ $< $(LM)
 
 syncipo:
 	rsync -avL *.[ch] cz1@129.109.88.204:lwork/vir

@@ -394,7 +394,7 @@ static void verify_zerofb(int n, int nsteps)
 
 int main(int argc, char **argv)
 {
-  int n = 9, nsteps = 10000000, nedmax = 100000000;
+  int n, nsteps = 10000000, nedmax = 100000000;
 
 #ifdef N
   n = N;
@@ -403,6 +403,7 @@ int main(int argc, char **argv)
   testcsep();
   testfillin();
   for (n = DGREF_NMIN; n <= DGREF_NMAX; n++) cmpref(n, dgrefs[n]);
+  n = 9;
 #endif
 
   if (argc >= 2) n = atoi(argv[1]);
@@ -410,9 +411,9 @@ int main(int argc, char **argv)
   if (argc >= 4) nedmax = atoi(argv[3]);
   /* timing of dg_cliquesep() LEX-M on T60 with the default setting (Dec. 31, 2013)
    * n   generic    with -DN=n
-   * 9    1.7mcs      1.6mcs
-   * 12   2.9mcs      2.8mcs
-   * 16   5.0mcs      4.7mcs
+   * 9    1.8mcs      1.5mcs
+   * 12   3.3mcs      2.8mcs
+   * 16   5.4mcs      5.2mcs
    * */
   speed_cliquesep(n, nsteps, nedmax);
 

@@ -574,7 +574,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
 #ifdef DGHASH_EXISTS
 /* conditionally use the hash table to compute fb and nr */
-INLINE double hashgetfbnr(dghash_t *hash, const dg_t *g,
+static double hashgetfbnr(dghash_t *hash, const dg_t *g,
    int csepmethod, double *nr, int *ned, int *degs)
 {
 #ifdef DG_NORING
@@ -603,7 +603,7 @@ INLINE double hashgetfbnr(dghash_t *hash, const dg_t *g,
 
 /* compute a virial coefficient by the ratio method
  * direct version without lookup table */
-INLINE void mcrat_direct(int n, double nequil, double nsteps,
+static void mcrat_direct(int n, double nequil, double nsteps,
     real amp, int gdisp, int nstfb, int nstcom)
 {
   rvn_t x[DG_NMAX], xi;

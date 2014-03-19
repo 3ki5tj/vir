@@ -38,7 +38,7 @@ enum {
  * into a routine of finding minimal ordering
  * ``Decomposition by clique separators'' Robert E. Tarjan,
  * Discrete Mathematics 55 (1985) 221-232 */
-INLINE dgvsref_t dg_adjclique(const dg_t *g, const dg_t *f, int v, dgvsref_t vs)
+static dgvsref_t dg_adjclique(const dg_t *g, const dg_t *f, int v, dgvsref_t vs)
 {
   static dgvs_t c;
 #pragma omp threadprivate(c)
@@ -79,7 +79,7 @@ INLINE dgvsref_t dg_adjclique(const dg_t *g, const dg_t *f, int v, dgvsref_t vs)
  *   Graphs, Test Acyclicity of Hypergraphs, and Selectively
  *   Reduce Acyclic Hypergraphs''
  * SIAM J. Comput. Vol. 13 No. 3 August 1984 */
-INLINE void dg_mcsearchp(const dg_t *g, int *a, int *p)
+static void dg_mcsearchp(const dg_t *g, int *a, int *p)
 {
   static dgvs_t set[DG_NMAX];
   static int size[DG_NMAX];
@@ -125,7 +125,7 @@ INLINE void dg_mcsearchp(const dg_t *g, int *a, int *p)
 
 
 /* compute the fill-in graph `f' according to the ordering `a' */
-INLINE void dg_fillin(const dg_t *g, dg_t *f,
+static void dg_fillin(const dg_t *g, dg_t *f,
     const int *a, const int *p)
 {
   static int index[DG_NMAX], follow[DG_NMAX];
@@ -173,7 +173,7 @@ INLINE void dg_fillin(const dg_t *g, dg_t *f,
  * If `csepmode' is 1, test clique separators and stop at the first find
  *               is 2, find all clique separators in `cl'
  * return the number of clique separators found */
-INLINE int dg_minimalordermcsm(const dg_t *g, dg_t *f, int *a,
+static int dg_minimalordermcsm(const dg_t *g, dg_t *f, int *a,
     int csepmode, dgvs_t cl[])
 {
   static dgvs_t set[DG_NMAX];
@@ -347,7 +347,7 @@ INLINE int dg_minimalordermcsm(const dg_t *g, dg_t *f, int *a,
 
 
 /* rearrange l2[] such that they occupied 0..k-1 positions */
-INLINE int dg_sortlabels(int l2[], dgvs_t unnumbered, int n)
+static int dg_sortlabels(int l2[], dgvs_t unnumbered, int n)
 {
   int l, w, k, lmax = 0;
   int cnt[DG_NMAX * 2];
@@ -397,7 +397,7 @@ INLINE int dg_sortlabels(int l2[], dgvs_t unnumbered, int n)
  * If `csepmode' is 1, test clique separators and stop at the first find
  *               is 2, find all clique separators in `cl'
  * return the number of clique separators found */
-INLINE int dg_minimalorderlexm(const dg_t *g, dg_t *f, int *a,
+static int dg_minimalorderlexm(const dg_t *g, dg_t *f, int *a,
     int csepmode, dgvs_t *cl)
 {
   int i, j, k, v = 0, w, z, l;
@@ -577,7 +577,7 @@ INLINE int dg_minimalorderlexm(const dg_t *g, dg_t *f, int *a,
  * one part of the graph is eliminated before the clique
  * ``Decomposition by clique separators'' Robert E. Tarjan,
  * Discrete Mathematics 55 (1985) 221-232 */
-INLINE int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
+static int dg_decompcliqueseplow(const dg_t *g, const dg_t *f,
     const int *a, dgvs_t * RESTRICT cl, int stop1)
 {
   int v, w, i, ncl = 0;
@@ -687,7 +687,7 @@ INLINE int dg_decompcsep(const dg_t *g, dgvs_t *cl, int method)
 
 
 /* find clique separator of two vertices */
-INLINE dgvsref_t dg_csep2(const dg_t *g)
+static dgvsref_t dg_csep2(const dg_t *g)
 {
   int i;
   dgvs_t ci, maski;
@@ -718,7 +718,7 @@ INLINE dgvsref_t dg_csep2(const dg_t *g)
 
 
 /* find clique separator of two vertices */
-INLINE dgvsref_t dg_csep2(const dg_t *g)
+static dgvsref_t dg_csep2(const dg_t *g)
 {
   int i;
   dgvs_t ci, maski, maskci;

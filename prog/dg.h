@@ -713,7 +713,7 @@ INLINE int dg_biconnectedvs_simple(const dg_t *g, dgword_t vs)
 
 
 /* check if the subdiagram of the vertex set `vs' is connected */
-INLINE int dg_connectedvs(const dg_t *g, dgvs_t vs0)
+static int dg_connectedvs(const dg_t *g, dgvs_t vs0)
 {
   dgvs_t vs, stack;
   dgword_t b;
@@ -806,7 +806,7 @@ INLINE int dg_biconnectedvs_simple(const dg_t *g, dgvs_t vs)
 
 /* check if a graph is biconnected
  * standard algorithm with bitwise operation */
-INLINE int dg_biconnected_std(const dg_t *g, int root)
+static int dg_biconnected_std(const dg_t *g, int root)
 {
   int top, v, par, ppar, id;
   DG_DEFN_(g)
@@ -873,6 +873,7 @@ INLINE int dg_biconnected_std(const dg_t *g, int root)
 
 
 #if DGVS_ONEWORD
+
 
 
 /* code the connectivity */

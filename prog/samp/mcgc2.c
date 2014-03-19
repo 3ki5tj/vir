@@ -140,7 +140,7 @@ static void doargs(int argc, char **argv)
 
 
 /* append node ids after the file names */
-INLINE void appendfns(const char *fninp0, const char *fnout0)
+static void appendfns(const char *fninp0, const char *fnout0)
 {
   if (inode != MASTER) {
     if (fninp0) fninp = fnappend(fninp0,    inode);
@@ -207,7 +207,7 @@ static void gc_cleardata(gc_t *gc)
 
 
 
-INLINE gc_t *gc_open(int nmin, int nmax, real rc0)
+static gc_t *gc_open(int nmin, int nmax, real rc0)
 {
   gc_t *gc;
   int n;
@@ -259,7 +259,7 @@ INLINE gc_t *gc_open(int nmin, int nmax, real rc0)
 
 
 
-INLINE void gc_close(gc_t *gc)
+static void gc_close(gc_t *gc)
 {
   free(gc);
 }
@@ -366,7 +366,7 @@ static void gc_printZr(const gc_t *gc, const double *Zr, const real *rc)
 
 
 
-INLINE double gc_fprintZr(gc_t *gc, FILE *fp,
+static double gc_fprintZr(gc_t *gc, FILE *fp,
     const double *Zr, const real *rc)
 {
   double tot = 0;
@@ -639,7 +639,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
 
 
 /* get a pair of vertices within rc */
-INLINE int getpair(int *pi, int *pj, const dg_t *g,
+static int getpair(int *pi, int *pj, const dg_t *g,
     real r2ij[][DG_NMAX], real rc)
 {
   int i, j, npr = 0, id, n = g->n;

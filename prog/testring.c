@@ -174,7 +174,7 @@ int main(int argc, char **argv)
    * 128mcs, n = 11 */
   testspeed(n, nsamp, nedmax, nedmin, method);
 
-  dgring_free();
+  DG_FREEMEMORIES()
   return 0;
 }
 

@@ -231,7 +231,7 @@ static int intgeq(int nmax, int npt, mydouble dr, int doHNC)
           cl[i] += eps * vc[i] * (1 + fr[i]);
           yr[l][i] += eps * vc[i];
         }
-      }      
+      }
       for ( Bv[l+2] = 0, i = 0; i < npt; i++ )
         Bv[l+2] += dfr[i] * yr[l][i] * (2*i+1)*(2*i+1)/4;
       Bv[l+2] *= 4*PI*(dr*dr*dr)/6;

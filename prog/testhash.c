@@ -112,6 +112,8 @@ int main(int argc, char **argv)
   if (argc >= 3) nsamp = atoi(argv[2]);
   if (argc >= 4) nedmax = atoi(argv[3]);
   test_rndcover(n, nsamp, nedmax);
+
+  DG_FREEMEMORIES()
   return 0;
 }
 

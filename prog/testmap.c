@@ -1,4 +1,5 @@
 #include "dgmap.h"
+#include "testutil.h"
 
 
 
@@ -45,6 +46,8 @@ int main(void)
   printf("connected %d, biconnected %d, %#x %#x\n",
       dg_connected(g), dg_biconnected(g), c[0], c[1]);
   dg_close(g);
+
+  DG_FREEMEMORIES()
   return 0;
 }
 

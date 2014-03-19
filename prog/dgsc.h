@@ -49,7 +49,7 @@ INLINE double dgsc_rhiter(int n, int n0, double fb)
  * if successful, *err = 0, otherwise *err = 1
  * *ned: number of edges; degs: unsorted degree sequence
  * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
-INLINE double dg_fbnr_spec0(const dg_t *g, double *nr,
+static double dg_fbnr_spec0(const dg_t *g, double *nr,
     int *ned, int *degs, int *err)
 {
   int i, j, n = g->n, ned1;
@@ -147,7 +147,7 @@ INLINE double dg_fbnr_spec0(const dg_t *g, double *nr,
 
 
 /* minimize the diagram of `g' by removing fully-connected vertices */
-INLINE dg_t *dgsc_mintop(dg_t *g)
+static dg_t *dgsc_mintop(dg_t *g)
 {
   int i;
   dgvs_t vs;
@@ -176,7 +176,7 @@ INLINE dg_t *dgsc_mintop(dg_t *g)
 
 /* recursively find the star content
  * starting from the edge (i, j + 1) */
-INLINE double dgsc_recur(dg_t *g, double *nr, int ned, int i, int j)
+static double dgsc_recur(dg_t *g, double *nr, int ned, int i, int j)
 {
   static double ring;
 #pragma omp threadprivate(ring)
@@ -228,7 +228,7 @@ INLINE double dgsc_recur(dg_t *g, double *nr, int ned, int i, int j)
 
 /* iteratively compute the star content,
  * on return g should be the same */
-INLINE double dgsc_iter0(dg_t *g, double *nr, int *ned, int *degs)
+static double dgsc_iter0(dg_t *g, double *nr, int *ned, int *degs)
 {
   static int ed[DG_NMAX * (DG_NMAX - 1)/2][2]; /* edges */
   static int st[DG_NMAX * (DG_NMAX - 1)/2 + 2]; /* state */
@@ -310,7 +310,7 @@ enum {
  * SC = # of biconnected subgraphs with even edges removed
  *    - # of biconnected subgraphs with odd edges removed
  * SSC = SC * (-)^(# of edges) */
-INLINE double dgsc_fbnr0(const dg_t *g, double *nr, int method,
+static double dgsc_fbnr0(const dg_t *g, double *nr, int method,
     int *ned, int *degs)
 {
   double fb = 0, ring;

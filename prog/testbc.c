@@ -1,4 +1,5 @@
 #include "dgmap.h"
+#include "testutil.h"
 
 
 
@@ -256,6 +257,7 @@ int main(int argc, char **argv)
   speed_connected(n1, nsteps1);
   /* time on T60 about 0.26mcs for n = 9 */
   speed_biconnected(n1, nsteps1, nedmax);
+  DG_FREEMEMORIES()
   return 0;
 }
 

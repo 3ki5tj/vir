@@ -191,5 +191,6 @@ int main(void)
 #endif
   verifyall(n);
   testspeed(n, 100000,  nedmax, 'd');
+  DG_FREEMEMORIES()
   return 0;
 }

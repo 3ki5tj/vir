@@ -15,6 +15,7 @@ ls = [proj + "App.0.java",
       "XYScheme.java",
       "XYZCanvas.java",
       "XYZModel.java",
+      "XYZModelMC.java",
       "Atom.java",
       "Matrix3D.java",
       "MDS.java"]

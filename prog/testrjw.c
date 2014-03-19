@@ -223,6 +223,6 @@ int main(int argc, char **argv)
     testaccuracy(n, nsamp, nedmin);
   }
 
-  dgrjw_free();
+  DG_FREEMEMORIES()
   return 0;
 }

@@ -15,6 +15,7 @@
 #include "dghash.h"
 #include "dgrjw.h"
 #include "dgring.h"
+#include "mcutil.h"
 
 
 
@@ -336,6 +337,7 @@ int main(int argc, char **argv)
   }
   if (fnout != NULL)
     save(fnout, binary);
+  DG_FREEMEMORIES()
   return 0;
 }
 
