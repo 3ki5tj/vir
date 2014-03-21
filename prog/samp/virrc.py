@@ -296,6 +296,7 @@ def usage():
    -d: dimension
    -n: nmin
    -N: nmax
+   -M: stepping of n
    -o: order (default is 2)
    -v: verbose
   """

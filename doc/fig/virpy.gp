@@ -3,10 +3,11 @@ reset
 
 set encoding cp1250 # make minus sign longer
 #set encoding iso_8859_1
-set terminal postscript landscape enhanced font "Arial, 20" size 14, 10
-set output "virpy.ps"
+set terminal postscript eps enhanced font "Arial, 20" size 7, 5
+set output "virpy.eps"
 
 
+set rmargin 2.0
 
 set multiplot
 
@@ -20,17 +21,20 @@ lblfont="Arial, 24"
 tcfont="Arial, 18"
 set key left top Left reverse spacing 1.5
 
-set style line 1 lc rgb "#aaaaaa" lt 1 lw 0.5
-set style line 2 lc rgb "#000000" lt 1 lw 1 pt 6 ps 1.2
-set style line 3 lc rgb "#000000" lt 1 lw 1 pt 7 ps 1.2
+# black
+set style line 1 lc rgb "#aaaaaa" lt 1 lw 1.0
+set style line 2 lc rgb "#000000" lt 1 lw 2 pt 6 ps 1.2
+set style line 3 lc rgb "#000000" lt 1 lw 2 pt 7 ps 1.2
 
-set style line 4 lc rgb "#ffaaaa" lt 2 lw 0.5
-set style line 5 lc rgb "#ff0000" lt 2 lw 1 pt 8 ps 1.2
-set style line 6 lc rgb "#ff0000" lt 2 lw 1 pt 9 ps 1.2
+# red
+set style line 4 lc rgb "#ffaaaa" lt 2 lw 1.0
+set style line 5 lc rgb "#cc0000" lt 2 lw 2 pt 8 ps 1.4
+set style line 6 lc rgb "#cc0000" lt 2 lw 2 pt 9 ps 1.4
 
-set style line 7 lc rgb "#aaaaff" lt 3 lw 0.5
-set style line 8 lc rgb "#0000ff" lt 3 lw 1 pt 4 ps 1.
-set style line 9 lc rgb "#0000ff" lt 3 lw 1 pt 5 ps 1.
+# blue
+set style line 7 lc rgb "#aaaaff" lt 3 lw 1.0
+set style line 8 lc rgb "#0000aa" lt 3 lw 2 pt 4 ps 1.
+set style line 9 lc rgb "#0000aa" lt 3 lw 2 pt 5 ps 1.
 
 
 
@@ -69,9 +73,9 @@ plot [2:64][1e-4:1e7] \
   "data/D13r1n64/ZrD13r1n64.data"   u ($1):(abs($19))                   w l ls 1 notitle, \
   ""                                u ($1):(($19 > 0) ? abs($19) : 1/0) w p ls 2 notitle, \
   ""                                u ($1):(($19 < 0) ? abs($19) : 1/0) w p ls 3 notitle, \
-  1e-100 w lp ls 2 lw 0 title "simulation", \
-  1e-100 w lp ls 8 lw 0 title "PY, virial", \
-  1e-100 w lp ls 5 lw 0 title "PY, compressibility", \
+  1e-100 w lp ls 2 title "simulation", \
+  1e-100 w lp ls 8 title "PY, virial", \
+  1e-100 w lp ls 5 title "PY, compressibility", \
   1e-100 lw 0 notitle
 
 
@@ -93,9 +97,9 @@ plot [2:64][5e-5:2e6] \
   "data/D15r1n64/ZrD15r1n64.data"   u ($1):(abs($19))                   w l ls 1 notitle, \
   ""                                u ($1):(($19 > 0) ? abs($19) : 1/0) w p ls 2 notitle, \
   ""                                u ($1):(($19 < 0) ? abs($19) : 1/0) w p ls 3 notitle, \
-  1e-100 w lp ls 2 lw 0 title "simulation", \
-  1e-100 w lp ls 8 lw 0 title "PY, virial", \
-  1e-100 w lp ls 5 lw 0 title "PY, compressibility", \
+  1e-100 w lp ls 2 title "simulation", \
+  1e-100 w lp ls 8 title "PY, virial", \
+  1e-100 w lp ls 5 title "PY, compressibility", \
   1e-100 lw 0 notitle
 
 
@@ -117,9 +121,9 @@ plot [2:64][1e-5:4e5] \
   "data/D17r1n64/ZrD17r1n64.data"   u ($1):(abs($19))                   w l ls 1 notitle, \
   ""                                u ($1):(($19 > 0) ? abs($19) : 1/0) w p ls 2 notitle, \
   ""                                u ($1):(($19 < 0) ? abs($19) : 1/0) w p ls 3 notitle, \
-  1e-100 w lp ls 2 lw 0 title "simulation", \
-  1e-100 w lp ls 8 lw 0 title "PY, virial", \
-  1e-100 w lp ls 5 lw 0 title "PY, compressibility", \
+  1e-100 w lp ls 2 title "simulation", \
+  1e-100 w lp ls 8 title "PY, virial", \
+  1e-100 w lp ls 5 title "PY, compressibility", \
   1e-100 lw 0 notitle
 
 
@@ -141,9 +145,9 @@ plot [2:64][1e-6:1e5] \
   "data/D19r1n64/ZrD19r1n64.data"   u ($1):(abs($19))                   w l ls 1 notitle, \
   ""                                u ($1):(($19 > 0) ? abs($19) : 1/0) w p ls 2 notitle, \
   ""                                u ($1):(($19 < 0) ? abs($19) : 1/0) w p ls 3 notitle, \
-  1e-100 w lp ls 2 lw 0 title "simulation", \
-  1e-100 w lp ls 8 lw 0 title "PY, virial", \
-  1e-100 w lp ls 5 lw 0 title "PY, compressibility", \
+  1e-100 w lp ls 2 title "simulation", \
+  1e-100 w lp ls 8 title "PY, virial", \
+  1e-100 w lp ls 5 title "PY, compressibility", \
   1e-100 lw 0 notitle
 
 

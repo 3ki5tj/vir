@@ -19,6 +19,7 @@ remote = cz1@he.host.utmb.edu
 
 Bossman: $(htmls) prep VirSampApp.jar
 	rsync -avzL *.html *.jar css js images data \
+	  prog/java/*.java \
 	  --exclude=*~ \
 	  $(remote):/Bossman/cz1/vir/web/
 

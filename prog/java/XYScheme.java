@@ -8,13 +8,12 @@ import static java.lang.Math.*;
 
 /** Panel for drawing the schematic diagram */
 class XYScheme extends JPanel
-    implements MouseListener
 {
   Image img;
   Graphics imgG;
   Dimension imgSize;
   MCSamp mc;
-  public boolean bStarted = false;
+  Atom atoms[];
   public static final long serialVersionUID = 2L;
 
   public XYScheme() {
@@ -24,22 +23,17 @@ class XYScheme extends JPanel
 
   void setMC(MCSamp m) { mc = m; }
 
-  public void start() {
-    newImgBuf();
-    addMouseListener(this);
-  }
-
-  public void newImgBuf() {
-    if (getSize().width == 0 || getSize().height == 0) {
-      System.out.println("scheme not ready.\n");
-      return;
-    }
-    //System.out.println("scheme " + getSize().toString());
-    img = createImage(getSize().width, getSize().height);
-    if (imgG != null) { imgG.dispose(); }
+  public boolean newImgBuf() {
+    Dimension sz = getSize();
+    if (sz.width == 0 || sz.height == 0)
+      return false;
+    if (img != null && imgG != null && sz.equals(imgSize))
+      return true;
+    img = createImage(sz.width, sz.height);
+    if (imgG != null) imgG.dispose();
     imgG = img.getGraphics();
-    imgSize = getSize();
-    bStarted = true;
+    imgSize = sz;
+    return true;
   }
 
   public void update(Graphics g) {
@@ -50,23 +44,23 @@ class XYScheme extends JPanel
 
   private static final Color colorLine         = Color.BLACK;
   private static final Color colorLargeCircle  = new Color(230, 230, 230);
-  private static final Atom atomNormal = new Atom(0.1, 0.2, 1.0, 1.0, 0.5, 0.5, 2.0);
-  private static final Atom atomFailed = new Atom(1.0, 0.2, 0.1, 1.0, 0.3, 0.5, 2.0);
-  private static final Atom atomMoved  = new Atom(0.1, 0.6, 0.7, 1.0, 0.3, 0.5, 2.0);
+  private static final Atom atomDefault = new Atom(0.1, 0.2, 1.0, 1.0, 0.6, 0.4, 1.0);
+  private static final Atom atomFailed = new Atom(1.0, 0.1, 0.1, 1.0, 0.5, 0.3, 2.0);
+  private static final Atom atomMoved  = new Atom(0.1, 1.0, 0.1, 1.0, 0.7, 0.3, 2.0);
 
   boolean useMDS = false;
+  boolean colorMDS = false;
 
   protected void paintComponent(Graphics g) {
     super.paintComponent(g);
-    if ( img == null ) return;
-    if ( !imgSize.equals(getSize()) )
-      newImgBuf();
+    newImgBuf();
+    Dimension sz = getSize();
     imgG.setColor( Color.WHITE );
     int w = getSize().width;
     int h = getSize().height;
     imgG.fillRect(0, 0, w, h);
 
-    if ( mc == null) return;
+    if (mc == null) return;
     int np = mc.N;
 
     // make lines thicker
@@ -109,7 +103,8 @@ class XYScheme extends JPanel
 
     // draw the small circles
     for (int i = 0; i < np; i++) {
-      Atom atom = atomNormal;
+      Atom atom = atomDefault;
+      if (useMDS && colorMDS) atom = atoms[i];
       if (i == mc.moveAtom)
         atom = mc.moveAcc ? atomMoved : atomFailed;
       atom.paint(imgG, xy[i][0], xy[i][1], 15, rad);
@@ -122,6 +117,10 @@ class XYScheme extends JPanel
   int [][] getMDS(int np, int rad) {
     double [][] xy0 = new double [np][2];
     int [][] xy = new int [np][2];
+
+    if (atoms == null || atoms.length != np)
+      atoms = new Atom [np];
+
     for (int i = 0; i < np; i++) {
       double theta = 2*PI*i/np - PI*.5;
       xy0[i][0] = cos(theta);
@@ -130,6 +129,7 @@ class XYScheme extends JPanel
 
     MDS mds = new MDS(mc.x);
     mds.min(xy0);
+    if ( colorMDS ) mds.setAtoms(xy0, atoms);
 
     int w = getSize().width, h = getSize().height;
     int margin = 5 + rad;
@@ -152,20 +152,6 @@ class XYScheme extends JPanel
     xy0 = null;
     return xy;
   }
-
-  /** Event handling */
-  public void mouseClicked(MouseEvent e) { }
-  public void mousePressed(MouseEvent e) {
-    //prevx = e.getX();
-    //prevy = e.getY();
-    // consume this event so that it will not be processed
-    // in the default manner
-    //e.consume();
-    repaint();
-  }
-  public void mouseReleased(MouseEvent e) { }
-  public void mouseEntered(MouseEvent e) { }
-  public void mouseExited(MouseEvent e) { }
 }
 
 

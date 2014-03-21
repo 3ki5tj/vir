@@ -20,10 +20,14 @@ class Ave {
     return (cnt > 0) ? xsm/cnt : 0;
   }
 
-  public double getStd() {
+  public double getVar() {
     if (cnt <= 1) return 0;
     double av = xsm/cnt;
-    return Math.sqrt(x2sm/cnt - av*av);
+    return x2sm/cnt - av*av;
+  }
+
+  public double getStd() {
+    return Math.sqrt( getVar() );
   }
 }
 

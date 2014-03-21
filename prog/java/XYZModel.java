@@ -13,33 +13,19 @@ class XYZModel {
   boolean transformed;
   // rotation/scaling/translation matrix for the conversion from realXYZ[] to screenXYZ[]
   Matrix3D mat = new Matrix3D();
-  double real2Screen = 54.321; // real size --> screen size
+  double real2Screen = 50.0; // real size --> screen size
   double ballSize = 0.5; // ball size (radius) in terms of the real coordinates
                          // 0.5 for hard spheres
 
-  Atom atomDefault = new Atom(0.5, 0.5, 0.5);
+  Atom atomDefault = new Atom(0.1, 0.7, 0.1, 1.0, 0.5, 0.5, 1.0);
   Atom atoms[]; // for colors of atoms
 
-  /** Constructor from the real coordinates
-   *  x[][3] is a three-dimensional vector
-   *  `n' can be less than x.length */
-  XYZModel(double x[][], int n, boolean center) {
-    //System.out.printf("XYZModel.Constructor: n %d, (%g, %g, %g) (%g, %g, %g)\n", n, x[0][0], x[0][1], x[0][2], x[n-1][0], x[n-1][1], x[n-1][2]);
-    updateXYZ(x, n, center);
-  }
-
-  XYZModel() {
-  }
+  XYZModel() {}
 
   /** Set the color of a particular atom */
   void setAtom(int i, Atom atom) {
     if ( i >= 0 && i < atoms.length )
       atoms[i] = atom;
-  }
-
-  /** Set the color of the default atom */
-  void setAtomDefault(Atom atom) {
-    atomDefault = atom;
   }
 
   /** Refresh coordinates
@@ -75,9 +61,9 @@ class XYZModel {
    *  `s' is the scaling factor of translating real coordinates
    *    to the screen coordinates
    *  (x0, y0) the screen coordinates of the center */
-  void setMatrix(Matrix3D amat, double s, double x0, double y0) {
+  void setMatrix(Matrix3D viewMat, double s, double x0, double y0) {
     mat.unit();
-    mat.mult(amat);
+    mat.mult(viewMat);
     mat.scale(s, s, s);
     real2Screen = s;
     mat.translate(x0, y0, 0);
@@ -109,14 +95,6 @@ class XYZModel {
     double fh = h / realSpan;
     double facShrink = 0.9; // shrink a bit for the margin
     return (fw < fh ? fw : fh) * facShrink;
-  }
-
-  /** Estimte the ratio from real to screen
-   *  `n' may be less than x.length
-   *  `w' and `h' are the width and height of the screen in pixels */
-  double getReal2Screen(double x[][], int n, int w, int h) {
-    double realSpan = getSpan(x, n);
-    return getScaleFromSpan(realSpan, w, h);
   }
 
   /** Compute the Z-order */

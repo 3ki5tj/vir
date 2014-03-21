@@ -3,19 +3,19 @@ reset
 
 set encoding cp1250 # make minus sign longer
 #set encoding iso_8859_1
-set terminal postscript enhanced font "Arial, 20"
+set terminal postscript eps enhanced font "Arial, 20"
                                 #size 10, 4 lw 2.0 font "Arial, 14"
-set output "bcacc.ps"
+set output "bcacc.eps"
 
 
 
 tcfont="Arial, 16"
 set key spacing 1.5
 
-set style line 1 lc rgb "#222222" lt 1 lw 3 pt 4 ps 1.5
-set style line 2 lc rgb "#000000" lt 2 lw 3 pt 6 ps 1.5
-set style line 3 lc rgb "#333333" lt 3 lw 3 pt 8 ps 2.0
-set style line 4 lc rgb "#111111" lt 4 lw 3 pt 10 ps 2.0
+set style line 1 lc rgb "#000000" lt 1 lw 3 pt 4 ps 1.5
+set style line 2 lc rgb "#000080" lt 2 lw 3 pt 6 ps 1.5
+set style line 3 lc rgb "#008000" lt 5 lw 3 pt 8 ps 2.0
+set style line 4 lc rgb "#800000" lt 4 lw 3 pt 10 ps 2.0
 
 
 

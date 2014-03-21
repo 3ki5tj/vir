@@ -3,7 +3,7 @@ prj=VirSamp
 javas = $(prj)App.0.java MCSamp.java \
 	Diagram.java DiagramMap.java Bits.java \
   	XYScheme.java XYZCanvas.java XYZModel.java \
-	XYZModelMC.java \
+	XYZCanvasVir.java XYZModelMC.java \
 	Atom.java \
         Ave.java MDS.java
 

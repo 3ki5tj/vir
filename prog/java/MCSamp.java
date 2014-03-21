@@ -12,13 +12,13 @@ class MCSamp {
   int step; // the current simulation step
   double mcAmp = 1.5; // amplitude of randomly moving a particle
   int sampFreq = 1; // sampling frequency
-  long mcacc = 0, mctot = 0;
+  long mcAcc = 0, mcTot = 0;
   double x[][], xi[], xo[];
-  Ave avfb = new Ave(), avnr = new Ave();
+  Ave avFb = new Ave(), avNr = new Ave();
   double xyz[]; // 3D coordinates to output
 
   double fb, nr; // star and ring contents
-  private boolean fbdirty = true;
+  private boolean fbDirty = true;
 
   Random rng = new Random();
 
@@ -50,9 +50,9 @@ class MCSamp {
   /** Clear trajectory data */
   void clearData() {
     step = 0;
-    mcacc = mctot = 0;
-    avfb.clear();
-    avnr.clear();
+    mcAcc = mcTot = 0;
+    avFb.clear();
+    avNr.clear();
   }
 
   public int moveAtom = -1;
@@ -83,21 +83,21 @@ class MCSamp {
         ng.unlink(i, j);
       }
     }
-    mctot += 1;
+    mcTot += 1;
     if ( ng.biconnected() ) {
-      mcacc += 1;
+      mcAcc += 1;
       for (k = 0; k < D; k++)
         x[i][k] = xi[k];
       g.copy(ng);
       //for (int ii = 0; ii < N; ii++) System.out.print("x" + ii + ": " + x[ii][0] + " " + x[ii][1] + " " + x[ii][2] + "; ");
       //System.out.println("moving " + i);
       moveAcc = true;
-      fbdirty = true;
+      fbDirty = true;
     } else {
       moveAcc = false;
     }
-    if ((step + 1) % sampFreq == 0) {
-      if ( fbdirty ) {
+    if (sampFreq > 0 && (step + 1) % sampFreq == 0) {
+      if ( fbDirty ) {
         if (N <= DiagramMap.NMAX) {
           double [] arr2 = g.getFbNrMap();
           fb = arr2[0];
@@ -106,10 +106,10 @@ class MCSamp {
           fb = g.getFb();
           nr = g.getNr();
         }
-        fbdirty = false;
+        fbDirty = false;
       }
-      avfb.add(fb);
-      avnr.add(nr);
+      avFb.add(fb);
+      avNr.add(nr);
     }
     step++;
   }
@@ -130,8 +130,8 @@ class MCSamp {
 
   /** Get the virial coefficients */
   public double getVir() {
-    double fb = avfb.getAve();
-    double sc = avnr.getAve();
+    double fb = avFb.getAve();
+    double sc = avNr.getAve();
     if (sc == 0) return 0;
     double Bring = abs( Diagram.BringArr[D][N] );
     return -fb/sc*Bring;

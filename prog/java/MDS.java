@@ -16,8 +16,9 @@ class MDS {
   }
 
   /** Compute the distance matrix */
-  void getDisMat(double [][] m, double x[][]) {
-    int D = x[0].length;
+  void getDisMat(double mat[][], double x[][]) {
+    int D = x[0].length; // D can be greater than 3
+
     for (int i = 0; i < N - 1; i++) {
       for (int j = i + 1; j < N; j++) {
         double d2 = 0;
@@ -25,7 +26,7 @@ class MDS {
           double dx = x[i][k] - x[j][k];
           d2 += dx * dx;
         }
-        m[i][j] = m[j][i] = sqrt(d2);
+        mat[i][j] = mat[j][i] = sqrt(d2);
       }
     }
   }
@@ -78,8 +79,7 @@ class MDS {
       }
     }
     if (iter >= iterMax)
-      System.out.printf("MDS failed to reach convergence in %d steps",
-          iter);
+      System.out.printf("MDS failed in %d steps\n", iter);
     rmcom(y);
     //print(y);
     return ene;
@@ -90,7 +90,7 @@ class MDS {
   /** Get best coordinates */
   double min(double ymin[][]) {
     int D = ymin[0].length;
-    double ene0, ene, eneMin = 1e99;
+    double ene0, ene, eneMin = 1e30;
 
     double [][] y = new double [N][D];
     double [][] f  = new double [N][D];
@@ -150,14 +150,21 @@ class MDS {
 
   final double DMIN = 1e-6;
 
+  double diff[];
+
   /** Compute the force and energy */
   double getForce(double y[][], double f[][]) {
     int D = y[0].length;
 
+    if (diff == null || diff.length != N)
+      diff = new double [N];
+    for (int i = 0; i < N; i++) diff[i] = 0;
+
     // clear the force
-    for (int i = 0; i < N; i++)
-      for (int k = 0; k < D; k++)
-        f[i][k] = 0;
+    if ( f != null )
+      for (int i = 0; i < N; i++)
+        for (int k = 0; k < D; k++)
+          f[i][k] = 0;
 
     double ene = 0;
     double [] dy = new double [D];
@@ -169,20 +176,59 @@ class MDS {
           dy[k] = y[i][k] - y[j][k];
           dy2 += dy[k] * dy[k];
         }
-        double dij = sqrt(dy2);
-        double dref = mat[i][j];
-        double dsc = dij/dref - 1;
+        double dij = sqrt(dy2), dij1 = max(dij, DMIN);
+        double dref = mat[i][j], dref1 = max(dref, DMIN);
+        double dsc = (dij - dref)/dref1;
+        diff[i] += abs(dsc);
+        diff[j] += abs(dsc);
         ene += dsc * dsc;
-        if (dij < DMIN) dij = DMIN;
-        for (int k = 0; k < D; k++) {
-          dy[k] *= -(dij - dref) / (dref * dref * dij);
-          f[i][k] += dy[k];
-          f[j][k] -= dy[k];
-        }
+        if (f != null)
+          for (int k = 0; k < D; k++) {
+            dy[k] *= -(dij - dref) / (dref1 * dref1 * dij1);
+            f[i][k] += dy[k];
+            f[j][k] -= dy[k];
+          }
       }
     }
     dy = null;
     return ene;
+  }
+
+  /** Compute the relative discrepency at each atom */
+  private double getRelDiff(double x[][]) {
+    getForce(x, null);
+    double diffmin = 1e30, diffmax = 0;
+    for (int i = 0; i < N; i++) {
+      if ( diff[i] < diffmin )
+        diffmin = diff[i];
+      else if ( diff[i] > diffmax )
+        diffmax = diff[i];
+    }
+    if (diffmax > diffmin + 1e-6) {
+      for (int i = 0; i < N; i++)
+        diff[i] = (diff[i] - diffmin) / (diffmax - diffmin);
+    } else {
+      for (int i = 0; i < N; i++)
+        diff[i] = 0;
+    }
+    return diffmax;
+  }
+
+  /** Set the color according to the relative discrepency */
+  void setAtoms(double x[][], Atom atoms[]) {
+    getRelDiff(x);
+    for (int i = 0; i < N; i++) {
+      double w = diff[i], w1, cmin = 0.3;
+      if (w < 0.5) {
+        w1 = w * 2;
+        atoms[i] = new Atom(cmin, cmin + (1 - cmin)*w1, 1 - (1 - cmin)*w1,
+            1.0, 0.4, 0.7, 2.0);
+      } else {
+        w1 = w * 2 - 1;
+        atoms[i] = new Atom(cmin + (1 - cmin)*w1, 1 - (1 - cmin)*w1, cmin,
+            1.0, 0.4, 0.7, 2.0);
+      }
+    }
   }
 
   /** Remove the center of mass */
@@ -211,11 +257,6 @@ class MDS {
         System.out.printf("%+8.3f ", x[i][j]);
       System.out.println("");
     }
-  }
-
-  /** Free memory */
-  void finish() {
-    mat = null;
   }
 }
 

@@ -326,7 +326,7 @@ static void display(void)
       color[1] = (float) (cmin + (1 - cmin) * w1);
       color[2] = (float) (1 - (1 - cmin) * w1);
     } else {
-      w1 = 2*w - 1;
+      w1 = w * 2 - 1;
       color[0] = (float) (cmin + (1 - cmin) * w1);
       color[1] = (float) (1 - (1 - cmin) * w1);
       color[2] = cmin;
