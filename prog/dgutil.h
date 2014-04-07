@@ -114,8 +114,8 @@ static int dg_pow2s_init_ = 0;
 
 
 
-/* obtain a list of numbers 0..2^n - 1 by the number of bits */
-INLINE void dg_idbybits(int n, unsigned *arr)
+/* obtain an array of subsets of n elements by the size */
+INLINE void dg_vsbysize(int n, unsigned *arr)
 {
   int m, top, v, id = 0, st[DG_NMAX + 1];
   unsigned x; /* the number represented by the stack */
@@ -135,7 +135,7 @@ INLINE void dg_idbybits(int n, unsigned *arr)
            * the number on this level */
           st[top] = v + 1;
           continue;
-        } else { /* we are at the top, print and fall through to pop */
+        } else { /* we are at the top, save and fall through to pop */
           arr[id++] = x;
         }
       }
@@ -151,22 +151,25 @@ INLINE void dg_idbybits(int n, unsigned *arr)
 
 
 
-/* prepare an idbybits array for n,
+/* prepare an vsbysize array for n,
  * `*n0' is the current n, `*nmax' is the capacity */
-INLINE unsigned *dg_prep_idbybits(int n, unsigned *arr,
+INLINE unsigned *dg_prep_vsbysize(int n, unsigned *arr,
     int *n0, int *nmax)
 {
   size_t size = (size_t) 1 << n;
 
   if ( arr == NULL ) {
     xnew(arr, size);
-    *nmax = n; *n0 = -1;
+    *nmax = n;
+    *n0 = -1;
   } else if ( n > *nmax ) {
     xrenew(arr, size);
-    *nmax = n; *n0 = -1;
+    *nmax = n;
+    *n0 = -1;
   }
+  /* call dg_vsbysize only if the requested `n' differs from `*n0' */
   if ( n != *n0 ) {
-    dg_idbybits(n, arr);
+    dg_vsbysize(n, arr);
     *n0 = n;
   }
   return arr;

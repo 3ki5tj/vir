@@ -82,11 +82,15 @@ INLINE int dgrjw_fq(dgvs_t *c, dgword_t vs)
 
 /* compute the Boltzmann weight (fq) and the sum of connected diagrams (fc)
  * also a few values for fa and fb
- * fqarr extends to faarr, fcarr extends to fbarr
+ * `fqarr' extends to `faarr', `fcarr' extends to `fbarr'
+ * `vsbysize[i]' gives the ith subset of `g->n' vertices,
+ *    where the subsets are sorted by the number of vertices contained
+ * `aparr[vs]' is the index array of the lowest articulation point + 1
+ *    in the diagram induced by the vertex set `vs'
  * by Wheatley's recursion formula, for all diagrams */
 static void dgrjw_prepare(const dg_t *g,
     dgrjw_fb_t *fcarr, dgrjw_fb_t *fqarr,
-    unsigned *idbybits, dgrjw_ap_t *aparr)
+    unsigned *vsbysize, dgrjw_ap_t *aparr)
 {
   dgrjw_fb_t fc;
   dgword_t vs, vs1, ms, ms1, ms2, b1, id, vsmax;
@@ -97,14 +101,14 @@ static void dgrjw_prepare(const dg_t *g,
   /* we loop from smaller subsets to larger ones */
   /* diagrams with zero or one vertex */
   for (id = 0; id <= (unsigned) DG_N_; id++) {
-    vs = idbybits[id];
+    vs = vsbysize[id];
     die_if (bitcount(vs) > 1, "n %d, id %d, bad count(%#x) = %d\n", DG_N_, id, vs, bitcount(vs));
     fcarr[vs] = fqarr[vs] = 1;
   }
 
   /* diagrams with two vertices */
   for (; id <= (unsigned) DG_N_ * (DG_N_ + 1) / 2; id++) {
-    vs = idbybits[id];
+    vs = vsbysize[id];
     die_if (bitcount(vs) != 2, "n %d, id %d, bad count(%#x) = %d\n", DG_N_, id, vs, bitcount(vs));
     fqarr[vs] = dgrjw_fq(g->c, vs);
     fcarr[vs] = -!fqarr[vs];
@@ -112,7 +116,7 @@ static void dgrjw_prepare(const dg_t *g,
 
   /* diagrams with three or more vertices */
   for (; id < vsmax; id++) {
-    vs = idbybits[id];
+    vs = vsbysize[id];
 
     fc = dgrjw_fq(g->c, vs);
     fqarr[vs] = fc; /* start with the Boltzmann weight */
@@ -150,7 +154,7 @@ static void dgrjw_prepare(const dg_t *g,
 
 /* return fb, assuming dgrjw_prepare() has been called */
 static dgrjw_fb_t dgrjw_iter(const dg_t *g,
-    dgrjw_fb_t *fbarr, unsigned *idbybits, dgrjw_ap_t *aparr)
+    dgrjw_fb_t *fbarr, unsigned *vsbysize, dgrjw_ap_t *aparr)
 {
   int v, iold, inew;
   size_t idold, idnew, jdold, jdnew;
@@ -162,7 +166,7 @@ static dgrjw_fb_t dgrjw_iter(const dg_t *g,
 
   /* one- and two-vertex subsets, biconnected == connected */
   for ( id = 0; id <= (dgword_t) (DG_N_ * (DG_N_ + 1) / 2); id++ ) {
-    vs = idbybits[id];
+    vs = vsbysize[id];
     fbarr[ vsmax | vs ] = fbarr[ vs ];
   }
 
@@ -177,7 +181,7 @@ static dgrjw_fb_t dgrjw_iter(const dg_t *g,
 
     /* three-vertex subsets */
     for ( id = DG_N_ * (DG_N_ + 1) / 2 + 1 ; id < vsmax; id++ ) {
-      vs = idbybits[id];
+      vs = vsbysize[id];
       vsnew = idnew + vs;
 
       /* compute fa and fb */
@@ -215,9 +219,10 @@ static dgrjw_fb_t *dgrjw_fbarr_;
  * so these variables must be thread private */
 #pragma omp threadprivate(dgrjw_nmax_, dgrjw_fbarr_)
 
-static unsigned *dgrjw_idbybits_;
-static int dgrjw_idn_ = -1, dgrjw_idnmax_ = -1;
-#pragma omp threadprivate(dgrjw_idbybits_, dgrjw_idn_, dgrjw_idnmax_)
+/* subsets of n vertices sorted by the size */
+static unsigned *dgrjw_vsbysize_;
+static int dgrjw_vsn_ = -1, dgrjw_vsnmax_ = -1;
+#pragma omp threadprivate(dgrjw_vsbysize_, dgrjw_vsn_, dgrjw_vsnmax_)
 
 static dgrjw_ap_t *dgrjw_aparr_;
 #pragma omp threadprivate(dgrjw_aparr_)
@@ -257,13 +262,13 @@ static dgrjw_fb_t dgrjw_fb(const dg_t *g)
         * size / (1024*1024), dgrjw_nmax_);
   }
 
-  dgrjw_idbybits_ = dg_prep_idbybits(DG_N_, dgrjw_idbybits_,
-      &dgrjw_idn_, &dgrjw_idnmax_);
+  dgrjw_vsbysize_ = dg_prep_vsbysize(DG_N_, dgrjw_vsbysize_,
+      &dgrjw_vsn_, &dgrjw_vsnmax_);
 
   /* pre-compute all fc and fq values */
   dgrjw_prepare(g, dgrjw_fbarr_, dgrjw_fbarr_ + size,
-                   dgrjw_idbybits_, dgrjw_aparr_);
-  return dgrjw_iter(g, dgrjw_fbarr_, dgrjw_idbybits_, dgrjw_aparr_);
+                   dgrjw_vsbysize_, dgrjw_aparr_);
+  return dgrjw_iter(g, dgrjw_fbarr_, dgrjw_vsbysize_, dgrjw_aparr_);
 }
 
 
@@ -330,11 +335,11 @@ static double dg_fbnr0(const dg_t *g, double *nr, int method,
 /* free all stock objects */
 static void dgrjw_free(void)
 {
-  if (dgrjw_idbybits_ != NULL) {
-    free(dgrjw_idbybits_);
-    dgrjw_idbybits_ = NULL;
+  if (dgrjw_vsbysize_ != NULL) {
+    free(dgrjw_vsbysize_);
+    dgrjw_vsbysize_ = NULL;
   }
-  dgrjw_idn_ = dgrjw_idnmax_ = -1;
+  dgrjw_vsn_ = dgrjw_vsnmax_ = -1;
   if (dgrjw_fbarr_ != NULL) {
     free(dgrjw_fbarr_);
     dgrjw_fbarr_ = NULL;

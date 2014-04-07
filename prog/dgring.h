@@ -216,7 +216,7 @@ static double dgring_inv(const dg_t *g)
 
 /* the ring content
  * because of the memory limit, we must have n < 32 */
-static double dgring_dplow(const dg_t *g, double *arr, unsigned *idbybits)
+static double dgring_dplow(const dg_t *g, double *arr, unsigned *vsbysize)
 {
   int n1, i, j, root;
   dgword_t vs, vs1, vsmax, ms, ms1, id, b, bj;
@@ -232,7 +232,7 @@ static double dgring_dplow(const dg_t *g, double *arr, unsigned *idbybits)
 
   /* one-vertex subset */
   for (id = 1; id <= (dgword_t) DG_N_ - 1; id++) {
-    vs = idbybits[id];
+    vs = vsbysize[id];
     i = BIT2ID(vs);
     arr[vs * n1 + i] = dg_linked(g, root, i);
   }
@@ -240,7 +240,7 @@ static double dgring_dplow(const dg_t *g, double *arr, unsigned *idbybits)
   /* general case */
   for ( ; id < vsmax; id++ ) {
     /* loop over vertices in vs */
-    for ( vs1 = vs = idbybits[id]; vs1 != 0; ) {
+    for ( vs1 = vs = vsbysize[id]; vs1 != 0; ) {
       vs1 ^= (b = vs1 & (-vs1));
       i = BIT2ID(b);
       ms = vs ^ b;
@@ -265,9 +265,11 @@ static double dgring_dplow(const dg_t *g, double *arr, unsigned *idbybits)
 }
 
 
-static unsigned *dgring_idbybits_;
-static int dgring_idn_ = -1, dgring_idnmax_ = -1;
-#pragma omp threadprivate(dgring_idbybits_, dgring_idn_, dgring_idnmax_)
+
+/* subsets of n vertices sorted by the size */
+static unsigned *dgring_vsbysize_;
+static int dgring_vsn_ = -1, dgring_vsnmax_ = -1;
+#pragma omp threadprivate(dgring_vsbysize_, dgring_vsn_, dgring_vsnmax_)
 
 static double *dgring_nrarr_;
 static int dgring_nmax_;
@@ -292,10 +294,10 @@ static double dgring_dp(const dg_t *g)
     xrenew(dgring_nrarr_, size);
   }
 
-  dgring_idbybits_ = dg_prep_idbybits(DG_N_ - 1, dgring_idbybits_,
-      &dgring_idn_, &dgring_idnmax_);
+  dgring_vsbysize_ = dg_prep_vsbysize(DG_N_ - 1, dgring_vsbysize_,
+      &dgring_vsn_, &dgring_vsnmax_);
 
-  return dgring_dplow(g, dgring_nrarr_, dgring_idbybits_);
+  return dgring_dplow(g, dgring_nrarr_, dgring_vsbysize_);
 }
 
 
@@ -393,11 +395,11 @@ static double dgring_nr0(const dg_t *g, int *ned, int *degs)
 /* free all stock objects */
 static void dgring_free(void)
 {
-  if (dgring_idbybits_ != NULL) {
-    free(dgring_idbybits_);
-    dgring_idbybits_ = NULL;
+  if (dgring_vsbysize_ != NULL) {
+    free(dgring_vsbysize_);
+    dgring_vsbysize_ = NULL;
   }
-  dgring_idn_ = dgring_idnmax_ = -1;
+  dgring_vsn_ = dgring_vsnmax_ = -1;
 
   if (dgring_nrarr_ != NULL) {
     free(dgring_nrarr_);

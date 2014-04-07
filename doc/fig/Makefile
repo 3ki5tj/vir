@@ -1,8 +1,8 @@
 GP = $(wildcard *.gp)
 EPS = $(patsubst %.gp,%.eps, $(GP))
 PDF = $(patsubst %.gp,%.pdf, $(GP))
+# PNG files generated from gnuplot
 GP_PNG = $(patsubst %.gp,%.png, $(GP))
-#PNG = $(wildcard *.png)
 PNG = reprg.png ergo.png
 TIF = $(patsubst %.png,%.tif, $(PNG))
 deps = Makefile bcacc.txt
