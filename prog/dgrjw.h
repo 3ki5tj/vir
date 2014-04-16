@@ -75,7 +75,7 @@ INLINE int dgrjw_fq(dgvs_t *c, dgword_t vs)
      * therefore return zero immediately */
     if (DGVS_FIRSTWORD(c[bitfirstlow(w, &b)]) & vs) return 0;
   }
-  return 1;
+  return 1; /* (vs != 0); */
 }
 
 

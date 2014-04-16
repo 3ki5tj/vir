@@ -414,29 +414,44 @@ typedef dgword_t *dgvsref_t;
 
 #define dgvs_print(vs, name) dgvs_fprint(vs, stdout, name)
 
+#define dgvs_fprint(vs, fp, name) \
+  dgvs_fprint0(vs, DG_NMAX, fp, name, "\n")
+
 /* print a set as star or blank pattern */
-INLINE void dgvs_fprint(dgvs_t vs, FILE *fp, const char *name)
+INLINE void dgvs_fprint0(dgvs_t vs, int n, FILE *fp,
+    const char *name, const char *ending)
 {
   int i;
 
-  if (name != NULL) fprintf(fp, "%-8s: [", name);
-  for (i = 0; i < DG_NMAX; i++) fprintf(fp, "%c", DGVS_HAS(vs, i) ? '*' : ' ');
-  fprintf(fp, "]\n");
+  if (fp == NULL) fp = stdout;
+  if (name != NULL) fprintf(fp, "%-8s: ", name);
+  fprintf(fp, "[");
+  for (i = 0; i < n; i++)
+    fprintf(fp, "%c", DGVS_HAS(vs, i) ? '*' : ' ');
+  fprintf(fp, "]");
+  if (ending) fputs(ending, fp);
 }
 
 
 
 #define dgvs_printn(vs, name) dgvs_fprintn(vs, stdout, name)
 
+#define dgvs_fprintn(vs, fp, name) \
+  dgvs_fprintn0(vs, DG_NMAX, fp, name, "\n")
+
 /* print a set as numbers */
-INLINE void dgvs_fprintn(dgvs_t vs, FILE *fp, const char *name)
+INLINE void dgvs_fprintn0(dgvs_t vs, int n, FILE *fp,
+    const char *name, const char *ending)
 {
   int i;
 
+  if (fp == NULL) fp = stdout;
   if (name != NULL) fprintf(fp, "%-8s:", name);
-  for (i = 0; i < DG_NMAX; i++) if ( DGVS_HAS(vs, i) ) fprintf(fp, " %d", i);
-  fprintf(fp, "\n");
+  for (i = 0; i < n; i++)
+    if ( DGVS_HAS(vs, i) ) fprintf(fp, " %d", i);
+  if (ending) fputs(ending, fp);
 }
+
 
 
 

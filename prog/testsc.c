@@ -2,6 +2,7 @@
 #include "dgmap.h"
 #include "dgsc.h"
 #include "dgrjw.h"
+#include "dgrjwb.h"
 #include "testutil.h"
 
 
@@ -10,7 +11,7 @@
 static void cmpref(int n, dgref_t *ref)
 {
   int i, err;
-  double fb0, nr0, fb1, nr1, fb2, nr2, fb3, nr3;
+  double fb0, nr0, fb1, nr1, fb2, nr2, fb3, nr3, fb4;
   dg_t *g;
 
   g = dg_open(n);
@@ -27,14 +28,16 @@ static void cmpref(int n, dgref_t *ref)
     fb1 = dgsc_fbnr0(g, &nr1, DGSC_ITER, NULL, NULL);
     fb2 = dgsc_fbnr0(g, &nr2, DGSC_RECUR, NULL, NULL);
     fb3 = (double) dgrjw_fb(g);
+    fb4 = (double) dgrjwb_fb(g);
     nr3 = dgring_nr(g);
     if ( (err == 0 && (fabs(fb0 - ref[i].fb) > 0.001 || fabs(nr0 - ref[i].nr) > 0.001))
       || fabs(fb1 - ref[i].fb) > 0.001 || fabs(nr1 - ref[i].nr) > 0.001
       || fabs(fb2 - ref[i].fb) > 0.001 || fabs(nr2 - ref[i].nr) > 0.001
-      || fabs(fb3 - ref[i].fb) > 0.001 || fabs(nr3 - ref[i].nr) > 0.001) {
+      || fabs(fb3 - ref[i].fb) > 0.001 || fabs(nr3 - ref[i].nr) > 0.001
+      || fabs(fb4 - ref[i].fb) > 0.001 ) {
       fprintf(stderr, "n %d: model %d mismatch, "
-          "fb: %g, %g, %g, %g vs %d (ref), nr: %g, %g, %g, %g vs %d (ref)\n",
-          n, i, fb0, fb1, fb2, fb3, ref[i].fb, nr0, nr1, nr2, nr3, ref[i].nr);
+          "fb: %g, %g, %g, %g, %g vs %d (ref), nr: %g, %g, %g, %g vs %d (ref)\n",
+          n, i, fb0, fb1, fb2, fb3, fb4, ref[i].fb, nr0, nr1, nr2, nr3, ref[i].nr);
       dg_fprint(g, stderr);
       exit(1);
     }
@@ -53,7 +56,7 @@ static void verifyall(int n)
 #if DGMAP_EXISTS
   if (n <= DGMAP_NMAX) {
     int ig, err;
-    double fb0, fb1, fb2, fb3, nr0, nr1, nr2, nr3;
+    double fb0, fb1, fb2, fb3, fb4, nr0, nr1, nr2, nr3;
     clock_t t0;
 
     printf("verifying the star contents of all diagrams\n");
@@ -67,22 +70,26 @@ static void verifyall(int n)
       dgword_t code = dgmap_[n].first[ig];
       dg_decode(g, &code);
       /* skip disconnected diagrams */
-      if ( !dg_connected(g) ) continue;
+      if ( !dg_biconnected(g) ) continue;
       /* check results from different methods */
       fb0 = dg_fbnr_spec(g, &nr0, &err);
       fb1 = dgsc_fbnr0(g, &nr1, DGSC_ITER, NULL, NULL);
       fb2 = dgsc_fbnr0(g, &nr2, DGSC_RECUR, NULL, NULL);
       fb3 = (double) dgrjw_fb(g);
+      fb4 = (double) dgrjwb_fb(g);
       nr3 = dgring_nr(g);
       if ( fabs(fb1 - fb2) > 1e-3 || fabs(fb1 - fb3) > 1e-3
+          || fabs(fb1 - fb4) > 1e-3
           || (err == 0 && fabs(fb1 - fb0) > 1e-3) ) {
-        printf("fb: mismatch %g, %g, %g, %g, err %d\n", fb0, fb1, fb2, fb3, err);
+        printf("fb: mismatch %g, %g, %g, %g, %g err %d\n",
+            fb0, fb1, fb2, fb3, fb4, err);
         dg_print(g);
         exit(1);
       }
       if ( fabs(nr1 - nr2) > 1e-3 || fabs(nr1 - nr3) > 1e-3
           || (err == 0 && fabs(nr1 - nr0) > 1e-3) ) {
-        printf("nr: mismatch %g, %g, %g, %g, err %d\n", nr0, nr1, nr2, nr3, err);
+        printf("nr: mismatch %g, %g, %g, %g, err %d\n",
+            nr0, nr1, nr2, nr3, err);
         dg_print(g);
         exit(1);
       }
@@ -105,7 +112,7 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
 #if DGMAP_EXISTS
   if (method == 'l' && n < DGMAP_NMAX) {
     int ig, err;
-    double fb0, fb1, fb2, fb3, nr0, nr1, nr2, nr3;
+    double fb0, fb1, fb2, fb3, fb4, nr0, nr1, nr2, nr3;
     dg_t *g2;
 
     printf("verifying the ring contents of all diagrams\n");
@@ -125,16 +132,20 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
       fb1 = dgsc_fbnr0(g2, &nr1, DGSC_ITER, NULL, NULL);
       fb2 = dgsc_fbnr0(g2, &nr2, DGSC_RECUR, NULL, NULL);
       fb3 = (double) dgrjw_fb(g2);
+      fb4 = (double) dgrjwb_fb(g2);
       nr3 = dgring_nr(g2);
       if ( fabs(fb1 - fb2) > 1e-3 || fabs(fb1 - fb3) > 1e-3
+          || fabs(fb1 - fb4) > 1e-3
           || (err == 0 && fabs(fb1 - fb0) > 1e-3) ) {
-        printf("fb: mismatch %g, %g, %g, %g, err %d\n", fb0, fb1, fb2, fb3, err);
+        printf("fb: mismatch %g, %g, %g, %g, %g, err %d\n",
+            fb0, fb1, fb2, fb3, fb4, err);
         dg_print(g2);
         exit(1);
       }
       if ( fabs(nr1 - nr2) > 1e-3 || fabs(nr1 - nr3) > 1e-3
           || (err == 0 && fabs(nr1 - nr0) > 1e-3) ) {
-        printf("nr: mismatch %g, %g, %g, %g, err %d\n", nr0, nr1, nr2, nr3, err);
+        printf("nr: mismatch %g, %g, %g, %g, err %d\n",
+            nr0, nr1, nr2, nr3, err);
         dg_print(g2);
         exit(1);
       }
@@ -189,7 +200,7 @@ int main(void)
 #endif
   n = N;
 #endif
-  verifyall(n);
+  verifyall(n); /* if n is too large, this function is empty */
   testspeed(n, 100000,  nedmax, 'd');
   DG_FREEMEMORIES()
   return 0;

@@ -1,4 +1,5 @@
 #include "dgmap.h"
+#include "dgrjwb.h"
 #include "testutil.h"
 
 
@@ -89,6 +90,8 @@ static void testspeed(int n, int nsamp, int nedmax, char method)
       fb = dgsc_fb0(g, (method == 'r' ? DGSC_RECUR : DGSC_ITER), NULL, NULL);
     } else if (method == 'w') { /* Wheatley */
       fb = (double) dgrjw_fb(g);
+    } else if (method == 'b') { /* modified Wheatley */
+      fb = (double) dgrjwb_fb(g);
     } else if (method == 'p') { /* comparison */
       fb1 = (double) dgrjw_fb(g);
       fb2 = dgsc_fb(g);
