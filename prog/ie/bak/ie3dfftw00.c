@@ -79,14 +79,14 @@ static void sphr(int npt, mydouble *in, mydouble *out, mydouble dx,
   int i;
   mydouble fac;
 
-  for ( i = 0; i < npt; i++ ) /* form in(x) * x */
-    arr[i] = in[i] * dx * (2*i + 1) / 2;
+  for ( i = 1; i < npt; i++ ) /* form in(x) * x */
+    arr[i] = in[i] * dx * i;
   FFTWPFX(execute)(p);
   /* 1. the following dx is from integration
    * 2. the final pi/npt/dx is dk which is to be used for 1/k */
   fac = fac0 * dx / (PI/npt/dx);
-  for ( i = 0; i < npt; i++ ) /* form out(k) / k */
-    out[i] = arr[i] * fac * 2 / (2*i + 1);
+  for ( i = 1; i < npt; i++ ) /* form out(k) / k */
+    out[i] = arr[i] * fac / i;
 }
 
 
@@ -94,12 +94,11 @@ static void sphr(int npt, mydouble *in, mydouble *out, mydouble dx,
 /* compute the virial coefficients from the Percus-Yevick closure */
 static int intgeq(int nmax, int npt, mydouble dr, int doHNC)
 {
-  mydouble dk = PI/dr/npt, B2;
+  mydouble dk = PI/dr/npt, B2, facr2k, fack2r, tmp1, tmp2;
   mydouble **ck, **tk, *fr, *fk, *tl, *cl, *Bc, *Bv;
-  int i, dm, l, u, j, jl, k;
   mydouble **yr, **yr0, **tr, *powtl, *arr, *vc;
+  int i, dm, l, u, j, jl, k;
   FFTWPFX(plan) plan;
-  mydouble facr2k, fack2r;
 
   dm = (int) (1/dr + .5);
 
@@ -109,7 +108,7 @@ static int intgeq(int nmax, int npt, mydouble dr, int doHNC)
   facr2k = 2*PI;
   fack2r = 1/(4*PI*PI);
   xnew(arr, npt);
-  plan = FFTWPFX(plan_r2r_1d)(npt, arr, arr, FFTW_RODFT11, FFTW_ESTIMATE);
+  plan = FFTWPFX(plan_r2r_1d)(npt - 1, arr + 1, arr + 1, FFTW_RODFT00, FFTW_ESTIMATE);
 
   xnew(fr, npt);
   xnew(fk, npt);
@@ -194,38 +193,40 @@ static int intgeq(int nmax, int npt, mydouble dr, int doHNC)
           /* vc[i] = tr[l][i] - yr[l][i]; */
 
         for ( i = 0; i < npt; i++ ) {
-          Bc0 += cl[i] * (2*i+1)*(2*i+1)/4;
-          dBc += vc[i] * (1 + fr[i]) * (2*i+1)*(2*i+1)/4;
+          Bc0 += cl[i] * i * i;
+          dBc += vc[i] * (1 + fr[i]) * i * i;
         }
         Bc0 *= -4*PI*(dr*dr*dr)/(l+2);
         dBc *= -4*PI*(dr*dr*dr)/(l+2);
-        Bv0 = B2*(3*yr[l][dm] - yr[l][dm+1])/2;
-        dBv = B2*(3*vc[dm] - vc[dm+1])/2;
+        Bv0 = B2*(2*yr[l][dm] - yr[l][dm+1]);
+        dBv = B2*(2*vc[dm] - vc[dm+1]);
         eps = -(Bv0 - Bc0) / (dBv - dBc);
         for ( i = 0; i < npt; i++ ) {
           cl[i] += eps * vc[i] * (1 + fr[i]);
           yr[l][i] += eps * vc[i];
         }
       }
-      Bv[l+2] = B2*(3*yr[l][dm] - yr[l][dm+1])/2;
+      Bv[l+2] = B2*(2*yr[l][dm] - yr[l][dm+1]);
     } else {
       /* Percus-Yevick approximation
        * c(r) = f(r) (1 + t(r)) */
       for ( i = 0; i < dm; i++ ) cl[i] = -tl[i];
       for ( i = dm; i < npt; i++ ) cl[i] = 0;
-      Bv[l+2] = B2*(3*tl[dm] - tl[dm+1])/2;
+      Bv[l+2] = B2*(2*tl[dm] - tl[dm+1]);
     }
 
     /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) 4 pi r^2 dr
      * In the 3D case the current formula appeared to work better than:
        Bc[l+2] += cl[i] * (i*(i+1)+1./3); */
     for ( Bc[l+2] = 0, i = 0; i < npt; i++ )
-      Bc[l+2] += cl[i] * (2*i+1)*(2*i+1)/4;
+      Bc[l+2] += cl[i] * i * i;
     Bc[l+2] *= -4*PI*(dr*dr*dr)/(l+2);
+    tmp1 = pow(B2, -l-1);
+    tmp2 = Bv[l+2] * tmp1;
+    tmp1 = Bc[l+2] * tmp1;
     printf("Bc(%3d) = %20.10" DBLPRNF "e (%20.12" DBLPRNF "e), "
            "Bv(%3d) = %20.10" DBLPRNF "e (%20.12" DBLPRNF "e)\n",
-           l+2, Bc[l+2], Bc[l+2]/pow(B2, l+1),
-           l+2, Bv[l+2], Bv[l+2]/pow(B2, l+1));
+           l+2, Bc[l+2], tmp1, l+2, Bv[l+2], tmp2);
     /* c(r) --> c(k) */
     sphr(npt, cl, cl, dr, facr2k, plan, arr);
 

@@ -1,0 +1,14 @@
+ie3dfftw00.c    similar to ie3dfftw.c, but uses FFTW_RODF11 instead FFTW_RODF00
+ie5dfftw.c      five-dimensional code
+ie3dref.c       uses fft.h instead of FFTW
+
+Test code
+==========
+testgmp.c       using GMP
+testmpfr.c      using MPFR
+testsphrmpfr.c  Using MPFR
+testsphr.c      using fft.h
+testdhtgsl.c    demonstration of using gsl_dht (discrete Hankel transform)
+
+fft.h           manual FFT
+

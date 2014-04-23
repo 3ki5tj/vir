@@ -1,45 +1,75 @@
 # debugging
 CC = gcc -O0 -g -Wall -Wunused -Wextra -Wno-unknown-pragmas
-LM = -lfftw3 -lm
+LM = -lm
 
 # optimized compiling
-# if -xHost -O3 is used, also define -DRVN_ALIGN=2 or 4
-# otherwise it causes trouble for mcgcr2.c in D = 15 and odd dimensions
-# for some icc versions
-CX = icc -O2 -ipo \
-     -Wall -Wremarks -Wcheck -wd11001 -wd11006
+# warnings 11001 and 11006 are notices invoked by -ipo
+CX = icc -O2 -ipo -Wall -Wremarks -Wcheck -wd11001 -wd11006
 #CX = gcc -O3 -march=native -fwhole-program -Wall -Wextra -Wunused
-LMX = -lfftw3
+LMX =
 
-# OpenMP version
-MPCC = $(CX) -openmp
-MPLM = -lfftw3_omp
+LFFTW = -lfftw3
+LMPFR = -lmpfr -lgmp
+LGMP = -lgmp
+LGSL = -lgsl -lgslcblas
 
-# MPI compiling
-MPICC = mpicc -DMPI -Wall -Wextra -O3 -march=native -Wno-unknown-pragmas
-MPILM = -lfftw3_mpi
+# source code that uses GMP and MPFR
+csrc            = $(wildcard *.c)
+csrc_fftw       = $(wildcard *fftw*.c)
+csrc_mpfr       = $(wildcard *mpfr*.c)
+csrc_gmp        = $(wildcard *gmp*.c)
+csrc_gsl        = $(wildcard *gsl*.c)
+csrc_extra      = $(filter-out \
+		    $(csrc_fftw) $(csrc_mpfr) $(csrc_gmp) $(csrc_gsl), \
+		    $(csrc))
 
-
-csrc = $(wildcard *.c)
-deps =
-bins = $(patsubst %.c, %, $(csrc))
-bins_d = $(patsubst %, %_d, $(bins))
+deps = Makefile
+bins            = $(patsubst %.c, %,   $(csrc))
+bins_d          = $(patsubst %,   %_d, $(bins))
+bins_fftw       = $(patsubst %.c, %,   $(csrc_fftw))
+bins_fftw_d     = $(patsubst %,   %_d, $(bins_fftw))
+bins_mpfr       = $(patsubst %.c, %,   $(csrc_mpfr))
+bins_mpfr_d     = $(patsubst %,   %_d, $(bins_mpfr))
+bins_gmp        = $(patsubst %.c, %,   $(csrc_gmp))
+bins_gmp_d      = $(patsubst %,   %_d, $(bins_gmp))
+bins_gsl        = $(patsubst %.c, %,   $(csrc_gsl))
+bins_gsl_d      = $(patsubst %,   %_d, $(bins_gsl))
+bins_extra      = $(patsubst %.c, %,   $(csrc_extra))
+bins_extra_d    = $(patsubst %,   %_d, $(bins_extra))
 
 exe: $(bins)
 
-all: $(bins) $(bins_d) $(bins_mp) $(bins_mpi)
+all: $(bins) $(bins_d)
 
-$(bins) : %: %.c $(deps)
+$(bins_fftw) : %: %.c $(deps)
+	$(CX) -o $@ $< $(LMX) $(LFFTW)
+
+$(bins_fftw_d) : %_d: %.c $(deps)
+	$(CC) -o $@ $< $(LM) $(LFFTW)
+
+$(bins_mpfr) : %: %.c $(deps)
+	$(CX) -o $@ $< $(LMX) $(LMPFR)
+
+$(bins_mpfr_d) : %_d: %.c $(deps)
+	$(CC) -o $@ $< $(LM) $(LMPFR)
+
+$(bins_gmp) : %: %.c $(deps)
+	$(CX) -o $@ $< $(LMX) $(LGMP)
+
+$(bins_gmp_d) : %_d: %.c $(deps)
+	$(CC) -o $@ $< $(LM) $(LGMP)
+
+$(bins_gsl) : %: %.c $(deps)
+	$(CX) -o $@ $< $(LMX) $(LGSL)
+
+$(bins_gsl_d) : %_d: %.c $(deps)
+	$(CC) -o $@ $< $(LM) $(LGSL)
+
+$(bins_extra) : %: %.c $(deps)
 	$(CX) -o $@ $< $(LMX)
 
-$(bins_d) : %_d: %.c $(deps)
+$(bins_extra_d) : %_d: %.c $(deps)
 	$(CC) -o $@ $< $(LM)
-
-$(bins_mp) : %_mp: %.c $(deps)
-	$(MPCC) -o $@ $< $(MPLM)
-
-$(bins_mpi) : %_mpi: %.c $(deps)
-	$(MPICC) -o $@ $< $(MPLM)
 
 syncipo:
 	rsync -avL *.[ch] cz1@129.109.88.204:lwork/vir
@@ -52,8 +82,9 @@ sync2::
 	rsync -e gsissh -avL *.[ch] kraken-gsi.nics.xsede.org:work/vir
 
 clean:
-	rm -rf $(bins) $(bins_d) $(bins_mp) $(bins_mpi) *~ a.out gmon.out \
-	  *.his MTSEED bin obj r[0-9][0-9][0-9][a-z]* mr* Zr*
+	rm -rf $(bins) $(bins_d) \
+	  *~ a.out gmon.out MTSEED bin obj \
+	  r[0-9][0-9][0-9][a-z]*
 
 usb:
 	$(MAKE) -C ../.. $@
