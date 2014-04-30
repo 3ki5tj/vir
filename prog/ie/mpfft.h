@@ -281,6 +281,35 @@ __inline static int mpsint11(mpfr_t a[], int n, mpfr_t arr[])
 
 
 /* cosine transform, return \int 2 * cos(k x) a(x) dx */
+__inline static int mpcost00(mpfr_t a[], int n, mpfr_t arr[])
+{
+  int err, i;
+
+  if (arr == NULL) arr = MPFFT_ARR1D_ALLOC(n*4);
+
+  mpfr_set(arr[0], a[0], MPFR_RNDN);
+  mpfr_set(arr[n*2], a[n], MPFR_RNDN);
+  for (i = 0; i < n; i++) {
+    /* c = cos(M_PI*i/(2*n)); s = sin(M_PI*i/(2*n)); */
+    if ( i != 0 ) {
+      mpfr_set(arr[i*2], a[i], MPFR_RNDN);
+      mpfr_set(arr[(2*n-i)*2], a[i], MPFR_RNDN);
+    }
+    /* im(i) = im(n+i) = 0 */
+    mpfr_set_si(arr[i*2+1], 0, MPFR_RNDN);
+    mpfr_set_si(arr[(n+i)*2+1], 0, MPFR_RNDN);
+  }
+
+  err = mpfft(arr, n * 2, 0);
+
+  for (i = 0; i <= n; i++)
+    mpfr_set(a[i], arr[i*2], MPFR_RNDN);
+  return err;
+}
+
+
+
+/* cosine transform, return \int 2 * cos(k x) a(x) dx */
 __inline static int mpcost11(mpfr_t a[], int n, mpfr_t arr[])
 {
   int err, i;

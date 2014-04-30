@@ -1,6 +1,10 @@
 ie3dfftw00.c    similar to ie3dfftw.c, but uses FFTW_RODF11 instead FFTW_RODF00
+                (deprecated, absorbed in ie3dfftw.c)
+
 ie5dfftw.c      five-dimensional code
+
 ie3dref.c       uses fft.h instead of FFTW
+                (deprecated, absorbed in ie3dfftw.c)
 
 Test code
 ==========

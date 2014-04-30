@@ -4,8 +4,13 @@
 
 
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
+#ifndef XDOUBLE
+#define XDOUBLE double
+typedef double xdouble;
+#endif
+
+#ifndef PI
+#define PI (xdouble) 3.1415926535897932384626433832795L
 #endif
 
 
@@ -24,9 +29,9 @@
  *   on sucess, returns 0;
  *   if n isn't an integer power of 2, returns 1
  */
-static int fft(double a[], int n, int sign)
+static int fft(xdouble a[], int n, int sign)
 {
-  double s, c, bs, bsh, bcb, bth = M_PI, tmpre, tmpim, tmp;
+  xdouble s, c, bs, bsh, bcb, bth = PI, tmpre, tmpim, tmp;
   int gaddr, gspan = 1; /* gaddr is the starting index of each group */
   int coupid, coups;  /* coups is how many couples in each group */
   int i, j, m;
@@ -107,10 +112,10 @@ static int fft(double a[], int n, int sign)
 
 /* sine transform, return \int 2 * sin(k x) a(x) dx
  * a[0] is unused and should always be zero */
-__inline static int sint00(double a[], int n)
+__inline static int sint00(xdouble a[], int n)
 {
   int err, i;
-  double *arr;
+  xdouble *arr;
 
   if ((arr = malloc(n * 4 * sizeof(*a))) == NULL) {
     fprintf(stderr, "no memory for n %d\n", n);
@@ -133,24 +138,24 @@ __inline static int sint00(double a[], int n)
 
 
 /* sine transform, return \int 2 * sin(k x) a(x) dx */
-__inline static int sint11(double a[], int n)
+__inline static int sint11(xdouble a[], int n)
 {
   int err, i;
-  double *arr, c, s, th, c1, s1, tmp;
+  xdouble *arr, c, s, th, c1, s1, tmp;
 
   if ((arr = malloc(n * 4 * sizeof(*a))) == NULL) {
     fprintf(stderr, "no memory for n %d\n", n);
     exit(1);
   }
 
-  th = M_PI/(2*n);
+  th = PI/(2*n);
   c1 = cos(th);
   s1 = sin(th);
   th /= 2;
   c = cos(th);
   s = sin(th);
   for (i = 0; i < n; i++) {
-    /* c = cos(M_PI*(i+.5)/(2*n)); s = sin(M_PI*(i+.5)/(2*n)); */
+    /* c = cos(PI*(i+.5)/(2*n)); s = sin(PI*(i+.5)/(2*n)); */
     arr[i*2] = a[i] * c;
     arr[(2*n-1-i)*2] = -arr[i*2];
     arr[i*2+1] = a[i] * s;
@@ -163,7 +168,7 @@ __inline static int sint11(double a[], int n)
   c = 1;
   s = 0;
   for (i = 0; i < n; i++) {
-    /* c = cos(M_PI*i/(2*n)); s = sin(M_PI*i/(2*n)); */
+    /* c = cos(PI*i/(2*n)); s = sin(PI*i/(2*n)); */
     /* re' = re * c - im * s; im' = re * s + im * c; */
     a[i] = arr[i*2] * s + arr[i*2+1] * c;
     tmp = c * c1 - s * s1;
@@ -177,24 +182,50 @@ __inline static int sint11(double a[], int n)
 
 
 /* cosine transform, return \int 2 * cos(k x) a(x) dx */
-__inline static int cost11(double a[], int n)
+__inline static int cost00(xdouble a[], int n)
 {
   int err, i;
-  double *arr, c, s, th, c1, s1, tmp;
+  xdouble *arr;
 
   if ((arr = malloc(n * 4 * sizeof(*a))) == NULL) {
     fprintf(stderr, "no memory for n %d\n", n);
     exit(1);
   }
 
-  th = M_PI/(2*n);
+  arr[0] = a[0];
+  arr[n*2] = a[n];
+  for (i = 0; i < n; i++) {
+    if (i != 0) arr[(n*2 - i)*2] = arr[i*2] = a[i];
+    arr[(n + i)*2+1] = arr[i*2+1] = 0;
+  }
+
+  err = fft(arr, n*2, 0);
+  for (i = 0; i <= n; i++) a[i] = arr[i*2];
+  free(arr);
+  return err;
+}
+
+
+
+/* cosine transform, return \int 2 * cos(k x) a(x) dx */
+__inline static int cost11(xdouble a[], int n)
+{
+  int err, i;
+  xdouble *arr, c, s, th, c1, s1, tmp;
+
+  if ((arr = malloc(n * 4 * sizeof(*a))) == NULL) {
+    fprintf(stderr, "no memory for n %d\n", n);
+    exit(1);
+  }
+
+  th = PI/(2*n);
   c1 = cos(th);
   s1 = sin(th);
   th /= 2;
   c = cos(th);
   s = sin(th);
   for (i = 0; i < n; i++) {
-    /* c = cos(M_PI*(i+.5)/(2*n)); s = sin(M_PI*(i+.5)/(2*n)); */
+    /* c = cos(PI*(i+.5)/(2*n)); s = sin(PI*(i+.5)/(2*n)); */
     arr[i*2] = a[i] * c;
     arr[(2*n-1-i)*2] = arr[i*2];
     arr[i*2+1] = a[i] * s;
@@ -207,7 +238,7 @@ __inline static int cost11(double a[], int n)
   c = 1;
   s = 0;
   for (i = 0; i < n; i++) {
-    /* c = cos(M_PI*i/(2*n)); s = sin(M_PI*i/(2*n)); */
+    /* c = cos(PI*i/(2*n)); s = sin(PI*i/(2*n)); */
     /* re' = re * c - im * s; im' = re * s + im * c; */
     a[i] = arr[i*2] * c - arr[i*2+1] * s;
     tmp = c * c1 - s * s1;
@@ -225,13 +256,13 @@ __inline static int cost11(double a[], int n)
  * for the forward transform (r --> k), set sgn to 1
  * for the inverse transform (k --> r), set sgn to -1 or 0
  * a[0] is unused and should always be zero */
-__inline static int fft3dsphr00(double a[], int n,
-    double dx, double dk, int sgn)
+__inline static int fft3dsphr00(xdouble a[], int n,
+    xdouble dx, xdouble dk, int sgn)
 {
   int i, err;
-  double fac = 2 * M_PI * dx, x;
+  xdouble fac = 2 * PI * dx, x;
 
-  if (sgn <= 0) fac /= 8 * M_PI * M_PI * M_PI;
+  if (sgn <= 0) fac /= 8 * PI * PI * PI;
   for (i = 1; i < n; i++)
     a[i] *= x = dx * i; /* form r * a(r) */
   err = sint00(a, n);
@@ -246,17 +277,17 @@ __inline static int fft3dsphr00(double a[], int n,
  * a(k) = (4 pi / k) \int {0 to +inf} r a(r) sin(k r) dr
  * for the forward transform (r --> k), set sgn to 1
  * for the inverse transform (k --> r), set sgn to -1 or 0 */
-__inline static int fft3dsphr11(double a[], int n,
-    double dx, double dk, int sgn)
+__inline static int fft3dsphr11(xdouble a[], int n,
+    xdouble dx, xdouble dk, int sgn)
 {
   int i, err;
-  double fac = 2 * M_PI * dx, x;
+  xdouble fac = 2 * PI * dx, x;
 
-  if (sgn <= 0) fac /= 8 * M_PI * M_PI * M_PI;
+  if (sgn <= 0) fac /= 8 * PI * PI * PI;
   for (i = 0; i < n; i++)
-    a[i] *= x = dx * (i + .5); /* form r * a(r) */
+    a[i] *= x = dx * (i*2 + 1)/2; /* form r * a(r) */
   err = sint11(a, n);
   for (i = 0; i < n; i++)
-    a[i] *= fac / (dk * (i + .5)); /* form a(k) / k */
+    a[i] *= fac / (dk * (i*2 + 1)/2); /* form a(k) / k */
   return err;
 }

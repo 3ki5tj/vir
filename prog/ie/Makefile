@@ -23,7 +23,7 @@ csrc_extra      = $(filter-out \
 		    $(csrc_fftw) $(csrc_mpfr) $(csrc_gmp) $(csrc_gsl), \
 		    $(csrc))
 
-deps = Makefile
+deps = Makefile ieutil.h ieutilmpfr.h fft.h mpfft.h
 bins            = $(patsubst %.c, %,   $(csrc))
 bins_d          = $(patsubst %,   %_d, $(bins))
 bins_fftw       = $(patsubst %.c, %,   $(csrc_fftw))

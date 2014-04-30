@@ -1,6 +1,6 @@
 /* Computing the virial coefficients of a odd-dimensional hard-sphere fluid
  * by the PY or HNC integral equations
- *  gcc ieodmp.c -lmpfr
+ *  gcc ieodmp.c -lmpfr -lgmp
  * */
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,45 +10,25 @@
 #define ZCOM_ARGOPT
 #include "zcom.h"
 
+#include "ieutilmpfr.h"
+
 
 
 #ifdef D
 int dim = D;
-int K = (D - 1)/2;
 #else
 int dim = 3;
-int K = 1;
 #endif
 
-int prec = 0;
+int K;
+int prec = 256;
 int nmax = 10;
-char *dr = NULL;
+char *rmax = NULL;
 int numpt = 32768;
+int ffttype = 1;
 int doHNC = 0;
 int mkcorr = 0;
-
-
-
-#define MAKE1DARR(arr, n) { int i_; \
-  xnew(arr, n); \
-  for (i_ = 0; i_ < (n); i_++) { \
-    mpfr_init(arr[i_]); \
-    mpfr_set_si(arr[i_], 0, MPFR_RNDN); } }
-
-#define FREE1DARR(arr, n) { int i_; \
-  for (i_ = 0; i_ < (n); i_++) \
-    mpfr_clear(arr[i_]); \
-  free(arr); }
-
-#define MAKE2DARR(arr, n1, n2) { int l_; \
-  xnew(arr, n1); \
-  MAKE1DARR(arr[0], (n1) * (n2)); \
-  for ( l_ = 1; l_ < (n1); l_++ ) \
-    arr[l_] = arr[0] + l_ * (n2); }
-
-#define FREE2DARR(arr, n1, n2) { \
-  FREE1DARR(arr[0], (n1) * (n2)); \
-  free(arr); }
+int verbose = 0;
 
 
 
@@ -59,18 +39,19 @@ static void doargs(int argc, char **argv)
   ao->desc = "computing the virial coefficients from the PY/HNC closure for odd-dimensional hard-sphere fluids";
   argopt_add(ao, "-D", "%d", &dim, "dimension (odd) integer");
   argopt_add(ao, "-n", "%d", &nmax, "maximal order");
-  argopt_add(ao, "-b", "%s", &dr, "interval of r");
+  argopt_add(ao, "-R", NULL, &rmax, "maximal r");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-p", "%d", &prec, "float-point precision in bits");
+  argopt_add(ao, "-t", "%d", &ffttype, "FFT type");
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
   argopt_add(ao, "--corr", "%b", &mkcorr, "try to correct HNC");
+  argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
-  if (dr == NULL) dr = "0.001";
-  if (dim < 3 || dim % 2 == 0) argopt_help(ao);
+  if ( rmax == NULL ) rmax = "32.768";
+  if ( dim < 3 || dim % 2 == 0 ) argopt_help(ao);
   K = (dim - 1)/2;
-  if (prec == 0) prec = 128 * dim;
-  argopt_dump(ao);
+  if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }
 
@@ -106,22 +87,17 @@ static void getjn(int *c, int n)
  *             r^(2K) in(r) j_{D-1}(k r)/(k r)^{D - 1}
  * `arr' is the intermediate array
  * */
-static void sphr11(int npt, mpfr_t *in, mpfr_t *out,
-    mpfr_t dx, mpfr_t fac0, mpfr_t *arr,
-    int *coef, mpfr_t **r2p, mpfr_t **k2q)
+static void sphr(int npt, mpfr_t *in, mpfr_t *out, mpfr_t fac,
+    mpfr_t *arr, int *coef, mpfr_t **r2p, mpfr_t **k2q, int ffttype)
 {
   int i, l, iscos;
-  mpfr_t fac, x;
+  mpfr_t x;
 
-  mpfr_init(fac);
-  mpfr_init(x);
-
-  /* fac = fac0 * dx */
-  mpfr_mul(fac, fac0, dx, MPFR_RNDN);
+  INIT_(x);
 
   /* clear the output */
   for ( i = 0; i < npt; i++ )
-    mpfr_set_si(out[i], 0, MPFR_RNDN); /* out[i] = 0; */
+    SET_SI_(out[i], 0); /* out[i] = 0; */
 
   /* several rounds of transforms */
   for ( l = 0; l < K; l++ ) {
@@ -129,195 +105,206 @@ static void sphr11(int npt, mpfr_t *in, mpfr_t *out,
     iscos = (K + l + 1) % 2;
     for ( i = 0; i < npt; i++ ) {
       /*
-       * arr[i] = in[i] * pow(dx*(2*i + 1)/2, K - l) * coef[l];
+       * arr[i] = in[i] * r^(K - l) * coef[l];
        * or
-       * arr[i] = in[i] * coef[l] * r2p[l][i];
+       * arr[i] = in[i] * r2p[l][i] * coef[l];
        * */
-      mpfr_mul_si(x, r2p[l][i], coef[l], MPFR_RNDN);
-      mpfr_mul(arr[i], in[i], x, MPFR_RNDN);
+      MUL_SI_(x, r2p[l][i], coef[l]);
+      MUL_(arr[i], in[i], x);
     }
 
     /* do the sine or cosine transform */
     if ( iscos ) {
-      mpcost11(arr, npt, NULL);
+      if ( ffttype ) {
+        mpcost11(arr, npt, NULL);
+      } else {
+        mpcost00(arr, npt, NULL);
+        SET_SI_(arr[npt], 0);
+      }
     } else {
-      mpsint11(arr, npt, NULL);
+      if ( ffttype )
+        mpsint11(arr, npt, NULL);
+      else
+        mpsint00(arr, npt, NULL);
     }
 
     for ( i = 0; i < npt; i++ ) {
-      /*
-       * out[i] += arr[i] * fac / pow(dk*(2*i + 1)/2, K + l);
+      /* out[i] += arr[i] * fac / k^(K + l);
        * or
        * out[i] += arr[i] * fac * k2q[l][i];
        * */
-      mpfr_mul(x, fac, k2q[l][i], MPFR_RNDN);
-      mpfr_mul(x, x, arr[i], MPFR_RNDN);
-      mpfr_add(out[i], out[i], x, MPFR_RNDN);
+      MUL3_(x, arr[i], fac, k2q[l][i]);
+      ADD_X_(out[i], x);
     }
   }
 
-  mpfr_clear(fac);
-  mpfr_clear(x);
+  CLEAR_(x);
 }
 
 
 
 /* compute the virial coefficients from the Percus-Yevick closure */
-static int intgeq(int nmax, int npt, const char *sdr, int doHNC)
+static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
 {
-  mpfr_t dr, dk, B2, pi2, facr2k, fack2r, tmp1, tmp2;
+  mpfr_t dr, dk, pi2, facr2k, fack2r, surf, B2, tmp1, tmp2;
   mpfr_t Bc0, dBc, Bv0, dBv, eps;
-  mpfr_t **ck, **tk, *fk, *fr, *Bc, *Bv;
-  mpfr_t *arr, *tlk, *tlr, *clk, *clr;
-  mpfr_t *powtlr, **yr0, **yr, *vc;
-  mpfr_t **r2p, **invr2p, **k2p, **invk2p, *r2Dm1;
-  int i, dm, l, u, j, jl, k;
-  int *coef;
+  mpfr_t *fr, *crl, *trl, **ck, **tk, *Bc, *Bv;
+  mpfr_t **yr = NULL, *arr, *vc;
+  mpfr_t **r2p, **invr2p, **k2p, **invk2p, *rDm1;
+  double rmax;
+  int i, dm, l, *coef;
 
-  mpfr_init(dr);
-  mpfr_init(dk);
-  mpfr_init(B2);
-  mpfr_init(pi2);
-  mpfr_init(facr2k);
-  mpfr_init(fack2r);
-  mpfr_init(tmp1);
-  mpfr_init(tmp2);
+  INIT_(dr);
+  INIT_(dk);
+  INIT_(pi2);
+  INIT_(facr2k);
+  INIT_(fack2r);
+  INIT_(surf);
+  INIT_(B2);
+  INIT_(tmp1);
+  INIT_(tmp2);
 
-  mpfr_init(Bc0);
-  mpfr_init(dBc);
-  mpfr_init(Bv0);
-  mpfr_init(dBv);
-  mpfr_init(eps);
+  INIT_(Bc0);
+  INIT_(dBc);
+  INIT_(Bv0);
+  INIT_(dBv);
+  INIT_(eps);
 
-  mpfr_set_str(dr, sdr, 10, MPFR_RNDN);
+  /* dr = rmax/npt */
+  SET_STR_(dr, srmax);
+  DIV_SI_(dr, dr, npt);
+  /* dm: number of bins in the hard core */
+  dm = (int) (1/GET_D_(dr) + .5);
+  if ( ffttype ) {
+    /* dr = 1./dm */
+    SET_SI_(dr, 1);
+    DIV_SI_X_(dr, dm);
+    rmax = GET_D_(dr) * npt;
+  } else {
+    dm += 1;
+    /* dr = 2./(dm*2 - 1) */
+    SET_SI_(dr, 2);
+    DIV_SI_X_(dr, dm*2 - 1);
+    rmax = GET_D_(dr) * (npt - .5);
+  }
   /* dk = PI/npt/dr */
-  mpfr_const_pi(dk, MPFR_RNDN);
-  mpfr_div_si(dk, dk, npt, MPFR_RNDN);
-  mpfr_div(dk, dk, dr, MPFR_RNDN);
-
-  /* the bin index at which the hard core stops */
-  dm = (int) (1/atof(sdr) + .5);
+  CONST_PI_(dk);
+  DIV_SI_X_(dk, npt);
+  DIV_X_(dk, dr);
 
   /* print out the basic information */
-  {
-    double rmax = atof(sdr) * npt;
-    double dk_d = mpfr_get_d(dk, MPFR_RNDN);
-
-    i = (int) mpfr_get_default_prec();
-    printf("precision %d, rmax %g, dk %g, %d bins in the hard core\n",
-        i, rmax, dk_d, dm);
-  }
+  i = (int) mpfr_get_default_prec();
+  printf("precision %d, rmax %g, dk %g, %d bins in the hard core\n",
+      i, rmax, GET_D_(dk), dm);
 
   /* compute the coefficients of the spherical Bessel function */
   xnew(coef, K);
   getjn(coef, K - 1);
 
-  MAKE1DARR(arr, npt);
+  /* auxiliary array, needs npt + 1 elements for cosine type-0 */
+  MAKE1DARR(arr, npt + 1);
 
   MAKE2DARR(r2p, K, npt) /* r^{K - l} for l = 0, ..., K */
   MAKE2DARR(k2p, K, npt) /* k^{K - l} for l = 0, ..., K */
   MAKE2DARR(invr2p, K, npt) /* r^{-K-l} for l = 0, ..., K */
   MAKE2DARR(invk2p, K, npt) /* k^{-K-l} for l = 0, ..., K */
+  MAKE1DARR(rDm1, npt); /* r^(D - 1) dr */
   {
     mpfr_t ri, rl, invrl, ki, kl, invkl;
 
-    mpfr_init(ri);
-    mpfr_init(rl);
-    mpfr_init(invrl);
-    mpfr_init(ki);
-    mpfr_init(kl);
-    mpfr_init(invkl);
+    INIT_(ri);
+    INIT_(rl);
+    INIT_(invrl);
+    INIT_(ki);
+    INIT_(kl);
+    INIT_(invkl);
     for ( i = 0; i < npt; i++ ) {
       /* ri = dr * (i*2 + 1)/2; */
-      mpfr_mul_si(ri, dr, i*2 + 1, MPFR_RNDN);
-      mpfr_div_si(ri, ri, 2, MPFR_RNDN);
-      mpfr_set_si(rl, 1, MPFR_RNDN); /* rl = 1 */
+      MUL_SI_(ri, dr, i*2 + (ffttype ? 1 : 0));
+      DIV_SI_X_(ri, 2);
+      /* rl = 1 */
+      SET_SI_(rl, 1);
+
       /* ki = dk * (i*2 + 1)/2; */
-      mpfr_mul_si(ki, dk, i*2 + 1, MPFR_RNDN);
-      mpfr_div_si(ki, ki, 2, MPFR_RNDN);
-      mpfr_set_si(kl, 1, MPFR_RNDN); /* kl = 1 */
+      MUL_SI_(ki, dk, i*2 + (ffttype ? 1 : 0));
+      DIV_SI_X_(ki, 2);
+      /* kl = 1 */
+      SET_SI_(kl, 1);
       for ( l = 1; l <= K; l++ ) {
-        mpfr_mul(rl, rl, ri, MPFR_RNDN); /* rl *= ri */
-        mpfr_set(r2p[K-l][i], rl, MPFR_RNDN); /* r2p[K-l][i] = rl; */
-        mpfr_mul(kl, kl, ki, MPFR_RNDN); /* kl *= ki */
-        mpfr_set(k2p[K-l][i], kl, MPFR_RNDN); /* k2p[K-l][i] = kl; */
+        MUL_X_(rl, ri); /* rl *= ri */
+        SET_(r2p[K-l][i], rl); /* r2p[K-l][i] = rl; */
+        MUL_X_(kl, ki); /* kl *= ki */
+        SET_(k2p[K-l][i], kl); /* k2p[K-l][i] = kl; */
       }
-      mpfr_si_div(invrl, 1, rl, MPFR_RNDN); /* invrl = 1/rl; */
-      mpfr_si_div(invkl, 1, kl, MPFR_RNDN); /* invkl = 1/kl; */
+
+      if ( ffttype == 0 && i == 0 ) continue;
+
+      SI_DIV_(invrl, 1, rl); /* invrl = 1/rl; */
+      SI_DIV_(invkl, 1, kl); /* invkl = 1/kl; */
       for ( l = 0; l < K; l++ ) {
-        mpfr_set(invr2p[l][i], invrl, MPFR_RNDN); /* invr2p[l][i] = invrl; */
-        mpfr_set(invk2p[l][i], invkl, MPFR_RNDN); /* invk2p[l][i] = invkl; */
-        mpfr_div(invrl, invrl, ri, MPFR_RNDN); /* invrl /= ri; */
-        mpfr_div(invkl, invkl, ki, MPFR_RNDN); /* invkl /= ki; */
+        SET_(invr2p[l][i], invrl); /* invr2p[l][i] = invrl; */
+        SET_(invk2p[l][i], invkl); /* invk2p[l][i] = invkl; */
+        DIV_X_(invrl, ri); /* invrl /= ri; */
+        DIV_X_(invkl, ki); /* invkl /= ki; */
       }
     }
-    mpfr_clear(ri);
-    mpfr_clear(rl);
-    mpfr_clear(invrl);
-    mpfr_clear(ki);
-    mpfr_clear(kl);
-    mpfr_clear(invkl);
+    CLEAR_(ri);
+    CLEAR_(rl);
+    CLEAR_(invrl);
+    CLEAR_(ki);
+    CLEAR_(kl);
+    CLEAR_(invkl);
   }
 
-  /* compute r^(D - 1) dr */
-  MAKE1DARR(r2Dm1, npt);
-  for (i = 0; i < npt; i++) {
-    /* tmp1 = dr * (i*i + 1)/2; */
-    mpfr_mul_si(tmp1, dr, i*2+1, MPFR_RNDN);
-    mpfr_div_si(tmp1, tmp1, 2, MPFR_RNDN);
-    /* tmp2 = tmp1^(dim - 1) * dr */
-    mpfr_pow_si(tmp2, tmp1, dim - 1, MPFR_RNDN);
-    /* r2Dm1[i] = pow(tmp1, dim - 1) * dr; */
-    mpfr_mul(r2Dm1[i], tmp2, dr, MPFR_RNDN);
-  }
+  /* pi2 = PI*2 */
+  CONST_PI_(pi2);
+  MUL_SI_X_(pi2, 2);
 
-  /* B2 = (PI*2)^K/(2 K + 1)!!
-   * facr2k = (PI*2)^K */
-  mpfr_set_si(B2, 1, MPFR_RNDN); /* B2 = 1 */
-  mpfr_set_si(facr2k, 1, MPFR_RNDN); /* facr2k = 1 */
-  mpfr_const_pi(pi2, MPFR_RNDN);
-  mpfr_mul_si(pi2, pi2, 2, MPFR_RNDN); /* pi2 = PI*2 */
+  /* facr2k = (PI*2)^K */
+  POW_SI_(facr2k, pi2, K);
+  MUL_X_(facr2k, dr); /* facr2k *= dr; */
+
+  /* fack2r = (PI*2)^(-K-1) */
+  POW_SI_(fack2r, pi2, -K-1);
+  MUL_X_(fack2r, dk); /* fack2r *= dk */
+
+  /* B2 = (PI*2)^K/(2 K + 1)!! */
+  SET_SI_(B2, 1); /* B2 = 1 */
   for (i = 1; i <= K; i++) {
     /* B2 *= PI*2/(i*2 + 1); */
-    mpfr_mul(B2, B2, pi2, MPFR_RNDN);
-    mpfr_div_si(B2, B2, i*2 + 1, MPFR_RNDN);
-    /* facr2k *= PI*2; */
-    mpfr_mul(facr2k, facr2k, pi2, MPFR_RNDN);
+    MUL_X_(B2, pi2);
+    DIV_SI_X_(B2, i*2 + 1);
   }
-  /* fack2r = 1/(facr2k * PI*2); */
-  mpfr_si_div(fack2r, 1, facr2k, MPFR_RNDN);
-  mpfr_div(fack2r, fack2r, pi2, MPFR_RNDN);
-
   MAKE1DARR(Bc, nmax + 1);
   MAKE1DARR(Bv, nmax + 1);
   /* Bc[2] = Bv[2] = B2; */
-  mpfr_set(Bc[2], B2, MPFR_RNDN);
-  mpfr_set(Bv[2], B2, MPFR_RNDN);
+  SET_(Bc[2], B2);
+  SET_(Bv[2], B2);
 
-  /* construct f(r) and f(k) */
+  MUL_SI_(surf, B2, dim*2);
+  for ( i = 0; i < npt; i++ ) {
+    /* tmp1 = surf * ri^(dim - 1) * dr */
+    POW_SI_(tmp1, r2p[K-1][i], dim - 1);
+    MUL3_(rDm1[i], tmp1, surf, dr);
+  }
+
   MAKE1DARR(fr, npt);
-  MAKE1DARR(fk, npt);
-  for ( i = 0; i < npt; i++ ) /* compute f(r) = exp(-beta u(r)) - 1 */
-    mpfr_set_si(fr[i], (i < dm) ? -1 : 0, MPFR_RNDN);
-  /* f(r) --> f(k) */
-  sphr11(npt, fr, fk, dr, facr2k, arr, coef, r2p, invk2p);
-
+  MAKE1DARR(crl, npt);
+  MAKE1DARR(trl, npt);
   MAKE2DARR(tk, nmax - 1, npt)
   MAKE2DARR(ck, nmax - 1, npt)
-  for ( i = 0; i < npt; i++ )
-    mpfr_set(ck[0][i], fk[i], MPFR_RNDN); /* ck[0][i] = fk[i]; */
 
-  MAKE1DARR(clk, npt); MAKE1DARR(clr, npt);
-  MAKE1DARR(tlk, npt); MAKE1DARR(tlr, npt);
+  /* construct f(r) and f(k) */
+  for ( i = 0; i < npt; i++ ) /* compute f(r) = exp(-beta u(r)) - 1 */
+    SET_SI_(fr[i], (i < dm) ? -1 : 0);
+  /* f(r) --> f(k) */
+  sphr(npt, fr, ck[0], facr2k, arr, coef, r2p, invk2p, ffttype);
+  //for (i = 0; i<npt;i++){printf("%d %g %g\n", i, GET_D_(k2p[K-1][i]), GET_D_(ck[0][i]));}// exit(1);
 
-  if ( doHNC ) {
-    MAKE1DARR(powtlr, npt);
-    MAKE2DARR(yr0, nmax + 1, npt);
-    MAKE2DARR(yr, nmax + 1, npt);
-    for ( i = 0; i < npt; i++ ) {
-      mpfr_set_si(yr0[0][i], 1, MPFR_RNDN);
-      mpfr_set_si(yr[0][i], 1, MPFR_RNDN);
-    }
+  if ( doHNC || mkcorr ) {
+    MAKE2DARR(yr, nmax - 1, npt);
+    for ( i = 0; i < npt; i++ )
+      SET_SI_(yr[0][i], 1);
     if ( mkcorr ) {
       MAKE1DARR(vc, npt);
     }
@@ -325,192 +312,94 @@ static int intgeq(int nmax, int npt, const char *sdr, int doHNC)
 
   for ( l = 1; l < nmax - 1; l++ ) {
     /* compute t_l(k) */
-    for ( i = 0; i < npt; i++ )
-      mpfr_set_si(tlk[i], 0, MPFR_RNDN);
-    for ( u = 0; u < l; u++ )
-      for ( i = 0; i < npt; i++ ) {
-        /* tlk[i] += ck[l-1-u][i] * (ck[u][i] + tk[u][i]); */
-        mpfr_add(tmp1, ck[u][i], tk[u][i], MPFR_RNDN);
-        mpfr_mul(tmp1, tmp1, ck[l-1-u][i], MPFR_RNDN);
-        mpfr_add(tlk[i], tlk[i], tmp1, MPFR_RNDN);
-      }
-    for ( i = 0; i < npt; i++ )
-      mpfr_set(tk[l][i], tlk[i], MPFR_RNDN); /* tk[l][i] = tlk[i]; */
+    get_tk_oz(l, npt, ck, tk);
 
     /* t_l(k) --> t_l(r) */
-    sphr11(npt, tlk, tlr, dk, fack2r, arr, coef, k2p, invr2p);
+    sphr(npt, tk[l], trl, fack2r, arr, coef, k2p, invr2p, ffttype);
+
+    if ( yr != NULL ) { /* compute the cavity function y(r) */
+      get_yr_hnc(l, nmax, npt, yr, trl);
+    }
+
+    if ( mkcorr ) { /* construct the correction function */
+      for ( i = 0; i < npt; i++ )
+        SUB_(vc[i], yr[l][i], trl[i]);
+    }
 
     if ( doHNC ) {
-      /* Hypernetted chain approximation
-       * y(r) = exp(t(r))
-       * c(r) = (1 + f(r)) y(r) - t(r) - 1 */
-      /* back up, only need to save yr[1..nmax-l] */
-      for ( u = 1; u <= nmax - l; u++ )
-        for ( i = 0; i < npt; i++ )
-          mpfr_set(yr0[u][i], yr[u][i], MPFR_RNDN);
-      /* yr = yr0 * exp(rho^l t_l)
-       *    = (yr0_0 + yr0_1 rho + yr0_2 rho^2 + ... )
-       *    * (1 + t_l rho^l + t_{2l} rho^(2l)/2! + ... )
-       * y[l...n](r) are updated */
-      for ( i = 0; i < npt; i++ )
-        mpfr_set_si(powtlr[i], 1, MPFR_RNDN); /* powtlr[i] = 1; */
-      for ( j = 1; j*l <= nmax; j++ ) {
-        /* powtl(r) = tl(r)^j/j! */
-        for ( i = 0; i < npt; i++) {
-          mpfr_div_si(tmp1, tlr[i], j, MPFR_RNDN);
-          mpfr_mul(powtlr[i], powtlr[i], tmp1, MPFR_RNDN);
-          /* powtlr[i] *= tlr[i]/j; */
-        }
-        for ( jl = j * l, k = 0; k + jl <= nmax; k++ )
-          /* yr_{k + jl} +=  yr0_k * tl^j/j! */
-          for ( i = 0; i < npt; i++ ) {
-            mpfr_mul(tmp1, yr0[k][i], powtlr[i], MPFR_RNDN);
-            mpfr_add(yr[jl+k][i], yr[jl+k][i], tmp1, MPFR_RNDN);
-            /* yr[jl+k][i] += yr0[k][i] * powtlr[i]; */
-          }
-      }
-
-      /* compute c(r) = (1 + f) y(r) - (1 + t(r)) */
-      for ( i = 0; i < dm; i++ )
-        mpfr_neg(clr[i], tlr[i], MPFR_RNDN); /* clr[i] = -tlr[i]; */
-      for ( i = dm; i < npt; i++ ) {
-        mpfr_sub(clr[i], yr[l][i], tlr[i], MPFR_RNDN);
-        /* clr[i] = yr[l][i] - tlr[i]; */
-      }
-
-      if ( mkcorr && l >= 2 ) { /* make a correction */
-        /* `vc' is the trial correction function to y(r) */
-        for ( i = 0; i < npt; i++ ) {
-          /* For the hard-sphere fluid, the trial function cl(r)
-           *   is equivalent to yl(r) - tl(r)
-           * By definition, we have c(r) = [1 + f(r)] y(r) - [1 + t(r)],
-           *   and f(r) = (r <= 1) ? -1 : 0
-           * So
-           *   c_l(r) = y_l(r) - t_l(r),  r > 1
-           *          = -t_l(r),          r <= 1
-           * Note that the r <= 1 branch is cancelled by 1 + f(r) */
-          mpfr_set(vc[i], clr[i], MPFR_RNDN);
-        }
-
-        mpfr_set_si(Bc0, 0, MPFR_RNDN);
-        mpfr_set_si(dBc, 0, MPFR_RNDN);
-        for ( i = 0; i < npt; i++ ) {
-          /* Bc0 += clr[i] * r2Dm1[i]; */
-          mpfr_mul(tmp1, clr[i], r2Dm1[i], MPFR_RNDN);
-          mpfr_add(Bc0, Bc0, tmp1, MPFR_RNDN);
-
-          /* dBc += vc[i] * (1 + fr[i]) * r2Dm1[i]; */
-          mpfr_add_si(tmp1, fr[i], 1, MPFR_RNDN);
-          mpfr_mul(tmp1, tmp1, r2Dm1[i], MPFR_RNDN);
-          mpfr_mul(tmp1, tmp1, vc[i], MPFR_RNDN);
-          mpfr_add(dBc, dBc, tmp1, MPFR_RNDN);
-        }
-        /* tmp1 = -2*B2*dim/(l+2); */
-        mpfr_mul_si(tmp1, B2, -dim*2, MPFR_RNDN);
-        mpfr_div_si(tmp1, tmp1, l+2, MPFR_RNDN);
-        mpfr_mul(Bc0, Bc0, tmp1, MPFR_RNDN); /* Bc0 *= tmp1; */
-        mpfr_mul(dBc, dBc, tmp1, MPFR_RNDN); /* dBc *= tmp1; */
-
-        /* Bv0 = B2 * (yr[l][dm] + yr[l][dm-1])/2; */
-        mpfr_add(tmp1, yr[l][dm], yr[l][dm-1], MPFR_RNDN);
-        mpfr_div_si(tmp1, tmp1, 2, MPFR_RNDN);
-        mpfr_mul(Bv0, B2, tmp1, MPFR_RNDN);
-        /* dBv = B2 * (vc[dm] + vc[dm-1])/2; */
-        mpfr_add(tmp1, vc[dm], vc[dm-1], MPFR_RNDN);
-        mpfr_div_si(tmp1, tmp1, 2, MPFR_RNDN);
-        mpfr_mul(dBv, B2, tmp1, MPFR_RNDN);
-        /* eps = -(Bv0 - Bc0) / (dBv - dBc); */
-        mpfr_sub(tmp1, Bc0, Bv0, MPFR_RNDN);
-        mpfr_sub(tmp2, dBv, dBc, MPFR_RNDN);
-        mpfr_div(eps, tmp1, tmp2, MPFR_RNDN);
-        for ( i = 0; i < npt; i++ ) {
-          mpfr_mul(tmp1, eps, vc[i], MPFR_RNDN);
-          mpfr_add(yr[l][i], yr[l][i], tmp1, MPFR_RNDN);
-          /* yr[l][i] += eps * vc[i]; */
-          mpfr_add_si(tmp2, fr[i], 1, MPFR_RNDN);
-          mpfr_mul(tmp2, tmp2, tmp1, MPFR_RNDN);
-          mpfr_add(clr[i], clr[i], tmp2, MPFR_RNDN);
-          /* clr[i] += (fr[i] + 1) * eps * vc[i] */
-        }
+      /* hypernetted chain approximation:
+       * c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
+      for ( i = 0; i < npt; i++ ) {
+        ADD_SI_(tmp1, fr[i], 1);
+        FMS_(crl[i], tmp1, yr[l][i], trl[i]);
       }
       /* Bv[l+2] = B2*(yr[l][dm] + yr[l][dm-1])/2; */
-      mpfr_add(tmp1, yr[l][dm], yr[l][dm-1], MPFR_RNDN);
-      mpfr_div_si(tmp1, tmp1, 2, MPFR_RNDN);
-      mpfr_mul(Bv[l+2], B2, tmp1, MPFR_RNDN);
+      contactv(Bv[l+2], yr[l], dm, B2);
     } else {
       /* Percus-Yevick approximation
        * c(r) = f(r) (1 + t(r)) */
-      for ( i = 0; i < dm; i++ )
-        mpfr_neg(clr[i], tlr[i], MPFR_RNDN); /* clr[i] = -tlr[i]; */
-      for ( i = dm; i < npt; i++ )
-        mpfr_set_si(clr[i], 0, MPFR_RNDN); /* clr[i] = 0; */
-      /* Bv[l+2] = B2*(tlr[dm] + tlr[dm-1])/2; */
-      mpfr_add(tmp1, tlr[dm], tlr[dm-1], MPFR_RNDN);
-      mpfr_div_si(tmp1, tmp1, 2, MPFR_RNDN);
-      mpfr_mul(Bv[l+2], B2, tmp1, MPFR_RNDN);
+      for ( i = 0; i < npt; i++ )
+        MUL_(crl[i], fr[i], trl[i]);
+      /* Bv[l+2] = B2*(trl[dm] + trl[dm-1])/2; */
+      contactv(Bv[l+2], trl, dm, B2);
     }
 
-    /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) 2 (2 pi)^K/(2*K - 1)!! r^(2*K) dr
-     *           = -2*B2*D/(l+2) Int c_l(r) r^(2*K) dr */
-    mpfr_set_si(Bc[l+2], 0, MPFR_RNDN); /* Bc[l+2] = 0; */
-    for ( i = 0; i < npt; i++ ) {
-      /* Bc[l+2] += clr[i] * r2Dm1[i]; */
-      mpfr_mul(tmp1, clr[i], r2Dm1[i], MPFR_RNDN);
-      mpfr_add(Bc[l+2], Bc[l+2], tmp1, MPFR_RNDN);
+    if ( mkcorr ) {
+      get_corr1_hnc_hs(l, npt, dm, doHNC ? yr[l] : trl, crl, fr, rDm1, B2, vc);
+      contactv(tmp1, vc, dm, B2);
+      mpfr_printf("Bv %Rg %Rg\n", Bv[l+2], tmp1);
+      ADD_X_(Bv[l+2], tmp1);
+      mpfr_printf("Bv %Rg %Rg\n", Bv[l+2], tmp1);
     }
-    /* Bc[l+2] *= -B2*dim*2/(l+2); */
-    mpfr_mul_si(tmp1, B2, -dim*2, MPFR_RNDN);
-    mpfr_div_si(tmp1, tmp1, l+2, MPFR_RNDN);
-    mpfr_mul(Bc[l+2], Bc[l+2], tmp1, MPFR_RNDN);
+
+    /* Bc_{l+2} = -[1/(l+2)] Int c_l(r) S_D r^(D-1) dr */
+    integr(Bc[l+2], npt, crl, rDm1);
+    DIV_SI_X_(Bc[l+2], -(l+2));
 
     /* tmp1 = Bc/B2^(l+1), tmp2 = Bv/B2^(l+1) */
-    mpfr_pow_si(tmp1, B2, l+1, MPFR_RNDN);
-    mpfr_div(tmp2, Bv[l+2], tmp1, MPFR_RNDN);
-    mpfr_div(tmp1, Bc[l+2], tmp1, MPFR_RNDN);
-    mpfr_printf("Bc(%3d) = %20.10Re (%20.12Re), "
-                "Bv(%3d) = %20.10Re (%20.12Re)\n",
+    POW_SI_(tmp2, B2, l+1);
+    DIV_(tmp1, Bc[l+2], tmp2);
+    DIV_(tmp2, Bv[l+2], tmp2);
+    mpfr_printf("Bc(%3d) = %16.9Re (%16.9Re), "
+                "Bv(%3d) = %16.9Re (%16.9Re)\n",
                 l+2, Bc[l+2], tmp1, l+2, Bv[l+2], tmp2);
     /* c_l(r) --> c_l(k) */
-    sphr11(npt, clr, clk, dr, facr2k, arr, coef, r2p, invk2p);
-
-    /* save c(k) for the following iterations */
-    for ( i = 0; i < npt; i++ )
-      mpfr_set(ck[l][i], clk[i], MPFR_RNDN); /* ck[l][i] = clk[i]; */
+    sphr(npt, crl, ck[l], facr2k, arr, coef, r2p, invk2p, ffttype);
   }
-  FREE1DARR(arr, npt);
-  FREE1DARR(clr, npt); FREE1DARR(clk, npt);
-  FREE1DARR(tlr, npt); FREE1DARR(tlk, npt);
-  FREE1DARR(fr, npt); FREE1DARR(fk, npt);
-  FREE2DARR(tk, nmax - 1, npt);
+
+  FREE1DARR(arr, npt + 1);
+  FREE1DARR(crl, npt);
+  FREE1DARR(trl, npt);
+  FREE1DARR(fr, npt);
   FREE2DARR(ck, nmax - 1, npt);
-  if ( doHNC ) {
-    FREE1DARR(powtlr, npt);
-    FREE2DARR(yr0, nmax + 1, npt);
-    FREE2DARR(yr, nmax + 1, npt);
+  FREE2DARR(tk, nmax - 1, npt);
+  FREE1DARR(Bc, nmax + 1);
+  FREE1DARR(Bv, nmax + 1);
+  free(coef);
+  FREE1DARR(rDm1, npt);
+  FREE2DARR(r2p, K, npt); FREE2DARR(invr2p, K, npt);
+  FREE2DARR(k2p, K, npt); FREE2DARR(invk2p, K, npt);
+  if ( doHNC || mkcorr ) {
+    FREE2DARR(yr, nmax - 1, npt);
     if ( mkcorr ) {
       FREE1DARR(vc, npt);
     }
   }
-  FREE1DARR(Bc, nmax + 1); FREE1DARR(Bv, nmax + 1);
-  free(coef);
-  FREE1DARR(r2Dm1, npt);
-  FREE2DARR(r2p, K, npt); FREE2DARR(invr2p, K, npt);
-  FREE2DARR(k2p, K, npt); FREE2DARR(invk2p, K, npt);
 
-  mpfr_clear(dr);
-  mpfr_clear(dk);
-  mpfr_clear(B2);
-  mpfr_clear(pi2);
-  mpfr_clear(facr2k);
-  mpfr_clear(fack2r);
-  mpfr_clear(tmp1);
-  mpfr_clear(tmp2);
-
-  mpfr_clear(Bc0);
-  mpfr_clear(dBc);
-  mpfr_clear(Bv0);
-  mpfr_clear(dBv);
-  mpfr_clear(eps);
+  CLEAR_(dr);
+  CLEAR_(dk);
+  CLEAR_(pi2);
+  CLEAR_(facr2k);
+  CLEAR_(fack2r);
+  CLEAR_(surf);
+  CLEAR_(B2);
+  CLEAR_(tmp1);
+  CLEAR_(tmp2);
+  CLEAR_(Bc0);
+  CLEAR_(dBc);
+  CLEAR_(Bv0);
+  CLEAR_(dBv);
+  CLEAR_(eps);
   return 0;
 }
 
@@ -521,7 +410,7 @@ int main(int argc, char **argv)
   doargs(argc, argv);
   mpfr_set_default_prec(prec);
 
-  intgeq(nmax, numpt, dr, doHNC);
+  intgeq(nmax, numpt, rmax, ffttype, doHNC);
 
   MPFFT_ARR1D_FREE();
   mpfr_free_cache();

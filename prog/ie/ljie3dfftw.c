@@ -4,10 +4,11 @@
  *  gcc ljie3d.c -lfftw3
  * Or for the long double precision
  *  gcc -DLDBL ljie3d.c -lfftw3l
+ * To disable FFTW
+ *  gcc -DNOFFTW ljie3dfftw.c -lm
  * */
 #include <stdio.h>
 #include <math.h>
-#include <fftw3.h>
 #define ZCOM_PICK
 #define ZCOM_ARGOPT
 #include "zcom.h"
@@ -15,14 +16,12 @@
 
 
 #ifdef LDBL
-#define PI 3.1415926535897932384626433832795L
-typedef long double mydouble;
+typedef long double xdouble;
 #define FFTWPFX(f) fftwl_##f
 #define DBLSCNF "L"
 #define DBLPRNF "L"
 #else
-#define PI 3.1415926535897932384626433832795
-typedef double mydouble;
+typedef double xdouble;
 #define FFTWPFX(f) fftw_##f
 #define DBLSCNF "l"
 #define DBLPRNF ""
@@ -30,76 +29,86 @@ typedef double mydouble;
 
 
 
-#ifdef LDBL
-int nmax = 54; /* maximal order */
-mydouble dr = (mydouble) 0.0002L; /* grid point */
-int numpt = 1<<19; /* # of points along r */
+#define PI (xdouble) 3.1415926535897932384626433832795L
+
+
+
+#ifdef NOFFTW
+#define XDOUBLE xdouble
+#include "fft.h"
+typedef void *FFTWPFX(plan);
 #else
-int nmax = 10;
-mydouble dr = 0.01;
-int numpt = 1024;
+#include <fftw3.h>
 #endif
-mydouble beta = 1;
+
+#include "ieutil.h"
+
+
+
+int nmax = 10;
+xdouble rmax = (xdouble) 10.24L;
+int numpt = 1024;
+xdouble beta = 1;
+int ffttype = 1;
 int doHNC = 0;
-
+int singer = 0;
 int mkcorr = 0;
-
-
-
-#define MAKE2DARR(arr, n1, n2) { int l_; \
-  xnew(arr, n1); xnew(arr[0], (n1) * (n2)); \
-  for ( l_ = 1; l_ < (n1); l_++ ) arr[l_] = arr[0] + l_ * (n2); }
-
-#define FREE2DARR(arr) { free(arr[0]); free(arr); }
+int verbose = 0;
 
 
 
 static void doargs(int argc, char **argv)
 {
-  double T = 1;
+  xdouble T = 1;
   argopt_t *ao = argopt_open(0);
   ao->desc = "computing the virial coefficients from the PY/HNC closure for the 3D hard-sphere fluid";
-
   argopt_add(ao, "-n", "%d", &nmax, "maximal order");
-  argopt_add(ao, "-T", "%lf", &T, "temperature");
-  argopt_add(ao, "-b", "%" DBLSCNF "f", &dr, "interval of r");
+  argopt_add(ao, "-T", "%" DBLSCNF "f", &T, "temperature");
+  argopt_add(ao, "-R", "%" DBLSCNF "f", &rmax, "maximal r");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
+  argopt_add(ao, "-t", "%d", &ffttype, "FFT type");
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
-  argopt_add(ao, "--corr", "%b", &mkcorr, "try to correct HNC");
+  argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
+  argopt_add(ao, "--corr", "%b", &mkcorr, "correct the closure");
+  argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "-h");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
-  beta = 1./T;
-  printf("rmax = %" DBLPRNF "f, T %lf, HNC %d\n", dr * numpt, T, doHNC);
+  beta = 1/T;
+  printf("rmax = %f, T %lf, HNC %d\n", (double) rmax, (double) T, doHNC);
+  if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }
 
 
 
 /* compute
- *    out(k) = 2*fac0/k Int {from 0 to infinity} in(r) r sin(k r) dr */
-static void sphr(int npt, mydouble *in, mydouble *out, mydouble dx,
-    mydouble fac0, FFTWPFX(plan) p, mydouble *arr)
+ *    out(k) = 2*fac/k Int {from 0 to infinity} in(r) r sin(k r) dr */
+static void sphr(int npt, xdouble *in, xdouble *out, xdouble fac,
+    FFTWPFX(plan) p, xdouble *arr, xdouble *ri, xdouble *ki, int ffttype)
 {
-  int i;
-  mydouble fac;
+  int i, im = ffttype ? 0 : 1;
 
-  for ( i = 0; i < npt; i++ ) /* form in(x) * x */
-    arr[i] = in[i] * dx * (2*i + 1) / 2;
+  for ( i = im; i < npt; i++ ) /* form in(x) * x */
+    arr[i] = in[i] * ri[i];
+#ifdef NOFFTW
+  if ( ffttype )
+    sint11(arr, npt);
+  else
+    sint00(arr, npt);
+#else
   FFTWPFX(execute)(p);
-  /* 1. the following dx is from integration
-   * 2. the final pi/npt/dx is dk which is to be used for 1/k */
-  fac = fac0 * dx / (PI/npt/dx);
-  for ( i = 0; i < npt; i++ ) /* form out(k) / k */
-    out[i] = arr[i] * fac * 2 / (2*i + 1);
+#endif
+  for ( i = im; i < npt; i++ ) /* form out(k) / k */
+    out[i] = arr[i] * fac / ki[i];
 }
 
 
 
 /* return the potential phi(r), and -r*phi'(r)*/
-static mydouble pot(mydouble r, mydouble *ndphir)
+static xdouble pot(xdouble r, xdouble *ndphir)
 {
-  mydouble invr6 = 1/(r*r);
+  xdouble invr6 = 1/(r*r);
   invr6 = invr6*invr6*invr6;
   *ndphir = invr6*(48*invr6 - 24);
   return 4*invr6*(invr6 - 1);
@@ -108,165 +117,149 @@ static mydouble pot(mydouble r, mydouble *ndphir)
 
 
 /* compute the virial coefficients from the Percus-Yevick closure */
-static int intgeq(int nmax, int npt, mydouble dr, int doHNC)
+static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 {
-  mydouble dk = PI/dr/npt, B2, B2tail;
-  mydouble **ck, **tk, *fr, *fk, *dfr, *tl, *cl, *Bc, *Bv;
-  int i, l, u, j, jl, k;
-  mydouble **yr, **yr0, **tr, *powtl, *arr, *vc;
-  FFTWPFX(plan) plan;
-  mydouble facr2k, fack2r;
+  xdouble dr, dk, facr2k, fack2r, surf, B2, B2tail;
+  xdouble *fr, *dfr, *crl, *trl, **ck, **tk, *Bc, *Bv;
+  xdouble **yr = NULL, *arr, *ri, *ki, *ri2, *vc = NULL;
+  xdouble **cr, **tr;
+  int i, dm, l;
+  FFTWPFX(plan) plan = NULL;
 
-  /* the sign transform already includes a factor of 2
-   * so we only need to multiply 2*pi for the forward transform
-   * in the backward case, we need to divide 2*pi by (2*pi)^dim */
-  facr2k = 2*PI;
-  fack2r = 1/(4*PI*PI);
-  xnew(arr, npt);
-  plan = FFTWPFX(plan_r2r_1d)(npt, arr, arr, FFTW_RODFT11, FFTW_ESTIMATE);
+  dr = rmax / npt;
+  dm = (int) (1/dr + .5); /* number of bins in the hard core */
+  /* fix dr such that r = 1 lies at the middle of bins dm-1 and dm */
+  if ( ffttype ) { /* r(i) = dr * (i + .5); */
+    dr = (xdouble) 1/dm;
+    rmax = dr * npt;
+  } else { /* r(i) = dr * i; */
+    dm += 1;
+    dr = (xdouble) 1/(dm - .5);
+    rmax = dr * (npt - .5);
+  }
+  dk = PI/dr/npt;
 
-  xnew(fr, npt); xnew(dfr, npt); xnew(fk, npt);
+  MAKE1DARR(arr, npt);
+  MAKE1DARR(ri, npt);
+  MAKE1DARR(ki, npt);
+  MAKE1DARR(ri2, npt);
+
+#ifndef NOFFTW
+  if ( ffttype ) {
+    plan = FFTWPFX(plan_r2r_1d)(npt, arr, arr, FFTW_RODFT11, FFTW_ESTIMATE);
+  } else {
+    /* we only use npt - 1 points in this case */
+    plan = FFTWPFX(plan_r2r_1d)(npt - 1, arr + 1, arr + 1, FFTW_RODFT00, FFTW_ESTIMATE);
+  }
+#endif
+  for ( i = 0; i < npt; i++ ) {
+    ri[i] = dr * (i*2 + (ffttype ? 1 : 0))/2;
+    ki[i] = dk * (i*2 + (ffttype ? 1 : 0))/2;
+  }
+
+  facr2k = PI*2 * dr;
+  fack2r = pow(PI*2, -2) * dk;
+
+  MAKE1DARR(fr, npt);
+  MAKE1DARR(dfr, npt);
+  MAKE2DARR(tk, nmax - 1, npt)
+  MAKE2DARR(ck, nmax - 1, npt)
+  MAKE1DARR(trl, npt);
+  MAKE1DARR(crl, npt);
+
   for ( i = 0; i < npt; i++ ) { /* compute f(r) = exp(-beta u(r)) - 1 */
-    mydouble bphi = beta * pot((i + .5) * dr, &dfr[i]);
+    xdouble bphi = beta * pot(ri[i], &dfr[i]);
     fr[i] = exp(-bphi) - 1;
     dfr[i] *= beta * (1 + fr[i]);
   }
-  sphr(npt, fr, fk, dr, facr2k, plan, arr); /* f(r) --> f(k) */
+  sphr(npt, fr, ck[0], facr2k, plan, arr, ri, ki, ffttype); /* f(r) --> f(k) */
 
-  for ( B2 = 0, i = 0; i < npt; i++ )
-    B2 += fr[i] * (2*i+1)*(2*i+1)/4;
-  B2 *= -4*PI*(dr*dr*dr)/2;
-  B2tail = -8*PI*pow(dr*npt, -3)/3;
+  surf = PI*4;
+  for ( i = 0; i < npt; i++ )
+    ri2[i] = surf * ri[i] * ri[i] * dr;
+  B2 = -integr(npt, fr, ri2)/2;
+  B2tail = -PI*8*pow(rmax, -3)/3;
   B2 += B2tail;
-  xnew(Bc, nmax + 1);
-  xnew(Bv, nmax + 1);
+  MAKE1DARR(Bc, nmax + 1);
+  MAKE1DARR(Bv, nmax + 1);
   Bc[2] = Bv[2] = B2;
-  printf("beta %g, B2 %.8f, %g, 2*PI/3 %g\n", (double) beta, (double) B2, (double) B2tail, (double) (2*PI/3));
 
-  MAKE2DARR(tk, nmax - 1, npt)
-  MAKE2DARR(ck, nmax - 1, npt)
-  for ( i = 0; i < npt; i++ ) {
-    ck[0][i] = fk[i];
-    tk[0][i] = 0;
+  printf("beta %g, dr %f, dm %d, rmax %f, ffttype %d, HNC %d, B2 %g %g\n",
+      (double) beta, (double) dr, dm, (double) rmax, ffttype, doHNC,
+      (double) B2, (double) B2tail);
+
+  if ( singer || 1 ) {
+    MAKE2DARR(cr, nmax - 1, npt);
+    COPY1DARR(cr[0], fr, npt);
+    MAKE2DARR(tr, nmax - 1, npt);
   }
 
-  xnew(tl, npt);
-  xnew(cl, npt);
-
-  if ( doHNC ) {
-    xnew(powtl, npt);
-    MAKE2DARR(yr, nmax + 1, npt);
-    MAKE2DARR(yr0, nmax + 1, npt);
-    for ( i = 0; i < npt; i++ ) yr0[0][i] = yr[0][i] = 1;
-    for ( j = 1; j <= nmax; j++ ) /* coefficient of rho^j */
-      for ( i = 0; i < npt; i++ ) yr[j][i] = 0;
+  if ( doHNC || mkcorr ) {
+    MAKE2DARR(yr, nmax - 1, npt);
+    for ( i = 0; i < npt; i++ ) yr[0][i] = 1;
     if ( mkcorr ) {
-      MAKE2DARR(tr, nmax + 1, npt);
-      for ( j = 0; j <= nmax; j++ )
-        for ( i = 0; i < npt; i++ ) tr[j][i] = 0;
-      xnew(vc, npt);
+      MAKE1DARR(vc, npt);
     }
   }
-
 
   for ( l = 1; l < nmax - 1; l++ ) {
     /* compute t_l(k) */
-    for ( i = 0; i < npt; i++ ) tl[i] = 0;
-    for ( u = 0; u < l; u++ )
-      for ( i = 0; i < npt; i++ )
-        tl[i] += ck[l-1-u][i] * (ck[u][i] + tk[u][i]);
-    for ( i = 0; i < npt; i++ )
-      tk[l][i] = tl[i];
+    get_tk_oz(l, npt, ck, tk);
 
     /* t_l(k) --> t_l(r) */
-    sphr(npt, tl, tl, dk, fack2r, plan, arr);
+    sphr(npt, tk[l], trl, fack2r, plan, arr, ki, ri, ffttype);
 
-    if ( doHNC ) {
-      if ( mkcorr )
-        for ( i = 0; i < npt; i++ ) tr[l][i] = tl[i];
-
-      /* Hypernetted chain approximation
-       * y(r) = exp(t(r))
-       * c(r) = (1 + f(r)) y(r) - t(r) - 1 */
-      /* back up yr[], only need to save yr[1..nmax-l] */
-      memcpy(yr0[1], yr[1], sizeof(mydouble) * (nmax - l) * npt);
-      /* yr = yr0 * exp(rho^l t_l)
-       *    = (yr0_0 + yr0_1 rho + yr0_2 rho^2 + ... )
-       *    * (1 + t_l rho^l + t_{2l} rho^(2l)/2! + ... )
-       * y[l...n](r) are updated */
-      for ( i = 0; i < npt; i++ ) powtl[i] = 1;
-      for ( j = 1; j*l <= nmax; j++ ) {
-        /* powtl = tl^j/j! */
-        for ( i = 0; i < npt; i++) powtl[i] *= tl[i]/j;
-        for ( jl = j * l, k = 0; k + jl <= nmax; k++ )
-          /* yr_{k + jl} +=  yr0_k * tl^j/j! */
-          for ( i = 0; i < npt; i++ )
-            yr[jl+k][i] += yr0[k][i] * powtl[i];
-      }
-
-      /* compute c(r) = (1 + f) yr(r) - (1 + t(r)) */
-      for ( i = 0; i < npt; i++ ) cl[i] = (1 + fr[i]) * yr[l][i] - tl[i];
-
-      if ( mkcorr && l >= 2 ) { /* try to correct */
-        mydouble Bc0 = 0, dBc = 0, Bv0 = 0, dBv = 0, eps;
-
-        for ( i = 0; i < npt; i++ )
-          //vc[i] = cl[i];
-          vc[i] = tr[l][i] - yr[l][i];
-
-        for ( i = 0; i < npt; i++ ) {
-          mydouble r2 = dr * (2*i + 1) / 2;
-          r2 *= r2;
-          Bc0 += cl[i] * r2;
-          dBc += vc[i] * (1 + fr[i]) * r2;
-          Bv0 += dfr[i] * yr[l][i] * r2;
-          dBv += dfr[i] * vc[i] * r2;
-        }
-        Bc0 *= -4*PI*dr/(l+2);
-        dBc *= -4*PI*dr/(l+2);
-        Bv0 *= 4*PI*dr/6;
-        dBv *= 4*PI*dr/6;
-        eps = -(Bv0 - Bc0) / (dBv - dBc);
-        for ( i = 0; i < npt; i++ ) {
-          cl[i] += eps * vc[i] * (1 + fr[i]);
-          yr[l][i] += eps * vc[i];
-        }
-      }
-      for ( Bv[l+2] = 0, i = 0; i < npt; i++ )
-        Bv[l+2] += dfr[i] * yr[l][i] * (2*i+1)*(2*i+1)/4;
-      Bv[l+2] *= 4*PI*(dr*dr*dr)/6;
-    } else {
-      /* Percus-Yevick approximation
-       * c(r) = f(r) (1 + t(r)) */
-      for ( i = 0; i < npt; i++ ) cl[i] = fr[i] * tl[i];
-      for ( Bv[l+2] = 0, i = 0; i < npt; i++ )
-        Bv[l+2] += dfr[i] * tl[i] * (2*i+1)*(2*i+1)/4;
-      Bv[l+2] *= 4*PI*(dr*dr*dr)/6;
+    if ( yr != NULL ) { /* comput the cavity function y(r) */
+      get_yr_hnc(l, nmax, npt, yr, trl);
     }
 
-    /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) 4 pi r^2 dr
-     * In the 3D case the current formula appeared to work better than:
-       Bc[l+2] += cl[i] * (i*(i+1)+1./3); */
-    for ( Bc[l+2] = 0, i = 0; i < npt; i++ )
-      Bc[l+2] += cl[i] * (2*i+1)*(2*i+1)/4;
-    Bc[l+2] *= -4*PI*(dr*dr*dr)/(l+2);
+    if ( mkcorr ) { /* construct the correction function */
+      for ( i = 0; i < npt; i++ )
+        vc[i] = yr[l][i] - trl[i];
+    }
+
+    if ( doHNC ) {
+      /* hypernetted approximation: c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
+      for ( i = 0; i < npt; i++)
+        crl[i] = (fr[i] + 1) * yr[l][i] - trl[i];
+      Bv[l+2] = integr2(npt, dfr, yr[l], ri2) / 6;
+    } else {
+      /* Percus-Yevick approximation: c(r) = f(r) (1 + t(r)) */
+      for ( i = 0; i < npt; i++ )
+        crl[i] = fr[i] * trl[i];
+      Bv[l+2] = integr2(npt, dfr, trl, ri2) / 6;
+    }
+
+    if ( mkcorr ) {
+      get_corr1_hnc(l, npt, doHNC ? yr[l] : trl, crl, fr, dfr, ri2, 3, vc);
+      Bv[l+2] += integr2(npt, dfr, vc, ri2) / 6;
+    }
+
+    /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) 4 pi r^2 dr */
+    Bc[l+2] = -integr(npt, crl, ri2) / (l + 2);
     printf("Bc%-4d= %20.12" DBLPRNF "e, Bv%-4d= %20.12" DBLPRNF "e\n",
            l+2, Bc[l+2], l+2, Bv[l+2]);
     /* c(r) --> c(k) */
-    sphr(npt, cl, cl, dr, facr2k, plan, arr);
+    sphr(npt, crl, ck[l], facr2k, plan, arr, ri, ki, ffttype);
+  }
 
-    /* save c(k) for the following iterations */
-    for ( i = 0; i < npt; i++ ) ck[l][i] = cl[i];
-  }
-  FFTWPFX(destroy_plan)(plan); free(arr);
-  free(fr); free(dfr); free(fk); FREE2DARR(tk); FREE2DARR(ck);
-  if ( doHNC ) {
-    free(powtl); FREE2DARR(yr); FREE2DARR(yr0);
-    if ( mkcorr ) {
-      free(vc); FREE2DARR(tr);
-    }
-  }
-  free(Bc); free(Bv);
+#ifndef NOFFTW
+  FFTWPFX(destroy_plan)(plan);
+#endif
+  FREE1DARR(arr, npt);
+  FREE1DARR(ri, npt);
+  FREE1DARR(ki, npt);
+  FREE1DARR(ri2, npt);
+  FREE1DARR(fr, npt);
+  FREE1DARR(dfr, npt);
+  FREE1DARR(trl, npt);
+  FREE1DARR(crl, npt);
+  FREE2DARR(tk, nmax - 1, npt);
+  FREE2DARR(ck, nmax - 1, npt);
+  FREE1DARR(Bc, nmax + 1);
+  FREE1DARR(Bv, nmax + 1);
+  if ( yr != NULL ) FREE2DARR(yr, nmax - 1, npt);
+  if ( vc != NULL ) FREE1DARR(vc, npt);
   return 0;
 }
 
@@ -275,7 +268,10 @@ static int intgeq(int nmax, int npt, mydouble dr, int doHNC)
 int main(int argc, char **argv)
 {
   doargs(argc, argv);
-  intgeq(nmax, numpt, dr, doHNC);
+  intgeq(nmax, numpt, rmax, ffttype, doHNC);
+#ifndef NOFFTW
   FFTWPFX(cleanup)();
+#endif
   return 0;
 }
+
