@@ -1,4 +1,4 @@
-/* Copyright (c) Cheng Zhang 2010-2013 */
+/* Copyright (c) Cheng Zhang 2010-2014 */
 body {
   font: 100% "MS Trebunchet", "Lucida Grande", 'Verdana', 'Tahoma',
     sans-serif;
@@ -55,11 +55,11 @@ p, .p {
 }
 
 code, pre.code, div.code, span.code {
-  font: 120% monospace;
+  font: bold 110% monospace;
   color: #005500;
 }
 code, pre.code, div.code {
-  padding: 3px 20px 3px 20px;
+  padding: 3px 6px 3px 6px;
   margin: 7px 0px 7px 0px;
   background-color: #f0f0f0;
   border: 1px solid #c0c0c0;
@@ -71,7 +71,12 @@ a:hover { color: #ffffff; background-color: #808080; }
   font-family: "FreeSerif", "Times New Roman", serif;
   font-variant: normal;
 }
-div.eq { text-align: center; font-size: 140% }
+
+div.eq {
+  text-align: center;
+  font-size: 140%;
+}
+
 span.eq { font-size: 110%; padding: 0px; }
 .eq sub { font-size: 65%; }
 .eq sup { font-size: 65%; padding: 1px; }
@@ -80,6 +85,7 @@ span.eq { font-size: 110%; padding: 0px; }
   padding: 5px 0px; margin: 25px 0px;
   border-top: 1px dotted #a0a0a0; border-bottom: 1px dotted #a0a0a0;
 }
+
 ul.links { padding: 0px; margin: 0px; }
 ul.links li { display: inline; padding: 0px 0px 0px 0px; }
 li.linkhead { font: small-caps 120% sans-serif;}

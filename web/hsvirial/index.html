@@ -10,21 +10,17 @@
 $(document).ready(function () {
   // http://jqueryui.com/accordion/
   $('#accordion-whole').accordion({
-    active: 0,
+    // active: 0;
     collapsible: true,
     heightStyle: "content",
     animate: 1000
   });
   $('.accordion-active0').accordion({
-    active: 0,
     collapsible: true,
     heightStyle: "content"
   });
-  $('.accordion-notes').accordion({
-    active: false,
-    collapsible: true,
-    heightStyle: "content"
-  });
+  // expand all initially
+  $(".ui-accordion-content").show();
 });
 </script>
 <link type="text/css" rel="stylesheet" href="css/default.css">
@@ -49,131 +45,20 @@ of hard-sphere fluids by the Mayer sampling method.
 The <em>virial coefficients</em>
   <span class="eq"><i>B<sub>n</sub></i></span>
 are coefficients in the density expansion of virial series
+<span class="eq" style="display:block; text-align:center; font-size: 140%;">
+<i>&beta;P</i> = &Sigma; <i>B<sub>n</sub> &rho;<sup>n</sup></i>.
+</span>
 </p>
 
-<div class="eq">
-<i>&beta;P</i> = &Sigma; <i>B<sub>n</sub> &rho;<sup>n</sup></i>.
-</div>
-
 <div style="float:right; margin: 10px 10px;">
-  <canvas id="hsbox" width="360px" height="240px">
+  <canvas id="hsbox" width="360" height="240">
   </canvas><br>
   Acceptance ratio:
   <span id="accratio"></span>
 </div>
 
 <!-- JavaScript of computing Pi by MC integration -->
-<script type="text/javascript">
-
-var radius = 16; // radius in pixels
-var xy = [];
-var amp = 16;
-var canvas = document.getElementById("hsbox");
-var ctx = canvas.getContext("2d");
-var width = canvas.width;
-var height = canvas.height;
-var mcTot = 0, mcAcc = 0, step = 0;
-var moveAtom = -1; // which atom is attempted
-var moveAcc = false; // if the move is accepted
-
-
-function dist(x, y) {
-  x = Math.abs(x); if (x > width/2) x -= width;
-  y = Math.abs(y); if (y > height/2) y -= height;
-  return Math.sqrt(1.*x*x + 1.*y*y);
-}
-
-// draw a ball
-function drawBall(ctx, x, y, r, color0, color1) {
-  // the main blue ball
-  var grd = ctx.createRadialGradient(x + r*.3, y - r*.4, r*.1, x, y, r);
-  grd.addColorStop(0, color0);
-  grd.addColorStop(1, color1);
-  ctx.fillStyle = grd;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, 2*Math.PI);
-  ctx.closePath();
-  ctx.fill();
-}
-
-// initial positions
-function initPos(n) {
-  xy = [];
-  for (var i = 0; i < 10000; i++) {
-    var x = Math.random() * width;
-    var y = Math.random() * height;
-    for (var j = 0; j < xy.length; j++)
-      if (dist(xy[j][0] - x, xy[j][1] - y) < 2*radius)
-        break;
-    if (j == xy.length) {
-      xy.push([x, y]);
-      if (xy.length >= n) break;
-    }
-
-  }
-  return xy;
-}
-
-// draw all atoms in the box
-function draw() {
-  // draw the background
-  ctx.fillStyle = "#f0f0f0";
-  ctx.fillRect(0, 0, width, height);
-
-  for (var i = 0; i < xy.length; i++) {
-    var x = xy[i][0];
-    var y = xy[i][1];
-    var spotcolor = "#a0a0e0"
-    var color = "#2040a0";
-    if (i == moveAtom) {
-      if (moveAcc) {
-        spotcolor = "#a0e0a0";
-        color = "#20c020";
-      } else {
-        spotcolor = "#e0a0a0";
-        color = "#c02020";
-      }
-    }
-    drawBall(ctx, x, y, radius, spotcolor, color);
-  }
-}
-
-function mcStep() {
-  var n = xy.length;
-  moveAtom = Math.floor(Math.random() * n);
-  var xi = xy[moveAtom][0] + (2*Math.random() - 1) * amp;
-  if (xi < 0) xi += width; else if (xi > width) xi -= width;
-  var yi = xy[moveAtom][1] + (2*Math.random() - 1) * amp;
-  if (yi < 0) yi += height; else if (yi > height) yi -= height;
-
-  step += 1;
-  mcTot += 1;
-  for (var j = 0; j < n; j++) {
-    if (j == moveAtom) continue;
-    var d = dist(xi - xy[j][0], yi - xy[j][1]);
-    if (d < 2*radius) break;
-  }
-  if (j == n) {
-    xy[moveAtom][0] = xi;
-    xy[moveAtom][1] = yi;
-    mcAcc += 1;
-    moveAcc = true;
-  } else {
-    moveAcc = false;
-  }
-  accratio = 1.*mcAcc/mcTot*100;
-  if (step % 100 == 0) {
-    draw();
-    document.getElementById("accratio").innerHTML
-      = accratio.toPrecision(4) + "%";
-  }
-  return j == n;
-}
-
-initPos(55);
-setInterval(mcStep, 10);
-
-</script>
+<script type="text/javascript" src="js/mcsamp.js"></script>
 
 <p>A <em>hard-sphere</em> fluid is a model fluid in which spherical particles
 interact with one another through only infinite repulsion.
@@ -208,7 +93,8 @@ among other developers, and its application had been extended to
 more realistic fluid models.
 </p>
 
-<canvas id="mcpi" width="240px" height="240px" style="float:right; margin: 10px 10px;">
+<canvas id="mcpi" width="240" height="240"
+  style="float:right; margin: 10px 10px;">
 </canvas>
 
 <p>A classic example of the MC integration method is the following:
@@ -234,49 +120,7 @@ Click the &ldquo;Estimate&rdquo; button below to see how it works.
 </div>
 
 <!-- JavaScript of computing Pi by MC integration -->
-<script type="text/javascript">
-function mcgetPi() {
-  var c = document.getElementById("mcpi");
-  var ctx = c.getContext("2d");
-  var w = c.width;
-  var h = c.height;
-  var r = Math.min(w/2, h/2) - 1;
-
-  // draw the background
-  ctx.fillStyle = "#f0f0f0";
-  ctx.fillRect(0, 0, w, h);
-
-  // fill the circle
-  ctx.beginPath();
-  ctx.arc(w/2, h/2, r, 0, Math.PI*2);
-  ctx.closePath();
-  ctx.fillStyle = "#c0c0c0";
-  ctx.fill();
-
-  // draw random dots
-  ctx.fillStyle = "black";
-  var s = document.getElementById("numSamps").value;
-  if ( !isNaN(s) ) num = s; else num = 1;
-  var maxNumDraw = w*h;
-  var cnt = 0;
-  document.getElementById("PiEstimate").innerHTML = "";
-  document.getElementById("PiComment").innerHTML = num > maxNumDraw ? " (visualization disabled)" : "";
-
-  for ( i = 0; i < num; i++ ) {
-    var x = Math.random();
-    var y = Math.random();
-    if ((2*x - 1)*(2*x - 1) + (2*y - 1)*(2*y - 1) < 1)
-      cnt += 1;
-    // a dot === a one-by-one rectangle
-    if ( num <= maxNumDraw )
-      ctx.fillRect( x * w, y * h, 1, 1);
-  }
-  // write the output
-  document.getElementById("PiEstimate").innerHTML = 4.0*cnt/num;
-}
-
-mcgetPi();
-</script>
+<script type="text/javascript" src="js/mcintgpi.js"></script>
 
 </div> <!-- END of <h3>Monte Carlo integration</h3> -->
 
@@ -340,7 +184,7 @@ for computing the virial coefficients in high dimensional cases.
 
 
 
-<h2 id="sec_javademo"><a name="sec_javademo"></a>Demonstration</h2>
+<h2 id="sec_javademo">Demonstration</h2>
 
 <div> <!-- BEGINING of <h2>Demonstration</h2> -->
 
@@ -354,7 +198,7 @@ for computing the virial coefficients in high dimensional cases.
 
 <div class="accordion-notes">
   <h3>Notes and tips</h3>
-  <ul id="demo-notes">
+  <ul id="demo-notes" style="line-height: 200%">
     <li>
       A red ball represents a failed Monte Carlo (MC) trial;
       a green ball represents a successful one.
@@ -405,7 +249,7 @@ for computing the virial coefficients in high dimensional cases.
   </p>
 
 
-<h3 id="sec_gallery"><a name="sec_gallery"></a>Gallery</h3>
+<h3 id="sec_gallery">Gallery</h3>
 
 <div> <!-- BEGINNING of the wrapper <h3>Gallery</h3> -->
 
@@ -427,71 +271,71 @@ of typical high-dimensional cluster.
 <table class="datatable">
   <thead>
     <tr>
-      <th width="40"> D </th>
-      <th> D &rarr; 2 </td>
-      <th> D &rarr; 3 </td>
+      <th style="width:40px"> D </th>
+      <th> D &rarr; 2 </th>
+      <th> D &rarr; 3 </th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>3</td>
-      <td> <img src="images/mds/mdsD3n64d2.png" class="demo" width="320"> </td>
-      <td> <img src="images/mds/mdsD3n64d3.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD3n64d2sm.png" class="demo" alt="D = 3 to 2"> </td>
+      <td> <img src="images/mds/mdsD3n64d3sm.png" class="demo" alt="D = 3 to 3"> </td>
     </tr>
     <tr>
       <td>5</td>
-      <td> <img src="images/mds/mdsD5n64d2.png" class="demo" width="320"> </td>
-      <td> <img src="images/mds/mdsD5n64d3.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD5n64d2sm.png" class="demo" alt="D = 5 to 2"> </td>
+      <td> <img src="images/mds/mdsD5n64d3sm.png" class="demo" alt="D = 5 to 3"> </td>
     </tr>
     <tr>
       <td>7</td>
-      <td> <img src="images/mds/mdsD7n64d2.png" class="demo" width="320"> </td>
-      <td> <img src="images/mds/mdsD7n64d3.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD7n64d2sm.png" class="demo" alt="D = 7 to 2"> </td>
+      <td> <img src="images/mds/mdsD7n64d3sm.png" class="demo" alt="D = 7 to 3"> </td>
     </tr>
     <tr>
       <td>9</td>
-      <td> <img src="images/mds/mdsD9n64d2.png" class="demo" width="320"> </td>
-      <td> <img src="images/mds/mdsD9n64d3.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD9n64d2sm.png" class="demo" alt="D = 9 to 2"> </td>
+      <td> <img src="images/mds/mdsD9n64d3sm.png" class="demo" alt="D = 9 to 3"> </td>
     </tr>
     <tr>
       <td>11</td>
-      <td> <img src="images/mds/mdsD11n64d2.png" class="demo" width="320"> </td>
-      <td> <img src="images/mds/mdsD11n64d3.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD11n64d2sm.png" class="demo" alt="D = 11 to 2"> </td>
+      <td> <img src="images/mds/mdsD11n64d3sm.png" class="demo" alt="D = 11 to 3"> </td>
     </tr>
     <tr>
       <td>13</td>
-      <td> <img src="images/mds/mdsD13n64d2.png" class="demo" width="320"> </td>
-      <td> <img src="images/mds/mdsD13n64d3.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD13n64d2sm.png" class="demo" alt="D = 13 to 2"> </td>
+      <td> <img src="images/mds/mdsD13n64d3sm.png" class="demo" alt="D = 13 to 3"> </td>
     </tr>
     <tr>
       <td>15</td>
-      <td> <img src="images/mds/mdsD15n64d2.png" class="demo" width="320"> </td>
-      <td> <img src="images/mds/mdsD15n64d3.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD15n64d2sm.png" class="demo" alt="D = 15 to 2"> </td>
+      <td> <img src="images/mds/mdsD15n64d3sm.png" class="demo" alt="D = 15 to 3"> </td>
     </tr>
     <tr>
       <td>17</td>
-      <td> <img src="images/mds/mdsD17n64d2.png" class="demo" width="320"> </td>
-      <td> <img src="images/mds/mdsD17n64d3.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD17n64d2sm.png" class="demo" alt="D = 17 to 2"> </td>
+      <td> <img src="images/mds/mdsD17n64d3sm.png" class="demo" alt="D = 17 to 3"> </td>
     </tr>
     <tr>
       <td>19</td>
-      <td> <img src="images/mds/mdsD19n64d2.png" class="demo" width="320"> </td>
-      <td> <img src="images/mds/mdsD19n64d3.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD19n64d2sm.png" class="demo" alt="D = 19 to 2"> </td>
+      <td> <img src="images/mds/mdsD19n64d3sm.png" class="demo" alt="D = 19 to 3"> </td>
     </tr>
     <tr>
       <td>25</td>
-      <td> <img src="images/mds/mdsD25n64d2.png" class="demo" width="320"> </td>
-      <td> <img src="images/mds/mdsD25n64d3.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD25n64d2sm.png" class="demo" alt="D = 25 to 2"> </td>
+      <td> <img src="images/mds/mdsD25n64d3sm.png" class="demo" alt="D = 25 to 3"> </td>
     </tr>
     <tr>
       <td>50</td>
-      <td> <img src="images/mds/mdsD50n64d2.png" class="demo" width="320"> </td>
-      <td> <img src="images/mds/mdsD50n64d3.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD50n64d2sm.png" class="demo" alt="D = 50 to 2"> </td>
+      <td> <img src="images/mds/mdsD50n64d3sm.png" class="demo" alt="D = 50 to 3"> </td>
     </tr>
     <tr>
       <td>100</td>
-      <td> <img src="images/mds/mdsD100n64d2.png" class="demo" width="320"> </td>
-      <td> <img src="images/mds/mdsD100n64d3.png" class="demo" width="320"> </td>
+      <td> <img src="images/mds/mdsD100n64d2sm.png" class="demo" alt="D = 100 to 2"> </td>
+      <td> <img src="images/mds/mdsD100n64d3sm.png" class="demo" alt="D = 100 to 3"> </td>
     </tr>
   </tbody>
 </table>
@@ -551,6 +395,7 @@ vircode.zip
 </ol>
 
 
+
 </div> <!-- END for <h2>Programs</h2> -->
 
 
@@ -580,18 +425,18 @@ vircode.zip
   <tr>
     <th>Dimension</th>
     <th>Radius of convergence</th>
-    <th width="30%">
+    <th style="width:30%">
       Compressibility route
       <br>
       <span style="font-size: small; font-weight: normal;">
-        Equation of state<sup>&dagger;</sup><hr>
+        Equation of state<sup>&dagger;</sup><br>
         Virial coefficients
       </span>
     </th>
-    <th width="30%">Virial route
+    <th style="width:30%">Virial route
       <br>
       <span style="font-size: small; font-weight: normal;">
-        Equation of state<sup>&ddagger;</sup><hr>
+        Equation of state<sup>&ddagger;</sup><br>
         Virial coefficients
       </span>
     </th>
@@ -605,12 +450,12 @@ vircode.zip
     </td>
     <td>
       <a href="data/pydata/Xt3c.txt">Xt3c.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir3c.txt">vir3c.txt</a>
     </td>
     <td>
       <a href="data/pydata/Zt3p.txt">Zt3p.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir3p.txt">vir3p.txt</a>
     </td>
   </tr>
@@ -621,12 +466,12 @@ vircode.zip
     </td>
     <td>
       <a href="data/pydata/Xt5c.txt">Xt5c.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir5c.txt">vir5c.txt</a>
     </td>
     <td>
       <a href="data/pydata/Zt5p.txt">Zt5p.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir5p.txt">vir5p.txt</a>
     </td>
   </tr>
@@ -637,12 +482,12 @@ vircode.zip
     </td>
     <td>
       <a href="data/pydata/Xt7c.txt">Xt7c.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir7c.txt">vir7c.txt</a>
     </td>
     <td>
       <a href="data/pydata/Zt7p.txt">Zt7p.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir7p.txt">vir7p.txt</a>
     </td>
   </tr>
@@ -653,12 +498,12 @@ vircode.zip
     </td>
     <td>
       <a href="data/pydata/Xt9c.txt">Xt9c.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir9c.txt">vir9c.txt</a>
     </td>
     <td>
       <a href="data/pydata/Zt9p.txt">Zt9p.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir9p.txt">vir9p.txt</a>
     </td>
   </tr>
@@ -669,12 +514,12 @@ vircode.zip
     </td>
     <td>
       <a href="data/pydata/Xt11c.txt">Xt11c.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir11c.txt">vir11c.txt</a>
     </td>
     <td>
       <a href="data/pydata/Zt11p.txt">Zt11p.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir11p.txt">vir11p.txt</a>
     </td>
   </tr>
@@ -685,12 +530,12 @@ vircode.zip
     </td>
     <td>
       <a href="data/pydata/Xt13c.txt">Xt13c.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir13c.txt">vir13c.txt</a>
     </td>
     <td>
       <a href="data/pydata/Zt13p.txt">Zt13p.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir13p.txt">vir13p.txt</a>
     </td>
   </tr>
@@ -701,12 +546,12 @@ vircode.zip
     </td>
     <td>
       <a href="data/pydata/Xt15c.txt">Xt15c.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir15c.txt">vir15c.txt</a>
     </td>
     <td>
       <a href="data/pydata/Zt15p.txt">Zt15p.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir15p.txt">vir15p.txt</a>
     </td>
   </tr>
@@ -717,12 +562,12 @@ vircode.zip
     </td>
     <td>
       <a href="data/pydata/Xt17c.txt">Xt17c.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir17c.txt">vir17c.txt</a>
     </td>
     <td>
       <a href="data/pydata/Zt17p.txt">Zt17p.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir17p.txt">vir17p.txt</a>
     </td>
   </tr>
@@ -733,12 +578,12 @@ vircode.zip
     </td>
     <td>
       <a href="data/pydata/Xt19c.txt">Xt19c.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir19c.txt">vir19c.txt</a>
     </td>
     <td>
       <a href="data/pydata/Zt19p.txt">Zt19p.txt</a>
-      <hr>
+      <br>
       <a href="data/pydata/vir19p.txt">vir19p.txt</a>
     </td>
   </tr>
@@ -757,15 +602,55 @@ vircode.zip
   </tbody>
 </table>
 
-</div> <!-- END of <h2>Data</h2> -->
+</div> <!-- END of <h2>Programs</h2> -->
+
+
+
+<h2>Study notes</h2>
+
+<div> <!-- BEGINNING for <h2>Study notes</h2> -->
+
+<h3>Standard algorithm of testing biconnectivity</h3>
+
+<p>
+This is a detailed discussion of the standard
+  algorithm of testing biconnectivity of a graph.
+  Download <a href="doc/biconnected.pdf">PDF version</a>,
+  <a href="doc/biconnected.mobi">Kindle version</a>.
+</p>
+
+
+
+<h3>Tarjan&rsquo;s algorithm of detecting clique separators</h3>
+
+<p>
+This is a detailed discussion of Tarjan&rsquo;s
+  algorithm of detecting clique separators in a graph.
+  Download <a href="doc/csep.pdf">PDF version</a>,
+  <a href="doc/csep.mobi">Kindle version</a>.
+</p>
+
+<h3>Manuscript</h3>
+<p>
+A local PDF copy of the manuscript (with supplemental materials) is
+<a href="doc/virdoc.pdf">here</a>.
+<span style="color: #806060;">
+  (This is an Accepted Manuscript of an article published in
+  <i>Molecular Physics</i> on Apr. 23rd, 2014, available online:
+  <a href="http://www.tandfonline.com/doi/full/10.1080/00268976.2014.904945">
+    http://www.tandfonline.com/doi/full/10.1080/00268976.2014.904945</a>).
+</span>
+</p>
+
+</div> <!-- END of <h2>Study notes</h2> -->
+
 
 
 
 
 <h2>References</h2>
 
-
-<div class="accordion-notes"> <!-- BEGINNING of <h2>References</h2> -->
+<div> <!-- BEGINNING for <h2>References</h2> -->
 
 <h3>Background</h3>
 
@@ -847,22 +732,27 @@ vircode.zip
 
 <ul>
   <li>C. Zhang and B. M. Pettitt,
-    <i>Computation of high-order virial coefficients in high-dimensional
-       hard-sphere fluids by Mayer sampling</i>,
-     Molecular Physics,
-     <a href="http://www.tandfonline.com/doi/full/10.1080/00268976.2014.904945">
-       DOI: 10.1080/00268976.2014.904945</a>, 2014.
+    Computation of high-order virial coefficients in high-dimensional
+      hard-sphere fluids by Mayer sampling,
+    <i>Molecular Physics</i>,
+    <a href="http://www.tandfonline.com/doi/full/10.1080/00268976.2014.904945">
+      DOI: 10.1080/00268976.2014.904945</a>, 2014.
   </li>
 </ul>
 
 
-</div> <!-- accordion of references, also END of <h2>References</h2> -->
+</div> <!-- END of <h2>References</h2> -->
 
 <!-- end of the document -->
 
 </div> <!-- accordion of the entire document -->
 
+<div style="float:right">
+  <a href="http://validator.w3.org/check?uri=referer">
+  HTML validator</a>.
+</div>
 
+<p><br><br></p>
 
 </body>
 </html>

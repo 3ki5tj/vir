@@ -1,6 +1,8 @@
 /* Copyright (c) Cheng Zhang 2010-2014 */
 window.onload = init;
 
+
+
 function init()
 {
   //appendspaces(); // at spaces at the bottom of the page
@@ -10,14 +12,33 @@ function init()
   makejava(); // substitute Java applet
 }
 
+
+
 // create a table-of-content sidebar
 function toc_init()
 {
   var nodes = document.getElementsByTagName("h2");
-  for (s = "", i = 0; i < nodes.length; i++) {
-    cap = nodes[i].innerHTML;
+  var cnodes = document.getElementsByTagName("h3");
+
+  var s = "";
+  for (var i = 0; i < nodes.length; i++) {
+    var cap = nodes[i].innerHTML;
     nodes[i].innerHTML = '<a name="h2_' + i + '"></a>' + cap; // add a marker
     s += '<li><a href="#h2_' + i + '">' + cap + '</a></li>'; // add to TOC
+    var cs = "";
+    // find h3 elements listed after this h2
+    for (var j = 0; j < cnodes.length; j++) {
+      var ccap = cnodes[j].innerHTML;
+      for (var k = 0; k < nodes.length; k++)
+        if (cnodes[j].compareDocumentPosition(nodes[k]) == 4)
+          break; // cnode[j] is after nodes[k]
+      // the parent <h2> is this one
+      if ( k - 1 != i ) continue;
+      console.log(j + " " + ccap + " " + nodes[i].innerHTML);
+      cnodes[j].innerHTML = '<a name="h3_' + j + '"></a>' + ccap;
+      cs += '<li><a href="#h3_' + j + '">' + ccap + '</a></li>';
+    }
+    if (cs != "") s += "<ul>" + cs + "</ul>";
   }
   if (s == "") return; else s = "<ul>" + s + "</ul>";
 
@@ -49,6 +70,8 @@ function toc_init()
   toc_show(0);
 }
 
+
+
 // show or hide the table-of-contents sidebar
 function toc_show(open)
 {
@@ -75,10 +98,24 @@ function dtbox_init() // create a date/time box
   document.body.appendChild(dtbox);
   dtbox_update(false);
 }
+
+
+
 function dtbox_update(open)
 {
   dtbox.style.backgroundColor = open ? "#F0F0F0" : "";
   dtbox.innerHTML = open ? new Date().toLocaleString() : "";
+}
+
+
+// remove the possible postfix of the file name `s'
+function rmpostfix(s, pfx)
+{
+  var i = s.lastIndexOf(".");
+  if (i == -1) return s;
+  var m = pfx.length;
+  if (i < m || s.substr(i - m, m) != pfx) return s;
+  return s.substr(0, i - m) + s.substr(i, s.length - i);
 }
 
 
@@ -88,22 +125,30 @@ function makeimgslinks()
 {
   var imgs = document.getElementsByTagName("img");
 
-  for (var i = 0; i < imgs.length; i++)
+  for (var i = 0; i < imgs.length; i++) {
     if ( imgs[i].className == "demo"
       || imgs[i].className == "fig" ) {
       pr = imgs[i].parentNode;
       nb = document.createElement('a');
-      nb.setAttribute('href', imgs[i].src);
+      // if the image name ends with 'sm', e.g. 'fig123sm.png'
+      // then we remove the link
+      imglink = rmpostfix(imgs[i].src, 'sm');
+      nb.setAttribute('href', imglink);
       nb.setAttribute('title', imgs[i].getAttribute('alt'));
       nb.appendChild(imgs[i].cloneNode(true)); // destroy and create an img, so index is not messed up
       pr.replaceChild(nb, imgs[i]);
     }
+  }
 }
+
+
 
 function appendspaces()
 {
   document.body.innerHTML += "<p>&nbsp;</p><p>&nbsp;</p>";
 }
+
+
 
 function invokejava(img) {
   par = img.parentNode;
@@ -113,6 +158,8 @@ function invokejava(img) {
   par.replaceChild(p, img);
 }
 
+
+
 function makejava() {
   imgs = document.getElementsByTagName("img");
   for (var i = 0; i < imgs.length; i++) {
@@ -120,3 +167,5 @@ function makejava() {
       imgs[i].setAttribute("onclick", "invokejava(this)");
   }
 }
+
+

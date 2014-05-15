@@ -16,19 +16,7 @@
 
 
 
-#ifdef LDBL
-typedef long double xdouble;
-#define FFTWPFX(f) fftwl_##f
-#define DBLSCNF "L"
-#define DBLPRNF "L"
-#else
-typedef double xdouble;
-#define FFTWPFX(f) fftw_##f
-#define DBLSCNF "l"
-#define DBLPRNF ""
-#endif
-
-
+#include "xdouble.h"
 
 #ifdef NOFFTW
 #define XDOUBLE xdouble
@@ -340,12 +328,12 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) S_D r^(D-1) dr */
     Bc = -integr(npt, crl, rDm1) / (l + 2);
     B2p *= B2;
-    printf("Bc(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e), "
-           "Bv(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e), "
-           "Bm(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e)\n",
+    printf("Bc(%3d) = %18.10" DBLPRNF "e (%18.10" DBLPRNF "e), "
+           "Bv(%3d) = %18.10" DBLPRNF "e (%18.10" DBLPRNF "e), "
+           "Bm(%3d) = %18.10" DBLPRNF "e (%18.10" DBLPRNF "e)\n",
            l+2, Bc, Bc/B2p, l+2, Bv, Bv/B2p, l+2, Bm, Bm/B2p);
-    printf("Bh(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e), "
-           "Br(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e)\n",
+    printf("Bh(%3d) = %18.10" DBLPRNF "e (%18.10" DBLPRNF "e), "
+           "Br(%3d) = %18.10" DBLPRNF "e (%18.10" DBLPRNF "e)\n",
            l+2, Bh, Bh/B2p, l+2, Br, Br/B2p);
 
     /* c_l(r) --> c_l(k) */

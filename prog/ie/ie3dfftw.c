@@ -15,19 +15,7 @@
 
 
 
-#ifdef LDBL
-typedef long double xdouble;
-#define FFTWPFX(f) fftwl_##f
-#define DBLSCNF "L"
-#define DBLPRNF "L"
-#else
-typedef double xdouble;
-#define FFTWPFX(f) fftw_##f
-#define DBLSCNF "l"
-#define DBLPRNF ""
-#endif
-
-
+#include "xdouble.h"
 
 #ifdef NOFFTW
 #define XDOUBLE xdouble

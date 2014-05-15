@@ -9,6 +9,7 @@ CX = icc -O2 -ipo -Wall -Wremarks -Wcheck -wd11001 -wd11006
 LMX =
 
 LFFTW = -lfftw3
+LFFTWQ = -lfftw3q -lquadmath
 LMPFR = -lmpfr -lgmp
 LGMP = -lgmp
 LGSL = -lgsl -lgslcblas
@@ -25,8 +26,10 @@ csrc_extra      = $(filter-out \
 
 deps = Makefile ieutil.h ieutilmpfr.h fft.h mpfft.h
 bins            = $(patsubst %.c, %,   $(csrc))
+bins_q          = $(patsubst %.c, %_q, $(csrc))
 bins_d          = $(patsubst %,   %_d, $(bins))
 bins_fftw       = $(patsubst %.c, %,   $(csrc_fftw))
+bins_fftw_q     = $(patsubst %.c, %_q, $(csrc_fftw))
 bins_fftw_d     = $(patsubst %,   %_d, $(bins_fftw))
 bins_mpfr       = $(patsubst %.c, %,   $(csrc_mpfr))
 bins_mpfr_d     = $(patsubst %,   %_d, $(bins_mpfr))
@@ -39,13 +42,16 @@ bins_extra_d    = $(patsubst %,   %_d, $(bins_extra))
 
 exe: $(bins)
 
-all: $(bins) $(bins_d)
+all: $(bins) $(bins_d) $(bins_q)
 
 $(bins_fftw) : %: %.c $(deps)
 	$(CX) -o $@ $< $(LMX) $(LFFTW)
 
 $(bins_fftw_d) : %_d: %.c $(deps)
 	$(CC) -o $@ $< $(LM) $(LFFTW)
+
+$(bins_fftw_q) : %_q: %.c $(deps)
+	$(CC) -DQUAD -o $@ $< $(LM) $(LFFTWQ)
 
 $(bins_mpfr) : %: %.c $(deps)
 	$(CX) -o $@ $< $(LMX) $(LMPFR)

@@ -7,13 +7,25 @@
 
 #include "dgrjw.h"
 
-#ifdef RJWBLDBL
-typedef long double dgrjwb_fb_t;
-#else
-typedef double dgrjwb_fb_t;
+#ifdef  RJWBQUAD
+#define RJWBF128 RJWBQUAD
 #endif
 
-#define RJWBSLOW 1
+#ifdef RJWBF128
+#include <quadmath.h>
+typedef __float128 dgrjwb_fb_t;
+#define ROUND(x) roundq(x)
+
+#elif defined(RJWBLDBL)
+typedef long double dgrjwb_fb_t;
+#define ROUND(x) roundl(x)
+
+#else
+typedef double dgrjwb_fb_t;
+#define ROUND(x) round(x)
+#endif
+
+//#define RJWBSLOW 1
 
 /* compute the ranked Mobius transform */
 static void dgrjwb_mobius(dgrjwb_fb_t *arr, int n)
@@ -44,8 +56,9 @@ static void dgrjwb_getfc(const dg_t *g,
 
   /* 0. compute fq */
   for (vs = 0; vs < vsmax; vs++)
-    for (z1 = bitcount(vs) - 1, r1 = 0; r1 < DG_N_; r1++)
+    for (z1 = bitcount(vs) - 1, r1 = 0; r1 < DG_N_; r1++) {
       fq[vs * DG_N_ + r1] = (r1 == z1) ? dgrjw_fq(g->c, vs) : 0;
+    }
 
   /* 1. compute the ranked zeta transform of fq */
   for (i = 0; i < DG_N_; i++) {
@@ -118,7 +131,7 @@ static void dgrjwb_getfc(const dg_t *g,
   for (vs = 1; vs < vsmax; vs++)
     for (z1 = bitcount(vs) - 1, r1 = 0; r1 < DG_N_; r1++)
       /* rounding to integers only works for a hard-sphere liquid */
-      fc[vs * DG_N_ + r1] = (r1 == z1) ? round(fc[vs * DG_N_ + r1]) : 0;
+      fc[vs * DG_N_ + r1] = (r1 == z1) ? ROUND(fc[vs * DG_N_ + r1]) : 0;
 #endif
 }
 
@@ -215,7 +228,7 @@ static void dgrjwb_getfb(const dg_t *g, int v,
     dgrjwb_mobiusb(fb, DG_N_, v);
     for (vs = 1; vs < vsmax; vs++)
       if (vs & bv)
-        fc1[vs * DG_N_ + DG_N_ - 1] += round(fb[vs * DG_N_ + bitcount(vs) - 1] * fac / k);
+        fc1[vs * DG_N_ + DG_N_ - 1] += ROUND(fb[vs * DG_N_ + bitcount(vs) - 1] * fac / k);
 #endif
   }
 
@@ -232,7 +245,7 @@ static void dgrjwb_getfb(const dg_t *g, int v,
     if (vs & bv)
       for (z1 = bitcount(vs) - 1, r1 = 1; r1 < DG_N_; r1++)
         /* rounding to integers only works for a hard-sphere liquid */
-        fb[vs * DG_N_ + r1] = (r1 == z1) ? round(fb[vs * DG_N_ + r1]) : 0;
+        fb[vs * DG_N_ + r1] = (r1 == z1) ? ROUND(fb[vs * DG_N_ + r1]) : 0;
   /* 3. compute the ranked Mobius transform */
   dgrjwb_mobius(fc, DG_N_);
 #endif
@@ -271,7 +284,7 @@ static dgrjwb_fb_t dgrjwb_fb(const dg_t *g)
       inode, sizeof(dgrjwb_fb_t)*size*3./(1024*1024), dgrjwb_nmax_);
   }
 
-  dgrjwb_getfc(g, dgrjwb_arr_, &dgrjwb_arr_[size], &dgrjwb_arr_[size*2]);
+  dgrjwb_getfc(g, dgrjwb_arr_, dgrjwb_arr_+size, &dgrjwb_arr_[size*2]);
   for (v = 0; v < DG_N_; v++) {
     id = (v + 1) % 2;
     dgrjwb_getfb(g, v, &dgrjwb_arr_[size*id], &dgrjwb_arr_[size*(!id)],
