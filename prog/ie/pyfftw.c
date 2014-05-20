@@ -1,3 +1,4 @@
+/* pressure related quantities from the PY closure */
 #include <stdio.h>
 #include <math.h>
 #include <fftw3.h>
@@ -7,17 +8,7 @@
 
 
 
-#ifdef LDBL
-typedef long double xdouble;
-#define FFTWPFX(f) fftwl_##f
-#define DBLSCNF "L"
-#define DBLPRNF "L"
-#else
-typedef double xdouble;
-#define FFTWPFX(f) fftw_##f
-#define DBLSCNF "l"
-#define DBLPRNF ""
-#endif
+#include "xdouble.h"
 
 
 
@@ -39,7 +30,7 @@ int numpt = 8192;
 xdouble rmax = (xdouble) 20.48L;
 xdouble T = (xdouble) 10;
 xdouble beta;
-xdouble rho = (xdouble) 0.1L;
+xdouble rho = (xdouble) 0.8L;
 int itermax = 10000;
 xdouble tol = (xdouble) 1e-12L;
 xdouble delta = (xdouble) 0.001L;
@@ -52,7 +43,7 @@ int verbose = 0;
 static void doargs(int argc, char **argv)
 {
   argopt_t *ao = argopt_open(0);
-  ao->desc = "computing the virial coefficients from the PY/HNC closure for the 3D hard-sphere fluid";
+  ao->desc = "computing pressure and its derivatives from the HNC closure";
   argopt_add(ao, "-T", "%" DBLSCNF "f", &T, "temperature");
   argopt_add(ao, "-r", "%" DBLSCNF "f", &rho, "rho");
   argopt_add(ao, "-R", "%" DBLSCNF "f", &rmax, "maximal r");
@@ -63,7 +54,8 @@ static void doargs(int argc, char **argv)
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
   beta = 1/T;
-  printf("rmax = %f, T %lf\n", (double) rmax, (double) T);
+  printf("rmax %f, rho %g, T %f\n",
+      (double) rmax, (double) rho, (double) T);
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }
@@ -127,7 +119,7 @@ static void iter(int npt, xdouble rho, xdouble *ri, xdouble *ki,
     }
     if ( errmax < 1e-7 ) break;
   }
-  printf("iter %d errmax %g\n", iter, (double) errmax);
+  //printf("iter %d errmax %g\n", iter, (double) errmax);
 }
 
 
@@ -150,13 +142,15 @@ static void output(int npt, xdouble *ri,
 
 static xdouble getpres_py(int npt, xdouble rho,
     xdouble *cr, xdouble *tr, xdouble *ri2,
-    xdouble *ck, xdouble *ki2, xdouble *compr)
+    xdouble *ck, xdouble *ki2, xdouble *compr,
+    xdouble *dcompr)
 {
   int i;
   xdouble pres, x;
 
   pres = 0;
   *compr = 0;
+  *dcompr = 0;
   for ( i = 0; i < npt; i++ ) {
     /* beta P = - rho^2/2 Int (h(r) - 1) c(r) dr
      *          + Int log(1 - rho c(k)) dk/(2pi)^3 } + rho c(r = 0)
@@ -165,9 +159,12 @@ static xdouble getpres_py(int npt, xdouble rho,
     pres -= 0.5 * cr[i] * (1 - tr[i]) * ri2[i];
     /* compr = d(beta P) / drho = -rho Int c(r) dr */
     *compr -= cr[i] * ri2[i];
+    /* dcompr = d^2(beta P) / d(rho)^2 = Int [c(r) + t(r) h(r)] dr */
+    *dcompr -= (cr[i] + tr[i] * (cr[i] + tr[i])) * ri2[i];
   }
   pres *= rho * rho;
   *compr *= rho;
+  /* the k-space part of the pressure formula */
   for ( i = 0; i < npt; i++ ) {
     x = rho * ck[i];
     if ( fabs(x) < 1e-8 ) {
@@ -181,10 +178,10 @@ static xdouble getpres_py(int npt, xdouble rho,
 
 
 
-static void integ(int npt, double rmax)
+static void integ(int npt, double rmax, double rho)
 {
   xdouble dr, dk, facr2k, fack2r, surfr, surfk, *bphi, x;
-  xdouble pres1, pres2, compr1, compr2;
+  xdouble pres1, pres2, compr1, compr2, dcompr1, dcompr2;
   xdouble *fr, *dfr, *cr, *tr, *ck, *tk;
   xdouble *arr, *ri, *ki, *ri2, *ki2;
   int i;
@@ -234,16 +231,23 @@ static void integ(int npt, double rmax)
   iter(npt, rho, ri, ki, cr, tr, ck, tk,
       fr, facr2k, fack2r, plan, arr, itermax);
   output(npt, ri, cr, tr, bphi, "vv1.dat");
-  pres1 = getpres_py(npt, rho, cr, tr, ri2, ck, ki2, &compr1);
+  pres1 = getpres_py(npt, rho, cr, tr, ri2, ck, ki2,
+      &compr1, &dcompr1);
 
   iter(npt, rho + delta, ri, ki, cr, tr, ck, tk,
       fr, facr2k, fack2r, plan, arr, itermax);
   output(npt, ri, cr, tr, bphi, "vv2.dat");
-  pres2 = getpres_py(npt, rho + delta, cr, tr, ri2, ck, ki2, &compr2);
+  pres2 = getpres_py(npt, rho + delta, cr, tr, ri2, ck, ki2,
+      &compr2, &dcompr2);
 
-  printf("pres1 %g, pres2 %g, compr1 %g, compr2 %g, dpres %g\n",
+  printf("rho %5.3f, T %6.3f: P1 %9.6f, P2 %9.6f, "
+         "dP1 %9.6f, dP2 %9.6f, dP %9.6f; "
+         "ddP1 %9.6f, ddP2 %9.6f, ddP(diff) %9.6f\n",
+      (double) rho, (double) (1/beta),
       (double) pres1, (double) pres2, (double) compr1, (double) compr2,
-      (double) ((pres2 - pres1)/delta) );
+      (double) ((pres2 - pres1)/delta),
+      (double) dcompr1, (double) dcompr2,
+      (double) ((compr2 - compr1)/delta) );
 
   free(bphi);
   free(fr);
@@ -263,8 +267,13 @@ static void integ(int npt, double rmax)
 
 int main(int argc, char **argv)
 {
+  double den;
+
   doargs(argc, argv);
-  integ(numpt, rmax);
+
+  for (den = 0.05; den <= rho; den += 0.05) {
+    integ(numpt, rmax, den);
+  }
 #ifndef NOFFTW
   FFTWPFX(cleanup)();
 #endif

@@ -88,9 +88,9 @@ sync2::
 	rsync -e gsissh -avL *.[ch] kraken-gsi.nics.xsede.org:work/vir
 
 clean:
-	rm -rf $(bins) $(bins_d) \
+	rm -rf $(bins) $(bins_d) $(bins_q) \
 	  *~ a.out gmon.out MTSEED bin obj \
-	  r[0-9][0-9][0-9][a-z]*
+	  r[0-9][0-9][0-9][a-z]* vv*.dat
 
 usb:
 	$(MAKE) -C ../.. $@

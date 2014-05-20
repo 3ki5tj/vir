@@ -17,12 +17,22 @@ div#tocbox {
 }
 
 div#toctitle { font: bold small-caps 120% serif; }
-#toclist ul { margin: 0px; padding-left: 15px; }
-#toclist li { margin: 0px; padding: 8px 0px 0px 0px; }
+#toclist ul {
+  margin: 0px;
+  padding: 0px 15px 0px 15px;
+}
+#toclist li {
+  margin: 0px;
+  padding: 0px 8px 1px 0px; 
+}
 
 .toclinkhead { font: small-caps 120% sans-serif; margin: 8px 0px 3px 0px;}
 ul.toclinks { padding: 0px; margin: 0px; }
-ul.toclinks li { display: inline; padding: 0px 3px; text-decoration: underline; }
+ul.toclinks li {
+  display: inline;
+  padding: 0px 3px;
+  text-decoration: underline;
+}
 
 h1 {
   font: small-caps 180% "Palatino Linotype", "Palatino", serif;
