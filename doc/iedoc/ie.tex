@@ -8,6 +8,7 @@
 \usepackage{dcolumn}
 \usepackage{bm}
 \usepackage{tikz}
+\usepackage{scrextend} % for addmargin
 
 \newtheorem{defn}{Definition}
 \newtheorem{thrm}{Theorem}
@@ -19,12 +20,14 @@
 \renewcommand{\vr}{\vct{r}}
 \newcommand{\vk}{\vct{k}}
 \newcommand{\dvk}{\frac{d\vk}{(2\pi)^D}}
+\newcommand{\tdvk}{\tfrac{d\vk}{(2\pi)^D}}
 
 % add a superscript ``ex''
-\newcommand{\supex}[1]{{#1}^{\mathrm{ex}}}
+\newcommand{\supex}[1]{ { { #1 }^{ \mathrm{ex} } } }
 \newcommand{\Pex}{\supex{P}}
 \newcommand{\Fex}{\supex{F}}
 \newcommand{\muex}{\supex{\mu}}
+\newcommand{\kex}{\supex{\kappa}}
 
 \newcommand{\secref}[1]{Sec. \ref{#1}}
 
@@ -90,38 +93,46 @@ The equation of state is commonly found
   regarding the direct correlation function $c(\vr)$
   and the indirect correlation function $t(\vr)$.
 %
-The first equation is the Ornstein-Zernike relation\cite{hansen},
-\begin{equation}
-  t(\vr) = \rho [c * (c + t)](\vr),
+The first equation is the Ornstein-Zernike (OZ) relation\cite{hansen},
+%
+\begin{align}
+  t(\vr) &= \rho [c * (c + t)](\vr), \notag \\
+         &= \rho (c*c)(\vr) + \rho^2 (c*c*c)(\vr) + \cdots
 \label{eq:oz}
-\end{equation}
+\end{align}
 %
 where ``$*$'' denotes a convolution of two spatial functions:
-\begin{equation*}
-  (a * b)(\vr) = \int d\vr' a(\vr - \vr') b(\vr').
+\begin{equation}
+  (a * b)(\vr) = \int d\vr' a(\vr - \vr') \, b(\vr').
 \label{eq:convol}
-\end{equation*}
+\end{equation}
 %
-The second equation is an approximate relation called ``closure.''
+The second equation is an approximate relation called ``closure'' \cite{hansen}.
 %
 Here we focus on two common choices,
 %
-the Percus-Yevick (PY) closure:
+the Percus-Yevick (PY) closure\cite{percusyevick}:
 %
 \begin{equation}
-  c(\vr) = f(\vr) [1 + t(\vr)],
+  c(\vr) = f(\vr) + f(\vr) \, t(\vr),
   \label{eq:py}
 \end{equation}
 %
-or the hypernetted-chain (HNC) closure
+or the hypernetted-chain (HNC) closure\cite{
+morita1958, *morita1959, *morita1960}
 %
-\begin{equation}
-  c(\vr) = f(\vr) e^{t(\vr)} - t(\vr) - 1,
+\begin{align}
+  c(\vr) &= f(\vr) \, e^{t(\vr)} - t(\vr) - 1 \notag \\
+         &= f(\vr) + f(\vr) \, t(\vr)
+          + \sum_{m=2}^\infty [1 + f(\vr)] \frac{ t^m(\vr) }{ m! },
   \label{eq:hnc}
-\end{equation}
+\end{align}
 %
 where
-  $f(\vr) = e^{-\beta \phi(\vr)} - 1$,
+\begin{equation}
+  f(\vr) = e^{-\beta \phi(\vr)} - 1,
+  \label{eq:fbond}
+\end{equation}
 with $\phi(\vr)$ being the potential.
 
 
@@ -162,9 +173,227 @@ The virial coefficients can be derived from
 %
 Generally, each thermodynamic quantity
   can be written as an integral of $c(\vr)$ and $t(\vr)$,
-  and in the Appendices,
-  we discuss a graphic method\cite{morita1958, *morita1960, baxterpressure}
+  and in the Appendices \ref{sec:graph}, \ref{sec:py}, and \ref{sec:hnc},
+  we discuss a graphic method\cite{
+  morita1958, *morita1959, *morita1960, baxterpressure}
   of constructing these integrals.
+%
+Table \ref{tab:thermodyn}
+  gives a summary of the results.
+
+%\begin{turnpage}
+\begin{table*}
+\setlength{\tabcolsep}{2pt}
+%\setlength\extrarowheight{4pt}
+\caption{
+  Thermodynamic quantities from integrals of $c(\vr)$ and $t(\vr)$
+}
+\label{tab:thermodyn}
+\begin{tabular}{p{1.3cm} p{1.2cm} c l r p{1.6cm} c l}
+  \hline
+  \hline
+  \noalign{\smallskip}
+  \phantom
+  &
+  \multicolumn{3}{c}{PY}
+  &
+  \phantom &
+  \multicolumn{3}{c}{HNC}
+  \\[-2mm]
+  \cline{2-4}
+  \cline{6-8}
+  \noalign{\smallskip}
+  Graph sum$^*$
+  &
+  Thermo. quantity$^\#$ &
+  Series &
+  Integral &
+  &
+  Thermo. quantity$^\#$ &
+  Series &
+  Integral
+  \\
+  %[4pt]
+  \noalign{\smallskip}
+  \hline
+  \noalign{\smallskip}
+  %
+  %
+  %
+  %
+  %
+  $\begin{aligned} \sum_G \frac{ 2 \, I }{ s } \end{aligned}$ &
+  %
+  % PY
+  %
+  $\begin{aligned} -\beta \Pex \end{aligned}$
+  &
+  $\begin{aligned} -\sum_n B_n \rho^n \end{aligned}$
+  &
+  $\begin{aligned} \rho^2 \int \frac{1}{2} c \, (1 - h) \, d\vr
+    - {S_n}^\S \end{aligned}$
+  &
+  &
+  %
+  % HNC
+  %
+  $\begin{aligned} -\frac{ 2 \beta \Fex }{ V } \end{aligned}$
+  &
+  $\begin{aligned} - \sum_n \frac{ 2 }{ n - 1 } B_n \rho^n \end{aligned}$
+  &
+  $\begin{aligned} \rho^2 \int \left( c - \frac{1}{2} h^2 \right) \, d\vr
+    - {S_n}^\S \end{aligned}$
+  \\
+  %[4pt]
+  \noalign{\smallskip}
+  %
+  %
+  %
+  %
+  %
+  $\begin{aligned} \sum_G \frac{ 2 \, n \, I }{ s } \end{aligned}$ &
+  %
+  % PY
+  %
+  $\begin{aligned} -\beta \kex^\dagger \end{aligned}$
+  &
+  $\begin{aligned} -\sum_n n B_n \rho^n \end{aligned}$
+  &
+  $\begin{aligned} \rho^2 \int c \, d\vr \end{aligned}$
+  &
+  &
+  %
+  % HNC
+  %
+  $\begin{aligned} -2 \rho \, \beta \muex^\ddagger \end{aligned}$
+  &
+  $\begin{aligned} -\sum_n \frac{ 2 n }{ n - 1 } B_n \rho^n \end{aligned}$
+  &
+  $\begin{aligned} \rho^2 \int (2 \, c - h \, t ) \, d\vr \end{aligned}$
+  \\
+  %[4pt]
+  \noalign{\smallskip}
+  %
+  %
+  %
+  %
+  %
+  $\begin{aligned} \sum_G \frac{ 2 \, p \, I }{ s } \end{aligned}$
+  &
+  %
+  % PY
+  %
+  $\begin{aligned} -\beta \supex{\chi}^{\P} \end{aligned}$
+  &
+  $\begin{aligned} -\sum_n n (n - 1) \, B_n \, \rho^n \end{aligned}$
+  &
+  $\begin{aligned} \rho^2 \int ( c + h \, t ) \, d\vr \end{aligned}$
+  &
+  &
+  %
+  % HNC
+  %
+  $\begin{aligned} -2 \beta \kex^\dagger \end{aligned}$
+  &
+  $\begin{aligned} -\sum_n 2 n B_n \rho^n \end{aligned}$
+  &
+  $\begin{aligned} \rho^2 \int 2 \, c \, d\vr \end{aligned}$
+  \\
+  %[4pt]
+  \noalign{\smallskip}
+  \hline
+  \noalign{\smallskip}
+  %
+  %
+  %
+  %
+  %
+  %
+  \multicolumn{8}{p{\textwidth}}{
+    $^*$ $I$, $s$, $n$, $p$ are
+    the integral,
+    the symmetry number,
+    the number of vertices,
+    the number of ordered intra-face pairs (or pivots)
+    of graph $G$, respectively.
+  }
+  \\
+  \noalign{\smallskip}
+  %
+  \multicolumn{8}{l}{
+    $^\#$
+    The superscript ``ex'' means that the ideal gas contribution has been excluded.
+  }
+  \\
+  \noalign{\smallskip}
+  %
+  \multicolumn{8}{l}{
+    $^\S$
+    $\begin{aligned}
+        S_n
+      \equiv
+         \int \Big\{
+                  \log\left[ 1 - \rho \, \tilde{c}(\vk)\right]
+                 + \rho \, \tilde{c}(\vk)
+              \Big\} \, \dvk
+      \end{aligned}$.
+  }
+  \\
+  \noalign{\smallskip}
+  %
+  \multicolumn{8}{l}{
+    $^\dagger$
+    The bulk modulus is defined as
+    $\begin{aligned}
+        \kex
+      \equiv
+        \rho \, \partial \Pex / \partial \rho
+    \end{aligned}$.
+  }
+  \\
+  \noalign{\smallskip}
+  %
+  \multicolumn{8}{l}{
+    $^\ddagger$
+    The chemical potential is related to the pressure as
+    $\begin{aligned}
+        \rho \, \partial \muex / \partial \rho
+      =
+        \partial \Pex / \partial \rho
+    \end{aligned}$.
+  }
+  \\
+  \noalign{\smallskip}
+  %
+  \multicolumn{8}{l}{
+    $\begin{aligned}
+      ^\P \supex{\chi}
+      \equiv
+      ( \rho^2 / 2 ) ( \partial^2 \Pex / \partial \rho^2 )
+    \end{aligned}$.
+  }
+  \\
+  \noalign{\smallskip}
+  \hline
+\end{tabular}
+\end{table*}
+%\end{turnpage}
+
+
+
+\section{Results}
+
+
+
+\section{Conclusions}
+
+
+
+\pagebreak
+
+\appendix
+
+
 
 
 
@@ -172,304 +401,625 @@ Generally, each thermodynamic quantity
                       inner sep=0pt,minimum size=1.5mm]
 \tikzstyle{whitedot}=[circle,draw=black,fill=white,
                       inner sep=0pt,minimum size=1.5mm]
+\tikzstyle{combine}=[green!30!black, very thick, densely dotted]
+\tikzstyle{concat}=[blue!40!black, very thick, densely dashed]
 
 
 
-\appendix
-
-\section{Graphic representation of cluster integrals}
-
-white dots
-
-\begin{equation}
-  c^{\scriptscriptstyle \mathrm{PY}}(\vr) =
-  {
-    \begin{tikzpicture}
-      \node (r1) at (180 : 0.2) [whitedot]{};
-      \node (r2) at (  0 : 0.2) [whitedot]{};
-      \draw (r1) -- (r2);
-    \end{tikzpicture}
-  }
-  +
-  {
-    \begin{tikzpicture}[baseline=-0.7mm]
-      \node (r1) at (-0.2, -0.2) [whitedot]{};
-      \node (r2) at ( 0.2, -0.2) [whitedot]{};
-      \node (r3) at (   0,  0.2) [blackdot]{};
-      \draw (r1) -- (r2) -- (r3) -- (r1);
-    \end{tikzpicture}
-  }
-  +
-  {
-    \begin{tikzpicture}[baseline=-0.7mm]
-      \node (r1) at (-0.2, -0.2) [whitedot]{};
-      \node (r2) at ( 0.2, -0.2) [whitedot]{};
-      \node (r3) at (-0.2,  0.2) [blackdot]{};
-      \node (r4) at ( 0.2,  0.2) [blackdot]{};
-      \draw (r1) -- (r2) -- (r4) -- (r3) -- (r1);
-    \end{tikzpicture}
-  }
-  +
-  {
-    \begin{tikzpicture}[baseline=-0.7mm]
-      \node (r1) at (-0.2, -0.2) [whitedot]{};
-      \node (r2) at ( 0.2, -0.2) [whitedot]{};
-      \node (r3) at (-0.2,  0.2) [blackdot]{};
-      \node (r4) at ( 0.2,  0.2) [blackdot]{};
-      \draw (r1) -- (r2) -- (r4) -- (r3) -- (r1);
-      \draw (r1) -- (r4);
-    \end{tikzpicture}
-  }
-  +
-  {
-    \begin{tikzpicture}[baseline=-0.7mm]
-      \node (r1) at (-0.2, -0.2) [whitedot]{};
-      \node (r2) at ( 0.2, -0.2) [whitedot]{};
-      \node (r3) at (-0.2,  0.2) [blackdot]{};
-      \node (r4) at ( 0.2,  0.2) [blackdot]{};
-      \draw (r1) -- (r2) -- (r4) -- (r3) -- (r1);
-      \draw (r2) -- (r3);
-    \end{tikzpicture}
-  }
-  + \cdots
-\label{eq:crpy}
-\end{equation}
+\section{\label{sec:graph}Graphic representation of cluster integrals}
 
 
 
 
-\begin{equation}
-  c^{\scriptscriptstyle \mathrm{HNC}}(\vr) =
-  {
-    \begin{tikzpicture}
-      \node (r1) at (180 : 0.2) [whitedot]{};
-      \node (r2) at (  0 : 0.2) [whitedot]{};
-      \draw (r1) -- (r2);
-    \end{tikzpicture}
-  }
-  +
-  {
-    \begin{tikzpicture}[baseline=-0.7mm]
-      \node (r1) at (-0.2, -0.2) [whitedot]{};
-      \node (r2) at ( 0.2, -0.2) [whitedot]{};
-      \node (r3) at (   0,  0.2) [blackdot]{};
-      \draw (r1) -- (r2) -- (r3) -- (r1);
-    \end{tikzpicture}
-  }
-  +
-  {
-    \begin{tikzpicture}[baseline=-0.7mm]
-      \node (r1) at (-0.2, -0.2) [whitedot]{};
-      \node (r2) at ( 0.2, -0.2) [whitedot]{};
-      \node (r3) at (-0.2,  0.2) [blackdot]{};
-      \node (r4) at ( 0.2,  0.2) [blackdot]{};
-      \draw (r1) -- (r2) -- (r4) -- (r3) -- (r1);
-    \end{tikzpicture}
-  }
-  +
-  {
-    \begin{tikzpicture}[baseline=-0.7mm]
-      \node (r1) at (-0.2, -0.2) [whitedot]{};
-      \node (r2) at ( 0.2, -0.2) [whitedot]{};
-      \node (r3) at (-0.2,  0.2) [blackdot]{};
-      \node (r4) at ( 0.2,  0.2) [blackdot]{};
-      \draw (r1) -- (r2) -- (r4) -- (r3) -- (r1) -- (r4);
-    \end{tikzpicture}
-  }
-  +
-  {
-    \begin{tikzpicture}[baseline=-0.7mm]
-      \node (r1) at (-0.2, -0.2) [whitedot]{};
-      \node (r2) at ( 0.2, -0.2) [whitedot]{};
-      \node (r3) at (-0.2,  0.2) [blackdot]{};
-      \node (r4) at ( 0.2,  0.2) [blackdot]{};
-      \draw (r2) -- (r4) -- (r3) -- (r1) -- (r2) -- (r3);
-    \end{tikzpicture}
-  }
-  +\frac{1}{2}
-  {
-    \begin{tikzpicture}[baseline=-0.7mm]
-      \node (r1) at (-0.2, -0.2) [whitedot]{};
-      \node (r2) at ( 0.2, -0.2) [whitedot]{};
-      \node (r3) at (-0.2,  0.2) [blackdot]{};
-      \node (r4) at ( 0.2,  0.2) [blackdot]{};
-      \draw (r1) -- (r3) -- (r2) -- (r4) -- (r1);
-    \end{tikzpicture}
-  }
-  +\frac{1}{2}
-  {
-    \begin{tikzpicture}[baseline=-0.7mm]
-      \node (r1) at (-0.2, -0.2) [whitedot]{};
-      \node (r2) at ( 0.2, -0.2) [whitedot]{};
-      \node (r3) at (-0.2,  0.2) [blackdot]{};
-      \node (r4) at ( 0.2,  0.2) [blackdot]{};
-      \draw (r1) -- (r3) -- (r2) -- (r4) -- (r1) -- (r2);
-    \end{tikzpicture}
-  }
-  + \cdots
-\label{eq:crhnc}
-\end{equation}
-
-
-
-
-\pagebreak
-
-
-
-\section{PY approximation and polygon graphs}
-
-
-
-We characterize graphs involved in the PY closure
-  in terms of a class of planar graphs.
+Here we briefly review the graphic representation in liquid theory\cite{hansen}.
 %
-We say that a graph $G$ is a \emph{polygon graph}
-  if
-  %
-  1) the vertices of $G$ can be placed
-  on a regular polygon inscribed in a circle,
-  with no edges intersecting;
-  %
-  2) all neighboring vertices are adjacent,
-  as explained below.
+We first list a few basic terms in the graph theory.
 %
-If the vertices
-  are labelled from 1 to $n$ in a clockwise fashion,
+A \emph{graph} $G$ consists of
+  a set of \emph{vertices} $V = \{v_1, \dots, v_n\}$
+    (drawn as dots)
+  and
+  a set of \emph{edges} $E$ joining the vertices
+    (drawn as lines).
 %
-then condition 2) means that
-  the consecutive vertices
-  $1$ and $2$, $2$ and $3$, \ldots,
-  or $n$ and $1$ ($\equiv n+1$) are adjacent.
+Two vertices are \emph{adjacent} if they are joined by an edge;
 %
-If $n = 2$, the graph with a single edge
-  is also defined as a polygon graph.
+two edges are \emph{adjacent} if they share a vertex.
 %
-Further, we say that a graph is a \emph{pie graph}
-  if it differs from a polygon graph
-  only by a missing edge between $1$ and $n$.
+A graph is \emph{connected}
+  if any two vertices are connected
+  by a sequence of adjacent edges.
 %
-We call the vertices $1$ and $n$ the \emph{roots},
-  and draw them as white dots;
-  the rest of the vertices are black.
+An \emph{induced subgraph} $G(V')$ is obtained
+  from keeping only a subset $V'$ of $V$
+  and the edges between the vertices in $V'$.
+
+
+
+In liquid theory,
+  each graph represents an integral.
 %
-Two examples are shown below.
+A vertex $i$ is associated to a spatial point
+  and its coordinates $\vr_i$.
+%
+The coordinates of a \emph{root} vertex,
+  or simply a \emph{root} (drawn as a white dot),
+  are given and fixed.
+%
+The coordinates of a non-root vertex
+  (drawn as a black dot)
+  are to be integrated over.
+%
+In our case, a non-root vertex
+  also contributes a factor of $\rho$ (density)
+  to the integrand.
+%
+An edge between vertices $i$ and $j$
+  contributes a factor $f(\vr_{ij})$
+  [defined in \eqref{eq:fbond}],
+  with
+  $\vr_{ij} \equiv \vr_i - \vr_j$.
+%
+For example,
+\[
+  {
+  \begin{tikzpicture}[baseline=1.2mm]
+    \newcommand{\sz}{2.0mm}
+    \node (r1) at (-\sz, 0) [whitedot,label=left:{\footnotesize$1$}]{};
+    \node (r2) at ( \sz, 0) [whitedot,label=right:{\footnotesize$2$}]{};
+    \node (r3) at ( \sz, 2*\sz) [blackdot,label=right:{\footnotesize$3$}]{};
+    \node (r4) at (-\sz, 2*\sz) [blackdot,label=left:{\footnotesize$4$}]{};
+    \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1) -- (r3);
+  \end{tikzpicture}
+  }
+  =
+  \rho^2 \int
+    d\vr_3 \, d\vr_4 \,
+    f(\vr_{12}) f(\vr_{23}) f(\vr_{34}) f(\vr_{41}) f(\vr_{13}).
+\]
+
+
+
+By the translational symmetry,
+  a graph $A$ rooted at two vertices $1$ and $2$
+  can be written as a function $a(\vr)$
+  of $\vr \equiv \vr_{12}$.
+%
+The spatial correlation functions,
+  such as $c(\vr)$ and $t(\vr)$,
+  are all sums of 2-root graphs.
+
+
+
+For a graph with no root vertex,
+  we avoid integrating one of the vertices
+  to keep of the integral finite, e.g.,
+%
+%For example,
+\[
+  {
+  \begin{tikzpicture}[baseline=1.8mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, 0) [blackdot,label=left:{\footnotesize$1$}]{};
+    \node (r2) at ( \sz, 0) [blackdot,label=right:{\footnotesize$2$}]{};
+    \node (r3) at ( 0, 1.8*\sz) [blackdot,label=above:{\footnotesize$3$}]{};
+    \draw (r1) -- (r2) -- (r3) -- (r1);
+  \end{tikzpicture}
+  }
+  =
+  \rho^3 \int
+    d\vr_2 \, d\vr_3 \,
+    f(\vr_{12}) f(\vr_{23}) f(\vr_{31}).
+\]
+%
+The choice of the special vertex is arbitrary
+  for it alters only the origin of the integration,
+  but not the value. % of the integral.
+%
+Graphs in the virial expansion \eqref{eq:virial}
+  are of this type.
+
+
+
+\subsection*{Series-parallel graphs}
+
+
+
+In integral equations,
+  $c(\vr)$ and $t(\vr)$
+  only include
+  \emph{series-parallel graphs},
+%
+which can be constructed
+  hierarchically by successive
+  serial and parallel compositions (defined below)
+  starting from a few $f$-graphs\cite{eppstein1992}.
+%%
+%For example,
+%%
+%\[
+%  \newcommand{\sz}{0.2}
+%  c^{\scriptscriptstyle \mathrm{PY}}(\vr) =
+%  {
+%    \begin{tikzpicture}
+%      \node (r1) at (180 : \sz) [whitedot]{};
+%      \node (r2) at (  0 : \sz) [whitedot]{};
+%      \draw (r1) -- (r2);
+%    \end{tikzpicture}
+%  }
+%  +
+%  {
+%    \begin{tikzpicture}[baseline=-0.7mm]
+%      \node (r1) at (-\sz, -\sz) [whitedot]{};
+%      \node (r2) at ( \sz, -\sz) [whitedot]{};
+%      \node (r3) at (   0,  \sz) [blackdot]{};
+%      \draw (r1) -- (r2) -- (r3) -- (r1);
+%    \end{tikzpicture}
+%  }
+%  +
+%  {
+%    \begin{tikzpicture}[baseline=-0.7mm]
+%      \node (r1) at (-\sz, -\sz) [whitedot]{};
+%      \node (r2) at ( \sz, -\sz) [whitedot]{};
+%      \node (r3) at (-\sz,  \sz) [blackdot]{};
+%      \node (r4) at ( \sz,  \sz) [blackdot]{};
+%      \draw (r1) -- (r2) -- (r4) -- (r3) -- (r1);
+%    \end{tikzpicture}
+%  }
+%  +
+%  {
+%    \begin{tikzpicture}[baseline=-0.7mm]
+%      \node (r1) at (-\sz, -\sz) [whitedot]{};
+%      \node (r2) at ( \sz, -\sz) [whitedot]{};
+%      \node (r3) at (-\sz,  \sz) [blackdot]{};
+%      \node (r4) at ( \sz,  \sz) [blackdot]{};
+%      \draw (r1) -- (r2) -- (r4) -- (r3) -- (r1);
+%      \draw (r1) -- (r4);
+%    \end{tikzpicture}
+%  }
+%  +
+%  {
+%    \begin{tikzpicture}[baseline=-0.7mm]
+%      \node (r1) at (-\sz, -\sz) [whitedot]{};
+%      \node (r2) at ( \sz, -\sz) [whitedot]{};
+%      \node (r3) at (-\sz,  \sz) [blackdot]{};
+%      \node (r4) at ( \sz,  \sz) [blackdot]{};
+%      \draw (r1) -- (r2) -- (r4) -- (r3) -- (r1);
+%      \draw (r2) -- (r3);
+%    \end{tikzpicture}
+%  }
+%  +
+%  \cdots,
+%\label{eq:crpy}
+%\]
+%%
+%and
+%%
+%\[
+%  \newcommand{\sz}{0.2}
+%  c^{\scriptscriptstyle \mathrm{HNC}}(\vr)
+%  =
+%  c^{\scriptscriptstyle \mathrm{PY}}(\vr)
+%  +
+%  \frac{1}{2}
+%  \left(
+%  {
+%    \begin{tikzpicture}[baseline=-0.7mm]
+%      \node (r1) at (-\sz, -\sz) [whitedot]{};
+%      \node (r2) at ( \sz, -\sz) [whitedot]{};
+%      \node (r3) at (-\sz,  \sz) [blackdot]{};
+%      \node (r4) at ( \sz,  \sz) [blackdot]{};
+%      \draw (r1) -- (r3) -- (r2) -- (r4) -- (r1);
+%    \end{tikzpicture}
+%  }
+%  +
+%  {
+%    \begin{tikzpicture}[baseline=-0.7mm]
+%      \node (r1) at (-\sz, -\sz) [whitedot]{};
+%      \node (r2) at ( \sz, -\sz) [whitedot]{};
+%      \node (r3) at (-\sz,  \sz) [blackdot]{};
+%      \node (r4) at ( \sz,  \sz) [blackdot]{};
+%      \draw (r1) -- (r3) -- (r2) -- (r4) -- (r1) -- (r2);
+%    \end{tikzpicture}
+%  }
+%  \right)
+%  +
+%  \cdots.
+%\label{eq:crhnc}
+%\]
+
+
+The \emph{parallel composition} $A \cdot B$
+  of two 2-root graphs $A$ and $B$
+  is formed by joining the corresponding roots,
+%
+e.g.,
 %
 \[
+  \newcommand{\sz}{5mm}
+  \newcommand{\dy}{.5*\sz}
+  \newcommand{\oy}{\sz + 2*\dy}
+  \newcommand{\py}{\sz + \dy}
+  \newcommand{\wz}{1.4*\sz}
+  \newcommand{\dx}{3.5*\sz}
+  \newcommand{\px}{1.0*\wz + \dx}
+  %
+  %
+  % example of parallel composition
+  %
+  %
+  \begin{tikzpicture}[baseline=2.5mm]
+    %
+    % the two individual graphs
+    %
+    \node (r1)  at (-0.2*\wz, \oy)        [whitedot]{};
+    \node (r2)  at ( 0.5*\wz, \oy + \sz)  [blackdot]{};
+    \node (r3)  at ( 1.2*\wz, \oy)        [whitedot]{};
+    %
+    \node (r4)  at (-0.2*\wz, \sz)        [whitedot]{}
+      edge[combine, bend left] (r1);
+    \node (r5)  at ( 0.0*\wz, 0)          [blackdot]{};
+    \node (r6)  at ( 1.0*\wz, 0)          [blackdot]{};
+    \node (r7)  at ( 1.2*\wz, \sz)        [whitedot]{}
+      edge[combine, bend right] (r3);
+    %
+    \draw[thick]
+          (r1) -- (r2) -- (r3)
+          (r4) -- (r5) -- (r6) -- (r7) (r4) -- (r6);
+
+    %
+    % the composite graph
+    %
+    \node (s1)  at (\px - 0.2*\wz, \py)       [whitedot]{};
+    \node (s2)  at (\px + 0.5*\wz, \py + \sz) [blackdot]{};
+    \node (s3)  at (\px + 1.2*\wz, \py)       [whitedot]{};
+    \node (s5)  at (\px,           \py - \sz) [blackdot]{};
+    \node (s6)  at (\px + 1.0*\wz, \py - \sz) [blackdot]{};
+    \draw[thick]
+          (s1) -- (s2) -- (s3)
+          (s1) -- (s5) -- (s6) -- (s3) (s1) -- (s6);
+
+    % the horizontal arrow between the two graphs
+    \node (leftfig) at (\wz + \wz*.5, \py) {}
+      edge[->, thick] (\px - \wz*.7, \py);
+  \end{tikzpicture}
+  \;.
+\]
+%
+The value of $A \cdot B$
+  is $a(\vr) \, b(\vr)$.
+%
+Generally,
+  the parallel composition of several graphs $A_1$, \dots, $A_m$
+  is equal to $a_1(\vr) \cdots a_m(\vr)$.
+
+
+A \emph{series composition} $A*B$
+  joins $A$ and $B$ in a head-to-tail manner, e.g.,
+%
+\[
+  \newcommand{\sz}{6mm}
+  \newcommand{\del}{1.0*\sz}
+  \newcommand{\sep}{2.5*\sz}
+  \newcommand{\px}{2*\sz + \del + \sep}
+  %
+  %
+  % example of series composition (chain)
+  %
+  %
+  \begin{tikzpicture}[baseline=0.5mm]
+    %
+    % the two individual graphs
+    %
+    \node (r1)  at (0,              0)        [whitedot]{};
+    \node (r2)  at (.5*\sz,         0 + \sz)  [blackdot]{};
+    \node (r3)  at (\sz,            0)        [whitedot]{};
+    %
+    \node (r4)  at (\sz + \del,     0)        [whitedot]{}
+      edge[concat, bend left]  % [<->]
+        node[anchor=south] {$*$} (r3);
+    \node (r5)  at (1.0*\sz + \del, 0 + \sz)  [blackdot]{};
+    \node (r6)  at (2.0*\sz + \del, 0 + \sz)  [blackdot]{};
+    \node (r7)  at (2.0*\sz + \del, 0)        [whitedot]{};
+    %
+    \draw[thick]
+          (r1) -- (r2) -- (r3) -- (r1)
+          (r4) -- (r5) -- (r6) -- (r7) -- (r4) -- (r6);
+
+    % the concatenated graph
+    \node (s1)  at (\px,           0)        [whitedot]{};
+    \node (s2)  at (\px + .5*\sz,  0 + \sz)  [blackdot]{};
+    \node (s3)  at (\px + \sz,     0)        [blackdot]{};
+    \node (s5)  at (\px + 1.0*\sz, 0 + \sz)  [blackdot]{};
+    \node (s6)  at (\px + 2.0*\sz, 0 + \sz)  [blackdot]{};
+    \node (s7)  at (\px + 2.0*\sz, 0)        [whitedot]{};
+    \draw[thick]
+          (s3) -- (s1) -- (s2) -- (s3) -- (s5) -- (s6) -- (s7) -- (s3) -- (s6);
+
+    % the vertical arrow between the two graphs
+    \node (leftfig) at (\px - 0.8*\sep, 0.5*\sz) {}
+      edge[->, thick] (\px - 0.2*\sep, 0.5*\sz);
+  \end{tikzpicture}
+  \;.
+\]
+The merged and blackened root is called the \emph{joint}.
+%
+The value of $A*B$ is $\rho \cdot (a*b)(\vr)$.
+%
+Generally, a series composition,
+  or a \emph{chain},
+  of several graphs
+  $A_1$, \dots, $A_l$ is equal to
+  $\rho^{l-1} \cdot (a_1 * \cdots * a_l)(\vr)$.
+%
+%\begin{multline*}
+%  (a_1 * \cdots * a_l)(\vr)
+%  \equiv
+%  \int
+%    d\vr^{(1)} \, a_1(\vr^{(1)}) \,
+%    \cdots \\
+%  \hphantom{wwwwww}
+%    d\vr^{(l-1)} \, a_{l-1}(\vr^{(l-1)}) \,
+%    a_l(\vr - \vr^{(1)} - \vr^{(2)} - \cdots - \vr^{(l-1)}).
+%\end{multline*}
+
+
+
+A \emph{cycle} is a circular series composition,
+%
+e.g.,
+%
+\[
+  \newcommand{\sz}{5mm}
+  \newcommand{\sep}{3.0*\sz}
+  \newcommand{\px}{3*\sz + \sep}
+  %
+  %
+  % example of circular concatenation (cycle)
+  %
+  %
+  \begin{tikzpicture}[baseline=2mm]
+    %
+    % the three individual graphs
+    %
+    \node (r1)  at (-0.5*\sz,   0)            [whitedot]{};
+    \node (r2)  at (-1.6*\sz,   0)            [blackdot]{};
+    %\node (r2)  at (-1.716*\sz, 0 - .106*\sz) [blackdot]{};
+    \node (r3)  at (-1.2*\sz,   0 + \sz)      [whitedot]{};
+    %
+    \node (r4)  at (-0.7*\sz,   0 + 1.8*\sz)  [whitedot]{}
+      edge[concat, inner sep = 0pt, bend right]
+        node[anchor=north west] {$*$} (r3);
+    \node (r5)  at (-0.5*\sz,   0 + 2.5*\sz)  [blackdot]{};
+    \node (r6)  at ( 0.5*\sz,   0 + 2.5*\sz)  [blackdot]{};
+    \node (r7)  at ( 0.7*\sz,   0 + 1.8*\sz)  [whitedot]{};
+    %
+    \node (r8)  at ( 1.2*\sz,   0 + \sz)      [whitedot]{}
+      edge[concat, inner sep = 0pt, bend right]
+        node[anchor=north east] {$*$} (r7);
+    \node (r9)  at ( 1.6*\sz,   0)            [blackdot]{};
+    \node (r10) at ( 0.5*\sz,   0)            [whitedot]{}
+      edge[concat] (r1);
+      %edge[concat, inner sep = 3pt, bend left]
+        %node[anchor=south] {$*$} (r1);
+    %
+    \draw [thick]
+      (r1) -- (r2) -- (r3) -- (r1)
+      (r4) -- (r5) -- (r6) -- (r7) -- (r4)
+      (r8) -- (r9) -- (r10) -- (r8);
+
+    %
+    % the concatenated graph
+    %
+    \node (s1)  at (\px +         0, 0)            [blackdot]{};
+    %\node (s2)  at (\px - 1.216*\sz, 0 - .106*\sz) [blackdot]{};
+    \node (s2)  at (\px - 1.1*\sz,   0)            [blackdot]{};
+    \node (s3)  at (\px - 0.7*\sz,   0 + \sz)      [blackdot]{};
+    %
+    \node (s5)  at (\px - 0.5*\sz,   0 + 1.7*\sz)  [blackdot]{};
+    \node (s6)  at (\px + 0.5*\sz,   0 + 1.7*\sz)  [blackdot]{};
+    \node (s7)  at (\px + 0.7*\sz,   0 + 1*\sz)    [blackdot]{};
+    %
+    \node (s9)  at (\px + 1.1*\sz,   0*\sz) [blackdot]{};
+    %
+    \draw [thick]
+      (s1) -- (s2) -- (s3) -- (s1)
+      (s3) -- (s5) -- (s6) -- (s7) -- (s3)
+      (s7) -- (s9) -- (s1) -- (s7);
+
+    % the vertical arrow between the two graphs
+    \node (topfig) at (\px -1.2*\sz - 0.9*\sep, 1.0*\sz) {}
+      edge[->, thick] (\px -1.2*\sz - 0.2*\sep, 1.0*\sz);
+  \end{tikzpicture}
+  \;.
+\]
+%
+A cycle of $A_1$, \dots, $A_l$ is equal to
+%
+\begin{align}
+      \rho^l (a_1 * \cdots * a_l)(\vct{0})
+  &=
+      \rho^l
+      \int (a_1 * \cdots * a_{l-1})(\vr) \, a_l(\vr) \, d\vr
+      \notag \\
+  &=
+      \rho^l
+      \int \tilde{a}_1(\vk) \cdots \tilde{a}_l(\vk) \, \dvk,
+\label{eq:cyclesp}
+\end{align}
+%
+where
+  $\tilde{a}_i(\vk) = \int a_i(\vr) e^{-i \vk \cdot \vr} \, d\vr$
+  denotes the Fourier transform of $a_i(\vr)$.
+%
+We have also assumed that
+  $a_i(\vr)$ is an even function of $\vr$,
+  such that
+  $\tilde{a_i}(\vk) = \tilde{a_i}(-\vk)$.
+
+
+
+
+
+\section{\label{sec:py}PY approximation and polygon graphs}
+
+
+
+
+
+We now characterize the graphs involved in $c(\vr)$
+  in the PY closure \eqref{eq:py}.
+%
+A \emph{polygon graph} $G$ satisfies
+  %
+  1) the vertices of $G$ can be placed
+  %on a polygon inscribed in a circle,
+  on a convex polygon
+  with no edges intersecting,
+  %and labelled from 1 to $n$ in a clockwise fashion,
+  %such that no two edges are intersecting;
+  %
+  %2) the consecutive vertices
+  %$1$ and $2$, $2$ and $3$, \ldots,
+  %or $n$ and $1$ ($\equiv n+1$) are adjacent.
+  2) all sides of the polygon are edges.
+%
+We label the vertices from $1$ to $n$ in a clockwise fashion,
+  and mark vertices $1$ and $n$ as the only two roots.
+%
+If $n = 2$, the graph
   \begin{tikzpicture}
-    \node (r1) at (-90+360.0/7*6.5 : 0.5) [whitedot,label=left:\small{$1$}]{};
-    \node (r2) at (-90+360.0/7*5.5 : 0.5) [blackdot,label=left:\small{$2$}]{};
-    \node (r3) at (-90+360.0/7*4.5 : 0.5) [blackdot,label=left:\small{$3$}]{};
-    \node (r4) at (-90+360.0/7*3.5 : 0.5) [blackdot,label=above:\small{}]{};
-    \node (r5) at (-90+360.0/7*2.5 : 0.5) [blackdot,label=right:\small{$n-2$}]{};
-    \node (r6) at (-90+360.0/7*1.5 : 0.5) [blackdot,label=right:\small{$n-1$}]{};
-    \node (r7) at (-90+360.0/7*0.5 : 0.5) [whitedot,label=right:\small{$n$}]{};
+    \node (r1) at (-3mm, 0) [whitedot]{};
+    \node (r2) at ( 3mm, 0) [whitedot]{};
+    \draw (r1) -- (r2);
+  \end{tikzpicture},
+  or the \emph{$f$-graph} hereinafter,
+  is also defined as a polygon graph.
+%
+Further,
+  a \emph{pie graph}
+  is defined as
+  a polygon graph with a missing edge between the roots.
+%
+Below are two examples.
+%
+\[
+  %
+  %
+  % example of a polygon graph
+  % (left panel)
+  %
+  %
+  \newcommand{\sz}{0.6cm}
+  \begin{tikzpicture}
+    \node (r1) at (-90+360.0/7*6.5 : \sz) [whitedot,label=left:\small{$1$}]{};
+    \node (r2) at (-90+360.0/7*5.5 : \sz) [blackdot,label=left:\small{$2$}]{};
+    \node (r3) at (-90+360.0/7*4.5 : \sz) [blackdot,label=left:\small{$3$}]{};
+    \node (r5) at (-90+360.0/7*2.5 : \sz) [blackdot,label=right:\small{$n-2$}]{};
+    \node (r6) at (-90+360.0/7*1.5 : \sz) [blackdot,label=right:\small{$n-1$}]{};
+    \node (r7) at (-90+360.0/7*0.5 : \sz) [whitedot,label=right:\small{$n$}]{};
+    \node (r4) at (-90+360.0/7*3.5 : \sz) [blackdot,label=above:\small{}]{}
+      edge[densely dotted, thick, bend right=15] (r3)
+      edge[densely dotted, thick, bend left=15] (r5);
     \draw[thick]
           (r1) -- (r2) -- (r3) (r5) -- (r6) -- (r7) -- (r1)
           (r2) -- (r4) (r5) -- (r1) (r5) -- (r7);
-    \draw[thick,densely dotted] (r3) -- (r4) -- (r5);
-    \node (polygon) at (0, -0.7) [anchor=north] {Polygon graph};
+    \node (polygon) at (0, -\sz-0.2) [anchor=north] {Polygon graph};
   \end{tikzpicture}
-  \;\;\;
+  \hphantom{wwwww}
+  %
+  %
+  % example of a pie graph
+  % (right panel)
+  %
+  %
   \begin{tikzpicture}
-    \node (r1) at (-90+360.0/7*6.5 : 0.5) [whitedot,label=left:\small{$1$}]{};
-    \node (r2) at (-90+360.0/7*5.5 : 0.5) [blackdot,label=left:\small{$2$}]{};
-    \node (r3) at (-90+360.0/7*4.5 : 0.5) [blackdot,label=left:\small{$3$}]{};
-    \node (r4) at (-90+360.0/7*3.5 : 0.5) [blackdot,label=above:\small{}]{};
-    \node (r5) at (-90+360.0/7*2.5 : 0.5) [blackdot,label=right:\small{$n-2$}]{};
-    \node (r6) at (-90+360.0/7*1.5 : 0.5) [blackdot,label=right:\small{$n-1$}]{};
-    \node (r7) at (-90+360.0/7*0.5 : 0.5) [whitedot,label=right:\small{$n$}]{};
+    \node (r1) at (-90+360.0/7*6.5 : \sz) [whitedot,label=left:\small{$1$}]{};
+    \node (r2) at (-90+360.0/7*5.5 : \sz) [blackdot,label=left:\small{$2$}]{};
+    \node (r3) at (-90+360.0/7*4.5 : \sz) [blackdot,label=left:\small{$3$}]{};
+    \node (r5) at (-90+360.0/7*2.5 : \sz) [blackdot,label=right:\small{$n-2$}]{};
+    \node (r6) at (-90+360.0/7*1.5 : \sz) [blackdot,label=right:\small{$n-1$}]{};
+    \node (r7) at (-90+360.0/7*0.5 : \sz) [whitedot,label=right:\small{$n$}]{};
+    \node (r4) at (-90+360.0/7*3.5 : \sz) [blackdot,label=above:\small{}]{}
+      edge[densely dotted, thick, bend right=15] (r3)
+      edge[densely dotted, thick, bend left=15] (r5);
     \draw[thick]
           (r4) -- (r1) -- (r2) -- (r3)
-          (r5) -- (r6) -- (r7) -- (r1)
+          (r5) -- (r6) -- (r7)
           (r6) -- (r4) -- (r7);
-    \draw[thick,densely dotted] (r3) -- (r4) -- (r5);
-    \node (pie) at (0, -0.7) [anchor=north] {Pie graph};
+    \node (pie) at (0, -\sz-0.2) [anchor=north] {Pie graph};
   \end{tikzpicture}
 \]
 
 
 
-We will show that $c(\vr)$ gives the sum of all polygon graphs.
-
-By joining two polygon graphs $A$ and $B$ at a root,
-  and blackening the merged root,
-  we obtain a \emph{concatenation} $A*B$,
-  which is numerically equivalent to a convolution.
-
 \begin{lemm}
 A pie graph is equivalent to
-  a serial concatenation (or a \emph{chain})
-  of polygon graphs.
+  a chain of polygon graphs.
 \label{thm:pycat}
 \end{lemm}
 
 \begin{proof}
-If $G$ is a pie graph,
-  and $v$ is the last vertex adjacent to $1$ ($2 \le v < n$),
-  then the induced subgraph $G^{(1)} = G(\{1, \dots, v\})$
-  is a polygon graph.
+In the forward direction, assume the contrary and
 %
-Now if $v$ and $n$ are adjacent, then
+let $G$ be the smallest pie graph
+  that is not a chain of polygon graphs,
+%
+and $v$ be the last vertex adjacent to $1$ ($2 \le v < n$).
+%
+The induced subgraph $G^{(1)} = G(\{1, \dots, v\})$
+  is clearly a polygon graph.
+%
+If $v$ and $n$ are adjacent,
   the induced subgraph $G^{(2)} = (\{v, \dots, n\})$
-  is also a polygon graph.
+  is also a polygon graph,
+  and $G = G^{(1)} * G^{(2)}$ is a chain,
+  which is a contradiction.
 %
-Otherwise $G^{(2)}$ is a pie graph
-  rooted at $v$ and $n$.
-%
-We may then recursively apply the above step
-  to reduce $G^{(2)}$
-  as a serial concatenation of polygon graphs.
+Otherwise, $G^{(2)}$ is a pie graph
+  rooted at $v$ and $n$,
+  and $G^{(2)}$ is smaller than $G$,
+  which is also a contradiction.
 
-For the reverse direction,
-  let $G=G^{(1)}*\cdots*G^{(l)}$.
-%
-We order the vertices as
-  $v^{(1)}_1 = 1$,
-  $v^{(1)}_2 = 2$,
-  \dots,
-  $v^{(1)}_{n_1 - 1}$, % = n_1 - 1$,
-  %
-  $v^{(2)}_1 = v^{(1)}_{n_1}$,
-  $v^{(2)}_2$,
-  \dots,
-  $v^{(2)}_{n_2 - 2}$, % = n_1 + n_2 - 2$,
-  %
-  \dots,
-  $v^{(l)}_{n_l}$,
-%
-where $v^{(i)}_j$ is the $j$th vertex of $G^{(i)}$,
-  such that consecutive vertices are adjacent.
-%
-It is also clear that there is no intersecting edges.
-%
-So $G$ is a pie graph.
-\end{proof}
+%If $G$ is a pie graph,
+%  and $v$ is the last vertex adjacent to $1$ ($2 \le v < n$),
+%  then the induced subgraph $G^{(1)} = G(\{1, \dots, v\})$
+%  is a polygon graph.
+%%
+%Now if $v$ and $n$ are adjacent, then
+%  the induced subgraph $G^{(2)} = (\{v, \dots, n\})$
+%  is also a polygon graph.
+%%
+%Otherwise, $G^{(2)}$ is a pie graph
+%  rooted at $v$ and $n$,
+%%
+%  and recursively repeating the above step
+%  shows that
+%  $G^{(2)}$ is a chain of polygon graphs.
+%%
+%In either case, $G = G^{(1)} * G^{(2)}$
+%  is a chain of polygon graph.
 
-
-
-\begin{lemm}
-A polygon graph of three or more vertices
-  is equivalent to
-  a circular concatenation (or a \emph{cycle})
-  of three or more polygon graphs.
-\label{thm:pycatc}
-\end{lemm}
-
-\begin{proof}
-By removing the edge between the roots,
-  we get a pie graph,
-  which is a chain of polygon graphs
-  by Lemma \ref{thm:pycat}.
-%
-The chain is closed by the edge between the roots,
-  which is also a polygon graph,
-  to form a cycle.
-
-For the reverse direction,
-  we can order the vertices as in a manner similar to
-  that in the proof of Lemma \ref{thm:pycat},
-  and show that it produces a polygon graph.
+The converse is obvious.
+%Conversely,
+%  let $G=G^{(1)}*\cdots*G^{(l)}$,
+%  and $v^{(i)}_j$ be the $j$th vertex of $G^{(i)}$.
+%%
+%It is readily seen that the ordering
+%  $v^{(1)}_1 = 1$,
+%  $v^{(1)}_2 = 2$,
+%  \dots,
+%  $v^{(1)}_{n_1 - 1}$, % = n_1 - 1$,
+%  %
+%  $v^{(2)}_1 \left( \equiv v^{(1)}_{n_1} \right)$,
+%  $v^{(2)}_2$,
+%  \dots,
+%  $v^{(2)}_{n_2 - 2}$, % = n_1 + n_2 - 2$,
+%  %
+%  \dots,
+%  $v^{(l)}_{n_l}$
+%%
+%  produces a pie graph.
 \end{proof}
 
 
@@ -477,66 +1027,59 @@ For the reverse direction,
 \begin{lemm}
 Under the PY closure,
   $c(\vr)$ is the unweighted sum of
-  all polygon graphs,
-  and $t(\vr)$ is that of all pie graphs.
+  all nonequivalent polygon graphs,
+  and $t(\vr)$ is that of all nonequivalent pie graphs.
 \label{thm:pycrsum}
 \end{lemm}
 
 \begin{proof}
-We prove this by an induction on the number of vertices $n$ in
+We show this by an induction on the number of vertices $n$ in
   graphs included in $c(\vr)$ or $t(\vr)$.
 %
 The statement obviously holds for $n \le 3$.
 %
 Suppose it remains so for $n \le k$,
 consider the case of $n = k + 1$.
-%
-The Ornstein-Zernike relation
-$t = \rho c * c + \rho^2 c * c * c + \cdots$
-shows that every $(k+1)$-vertex graph in $t(\vr)$
-  is a serial concatenation
-  of smaller polygon graphs,
-  and hence a pie graph
-  by Lemma \ref{thm:pycat}.
 
-Then, by the PY closure
-$c(\vr) = f(\vr) + f(\vr) \, t(\vr)$,
-a $(k+1)$-vertex graph in $c(\vr)$
-  differs from some $(k+1)$-vertex graph in $t(\vr)$
-  by the edge between the roots only,
-  and hence is a polygon graph.
+The OZ relation \eqref{eq:oz}
+  shows that every graph in $t(\vr)$
+  is a chain of smaller polygon graphs,
+  hence a pie graph. % by Lemma \ref{thm:pycat}.
+
+The PY closure \eqref{eq:py} generates
+  an $n$-vertex graph $G$ in $c(\vr)$
+  by adding the edge between the roots
+  to some $n$-vertex graph in $t(\vr)$.
 %
-So the statement holds for $k+1$,
-  hence for any $n$.
+Thus, $G$ is a polygon graph.
+
+We can similarly show the converse:
+  every polygon or pie graph
+  can be generated by the closure
+  with a unit weight.
 \end{proof}
 
 
 
 
-We now consider graphs represented by
-  $X = \rho^2 \int c(\vr) \, d\vr$.
+A \emph{polygon pack} $G$ is obtained
+  by blackening the two white dots of a polygon graph $H$
+  (equivalent to the integration $\rho^2 \int d\vr$).
 %
-For any polygon graph $G$,
-  the integration $\rho \int d\vr$ removes
-  the identity of one root,
-  whereas the choice of the other root
-  does not alter the value of the integral $I(G)$
-  (it changes only the origin of the integration).
+Conversely,
+  whitening the two vertices of any side of
+  a polygon pack $G$
+  yields a polygon graph $H'$,
+  and there are $2n$ possible $H'$ with $2$ for each side
 %
-Thus, we may draw all vertices in a graph in $X$
-  as black dots of weight $\rho$,
-  bearing in mind that one of the black dots
-  is not to be integrated over.
+  (some $H'$, however, may be different from $H$).
 %
-We call such a graph $G$ an \emph{unrooted} polygon graph.
-%
-Since there are precisely $2n$ ways ($n$ is the number of vertices) of
-  choosing an ordered pair of consecutive vertices as the roots,
-  each $G$ occurs $2n/s$ times in $X$,
+To satisfy Lemma \ref{thm:pycrsum},
+  a nonequivalent polygon pack $G$ must appear $2 \, n/s$ times
+  in $\rho^2 \int c(\vr) \, d\vr$,
   where $s$ is the symmetry number, or
-  the number of ways of relabelling the
-  vertices to produce the same graph
-  (i.e., $s$ is the size of the automorphism group of $G$).
+  the number of ways of relabelling the vertices
+  that keep $G$ unchanged.
 %
 For example,
 %
@@ -572,14 +1115,11 @@ For example,
   = 1.
 \end{equation*}
 %
-Note that $s$ always divides $2n$,
-  i.e., the only permissible symmetry operations
-  are rotations and reflections.
-%
-This is because to avoid intersecting edges,
-  consecutive vertices must be mapped
-  to consecutive vertices on the circle
-  after the relabelling.
+For a polygon graph $G$, $s(G)$ always divides $2n$,
+  i.e.,
+  the only permissible symmetry operations
+  are rotations and reflections,
+  and all other operations produces intersecting edges.
 %
 To summarize
 %
@@ -587,13 +1127,13 @@ To summarize
 %
 \begin{lemm}
 Under the PY-closure,
-  $\rho^2 \int c(\vr) d\vr$ is the sum of
-  all nonequivalent unrooted polygon graphs $G$ as
+  $\rho^2 \int c(\vr) \, d\vr$ is a sum of
+  all nonequivalent polygon packs $G$:
   %
   \begin{equation}
-      \rho^2 \int c(\vr) d\vr
-    = \sum_{G} \frac{ 2 \, n(G) }{ s(G) } I(G).
-  \label{eq:pyXsum}
+      \rho^2 \int c(\vr) \, d\vr
+    = \sum_{G} \frac{ 2 \, n(G) \, I(G) }{ s(G) }.
+  \label{eq:pykappasum}
   \end{equation}
   %
   where $n(G)$, $s(G)$ and $I(G)$ are
@@ -601,22 +1141,56 @@ Under the PY-closure,
   the symmetry number,
   and the integral of $G$,
   respectively.
+  \label{thm:pykappasum}
 \end{lemm}
 
 
 
 
 
-\subsection*{Face decomposition}
+\subsection*{Face decomposition of a polygon graph}
 
 
 
-Recall that Lemma \ref{thm:pycatc} shows that a polygon graph
-  can be decomposed to a cycle of polygon graphs.
+%\begin{lemm}
+%A polygon graph of three or more vertices
+%  is equivalent to
+%  a cycle of three or more polygon graphs.
+%\label{thm:pycatc}
+%\end{lemm}
 %
-For an unrooted graph, the decomposition is not unique.
+%\begin{proof}
+%By removing the edge between the roots,
+%  we get a pie graph,
+%  which is a chain of polygon graphs
+%  by Lemma \ref{thm:pycat}.
+%%
+%The chain is closed by the edge between the roots,
+%  which is also a polygon graph,
+%  to form a cycle.
 %
-Geometrically, each cycle corresponds to a face of the polygon,
+%Conversely,
+%  we can order the vertices in a manner similar to
+%  that in the proof of Lemma \ref{thm:pycat},
+%  and show that it produces a polygon graph.
+%\end{proof}
+
+
+
+A polygon graph, hence a polygon pack,
+  can always be decomposed as a cycle of small polygon graphs:
+%
+removing the edge between the roots in a polygon graph
+  yields a chain of polygon graphs,
+  which can be closed
+  by the edge between the roots
+  to form a cycle.
+%
+The cycle decomposition is, however, not unique.
+%
+Geometrically,
+  each face of the polygon corresponds to a cycle decomposition,
+%
   as illustrated below.
 %
 \begin{equation*}
@@ -625,6 +1199,7 @@ Geometrically, each cycle corresponds to a face of the polygon,
   \newcommand\del{0.1}
   \newcommand\osa{3.5*\sz}
   \newcommand\osb{7*\sz}
+  \newcommand\dd{0.2*\sz}
   %
   \begin{tikzpicture}
   %
@@ -638,12 +1213,15 @@ Geometrically, each cycle corresponds to a face of the polygon,
     \node (r6) at (-90+60.0*0.5 : \sz) [blackdot]{};
     \draw[thick] (r1) -- (r2) -- (r3) -- (r4) -- (r5) -- (r6) -- (r1);
     \draw[thick] (r2) -- (r4) (r5) -- (r1);
-    \draw[red!50,thick] plot [smooth cycle]
-      coordinates{(-0.72*\sz, 0.25*\sz) (-0.45*\sz, 0.75*\sz) (0.18*\sz, 0.75*\sz)};
-    \draw[blue!70,thick] plot [smooth cycle]
-      coordinates{(-0.75*\sz, 0) (-0.4*\sz, -0.65*\sz) (0.75*\sz, 0) (0.4*\sz, 0.65*\sz)};
-    \draw[green!50,thick] plot [smooth cycle]
-      coordinates{(-0.18*\sz, -0.75*\sz) (0.45*\sz, -0.75*\sz) (0.72*\sz, -0.25*\sz)};
+    \draw[blue!70, thick, dashed]
+        (-\sz+\dd, 0) -- (-0.5*\sz+0.5*\dd, -0.866*\sz+0.866*\dd)
+     -- ( \sz-\dd, 0) -- ( 0.5*\sz-0.5*\dd,  0.866*\sz-0.866*\dd) -- cycle;
+    %\draw[red!50,thick] plot [smooth cycle]
+    %  coordinates{(-0.72*\sz, 0.25*\sz) (-0.45*\sz, 0.75*\sz) (0.18*\sz, 0.75*\sz)};
+    %\draw[blue!70,thick] plot [smooth cycle]
+    %  coordinates{(-0.75*\sz, 0) (-0.4*\sz, -0.67*\sz) (0.75*\sz, 0) (0.4*\sz, 0.67*\sz)};
+    %\draw[green!50,thick] plot [smooth cycle]
+    %  coordinates{(-0.18*\sz, -0.75*\sz) (0.45*\sz, -0.75*\sz) (0.72*\sz, -0.25*\sz)};
   %
   % part 2
   %
@@ -669,121 +1247,118 @@ Geometrically, each cycle corresponds to a face of the polygon,
   %
   % part 3
   %
-    \node (r1u) at (\osb-0.5*\sz-\del, -0.866*\sz+.4*\del) [whitedot]{};
-    \node (r2u) at (\osb-1.0*\sz, -\del) [whitedot]{};
+  %  \node (r1u) at (\osb-0.5*\sz-\del, -0.866*\sz+.4*\del) [whitedot]{};
+  %  \node (r2u) at (\osb-1.0*\sz, -\del) [whitedot]{};
 
-    \node (r4u) at (\osb+0.5*\sz+\del,  0.866*\sz-.4*\del) [whitedot]{};
-    \node (r5u) at (\osb+1.0*\sz,  \del) [whitedot]{};
+  %  \node (r4u) at (\osb+0.5*\sz+\del,  0.866*\sz-.4*\del) [whitedot]{};
+  %  \node (r5u) at (\osb+1.0*\sz,  \del) [whitedot]{};
 
-    \node (r2v) at (\osb-1.0*\sz,  \del) [whitedot]{};
-    \node (r4v) at (\osb+0.5*\sz-\del,  0.866*\sz) [whitedot]{};
+  %  \node (r2v) at (\osb-1.0*\sz,  \del) [whitedot]{};
+  %  \node (r4v) at (\osb+0.5*\sz-\del,  0.866*\sz) [whitedot]{};
 
-    \node (r5v) at (\osb+1.0*\sz, -\del) [whitedot]{};
-    \node (r1v) at (\osb-0.5*\sz+\del, -0.866*\sz) [whitedot]{};
+  %  \node (r5v) at (\osb+1.0*\sz, -\del) [whitedot]{};
+  %  \node (r1v) at (\osb-0.5*\sz+\del, -0.866*\sz) [whitedot]{};
 
-    \draw[thick]
-      (r1u) -- node[anchor=east] {$c$} (r2u)
-      (r2v) -- node[anchor=south]{$c$} (r4v)
-      (r4u) -- node[anchor=west] {$c$} (r5u)
-      (r5v) -- node[anchor=north]{$c$} (r1v);
+  %  \draw[thick]
+  %    (r1u) -- node[anchor=east] {$c$} (r2u)
+  %    (r2v) -- node[anchor=south]{$c$} (r4v)
+  %    (r4u) -- node[anchor=west] {$c$} (r5u)
+  %    (r5v) -- node[anchor=north]{$c$} (r1v);
 
-    \draw[->,very thick] (\osa+1.2*\sz, 0) to (\osb-1.2*\sz, 0);
+  %  \draw[->,very thick] (\osa+1.2*\sz, 0) to (\osb-1.2*\sz, 0);
   \end{tikzpicture}
   %
 \end{equation*}
 
 
 
-If $G$ has $m(G)$ faces, we have, by Euler's formula,
+If $G$ has $m(G)$ faces, then by Euler's formula, we get
 %
 \begin{equation}
   n(G) = 2 + \sum_{a = 1}^{m(G)} (l_a - 2)
        = 2 + \sum_{l = 3}^\infty (l - 2) \, m_l(G),
-\label{eq:pyfacesum}
+\label{eq:countvertices}
 \end{equation}
 %
-where $m(G)$ and $m_l(G)$ are
-  the number of faces
-  and
-  the number of faces of $l$ edges
-  in $G$, respectively,
+where
+  $l_a$ is the number of vertices in face $a$,
 %
-and $l_a$ is the number of vertices in face $a$.
+and
+  $m_l(G)$ is the number of faces of $l$ vertices in $G$.
 %
-Using \eqref{eq:pyfacesum} in \eqref{eq:pyXsum} yields
+Similarly, the number of ordered intra-face vertex pairs
+  $p(G)$ satisfies
+%
+\begin{align}
+  p(G)  &= 2 + \sum_{a} \left[ l_a (l_a - 1) - 2 \right]
+                        \notag \\
+        &= 2 + \sum_{l = 3}^\infty m_l(G) \, [l(l-1) - 2],
+\label{eq:countpairs}
+\end{align}
+%
+where $l_a (l_a - 1)$ gives the number of pairs in face $a$,
+  and the ``$-2$'' % in the square brackets
+  offsets the double-counting
+  for each edge shared by two adjacent faces.
+
+
+
+
+
+
+Using \eqref{eq:countvertices} in \eqref{eq:pykappasum} yields
 %
 \begin{equation}
-    \rho^2 \int c(\vr) d\vr
+    \rho^2 \int c(\vr) \, d\vr
   = \sum_G \frac{ 4 \, I(G) }{ s(G) }
   + \sum_{l = 3}^\infty 2 (l - 2) \, C_l,
 \label{eq:pyintgcr2sums}
 \end{equation}
 %
-where $C_l$ is the cycle sum defined as
-%
-\begin{equation*}
-  C_l = \sum_G \frac{ m_l(G) }{ s(G) } I(G).
-%\label{eq:pycyclesum}
-\end{equation*}
-
-
-
-In \eqref{eq:pyintgcr2sums}, we have reduced
-  parts of the sum over polygon graphs
-  to a sum of $C_l$.
-%
-Below, we will find a few other integrals that can be
-  written as sums of $C_l$.
-%
-First, we construct the explicit integral of $l$-cycle as
+where $C_l$ is the cycle sum:
 %
 \begin{align}
-            \int \rho^l c^{*l}(\vr) \, d\vr
-  &\equiv   \int \rho^l (\underbrace{c*\cdots *c}_{l-1 \mbox{ times}})(\vr)
+      C_l
+  =  \sum_G \frac{ m_l(G) \, I(G) } { s(G) }
+%      \notag \\
+  &=  \frac{1}{2 \, l}
+      \int \rho^l (\underbrace{c*\cdots *c}_{l-1 \mbox{ times}})(\vr)
                         \, c(\vr) \, d\vr
-            \notag \\
-  &=        \int \rho^l \tilde{c}^l(\vk) \dvk
-  =         (2 \, l) \, C_l,
+      \notag \\
+  &=  \frac{1}{2 \, l}
+      \int \rho^l \tilde{c}^l(\vk) \dvk,
 \label{eq:ccyclintg}
 \end{align}
 %
 where the factor $2 \, l$ corresponds to the number of ways
   of cycling and reflecting the elements in the $l$ cycle.
 %
-We have assumed that $c(\vr)$ is even
-  such that the Fourier transform
-  $\tilde{c}(\vk) = \int c(\vr) e^{-i \vk \cdot \vr} \, d\vr$
-  satisfies
-  $\tilde{c}(\vk) = \tilde{c}(-\vk)$.
+Summing \eqref{eq:ccyclintg} over $l$ yields
 %
-
-
-Multiplying \eqref{eq:ccyclintg} with
-  $1/l$, $1$, and $l-3$
-  and summing over $l$ yields
+%Multiplying \eqref{eq:ccyclintg} by
+%  $2$, $l$, and $l(l-3)$
+%  and summing over $l$ yields
 %
 \begin{align}
-      \sum_{l=3}^{\infty} 2 \, C_l
-  =& -\int \{ \log[ 1 - \rho \tilde{c}(\vk) ]
-     + \rho \tilde{c}(\vk) \}\, \dvk
-     \notag \\
-   & - \frac{\rho^2}{2} \int c^2(\vr) \, d\vr,
-\label{eq:Clsum}
-\end{align}
-%
-\begin{equation}
-    \sum_{l=3}^{\infty} 2 \, l \, C_l
-  = \rho^2 \int t(\vr) c(\vr) \, d\vr,
-\label{eq:Clsuml}
-\end{equation}
-%
-and
-%
-\begin{equation}
-    \sum_{l=3}^{\infty} 2 \, l \, (l - 3) \, C_l
-  = \rho^2 \int t^2(\vr) \, d\vr,
+     \sum_{l=3}^{\infty} 2 \, C_l
+  &= -\int \Big\{
+              \log[ 1 - \rho \tilde{c}(\vk) ]
+            + \rho \tilde{c}(\vk)
+           \Big\}\, \dvk \notag \\
+  & \hphantom{=}
+     - \frac{\rho^2}{2} \int c^2(\vr) \, d\vr,
+     \label{eq:Clsum} \\
+  %
+      \sum_{l=3}^{\infty} \, l \, C_l
+  &=
+      \frac{ \rho^2 }{2} \int t(\vr) \, c(\vr) \, d\vr,
+      \label{eq:Clsuml} \\
+  %
+      \sum_{l=3}^{\infty} \, l \, (l - 3) \, C_l
+  &=  \frac{ \rho^2 }{ 2 }
+      \int t^2(\vr) \, d\vr,
 \label{eq:Clsumll}
-\end{equation}
+\end{align}
 %
 Note that \eqref{eq:Clsum}, \eqref{eq:Clsuml}, and \eqref{eq:Clsumll}
   are applicable to any integral equation (not just the PY one).
@@ -794,31 +1369,31 @@ Note that \eqref{eq:Clsum}, \eqref{eq:Clsuml}, and \eqref{eq:Clsumll}
 \subsection*{Thermodynamic quantities}
 
 
-We now derive Baxter's pressure formula\cite{baxterpressure}.
+%We now derive Baxter's pressure formula
+%\cite{baxterpressure}.
 %
-First note that
-  the integral $I(G)$ of an envelope $G$ of $n$ vertices
-  is proportional to $\rho^{n(G)}$.
-%
-Then, by integrating \eqref{eq:pyXsum} over $\rho$,
-  we get
-\[
-    \int d\rho \left( \rho \int c(\vr) d\vr \right)
-  = \sum_G \frac{ 2 I(G) }{ s(G) },
-\]
-%
-which yields an expression of the pressure, for
+To obtain an expression of pressure,
+  we start with\cite{hansen}
 %
 \begin{equation}
-    \rho \int c(\vr) \, d\vr \
-  = -\partial (\beta P^{\mathrm{ex}}) / \partial \rho,
+  -\partial (\beta P^{\mathrm{ex}}) / \partial \rho
+  = \rho \int c(\vr) \, d\vr,
 \label{eq:crcompr}
 \end{equation}
 %
-where the superscript ``ex'' means to exclude the ideal gas contribution.
+where the superscript ``ex'' means to exclude the ideal-gas contribution.
 %
-Using \eqref{eq:Clsum} and \eqref{eq:Clsuml}
-  in \eqref{eq:pyintgcr2sums} yields
+Note that
+  the integral $I(G)$ of a polygon pack $G$ of $n$ vertices
+  in \eqref{eq:pykappasum}
+  is proportional to $\rho^n$.
+%
+Thus, an integration over $\rho$ yields\cite{baxterpressure}
+%\[
+%    \int d\rho \left( \rho \int c(\vr) \, d\vr \right)
+%  = \sum_G \frac{ 2 \, I(G) }{ s(G) }.
+%\]
+%
 %
 \begin{align}
       -\beta \Pex
@@ -829,59 +1404,49 @@ Using \eqref{eq:Clsum} and \eqref{eq:Clsuml}
       -\int \{ \log[1 - \rho \tilde{c}(\vk)] + \rho \tilde{c}(\vk) \} \dvk.
 \label{eq:baxterpressure}
 \end{align}
-
-
-
-By a linear combination of
-  \eqref{eq:pyXsum} and \eqref{eq:baxterpressure},
-  we get an expression that avoids
-  $\rho^2 \int c(\vr) \, d\vr$.
 %
-\begin{equation}
-    \frac{\partial (\beta \Pex/\rho^2) } {\partial (1/\rho^2)}
-  = \sum_G \frac{ n(G) - 2 }{ s(G) }
-  = \sum_{l = 3}^{\infty} (l - 2) \, C_k
-\label{eq:pymixedpressure}
-\end{equation}
-%
+where we have used \eqref{eq:Clsum} and \eqref{eq:Clsuml}.
+
+
+%By a linear combination of
+%  \eqref{eq:pykappasum} and \eqref{eq:baxterpressure},
+%  we get an expression that avoids
+%  $\rho^2 \int c(\vr) \, d\vr$.
+%%
+%\begin{equation}
+%    \frac{\partial (\beta \Pex/\rho^2) } {\partial (1/\rho^2)}
+%  = \sum_G \frac{ n(G) - 2 }{ s(G) } I(G)
+%  = \sum_{l = 3}^{\infty} (l - 2) \, C_k
+%\label{eq:pymixedpressure}
+%\end{equation}
+%%
 
 
 
-Similarly, we may construct an approximate expression
-  by counting the number of intra-face vertex pairs
-  $p(G)$, which satisfies
-%
-\begin{equation}
-  p(G)  = 2 + \sum_{l = 3}^\infty m_l(G) \, [l(l-2) - 2],
-\label{eq:pyintrafacepairs}
-\end{equation}
-%
-where $l(l-2)$ gives the number of pairs
-  in a face of $l$ vertices,
-  and the ``$-2$'' offsets the double-counting
-  for each edge $\{i, j\}$,
-    which contributes two pairs $(i, j)$ and $(j, i)$,
-  shared by two adjacent faces.
-%
-Thus,
+Similarly,
+  by differentiating \eqref{eq:pykappasum} with respect to $\rho$,
+  and assuming $p(G) \approx n(G) \, [n(G) - 1]$,
+  we get
 %
 \begin{align}
-            -\frac{\rho^2}{2}
+           -\frac{\rho^2}{2}
             \frac{\partial^2 ( \beta \Pex ) }
                  {\partial \rho^2}
-  &\approx  \sum_G \frac{p(G)}{s(G)}
-  =         \frac{\rho^2}{2} \int [c(\vr) + t(\vr) h(\vr) ] \, d\vr
-            \notag \\
-  &=        \sum_G \frac{2}{s(G)}
-            + \sum_{l = 3}^\infty [l(l-1) - 2] C_l.
+  &\approx   \sum_G \frac{ p(G) \, I(G) }{ s(G) }
+    \notag \\
+  &=
+            \sum_G \frac{2 I(G) }{s(G)}
+            + \sum_{l = 3}^\infty [l(l-1) - 2] \, C_l
+    \notag \\
+  &=         \frac{\rho^2}{2} \int [c(\vr) + t(\vr) \, h(\vr) ] \, d\vr,
 \label{eq:pyddpressure}
 \end{align}
 %
-This formula is biased, for
-  $p(G) \le n(G) [n(G) - 1]$,
-but it should be a good approximation
-  up to the internal consistency
-  of the HNC approximation.
+where we have use \eqref{eq:countpairs}, \eqref{eq:Clsuml}, and \eqref{eq:Clsumll}.
+%
+Note that this relation is approximate
+  and contains an error
+  similar to that in the HNC approximation.
 
 
 
@@ -988,35 +1553,172 @@ but not
 We use the following recursive definition
   to characterize them.
 %
-A $c$-graph graph is either
+A \emph{$c$-graph} is either
 %
-1)
-a single edge
-\begin{tikzpicture}
-  \node (r1) at (-3mm, 0) [whitedot]{};
-  \node (r2) at ( 3mm, 0) [whitedot]{};
-  \draw (r1) -- (r2);
-\end{tikzpicture},
+1) an $f$-graph,
 or
 %
-2)
-a circular concatenation of three or more
+2) a cycle of three or more
   smaller $c$-graphs,
-  with the roots being any two joints
-  of the concatenation.
+  with the roots being any two joints.
 %
 One can verify that the above definition
-  includes all graphs in \eqref{eq:crhnc} and \eqref{eq:hnccrex},
+  includes all graphs in \eqref{eq:hnccrex},
   but none in \eqref{eq:hnccrexnot}.
 %
-This definition is analogous to Lemma \ref{thm:pycatc}.
+%This definition is analogous to Lemma \ref{thm:pycatc}.
 
-
-We call a $c$-graph without marked roots an envelope.
+Further, we define a \emph{$c$-chain}
+  as a chain of $c$-graphs.
 %
-In an envelope,
+Then, similar to Lemma \ref{thm:pycrsum},
+  we have
+
+\begin{lemm}
+Under the HNC closure,
+%
+$c(\vr)$
+  is the sum of all nonequivalent $c$-graphs $G$
+  each weighted by $1/s(G)$,
+  where $s(G)$ is the number of ways of relabelling
+  \emph{black} vertices that keep $G$ unchanged;
+%
+and $t(\vr)$ is the corresponding sum of all
+  $c$-chains $H$, each weighted by $1/s(H)$.
+\end{lemm}
+%
+\begin{proof}
+%
+We carry an induction on the number of vertices $n$.
+%
+The statement is true for $n \le 3$.
+%
+Suppose it is true for $n \le k$,
+  we prove the $n = k + 1$ case below.
+
+According to the OZ relation \eqref{eq:oz},
+  every graph $H$ in $t(\vr)$ is
+  a $c$-chain $G_1 * \cdots * G_l$.
+%
+Since the relabelling of the black vertices of $H$
+  can occur only within each $G_i$ independently,
+  the symmetry number is
+  $s(H) = s(G_1) \cdots s(G_l)$,
+  which is indeed the inverse weight of $H$.
+
+We now turn to $c(\vr)$.
+%
+Under the HNC closure \eqref{eq:hnc},
+  a $n$-vertex graph $G$ in $c(\vr)$ is
+  a parallel composition of
+  $m$ $c$-chains $H_1$, \dots, $H_m$,
+  and possibly also an $f$-graph,
+  if it is generated by the term
+  $[1 + f(\vr)] \frac{ t^m(\vr) }{ m!}$
+%
+(the $f$-graph is, however, required if $m \le 1$).
+%
+Let us first show that $G$ is a $c$-graph.
+%
+If $m \le 2$,
+  $G$ is a cycle of $c$-graphs,
+  hence a $c$-graph,
+  by \eqref{eq:cyclesp}.
+%
+Otherwise,
+  $G$ is a parallel composition of $H_m$
+  and the graph $G'$ constructed
+  by deleting all non-root vertices in $H_m$ from $G$.
+%
+We can then show that $G$ is a $c$-graph by an induction on $m$.
+
+
+
+We now show the converse:
+  every $c$-graph $G$ can be generated by the closure.
+%
+By definition, $G$ is a cycle of $c$-graphs.
+%
+If the two roots are not consecutive joints of the cycle,
+  then $G$ can be generated by the term $t^2(\vr)/2$.
+%
+Otherwise, $G$ can be written as a cycle
+  $v_1 - \cdots - v_l - v_1$
+  rooted at the joints $v_1$ and $v_l$
+  ($l \ge 3$),
+%
+or, equivalently, $G = G_l \cdot H_m$,
+  with
+    $G_l$ being the $c$-graph between $v_1$ and $v_l$,
+  and
+    $H_m \equiv v_1 - \cdots - v_l$.
+%
+By the induction hypothesis,
+  $G_l$ can be generated by the term
+  $[1+f(\vr)] \frac{ t^{m - 1}(\vr) }{ (m - 1)! }$
+  of some $m$,
+whereas
+  the $H_m$ can be generated by $t(\vr)$.
+%
+It follows that
+  $G$ can be generated by the term
+  $[1 + f(\vr)] \frac{ t^{m}(\vr) }{ m! } $,
+%
+
+
+
+Now for the weight.
+%
+Suppose $G$ is generated by
+  a parallel composition of $m$ $c$-chains
+  $H_1$, \dots, $H_m$,
+  and optionally also an $f$-graph.
+%
+We sort the $m$ chains as \\
+  \hphantom{~~~~}
+    $m_1$ identical chains of type 1, \\
+  \hphantom{~~~~}
+    \dots, \\
+  \hphantom{~~~~}
+    $m_t$ identical chains of type $t$, \\
+  with
+    $m = m_1 + \cdots + m_t$.
+%
+The symmetry number is
+  $s(G) = m_1! \cdots m_r! \, s(H_1) \cdots s(H_m)$,
+  for there are $m_r!$ ways of
+  permuting the chains of the same type $r$,
+  and collectively relabelling the vertices within accordingly.
+%
+On the other hand,
+  the number of times of $G$
+  appearing in expansion of $t^m(\vr)$
+  is equal to the number of ways
+  of assigning the types to the $m$ chains,
+  which can be computed from the multinomial coefficients
+  $m!/(m_1! \cdots m_t!)$.
+%
+So the overall weight of $G$ is
+%
+\[
+  \frac{ m! } { m_1! \cdots m_t! }
+  \times
+  \frac{ 1 } { m! }
+  \frac{ 1 } { s(H_1) \cdots s(H_m) },
+\]
+%
+which is indeed the inverse of $s(G)$.
+\end{proof}
+
+
+
+
+
+We call a $c$-graph without marked roots a \emph{$c$-pack},
+%
+in which,
   an ordered pair of vertices forms a \emph{pivot}
-  if marking them as roots reduces the envelope to a $c$-graph.
+  if marking them as the roots renders the $c$-pack to some $c$-graph.
 %
 For example,
   \begin{tikzpicture}[baseline=1.0mm]
@@ -1026,32 +1728,33 @@ For example,
     \node (r4) at (-2mm, 4mm) [blackdot,label=left:{\footnotesize$4$}]{};
     \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1) (r1) -- (r3);
   \end{tikzpicture}
-is an envelope,
+is a $c$-pack,
   $(1, 2)$ and $(1, 3)$ are pivots,
   but $(2, 4)$ is not.
+%
+Following an argument similar to the one leading to Lemma \ref{thm:pykappasum},
+  we have
 
-We state without proving\cite{morita1958, *morita1960}.
-%
-%
 \begin{lemm}
 Under the HNC closure,
-  $\rho^2 \int c(\vr) \, d\vr$ is the sum of all nonequivalent envelopes $G$:
-  \begin{equation}
+%
+$\rho^2 \int c(\vr) \, d\vr$
+  is the sum of all nonequivalent $c$-packs $G$:
+%
+\begin{equation}
     \rho^2 \int c(\vr) \, d\vr
-    = \sum_G \frac{p(G)}{s(G)},
-  \end{equation}
+  = \sum_G \frac{ p(G) \, I(G) }{ s(G) },
+  \label{eq:hnccrsum}
+\end{equation}
+%
 where $p(G)$ and $s(G)$ are
   the number of pivots and
-  the symmetry number, respectively;
-%
-%
-and $c(\vr)$ is the sum of all nonequivalent $c$-graphs $G'$,
-\[
-  c(\vr) = \sum_{G'} \frac{1}{s(G')},
-\]
-where $s(G')$ is the number of ways of relabelling
-  \emph{black} vertices that keep $G'$ unchanged.
+  the symmetry number
+  of $G$,
+  respectively.
+\label{thm:hnccrsum}
 \end{lemm}
+
 
 
 
@@ -1060,104 +1763,117 @@ where $s(G')$ is the number of ways of relabelling
 
 
 
-The $c$-graph, which characterizes $c(\vr)$ in the HNC case,
-  is the counterpart of the polygon graph,
-  which characterizes $c(\vr)$ in the PY case.
-%
-By definition, an envelope can be written as
-  as a cycle (a circular concatenation) of $c$-graphs,
-  and the representation is not unique.
-%
-In the PY case, each cycle corresponds to a face of the polygon.
-%
-Below we develop a similar interpretation for the HNC case,
-  which helps us to obtain counting formulas analogous to
-  \eqref{eq:pyfacesum} and \eqref{eq:pyintrafacepairs}.
 
 
+%The $c$-graph characterizes $c(\vr)$ in the HNC case,
+%  just like the polygon graph in the PY case.
+%%
+%By definition, a $c$-pack can be written as
+%  as a cycle of $c$-graphs,
+%  and the representation is not unique.
+%%
+%In the PY case,
+%  each cycle corresponds to a face of the polygon.
+%%
+%Below we develop an analogy for the HNC case,
+%  which helps generalizing the counting formulas
+%  \eqref{eq:countvertices} and \eqref{eq:countpairs}.
 
-First, we define a \emph{loop} as a cycle of $l$ ($l \ge 3$) $c$-graphs
-  in which at least $(l-1)$ $c$-graphs are single edges.
+We now generalize the face decomposition in the PY case
+  to a cycle decomposition for the HNC case,
+  which helps adapting the counting formulas
+  \eqref{eq:countvertices} and \eqref{eq:countpairs}.
+
+
+First, we say that a cycle is \emph{simple}
+  if it consists of $l$ ($l \ge 3$) $c$-graphs
+  in which at least $(l-1)$ $c$-graphs are $f$-graphs.
 %
 We now show that
 %
+%
+%
 \begin{lemm}
-At least one cycle of an envelope $G$ of three or more vertices
-  is a loop.
+There is at least one simple cycle
+  in a $c$-pack $G$ of three or more vertices.
 \end{lemm}
+%
+%
 %
 \begin{proof}
 %
 We prove this by giving an algorithm, \textbf{Algorithm L},
-  for finding the loop.
+  for finding a simple cycle of $G$.
 %
 By definition,
   $G$ has at least one pivot $(v_1, v_{k})$,
   and can be decomposed to a cycle of $c$-graphs
   $K = v_1 - \cdots - v_k - \cdots - v_l - v_1 (\equiv v_{l+1})$,
   with $v_j$ being the $j$th joint.
-%
-If $K$ is a loop, we are done.
 
-
-Otherwise, there is at least one link $v_j - v_{j+1}$ in $K$
-  that is not a single edge.
+If $K$ is simple, there is nothing to prove.
 %
-Let $G_j$ be the $c$-graph between $v_j - v_{j+1}$,
-  then $G_j$ can be decomposed to a cycle $J'$ of $c$-graphs
-  passing through $v_j$ and $v_{j+1}$.
+Otherwise,
+  there is a $c$-graph $G_j$ between $v_j$ and $v_{j+1}$ in $K$
+  that is not an $f$-graph,
 %
-With $v'_1 \equiv v_j$ and $v'_{k'} \equiv v_{j+1}$,
-  we may write
+  and thus can be decomposed to
+  a cycle $J'$ (as shown below, blue) of $c$-graphs
+  passing through $v'_1 \equiv v_j$
+  and $v'_{k'} \equiv v_{j+1}$:
+%
   $J' = v'_1 - v'_2 - \cdots - v'_{k'-1}
       - v'_{k'} - v'_{k'+1} - \cdots
-      - v'_{l'} - v'_1 (\equiv v'_{l'+1})$
-  (as shown below, blue),
-and without loss of generality,
-  we may assume $k' \ge 3$
-  such that the branch $v'_1, v'_2, \dots, v'_{k'}$
-  contains at least three vertices.
+      - v'_{l'} - v'_1$.
 %
-But $J = v'_1 - v'_{l'} - \cdots - v'_{k'+1} - v'_{k'} (= v_{j+1}) \
-       - v_{j+2} - \cdots - v_l - v_1 - \cdots - v_j (=v'_1)$
-  is a cycle of $c$-graphs (red),
-  and thus can be reduced to a single $c$-graph
+Without loss of generality,
+  we can assume that
+  the branch $v'_1, v'_2, \dots, v'_{k'}$
+  contains at least three vertices,
+  i.e., $k' \ge 3$.
+%
+Now $J = v'_1 (=v_j) - v'_{l'} - \cdots - v'_{k'+1} - v'_{k'} (= v_{j+1}) \
+       - v_{j+2} - \cdots - v_l - v_1 - \cdots - v'_1$
+  is also a cycle of $c$-graphs (red),
+  and thus can be reduced to a $c$-graph
   rooted at $v'_1$ and $v'_{k'}$.
 %
-It follows that $G$ can also be decomposed to a cycle
+Thus, $G$ can be decomposed to a cycle
   $K' = v'_1 - v'_2 - \cdots - v'_{k'} - v'_1$
   (green).
-
+%
 \[
-  \newcommand{\sz}{5mm}
+  \newcommand{\sz}{4mm}
   \begin{tikzpicture}
     \node (v1)  at ( 0, 0) [blackdot,label=left:$v_1$]{};
     \node (v2)  at ( 0.2*\sz, 1.5*\sz) [blackdot,label=left:$v_2$]{}
       edge[thick, bend right=10] (v1);
     \node (vj)  at ( 2.0*\sz, 3.5*\sz) [blackdot,label=left:$v_j(v'_1)$]{}
-      edge[densely dotted, thick, bend right=15] (v2);
+      edge[dotted, thick, bend right=15] (v2);
     \node (vkm1) at (10.8*\sz, 1.5*\sz) [blackdot,label=right:$v_{k-1}$]{};
     \node (vj1) at ( 9.0*\sz, 3.5*\sz) [blackdot,label=right:$v_{j+1}(v'_{k'})$]{}
-      edge[densely dotted, thick, bend left=15] (vkm1);
+      edge[dotted, thick, bend left=15] (vkm1);
     \node (vk)  at (11.0*\sz, 0)       [blackdot,label=right:$v_{k}$]{}
       edge[thick, bend right=10] (vkm1);
 
-    % beginning the inner J' loop
-    \node (u2) at ( 3.5*\sz, 6.0*\sz) [blackdot,blue,label=above:$v'_2$]{}
+    % beginning the inner J' simple cycle
+    \node (u2) at ( 3.5*\sz, 6.0*\sz)
+      [blackdot,blue,label={[label distance=-1mm]160:$v'_2$}]{}
       edge[blue, thick, bend right=30] (vj);
-    \node (ukm1) at ( 7.5*\sz, 6.0*\sz) [blackdot,blue,label=above:$v'_{k'-1}$]{}
+    \node (ukm1) at ( 7.5*\sz, 6.0*\sz)
+      [blackdot,blue,label={[label distance=-1mm]20:$v'_{k'-1}$}]{}
       edge[blue, thick, bend left=30] (vj1)
-      edge[blue, densely dotted, thick, bend right=10] (u2);
+      edge[blue, dotted, thick, bend right=10] (u2);
     \node (uk1) at ( 7.5*\sz, 1.5*\sz) [blackdot,blue,label=above:$v'_{k'+1}$]{}
       edge[blue, thick, bend right=30] (vj1);
     \node (ul) at  ( 3.5*\sz, 1.5*\sz) [blackdot,blue,label=above:$v'_{l'}$]{}
       edge[blue, thick, bend left=30] (vj)
-      edge[blue, densely dotted, thick, bend right=10] (uk1);
+      edge[blue, dotted, thick, bend right=10] (uk1);
 
     \node (Jp) at ( 9.5*\sz, 5.5*\sz) [blue] {$J'$};
-    % end of the inner J' loop
+    % end of the inner J' simple cycle
 
-    % beginning of the K' loop
+    % beginning of the K' simple cycle
     \draw[green!50!black, thick] plot [smooth cycle]
       coordinates{ ( 2.5*\sz, 3.9*\sz)
                    ( 3.5*\sz, 5.7*\sz)
@@ -1165,22 +1881,22 @@ It follows that $G$ can also be decomposed to a cycle
                    ( 8.5*\sz, 3.9*\sz) };
 
     \node (Kp) at ( 5.5*\sz, 5.0*\sz) [green!50!black] {$K'$};
-    % end of the K' loop
+    % end of the K' simple cycle
 
-    \node (vb)  at ( 5.5*\sz,-2.0*\sz) [blackdot]{};
+    \node (vb)  at ( 5.5*\sz,-1.9*\sz) [blackdot]{};
 
     \node (vk1) at ( 9.5*\sz,-1.2*\sz) [blackdot,label=below:$v_{k+1}$]{}
-      edge[densely dotted, thick, bend left=7] (vb)
-      edge[thick, bend right=10] (vk);
+      edge[dotted, thick, bend left=7] (vb)
+      edge[thick, bend right=20] (vk);
 
     \node (vl)  at ( 1.5*\sz,-1.2*\sz) [blackdot,label=below:$v_{l}$]{}
-      edge[densely dotted, thick, bend right=7] (vb)
-      edge[thick, bend left=10] (v1);
+      edge[dotted, thick, bend right=7] (vb)
+      edge[thick, bend left=20] (v1);
 
-    \draw[dashed,very thick] (vj) -- (vj1);
-    \node (K) at (8.0*\sz, -2.2*\sz) {$K$};
+    \draw[dashed, very thick] (vj) -- (vj1);
+    \node (K) at (11.0*\sz, -1.2*\sz) {$K$};
 
-    % beginning of the J loop
+    % beginning of the J simple
     \draw[red!80!black, thick] plot [smooth cycle]
         coordinates{ ( 1.5*\sz, 2.5*\sz)
                      ( 0.7*\sz, 0.2*\sz)
@@ -1193,103 +1909,129 @@ It follows that $G$ can also be decomposed to a cycle
                      ( 3.0*\sz, 1.2*\sz)
                    };
     \node (J) at ( 5.5*\sz, -0.2*\sz) [red!80!black] {$J$};
-    % end of the J loop
+    % end of the J simple cycle
+
   \end{tikzpicture}
 \]
 
-Now if every $v'_{j'} - v'_{j'+1}$ ($1 \le j' < k'$) is a single edge,
-  then we have found the desired loop.
+If $K'$ is simple, we are done.
 %
-Otherwise, we can repeat the above step on $K'$
-  and further decompose a link $v'_{j'} - v'_{j'+1}$
-  that is not single edge, into a cycle $J''$.
+Otherwise,
+  we replace the $c$-graph between $v'_1$ and $v'_{k'}$
+  by an $f$-graph.
 %
-We, however, should not decomposing the link
-  $v'_1 - v'_{k'}$ in $K'$ in subsequent steps,
-  which falls back to the previous state.
+On the simplified graph $G'$,
+  we can apply the above step
+  to any link $v'_{j'} - v'_{j'+1}$ of $K'$
+  that is not an $f$-graph.
 %
-This can be avoided by replacing
-  the $c$-graph between $v'_1$ and $v'_{k'}$
-  by a single edge
-  in the rest of the search.
+%Otherwise, we can repeat the above step on $K'$
+%  and further decompose a link $v'_{j'} - v'_{j'+1}$
+%  that is not an $f$-graph, into a cycle $J''$.
+%%
+%To avoid decomposing the link
+%  $v'_1 - v'_{k'}$ in $K'$ in subsequent steps,
+%  which falls back to the previous state,
+%%
+%we replace
+%  the $c$-graph between $v'_1$ and $v'_{k'}$
+%  by an $f$-graph
+%  in the rest of the search.
 %
 One can readily show that
-  such a replacement removes more edges than vertices.
+  the above replacement removes more edges than vertices,
 %
-Thus, the process always ends with a loop
+such that the process always ends with a $G'$
   with equal numbers of vertices and edges.
 \end{proof}
 
 
 
-The algorithm in above proof allows us to
-  find all cycles using the algorithm below.
+Algorithm L in above proof allows us to
+  decompose a $c$-pack as simple cycles as follows.
 
 \textbf{Algorithm D:}
 \begin{enumerate}
   \item
-    Given an envelope $G$,
-      repeat steps 2 and 3 until $G$ is a single edge.
+    Given a $c$-pack $G$,
+      repeat steps 2 and 3 until $G$ is an $f$-graph.
   \item
-    First, we find a loop in $G$,
+    Find a simple cycle in $G$,
       $v_1 - v_2 - \cdots - v_l - v_1$
       using Algorithm L,
-      with all $(v_j, v_{j+1})$ $(1 \le j < l)$
-      being single edges.
+      such that the $c$-graph between $v_j$ and $v_{j+1}$
+      is an $f$-graph $(1 \le j < l)$.
   \item
-    We then remove the vertices $v_2, v_3, \dots, v_{l-1}$,
+    Remove $v_2, v_3, \dots, v_{l-1}$,
       and join $v_1$ and $v_l$ if they are not adjacent.
 \end{enumerate}
 %
 It is readily shown that,
-  Step 3 results in a new envelope $G$
+  Step 3 results in a new $c$-pack $G$
   with $(l - 2)$ fewer vertices,
-  and it always ends up with a single edge.
-%
-One can further show that every cycle in $G$
-  corresponds to a loop in the above procedure.
+  and it always ends up with an $f$-graph.
 %
 Thus,
 
+
 \begin{lemm}
-  An envelope $G$ can be reduced
-    by Algorithm D to a single edge in $m(G)$ steps,
+  A $c$-pack $G$ can be reduced
+    by Algorithm D to an $f$-graph in $m(G)$ steps,
     where $m(G)$ is the number of ways of decomposing
     $G$ as a cycle of $c$-graphs.
 \label{thm:hncdecomp}
 \end{lemm}
 
 
+\begin{proof}
+Let $J = u_1 - u_2 - \dots - u_j - u_1 (\equiv u_{j+1})$
+  be a cycle that decomposes the original $c$-pack $G$,
+%
+and $L^{(s)} = v_1 - v_2 - \dots - v_l - v_1$
+  be the simple cycle discovered
+  in the $s$th round of Algorithm D.
+%
+We will show below that
+  either
+  (a) the vertices in $V_L = \{ v_2, \dots, v_{l-1} \}$
+    are entirely contained in
+    a $c$-graph between $u_i$ and $u_{i+1}$ for some $i$,
+  or
+  (b) $L^{(s)} = J$.
+%
+Since case (a) leaves $J$ intact,
+  every cycle $J$ is discovered (and then eliminated)
+  only when (b) happens,
+  and the lemma follows.
+%
 
-\subsection*{Counting formulas}
-
-
-Lemma \ref{thm:hncdecomp} allows us to develop a few counting formulas.
+If (a) is not true,
+  there is at least one joint $u_i$ of $J$
+  that belongs to $V_L$
+  [for the vertices in $V_L$ are connected in $G^{(s)}$].
 %
-First, since each step of Algorithm L removes $(l - 2)$ vertices,
-  with $l$ being the loop length,
-  the total number of vertices $n(G)$ is given by
+Consider now the $c$-pack $G^{(s)}$
+  in Step 2 of the $s$th round of Algorithm D.
 %
-\begin{align}
-  n(G) &= 2 + \sum_{l = 3}^\infty (l - 2) \, m_l(G),
-\label{eq:hnccountn}
-\end{align}
+Since every vertex in $V_L$ is adjacent to only two vertices,
+  the $c$-graph between $u_{i-1}$ and $u_i$
+  and that between $u_i$ and $u_{i+1}$
+  must both be $f$-graphs,
 %
-which is the counterpart of \eqref{eq:pyfacesum}.
-
-A cycle of length $l$, by definition,
-  contains $l (l - 1)$ pivots,
-  and Step 3 of Algorithm D
-  removes all but two of them.
+and $u_{i-1}$ and $u_{i+1}$ are the only two vertices
+  adjacent to $u_i$ in $G^{(s)}$.
 %
-Thus
+Now since the vertices in $V_L$ are connected,
+  either $u_i$ is the only vertex in $V_L$,
+  or $V_L$ contains at least one of $u_{i-1}$ and $u_{i+1}$.
 %
-\begin{align}
-  p(G) = 2 + \sum_{l = 3}^\infty (l-2)(l+1) \, m_l(G),
-\label{eq:hnccountp}
-\end{align}
+Repeating the above argument shows that
+  all the joints $v_1$, \dots $v_l$ of $L^{(s)}$
+  are also consecutive joints of $J$.
 %
-which is the counterpart of \eqref{eq:pyintrafacepairs}.
+This is possible only if the two cycles are the same,
+  which is case (b).
+\end{proof}
 
 
 
@@ -1297,49 +2039,86 @@ which is the counterpart of \eqref{eq:pyintrafacepairs}.
 \subsection*{Thermodynamic quantities}
 
 
+Given a $c$-pack $G$,
+  Lemma \ref{thm:hncdecomp} allows us
+  to order all cycles that decompose $G$
+  according to the simple cycles
+  discovered in Algorithm L.
+%
+Counting vertices and vertex pair
+  are readily established on the simple cycles.
+%
+First, each step of Algorithm L removes $(l - 2)$ vertices,
+  with $l$ being the length of the simple cycle.
+%
+Thus, the total number of vertices $n(G)$
+  is still given by \eqref{eq:countvertices},
+  with $m_l(G)$ interpreted as
+  the number of ways
+  of decomposing $G$ as length-$l$ cycles.
 
-%From \eqref{eq:hnccountn}
-%and \eqref{eq:Clsuml}
+A cycle of length $l$, by definition,
+  contains $l (l - 1)$ pivots,
+  and Step 3 of Algorithm D
+  removes all but two of them.
+%
+Thus, \eqref{eq:countpairs}
+  is also applicable, with $p(G)$ interpreted
+  as the number of pivots of $G$.
 
+
+
+The free energy can be computed
+  as follows\cite{morita1958, *morita1959, *morita1960, singer1985}
 %
 \begin{align}
-      -2\beta \Fex
-  &=  \sum_G \frac{ 2 I(G) } { s(G) }
+    - \frac{ 2 \beta \Fex } { V }
+  &=
+      \sum_G \frac{ 2 \, I(G) } { s(G) }
+      \notag \\
+  &=
+      \rho^2 \int c(\vr) \, d\vr
+    - \sum_{l = 3}^\infty \left[ l(l-1) - 2 \right] \, C_l
+      \notag \\
+  &=
+      \rho^2 \int \left[ c(\vr) - \tfrac{1}{2} h^2(\vr) \right] \, d\vr
+      \notag \\
+  & \hphantom{=}
+    - \int  \Big\{
+              \log\left[ 1 - \rho \, \tilde{c}(\vk) \right]
+                           + \rho \, \tilde{c}(\vk)
+            \Big\}  \dvk,
 \label{eq:hncF}
 \end{align}
-
+%
+where,
+  on the second line,
+  we have used \eqref{eq:hnccrsum} and \eqref{eq:countpairs},
+  and on the next lines,
+  we have used \eqref{eq:Clsum}-\eqref{eq:Clsumll}.
+%
+Similarly, the chemical potential
+  is given by\cite{morita1958, *morita1959, *morita1960, singer1985}
 %
 \begin{align}
-      -\rho \beta \mu
-  &=  \sum_G \frac{ n(G) } { s(G) } I(G)
+    - \beta \muex
+  &=
+      \sum_G \frac{ n(G) \, I(G) } { s(G) }
+  =
+      \sum_G \frac{ 2 \, I(G) } { s(G) }
+    + \sum_{l = 3}^\infty (l-2) \, C_l
       \notag \\
-  &=  \sum_G \frac{ 2 I(G) } { s(G) }
-    + \sum_{l = 3}^\infty (l - 2) \, C_l.
+  &=
+      \rho^2 \int c(\vr) \, d\vr
+    - \sum_{l = 3}^\infty l \, (l-2) \, C_l
+      \notag \\
+  &=
+      \rho^2 \int \left[ c(\vr) - \tfrac{1}{2} h(\vr) \, t(\vr) \right] \, d\vr.
 \label{eq:hncmu}
 \end{align}
-
-
 %
-\begin{align}
-      \rho^2 \int c(\vr) \, d\vr
-  &=  \sum_G \frac{ p(G) } { s(G) } I(G)
-      \notag \\
-  &=  \sum_G \frac{ 2 I(G) } { s(G) }
-    + \sum_{l = 3}^\infty (l - 2) (l+1) \, C_l.
-\label{eq:hncdmu}
-\end{align}
-
-Chemical potential:
-%
-\begin{align}
-      \beta \rho \mu
-  &= - \rho^2 \int c(\vr) \, d\vr
-     + \sum_{l = 3}^\infty (l - 2) \, l \, C_l \\
-  &= \rho^2 \int [-c(\vr) + \tfrac{1}{2} t(r) \, h(r)] \, d\vr
-\label{eq:hncdmu}
-\end{align}
-
-
+Table \ref{tab:thermodyn} gives
+  a comparison of the results from the PY and HNC closures.
 
 
 

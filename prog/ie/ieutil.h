@@ -249,7 +249,7 @@ __inline static xdouble get_Bm_singer(int l, int npt,
 
 
 
-/* compute -beta F = (1/2) Int (c - t^2 / 2) dr (real part) */
+/* compute -beta F = (1/2) Int (c - c t - t^2 / 2) dr (real part) */
 __inline static xdouble get_Bh_singer(int l, int npt,
     xdouble **cr, xdouble **tr, xdouble *w)
 {
@@ -294,6 +294,24 @@ __inline static xdouble get_Bp_py(int l, int npt,
   }
   return -s/2;
 }
+
+
+
+/* -Int h t dr / (l + 2) / l */
+__inline static xdouble get_ht(int l, int npt,
+    xdouble **cr, xdouble **tr, xdouble *w)
+{
+  int i, u;
+  xdouble s = 0, x;
+
+  for ( i = 0; i < npt; s += x * w[i], i++ )
+    for ( x = 0, u = 0; u < l; u++ ) {
+      x += tr[l-u][i] * (cr[u][i] + tr[u][i]);
+      //printf("i %d, wt %g, tr %g, x %g\n", i, w[i], tr[l-u][i], x);
+    }
+  return -s/l/(l+2);
+}
+
 
 
 

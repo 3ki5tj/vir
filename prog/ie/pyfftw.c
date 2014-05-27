@@ -159,7 +159,7 @@ static xdouble getpres_py(int npt, xdouble rho,
     pres -= 0.5 * cr[i] * (1 - tr[i]) * ri2[i];
     /* compr = d(beta P) / drho = -rho Int c(r) dr */
     *compr -= cr[i] * ri2[i];
-    /* dcompr = d^2(beta P) / d(rho)^2 = Int [c(r) + t(r) h(r)] dr */
+    /* dcompr = d^2(beta P) / d(rho)^2 = -Int [c(r) + t(r) h(r)] dr */
     *dcompr -= (cr[i] + tr[i] * (cr[i] + tr[i])) * ri2[i];
   }
   pres *= rho * rho;

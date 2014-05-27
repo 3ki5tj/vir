@@ -88,7 +88,7 @@ static void sphr(int npt, xdouble *in, xdouble *out, xdouble fac,
 static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 {
   xdouble dr, dk, facr2k, fack2r, surfr, surfk;
-  xdouble Bc, Bv, Bm, Bh, Br, B2, B2p;
+  xdouble Bc, Bv, Bm, Bh, Br, Bt = 0, B2, B2p;
   xdouble *fr, *crl, *trl, **ck, **tk, **cr = NULL, **tr = NULL;
   xdouble **yr = NULL, *arr, *ri, *ki, *ri2, *ki2, *vc = NULL;
   int i, dm, l;
@@ -178,7 +178,11 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     /* t_l(k) --> t_l(r) */
     sphr(npt, tk[l], trl, fack2r, plan, arr, ki, ri, ffttype);
 
-    if ( tr != NULL ) COPY1DARR(tr[l], trl, npt);
+    if ( tr != NULL ) {
+      COPY1DARR(tr[l], trl, npt);
+      Bt = get_ht(l, npt, cr, tr, ri2);
+      if ( doHNC ) Bt *= (l + 1) * .5;
+    }
 
     if ( yr != NULL ) /* compute the cavity function y(r) */
       get_yr_hnc(l, nmax, npt, yr, trl);
@@ -224,8 +228,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
            "Bm(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e)\n",
            l+2, Bc, Bc/B2p, l+2, Bv, Bv/B2p, l+2, Bm, Bm/B2p);
     printf("Bh(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e), "
-           "Br(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e)\n",
-           l+2, Bh, Bh/B2p, l+2, Br, Br/B2p);
+           "Br(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e), "
+           "Bt(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e)\n",
+           l+2, Bh, Bh/B2p, l+2, Br, Br/B2p, l+2, Bt, Bt/B2p);
 
     savefns(l, npt, ri, crl, trl, vc, yr, "cr.dat");
 
