@@ -534,99 +534,7 @@ which can be constructed
   hierarchically by successive
   serial and parallel compositions (defined below)
   starting from a few $f$-graphs\cite{eppstein1992}.
-%%
-%For example,
-%%
-%\[
-%  \newcommand{\sz}{0.2}
-%  c^{\scriptscriptstyle \mathrm{PY}}(\vr) =
-%  {
-%    \begin{tikzpicture}
-%      \node (r1) at (180 : \sz) [whitedot]{};
-%      \node (r2) at (  0 : \sz) [whitedot]{};
-%      \draw (r1) -- (r2);
-%    \end{tikzpicture}
-%  }
-%  +
-%  {
-%    \begin{tikzpicture}[baseline=-0.7mm]
-%      \node (r1) at (-\sz, -\sz) [whitedot]{};
-%      \node (r2) at ( \sz, -\sz) [whitedot]{};
-%      \node (r3) at (   0,  \sz) [blackdot]{};
-%      \draw (r1) -- (r2) -- (r3) -- (r1);
-%    \end{tikzpicture}
-%  }
-%  +
-%  {
-%    \begin{tikzpicture}[baseline=-0.7mm]
-%      \node (r1) at (-\sz, -\sz) [whitedot]{};
-%      \node (r2) at ( \sz, -\sz) [whitedot]{};
-%      \node (r3) at (-\sz,  \sz) [blackdot]{};
-%      \node (r4) at ( \sz,  \sz) [blackdot]{};
-%      \draw (r1) -- (r2) -- (r4) -- (r3) -- (r1);
-%    \end{tikzpicture}
-%  }
-%  +
-%  {
-%    \begin{tikzpicture}[baseline=-0.7mm]
-%      \node (r1) at (-\sz, -\sz) [whitedot]{};
-%      \node (r2) at ( \sz, -\sz) [whitedot]{};
-%      \node (r3) at (-\sz,  \sz) [blackdot]{};
-%      \node (r4) at ( \sz,  \sz) [blackdot]{};
-%      \draw (r1) -- (r2) -- (r4) -- (r3) -- (r1);
-%      \draw (r1) -- (r4);
-%    \end{tikzpicture}
-%  }
-%  +
-%  {
-%    \begin{tikzpicture}[baseline=-0.7mm]
-%      \node (r1) at (-\sz, -\sz) [whitedot]{};
-%      \node (r2) at ( \sz, -\sz) [whitedot]{};
-%      \node (r3) at (-\sz,  \sz) [blackdot]{};
-%      \node (r4) at ( \sz,  \sz) [blackdot]{};
-%      \draw (r1) -- (r2) -- (r4) -- (r3) -- (r1);
-%      \draw (r2) -- (r3);
-%    \end{tikzpicture}
-%  }
-%  +
-%  \cdots,
-%\label{eq:crpy}
-%\]
-%%
-%and
-%%
-%\[
-%  \newcommand{\sz}{0.2}
-%  c^{\scriptscriptstyle \mathrm{HNC}}(\vr)
-%  =
-%  c^{\scriptscriptstyle \mathrm{PY}}(\vr)
-%  +
-%  \frac{1}{2}
-%  \left(
-%  {
-%    \begin{tikzpicture}[baseline=-0.7mm]
-%      \node (r1) at (-\sz, -\sz) [whitedot]{};
-%      \node (r2) at ( \sz, -\sz) [whitedot]{};
-%      \node (r3) at (-\sz,  \sz) [blackdot]{};
-%      \node (r4) at ( \sz,  \sz) [blackdot]{};
-%      \draw (r1) -- (r3) -- (r2) -- (r4) -- (r1);
-%    \end{tikzpicture}
-%  }
-%  +
-%  {
-%    \begin{tikzpicture}[baseline=-0.7mm]
-%      \node (r1) at (-\sz, -\sz) [whitedot]{};
-%      \node (r2) at ( \sz, -\sz) [whitedot]{};
-%      \node (r3) at (-\sz,  \sz) [blackdot]{};
-%      \node (r4) at ( \sz,  \sz) [blackdot]{};
-%      \draw (r1) -- (r3) -- (r2) -- (r4) -- (r1) -- (r2);
-%    \end{tikzpicture}
-%  }
-%  \right)
-%  +
-%  \cdots.
-%\label{eq:crhnc}
-%\]
+
 
 
 The \emph{parallel composition} $A \cdot B$
@@ -751,17 +659,6 @@ Generally, a series composition,
   of several graphs
   $A_1$, \dots, $A_l$ is equal to
   $\rho^{l-1} \cdot (a_1 * \cdots * a_l)(\vr)$.
-%
-%\begin{multline*}
-%  (a_1 * \cdots * a_l)(\vr)
-%  \equiv
-%  \int
-%    d\vr^{(1)} \, a_1(\vr^{(1)}) \,
-%    \cdots \\
-%  \hphantom{wwwwww}
-%    d\vr^{(l-1)} \, a_{l-1}(\vr^{(l-1)}) \,
-%    a_l(\vr - \vr^{(1)} - \vr^{(2)} - \cdots - \vr^{(l-1)}).
-%\end{multline*}
 
 
 
@@ -981,25 +878,6 @@ Otherwise, $G^{(2)}$ is a pie graph
   and $G^{(2)}$ is smaller than $G$,
   which is also a contradiction.
 
-%If $G$ is a pie graph,
-%  and $v$ is the last vertex adjacent to $1$ ($2 \le v < n$),
-%  then the induced subgraph $G^{(1)} = G(\{1, \dots, v\})$
-%  is a polygon graph.
-%%
-%Now if $v$ and $n$ are adjacent, then
-%  the induced subgraph $G^{(2)} = (\{v, \dots, n\})$
-%  is also a polygon graph.
-%%
-%Otherwise, $G^{(2)}$ is a pie graph
-%  rooted at $v$ and $n$,
-%%
-%  and recursively repeating the above step
-%  shows that
-%  $G^{(2)}$ is a chain of polygon graphs.
-%%
-%In either case, $G = G^{(1)} * G^{(2)}$
-%  is a chain of polygon graph.
-
 The converse is obvious.
 %Conversely,
 %  let $G=G^{(1)}*\cdots*G^{(l)}$,
@@ -1216,12 +1094,6 @@ Geometrically,
     \draw[blue!70, thick, dashed]
         (-\sz+\dd, 0) -- (-0.5*\sz+0.5*\dd, -0.866*\sz+0.866*\dd)
      -- ( \sz-\dd, 0) -- ( 0.5*\sz-0.5*\dd,  0.866*\sz-0.866*\dd) -- cycle;
-    %\draw[red!50,thick] plot [smooth cycle]
-    %  coordinates{(-0.72*\sz, 0.25*\sz) (-0.45*\sz, 0.75*\sz) (0.18*\sz, 0.75*\sz)};
-    %\draw[blue!70,thick] plot [smooth cycle]
-    %  coordinates{(-0.75*\sz, 0) (-0.4*\sz, -0.67*\sz) (0.75*\sz, 0) (0.4*\sz, 0.67*\sz)};
-    %\draw[green!50,thick] plot [smooth cycle]
-    %  coordinates{(-0.18*\sz, -0.75*\sz) (0.45*\sz, -0.75*\sz) (0.72*\sz, -0.25*\sz)};
   %
   % part 2
   %
@@ -1244,28 +1116,6 @@ Geometrically,
     \draw[thick] (r5q) -- (r6q) -- (r1q) -- (r5q);
 
     \draw[->,very thick] (1.2*\sz, 0) to (\osa-1.2*\sz, 0);
-  %
-  % part 3
-  %
-  %  \node (r1u) at (\osb-0.5*\sz-\del, -0.866*\sz+.4*\del) [whitedot]{};
-  %  \node (r2u) at (\osb-1.0*\sz, -\del) [whitedot]{};
-
-  %  \node (r4u) at (\osb+0.5*\sz+\del,  0.866*\sz-.4*\del) [whitedot]{};
-  %  \node (r5u) at (\osb+1.0*\sz,  \del) [whitedot]{};
-
-  %  \node (r2v) at (\osb-1.0*\sz,  \del) [whitedot]{};
-  %  \node (r4v) at (\osb+0.5*\sz-\del,  0.866*\sz) [whitedot]{};
-
-  %  \node (r5v) at (\osb+1.0*\sz, -\del) [whitedot]{};
-  %  \node (r1v) at (\osb-0.5*\sz+\del, -0.866*\sz) [whitedot]{};
-
-  %  \draw[thick]
-  %    (r1u) -- node[anchor=east] {$c$} (r2u)
-  %    (r2v) -- node[anchor=south]{$c$} (r4v)
-  %    (r4u) -- node[anchor=west] {$c$} (r5u)
-  %    (r5v) -- node[anchor=north]{$c$} (r1v);
-
-  %  \draw[->,very thick] (\osa+1.2*\sz, 0) to (\osb-1.2*\sz, 0);
   \end{tikzpicture}
   %
 \end{equation*}
@@ -1335,10 +1185,6 @@ where the factor $2 \, l$ corresponds to the number of ways
 %
 Summing \eqref{eq:ccyclintg} over $l$ yields
 %
-%Multiplying \eqref{eq:ccyclintg} by
-%  $2$, $l$, and $l(l-3)$
-%  and summing over $l$ yields
-%
 \begin{align}
      \sum_{l=3}^{\infty} 2 \, C_l
   &= -\int \Big\{
@@ -1389,11 +1235,6 @@ Note that
   is proportional to $\rho^n$.
 %
 Thus, an integration over $\rho$ yields\cite{baxterpressure}
-%\[
-%    \int d\rho \left( \rho \int c(\vr) \, d\vr \right)
-%  = \sum_G \frac{ 2 \, I(G) }{ s(G) }.
-%\]
-%
 %
 \begin{align}
       -\beta \Pex
@@ -1406,20 +1247,6 @@ Thus, an integration over $\rho$ yields\cite{baxterpressure}
 \end{align}
 %
 where we have used \eqref{eq:Clsum} and \eqref{eq:Clsuml}.
-
-
-%By a linear combination of
-%  \eqref{eq:pykappasum} and \eqref{eq:baxterpressure},
-%  we get an expression that avoids
-%  $\rho^2 \int c(\vr) \, d\vr$.
-%%
-%\begin{equation}
-%    \frac{\partial (\beta \Pex/\rho^2) } {\partial (1/\rho^2)}
-%  = \sum_G \frac{ n(G) - 2 }{ s(G) } I(G)
-%  = \sum_{l = 3}^{\infty} (l - 2) \, C_k
-%\label{eq:pymixedpressure}
-%\end{equation}
-%%
 
 
 
@@ -1566,7 +1393,6 @@ One can verify that the above definition
   includes all graphs in \eqref{eq:hnccrex},
   but none in \eqref{eq:hnccrexnot}.
 %
-%This definition is analogous to Lemma \ref{thm:pycatc}.
 
 Further, we define a \emph{$c$-chain}
   as a chain of $c$-graphs.
@@ -1763,22 +1589,6 @@ where $p(G)$ and $s(G)$ are
 
 
 
-
-
-%The $c$-graph characterizes $c(\vr)$ in the HNC case,
-%  just like the polygon graph in the PY case.
-%%
-%By definition, a $c$-pack can be written as
-%  as a cycle of $c$-graphs,
-%  and the representation is not unique.
-%%
-%In the PY case,
-%  each cycle corresponds to a face of the polygon.
-%%
-%Below we develop an analogy for the HNC case,
-%  which helps generalizing the counting formulas
-%  \eqref{eq:countvertices} and \eqref{eq:countpairs}.
-
 We now generalize the face decomposition in the PY case
   to a cycle decomposition for the HNC case,
   which helps adapting the counting formulas
@@ -1924,19 +1734,6 @@ On the simplified graph $G'$,
   we can apply the above step
   to any link $v'_{j'} - v'_{j'+1}$ of $K'$
   that is not an $f$-graph.
-%
-%Otherwise, we can repeat the above step on $K'$
-%  and further decompose a link $v'_{j'} - v'_{j'+1}$
-%  that is not an $f$-graph, into a cycle $J''$.
-%%
-%To avoid decomposing the link
-%  $v'_1 - v'_{k'}$ in $K'$ in subsequent steps,
-%  which falls back to the previous state,
-%%
-%we replace
-%  the $c$-graph between $v'_1$ and $v'_{k'}$
-%  by an $f$-graph
-%  in the rest of the search.
 %
 One can readily show that
   the above replacement removes more edges than vertices,
