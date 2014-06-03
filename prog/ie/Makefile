@@ -4,11 +4,13 @@ LM = -lm
 
 # optimized compiling
 # warnings 11001 and 11006 are notices invoked by -ipo
-CX = icc -O2 -ipo -Wall -Wremarks -Wcheck -wd11001 -wd11006
+# warning 1572 is the float-point comparison
+CX = icc -O2 -ipo -Wall -Wremarks -Wcheck -wd11001 -wd11006 -wd1572
 #CX = gcc -O3 -march=native -fwhole-program -Wall -Wextra -Wunused
 LMX =
 
 LFFTW = -lfftw3
+LFFTWL = -lfftw3l
 LFFTWQ = -lfftw3q -lquadmath
 LMPFR = -lmpfr -lgmp
 LGMP = -lgmp
@@ -45,7 +47,7 @@ exe: $(bins)
 all: $(bins) $(bins_d) $(bins_q)
 
 $(bins_fftw) : %: %.c $(deps)
-	$(CX) -o $@ $< $(LMX) $(LFFTW)
+	$(CX) -DLDBL -o $@ $< $(LMX) $(LFFTWL)
 
 $(bins_fftw_d) : %_d: %.c $(deps)
 	$(CC) -o $@ $< $(LM) $(LFFTW)

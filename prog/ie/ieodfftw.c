@@ -8,7 +8,6 @@
  *  gcc -DNOFFTW ieodfftw.c -lm
  * */
 #include <stdio.h>
-#include <stdlib.h>
 #include <math.h>
 #define ZCOM_PICK
 #define ZCOM_ARGOPT
@@ -45,6 +44,8 @@ int doHNC = 0;
 int singer = 0;
 int mkcorr = 0;
 int verbose = 0;
+char *fnvir = NULL;
+char *fncrtr = NULL;
 
 
 
@@ -61,11 +62,14 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--corr", "%b", &mkcorr, "try to correct HNC");
+  argopt_add(ao, "-o", NULL, &fnvir, "output virial coefficient");
+  argopt_add(ao, "--crtr", NULL, &fncrtr, "file name of c(r) and t(r)");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
-  if (dim < 3 || dim % 2 == 0) argopt_help(ao);
+  if ( dim < 3 || dim % 2 == 0 ) argopt_help(ao);
   K = (dim - 1)/2;
+  if ( mkcorr ) singer = 0;
   printf("D %d, K %d, rmax %f, npt %d, HNC %d\n",
       dim, K, (double) rmax, numpt, doHNC);
   if ( verbose ) argopt_dump(ao);
@@ -155,10 +159,10 @@ static void sphr(int npt, xdouble *in, xdouble *out, xdouble fac,
 static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 {
   xdouble dr, dk, facr2k, fack2r, surfr, surfk;
-  xdouble Bc, Bv, Bm, Bh, Br, B2, B2p;
+  xdouble Bc, Bv, Bm = 0, Bh = 0, Br, B2, B2p, fcorr = 0;
   xdouble *fr, *crl, *trl, **ck, **tk, **cr = NULL, **tr = NULL;
   xdouble **yr = NULL, *arr, *vc = NULL;
-  xdouble **r2p, **invr2p, **k2p, **invk2p, *rDm1, *kDm1;
+  xdouble *ri, *ki, **r2p, **invr2p, **k2p, **invk2p, *rDm1, *kDm1;
   int i, dm, l, *coef;
   FFTWPFX(plan) plans[2] = {NULL, NULL};
 
@@ -193,28 +197,30 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   }
 #endif
 
+  MAKE1DARR(ri, npt);
+  MAKE1DARR(ki, npt);
   MAKE2DARR(r2p, K, npt) /* r^{K - l} for l = 0, ..., K */
   MAKE2DARR(k2p, K, npt) /* k^{K - l} for l = 0, ..., K */
   MAKE2DARR(invr2p, K, npt) /* r^{-K-l} for l = 0, ..., K */
   MAKE2DARR(invk2p, K, npt) /* k^{-K-l} for l = 0, ..., K */
   MAKE1DARR(rDm1, npt); /* r^(D - 1) dr */
-  MAKE1DARR(kDm1, npt); /* r^(D - 1) dr */
+  MAKE1DARR(kDm1, npt); /* k^(D - 1) dk */
   {
-    xdouble ri, rl, invrl, ki, kl, invkl;
+    xdouble rl, invrl, kl, invkl;
 
     for ( i = 0; i < npt; i++ ) {
       if ( ffttype ) {
-        ri = dr * (i*2 + 1)/2;
-        ki = dk * (i*2 + 1)/2;
+        ri[i] = dr * (i*2 + 1)/2;
+        ki[i] = dk * (i*2 + 1)/2;
       } else {
-        ri = dr * i;
-        ki = dk * i;
+        ri[i] = dr * i;
+        ki[i] = dk * i;
       }
       rl = 1;
       kl = 1;
       for ( l = 1; l <= K; l++ ) {
-        r2p[K - l][i] = (rl *= ri);
-        k2p[K - l][i] = (kl *= ki);
+        r2p[K - l][i] = (rl *= ri[i]);
+        k2p[K - l][i] = (kl *= ki[i]);
       }
 
       if ( ffttype == 0 && i == 0 ) continue;
@@ -224,8 +230,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
       for ( l = 0; l < K; l++ ) {
         invr2p[l][i] = invrl;
         invk2p[l][i] = invkl;
-        invrl /= ri;
-        invkl /= ki;
+        invrl /= ri[i];
+        invkl /= ki[i];
       }
     }
   }
@@ -273,6 +279,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     }
   }
 
+  fnvir = savevirhead(fnvir, NULL, dim, nmax, doHNC, mkcorr, npt, rmax);
+
   B2p = B2;
   for ( l = 1; l < nmax - 1; l++ ) {
     /* compute the ring sum based on ck */
@@ -285,7 +293,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     /* t_l(k) --> t_l(r) */
     sphr(npt, tk[l], trl, fack2r, plans, arr, coef, k2p, invr2p, ffttype);
 
-    if ( tr != NULL ) COPY1DARR(tr[l], trl, npt);
+    if ( tr != NULL ) {
+      COPY1DARR(tr[l], trl, npt);
+    }
 
     if ( yr != NULL ) /* compute the cavity function y(r) */
       get_yr_hnc(l, nmax, npt, yr, trl);
@@ -296,9 +306,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     }
 
     if ( doHNC ) {
-      /* hypernetted approximation:
+      /* hypernetted-chain approximation:
        * c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
-      for ( i = 0; i < npt; i++)
+      for ( i = 0; i < npt; i++ )
         crl[i] = (fr[i] + 1) * yr[l][i] - trl[i];
       Bv = contactv(yr[l], dm, B2);
     } else {
@@ -309,10 +319,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
       Bv = contactv(trl, dm, B2);
     }
 
-    if ( mkcorr ) {
-      get_corr1_hnc_hs(l, npt, dm, doHNC ? yr[l] : trl, crl, fr, rDm1, B2, vc);
-      Bv += contactv(vc, dm, B2);
-    }
+    /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) surfr r^(D-1) dr */
+    Bc = -integr(npt, crl, rDm1) / (l + 2);
 
     if ( cr != NULL ) {
       COPY1DARR(cr[l], crl, npt); /* cr[l] = crl */
@@ -323,44 +331,45 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
         Bm = get_Bx_py(l, npt, cr, tr, rDm1);
         Bh = get_Bp_py(l, npt, cr, tr, rDm1) - Bh;
       }
+    } else {
+      Bm = Bh = 0;
     }
 
-    /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) S_D r^(D-1) dr */
-    Bc = -integr(npt, crl, rDm1) / (l + 2);
+    if ( mkcorr ) {
+      /* in the PY case, y(r) = 1 + t(r) */
+      Bm = get_corr1_hs(l, npt, dm, doHNC ? yr[l] : trl,
+          crl, fr, rDm1, B2, vc, &Bc, &Bv, &fcorr);
+    }
+
     B2p *= B2;
-    printf("Bc(%3d) = %18.10" DBLPRNF "e (%18.10" DBLPRNF "e), "
-           "Bv(%3d) = %18.10" DBLPRNF "e (%18.10" DBLPRNF "e), "
-           "Bm(%3d) = %18.10" DBLPRNF "e (%18.10" DBLPRNF "e)\n",
-           l+2, Bc, Bc/B2p, l+2, Bv, Bv/B2p, l+2, Bm, Bm/B2p);
-    printf("Bh(%3d) = %18.10" DBLPRNF "e (%18.10" DBLPRNF "e), "
-           "Br(%3d) = %18.10" DBLPRNF "e (%18.10" DBLPRNF "e)\n",
-           l+2, Bh, Bh/B2p, l+2, Br, Br/B2p);
+    savevir(fnvir, dim, l, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
+    savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
 
     /* c_l(r) --> c_l(k) */
     sphr(npt, crl, ck[l], facr2k, plans, arr, coef, r2p, invk2p, ffttype);
   }
 
+  FREE1DARR(coef, K);
 #ifndef NOFFTW
   FFTWPFX(destroy_plan)(plans[0]);
   FFTWPFX(destroy_plan)(plans[1]);
 #endif
   FREE1DARR(arr, npt);
-  FREE1DARR(crl, npt);
-  FREE1DARR(trl, npt);
-  FREE1DARR(fr, npt);
-  FREE2DARR(tk, nmax - 1, npt);
-  FREE2DARR(ck, nmax - 1, npt);
-  FREE1DARR(coef, K);
+  FREE1DARR(ri, npt);
+  FREE1DARR(ki, npt);
   FREE1DARR(rDm1, npt);
   FREE1DARR(kDm1, npt);
   FREE2DARR(r2p, K, npt); FREE2DARR(invr2p, K, npt);
   FREE2DARR(k2p, K, npt); FREE2DARR(invk2p, K, npt);
-  if ( doHNC || mkcorr ) {
-    FREE2DARR(yr, nmax - 1, npt);
-    if ( mkcorr ) {
-      FREE1DARR(vc, npt);
-    }
-  }
+  FREE1DARR(fr, npt);
+  FREE1DARR(crl, npt);
+  FREE1DARR(trl, npt);
+  FREE2DARR(ck, nmax - 1, npt);
+  FREE2DARR(tk, nmax - 1, npt);
+  if ( cr != NULL ) FREE2DARR(cr, nmax - 1, npt);
+  if ( tr != NULL ) FREE2DARR(tr, nmax - 1, npt);
+  if ( yr != NULL ) FREE2DARR(yr, nmax - 1, npt);
+  if ( vc != NULL ) FREE1DARR(vc, npt);
   return 0;
 }
 

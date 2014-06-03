@@ -939,6 +939,19 @@ class GC:
 
 
 
+  def saveSummary(me, fn = None):
+    ''' save a summary file '''
+    if fn == None:
+      fn = "BnD%dn%d.dat" % (me.D, me.nmax)
+    s = "# %d %d\n" % (me.D, me.nmax)
+    for i in range(3, me.nmax + 1):
+      s += "%4d\t%22.14e\t%12.5e\t%15.8e\n" % (
+          i, me.B2[i], me.eB2[i], me.hist[i])
+    open(fn, "w").write(s)
+    print "saved summary in %s" % fn
+
+
+
   @staticmethod
   def sumdat(fnbas, fnls, fnout = None, fnZr = None):
     ''' sum over data in fnbas + fnls, output to fnZrr '''
@@ -981,18 +994,40 @@ class GC:
     else:
       gc.saveZrh(fnout)
       gc.saveZrh("refine.data", True)
+    gc.saveSummary()
     return gc.B2, gc.eB2, gc.tot
 
 
 
-
-def niceprint(x, err, n = 0, i = 0, strtot = ""):
+def niceprint(x, err, n = 0, i = 0, strtot = "", fac = None):
   ''' print the number with error aligned on the second line
-      n is the order, i is the quantity id '''
+      `n' is the order, `i' is the quantity id
+      `fac' is an additional normalization factor '''
   import scifmt
   if verbose:
-    print "%4d/%4d: %24s %+20.10e %9.2e %s" % (
-        n, i, scifmt.scifmt(x, err), x, err, strtot)
+    sfac = ""
+    if fac:
+      x1 = x*fac
+      err1 = err*fac
+      sfac = " %24s" % scifmt.scifmt(x1, err1)
+    print "%4d|%4d: %24s %+20.10e %9.2e %s%s" % (
+        n, i, scifmt.scifmt(x, err), x, err, strtot, sfac)
+
+
+def getdimdir(curdir = None):
+  ''' guess the dimension from the directory `curdir' '''
+  if not curdir: curdir = os.curdir
+  basedir = os.path.basename(os.path.abspath(curdir))
+  m = re.search(r"D(\d+?)", basedir)
+  return int( m.group(1) ) if m else None
+
+
+
+
+def getfacdim(n, dim):
+  ''' get the multiplicative factor for virial coefficient
+      in terms of the packing fraction '''
+  return pow(2, (dim - 1)*(n - 1)) if dim else None
 
 
 
@@ -1005,15 +1040,16 @@ def getnstfb(d):
 
 
 
-def getlserr(ls, n, usetot = 0):
+def getlserr(ls, n, usetot = 0, dim = None):
   ''' combine data from different simulations
+      `ls':  ([arr], [err], totals, folder)
       `usetot': use total instead of the inverse variance
                 as the relative weight
+      `dim': dimension
       return average, error, total, strtot
   '''
   nsim = len(ls) # number of simulations
   if nsim <= 0: return None, None, None, None
-
   nq = len(ls[0][0]) # number of quantities
   if verbose:
     print "list has %s simulations, each with %d quantities" % (nsim, nq)
@@ -1078,7 +1114,8 @@ def getlserr(ls, n, usetot = 0):
       #print "skip: ave %s, err %s, n %d" % (avx, err, n)
       pass
     else:
-      niceprint(avx, err, n, q, strtot)
+      fac = getfacdim(n, dim)
+      niceprint(avx, err, n, q, strtot, fac)
     avls += [avx,]
     errls += [err,]
   return avls, errls, tot, strtot
@@ -1109,6 +1146,7 @@ def dodirs(dirs, n, sum3 = 0, usehidden = False):
     dirs = guessdirs(n, usehidden)
     if dirs == None:
       return None, None, None, None
+
   # dictionary of list with different nstfb,
   # the interval of computing the star and ring contents
   dicls = {}
@@ -1132,33 +1170,46 @@ def dodirs(dirs, n, sum3 = 0, usehidden = False):
       2. we then combine data with different nstfb '''
   newls = []
   strtot = ""
+  dim = getdimdir()
   for nstfb in dicls:
     ls = dicls[nstfb]
     # combine data directories with the same nstfb
-    av, err, tot, strtot = getlserr(ls, n, usetot = 1)
+    av, err, tot, strtot = getlserr(ls, n, usetot = 1, dim = dim)
     if av == None: continue
     if len(dicls) == 1: return av, err, tot, strtot
     newls += [ (av, err, tot, "w" + str(nstfb)), ]
   # combine data with different nstfb
-  return getlserr(newls, n, usetot = 0)
+  return getlserr(newls, n, usetot = 0, dim = dim)
 
 
 
-def scanorders(fns):
+def scanorders(fns, fnsummary = None):
   ''' scan over orders '''
   n = 4
   ls = []
   while 1:
+    # collect all data for a fixed order n
     ret = dodirs(None, n)
-    #print ret
-    #raw_input()
     x, err, tot, strtot = ret[0], ret[1], ret[2], ret[3]
     if x == None: break
-    ls += [(n, x, err, strtot)]
+    ls += [(n, x, err, tot, strtot)]
     n += 1
-  for n, x, err, strtot in ls:
+  nmax = n - 1
+
+  # print order - virial coefficients
+  dim = getdimdir()
+  src = "# %d %d\n" % (dim, nmax)
+  for n, x, err, tot, strtot in ls:
+    fac = getfacdim(n, dim)
+    # although we have a loop here, len(x) is usually 1
     for i in range(len(x)):
-      niceprint(x[i], err[i], n, i, strtot)
+      niceprint(x[i], err[i], n, i, strtot, fac)
+      tag = (" %d" % i) if len(x) > 1 else ""
+      src += "%4d\t%+22.14e\t%12.5e\t%15.8e%s\n" % (
+          n, x[i], err[i], tot, tag)
+  if fnsummary == None:
+    fnsummary = "BnD%sn%s.dat" % (dim, nmax)
+  open(fnsummary, "w").write(src)
   return ls
 
 
@@ -1259,6 +1310,7 @@ def sumdat_wrapper(fninp, dir = None, sum3 = 0, checkdirname = True):
   # obtain slave files from the basic file
   fnls = getslaves(fnbas)
 
+  # determine the file type
   if fnbas.startswith("Z"):
     tp = "Z"
   elif fnbas.startswith("mr"):

@@ -13,7 +13,7 @@
 #include "zcom.h"
 
 
-typedef double xdouble;
+#include "xdouble.h"
 #include "ieutil.h"
 
 
@@ -31,6 +31,8 @@ int doHNC = 0;
 int singer = 0;
 int mkcorr = 0;
 int verbose = 0;
+char *fnvir = NULL;
+char *fncrtr = NULL;
 
 
 
@@ -39,16 +41,19 @@ static void doargs(int argc, char **argv)
   argopt_t *ao = argopt_open(0);
 
   ao->desc = "computing the virial coefficients from the PY/HNC closure for the 3D hard-sphere fluid";
-  argopt_add(ao, "-D", "%d", &dim, "dimension (odd) integer");
+  argopt_add(ao, "-D", "%d", &dim, "dimension");
   argopt_add(ao, "-n", "%d", &nmax, "maximal order");
   argopt_add(ao, "-R", "%lf", &rmax, "rmax");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--corr", "%b", &mkcorr, "try to correct HNC");
+  argopt_add(ao, "-o", NULL, &fnvir, "output virial coefficient");
+  argopt_add(ao, "--crtr", NULL, &fncrtr, "file name of c(r) and t(r)");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
+  if ( mkcorr ) singer = 0;
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }
@@ -75,10 +80,10 @@ static void sphr(double *in, double *out, double fac,
 static int intgeq(int nmax, int npt, double rmax, int doHNC)
 {
   double facr2k, fack2r, surfr, surfk;
-  double Bc, Bv, Bm, Bh, Br, B2, B2p, tmp1, tmp2;
+  double Bc, Bv, Bm = 0, Bh = 0, Br, B2, B2p, tmp1, tmp2, fcorr = 0;
   double *fr, *crl, *trl, **ck, **tk, **cr = NULL, **tr = NULL;
   double **yr = NULL, *arr, *vc = NULL;
-  double *r2p, *k2p, *rDm1, *kDm1;
+  double *ri, *ki, *r2p, *k2p, *rDm1, *kDm1;
   int i, dm, l;
   gsl_dht *dht;
 
@@ -93,11 +98,15 @@ static int intgeq(int nmax, int npt, double rmax, int doHNC)
   /* auxiliary array */
   MAKE1DARR(arr, npt);
 
+  MAKE1DARR(ri,  dht->size + 1)
+  MAKE1DARR(ki,  dht->size + 1)
   MAKE1DARR(r2p, dht->size + 1)
   MAKE1DARR(k2p, dht->size + 1)
   for ( i = 0; i < (int) dht->size; i++ ) {
-    r2p[i] = pow(gsl_dht_x_sample(dht, i), dim*.5 - 1);
-    k2p[i] = pow(gsl_dht_k_sample(dht, i), dim*.5 - 1);
+    ri[i] = gsl_dht_x_sample(dht, i);
+    r2p[i] = pow(ri[i], dim*.5 - 1);
+    ki[i] = gsl_dht_k_sample(dht, i);
+    k2p[i] = pow(ki[i], dim*.5 - 1);
   }
 
   facr2k = pow(PI*2, dim*.5);
@@ -156,6 +165,8 @@ static int intgeq(int nmax, int npt, double rmax, int doHNC)
     }
   }
 
+  fnvir = savevirhead(fnvir, "h", dim, nmax, doHNC, mkcorr, npt, rmax);
+
   B2p = B2;
   for ( l = 1; l < nmax - 1; l++ ) {
     /* compute the ring sum based on ck */
@@ -195,6 +206,9 @@ static int intgeq(int nmax, int npt, double rmax, int doHNC)
       Bv = contactv(trl, dm, B2);
     }
 
+    /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) S_D r^(D-1) dr */
+    Bc = -integr(npt, crl, rDm1) / (l + 2);
+
     if ( cr != NULL ) {
       COPY1DARR(cr[l], crl, npt); /* cr[l] = crl */
       if ( doHNC ) {
@@ -204,38 +218,38 @@ static int intgeq(int nmax, int npt, double rmax, int doHNC)
         Bm = get_Bx_py(l, npt, cr, tr, rDm1);
         Bh = get_Bp_py(l, npt, cr, tr, rDm1) - Bh;
       }
+    } else {
+      Bm = Bh = 0;
     }
 
     if ( mkcorr ) {
-      get_corr1_hnc_hs(l, npt, dm, doHNC ? yr[l] : trl, crl, fr, rDm1, B2, vc);
-      Bv += contactv(vc, dm, B2);
+      /* in the PY case, y(r) = 1 + t(r) */
+      Bm = get_corr1_hs(l, npt, dm, doHNC ? yr[l] : trl,
+          crl, fr, rDm1, B2, vc, &Bm, &Bh, &fcorr);
     }
 
-    /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) S_D r^(D-1) dr */
-    Bc = -integr(npt, crl, rDm1) / (l + 2);
     B2p *= B2;
-    printf("Bc(%3d) = %16.9e (%16.9e), "
-           "Bv(%3d) = %16.9e (%16.9e), "
-           "Bm(%3d) = %16.9e (%16.9e)\n",
-           l+2, Bc, Bc/B2p, l+2, Bv, Bv/B2p, l+2, Bm, Bm/B2p);
-    printf("Bh(%3d) = %16.9e (%16.9e), "
-           "Br(%3d) = %16.9e (%16.9e)\n",
-           l+2, Bh, Bh/B2p, l+2, Br, Br/B2p);
+    savevir(fnvir, dim, l, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
+    savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
 
     /* c_l(r) --> c_l(k) */
     sphr(crl, ck[l], facr2k, dht, arr, r2p, k2p);
   }
 
   FREE1DARR(arr, npt);
-  FREE1DARR(crl, npt);
-  FREE1DARR(trl, npt);
-  FREE1DARR(fr, npt);
-  FREE2DARR(tk, nmax - 1, npt);
-  FREE2DARR(ck, nmax - 1, npt);
+  FREE1DARR(ri, npt);
+  FREE1DARR(ki, npt);
   FREE1DARR(rDm1, npt);
   FREE1DARR(kDm1, npt);
   FREE1DARR(r2p, npt);
   FREE1DARR(k2p, npt);
+  FREE1DARR(fr, npt);
+  FREE1DARR(crl, npt);
+  FREE1DARR(trl, npt);
+  FREE2DARR(ck, nmax - 1, npt);
+  FREE2DARR(tk, nmax - 1, npt);
+  if ( cr != NULL ) FREE2DARR(cr, nmax - 1, npt);
+  if ( tr != NULL ) FREE2DARR(tr, nmax - 1, npt);
   if ( yr != NULL ) FREE2DARR(yr, nmax - 1, npt);
   if ( vc != NULL ) FREE1DARR(vc, npt);
   gsl_dht_free(dht);

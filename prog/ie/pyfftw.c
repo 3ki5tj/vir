@@ -10,12 +10,6 @@
 
 #include "xdouble.h"
 
-
-
-#define PI (xdouble) 3.1415926535897932384626433832795L
-
-
-
 #ifdef NOFFTW
 #define XDOUBLE xdouble
 #include "fft.h"
@@ -114,7 +108,7 @@ static void iter(int npt, xdouble rho, xdouble *ri, xdouble *ki,
     sphr(npt, tk, tr, fack2r, plan, arr, ki, ri);
     for ( errmax = 0, i = 0; i < npt; i++ ) {
       x = fr[i] * (1 + tr[i]);
-      if ((err = fabs(cr[i] - x)) > errmax) errmax = err;
+      if ((err = FABS(cr[i] - x)) > errmax) errmax = err;
       cr[i] = x;
     }
     if ( errmax < 1e-7 ) break;
@@ -167,10 +161,10 @@ static xdouble getpres_py(int npt, xdouble rho,
   /* the k-space part of the pressure formula */
   for ( i = 0; i < npt; i++ ) {
     x = rho * ck[i];
-    if ( fabs(x) < 1e-8 ) {
+    if ( FABS(x) < 1e-8 ) {
       pres += -x*x*x/3 * ki2[i];
     } else {
-      pres += (log(1 - x) + x + .5*x*x) * ki2[i];
+      pres += (LOG(1 - x) + x + .5*x*x) * ki2[i];
     }
   }
   return pres;
@@ -178,7 +172,7 @@ static xdouble getpres_py(int npt, xdouble rho,
 
 
 
-static void integ(int npt, double rmax, double rho)
+static void integ(int npt, xdouble rmax, xdouble rho)
 {
   xdouble dr, dk, facr2k, fack2r, surfr, surfk, *bphi, x;
   xdouble pres1, pres2, compr1, compr2, dcompr1, dcompr2;
@@ -203,10 +197,10 @@ static void integ(int npt, double rmax, double rho)
   }
 
   facr2k = PI*2 * dr;
-  fack2r = pow(PI*2, -2) * dk;
+  fack2r = pow_si(PI*2, -2) * dk;
 
   surfr = PI*4;
-  surfk = PI*4 / pow(PI*2, 3);
+  surfk = surfr * pow_si(PI*2, -3);
   for ( i = 0; i < npt; i++ ) {
     ri2[i] = surfr * ri[i] * ri[i] * dr;
     ki2[i] = surfk * ki[i] * ki[i] * dk;
@@ -223,7 +217,7 @@ static void integ(int npt, double rmax, double rho)
   /* solvent-solvent interaction */
   for ( i = 0; i < npt; i++ ) {
     bphi[i] = beta * pot(ri[i], sigvv, 1, &dfr[i]);
-    x = exp(-bphi[i]);
+    x = EXP(-bphi[i]);
     fr[i] = x - 1;
     dfr[i] *= beta * x;
   }

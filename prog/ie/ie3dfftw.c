@@ -37,6 +37,8 @@ int doHNC = 0;
 int singer = 0;
 int mkcorr = 0;
 int verbose = 0;
+char *fnvir = NULL;
+char *fncrtr = NULL;
 
 
 
@@ -51,10 +53,12 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--corr", "%b", &mkcorr, "correct the closure");
+  argopt_add(ao, "-o", NULL, &fnvir, "output virial coefficient");
+  argopt_add(ao, "--crtr", NULL, &fncrtr, "file name of c(r) and t(r)");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
-  argopt_addhelp(ao, "-h");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
+  if ( mkcorr ) singer = 0;
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }
@@ -88,7 +92,7 @@ static void sphr(int npt, xdouble *in, xdouble *out, xdouble fac,
 static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 {
   xdouble dr, dk, facr2k, fack2r, surfr, surfk;
-  xdouble Bc, Bv, Bm, Bh, Br, Bt = 0, B2, B2p;
+  xdouble Bc, Bv, Bm = 0, Bh, Br, B2, B2p, fcorr = 0;
   xdouble *fr, *crl, *trl, **ck, **tk, **cr = NULL, **tr = NULL;
   xdouble **yr = NULL, *arr, *ri, *ki, *ri2, *ki2, *vc = NULL;
   int i, dm, l;
@@ -131,7 +135,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 
   B2 = PI*2/3;
   surfr = PI*4;
-  surfk = surfr / pow(PI*2, 3);
+  surfk = surfr * pow_si(PI*2, -3);
   for ( i = 0; i < npt; i++ ) {
     ri2[i] = surfr * ri[i] * ri[i] * dr;
     ki2[i] = surfk * ki[i] * ki[i] * dk;
@@ -141,10 +145,10 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
       (double) dr, dm, (double) rmax, ffttype, doHNC, (double) B2);
 
   MAKE1DARR(fr, npt);
-  MAKE2DARR(ck, nmax - 1, npt)
-  MAKE2DARR(tk, nmax - 1, npt)
   MAKE1DARR(crl, npt);
   MAKE1DARR(trl, npt);
+  MAKE2DARR(ck, nmax - 1, npt)
+  MAKE2DARR(tk, nmax - 1, npt)
 
   /* construct f(r) and f(k) */
   for ( i = 0; i < npt; i++ ) /* compute f(r) = exp(-beta u(r)) - 1 */
@@ -166,6 +170,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     }
   }
 
+  fnvir = savevirhead(fnvir, NULL, 3, nmax, doHNC, mkcorr, npt, rmax);
+
   B2p = B2;
   for ( l = 1; l < nmax - 1; l++ ) { /* c_l and t_l, B_{l+2} */
     /* compute the ring sum based on ck */
@@ -180,8 +186,6 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 
     if ( tr != NULL ) {
       COPY1DARR(tr[l], trl, npt);
-      Bt = get_ht(l, npt, cr, tr, ri2);
-      if ( doHNC ) Bt *= (l + 1) * .5;
     }
 
     if ( yr != NULL ) /* compute the cavity function y(r) */
@@ -193,16 +197,21 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     }
 
     if ( doHNC ) {
-      /* hypernetted approximation: c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
+      /* hypernetted-chain approximation:
+       * c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
       for ( i = 0; i < npt; i++ )
         crl[i] = (fr[i] + 1) * yr[l][i] - trl[i];
       Bv = contactv(yr[l], dm, B2);
     } else {
-      /* Percus-Yevick approximation: c(r) = f(r) (1 + t(r)) */
+      /* Percus-Yevick approximation:
+       * c(r) = f(r) (1 + t(r)) */
       for ( i = 0; i < npt; i++ )
         crl[i] = fr[i] * trl[i];
       Bv = contactv(trl, dm, B2);
     }
+
+    /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) surfr r^2 dr */
+    Bc = -integr(npt, crl, ri2) / (l + 2);
 
     if ( cr != NULL ) {
       COPY1DARR(cr[l], crl, npt); /* cr[l] = crl */
@@ -213,28 +222,21 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
         Bm = get_Bx_py(l, npt, cr, tr, ri2);
         Bh = get_Bp_py(l, npt, cr, tr, ri2) - Bh;
       }
+    } else {
+      Bm = Bh = 0;
     }
 
     if ( mkcorr ) {
-      get_corr1_hnc_hs(l, npt, dm, doHNC ? yr[l] : trl, crl, fr, ri2, B2, vc);
-      Bv += contactv(vc, dm, B2);
+      /* in the PY case, y(r) = 1 + t(r) */
+      Bm = get_corr1_hs(l, npt, dm, doHNC ? yr[l] : trl,
+          crl, fr, ri2, B2, vc, &Bc, &Bv, &fcorr);
     }
 
-    /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) surfr r^2 dr */
-    Bc = -integr(npt, crl, ri2) / (l + 2);
     B2p *= B2;
-    printf("Bc(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e), "
-           "Bv(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e), "
-           "Bm(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e)\n",
-           l+2, Bc, Bc/B2p, l+2, Bv, Bv/B2p, l+2, Bm, Bm/B2p);
-    printf("Bh(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e), "
-           "Br(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e), "
-           "Bt(%3d) = %16.9" DBLPRNF "e (%16.9" DBLPRNF "e)\n",
-           l+2, Bh, Bh/B2p, l+2, Br, Br/B2p, l+2, Bt, Bt/B2p);
+    savevir(fnvir, 3, l, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
+    savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
 
-    savefns(l, npt, ri, crl, trl, vc, yr, "cr.dat");
-
-    /* c(r) --> c(k) */
+    /* c_l(r) --> c_l(k) */
     sphr(npt, crl, ck[l], facr2k, plan, arr, ri, ki, ffttype);
   }
 
@@ -247,10 +249,10 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   FREE1DARR(ri2, npt);
   FREE1DARR(ki2, npt);
   FREE1DARR(fr, npt);
-  FREE2DARR(tk, nmax - 1, npt);
-  FREE2DARR(ck, nmax - 1, npt);
-  FREE1DARR(trl, npt);
   FREE1DARR(crl, npt);
+  FREE1DARR(trl, npt);
+  FREE2DARR(ck, nmax - 1, npt);
+  FREE2DARR(tk, nmax - 1, npt);
   if ( cr != NULL ) FREE2DARR(cr, nmax - 1, npt);
   if ( tr != NULL ) FREE2DARR(tr, nmax - 1, npt);
   if ( yr != NULL ) FREE2DARR(yr, nmax - 1, npt);

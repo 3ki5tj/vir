@@ -39,6 +39,9 @@
 /* y -= i */
 #define SUB_SI_X_(y, i) SUB_SI_(y, y, i)
 
+/* y = -x */
+#define NEG_(y, x) mpfr_neg(y, x, MPFR_RNDN)
+
 /* z = x * y */
 #define MUL_(z, x, y) mpfr_mul(z, x, y, MPFR_RNDN)
 
@@ -115,8 +118,8 @@
 
 #define FREE1DARR(arr, n) { int i_; \
   for (i_ = 0; i_ < (int) (n); i_++) \
-  CLEAR_(arr[i_]); \
-  free(arr); }
+    CLEAR_(arr[i_]); \
+    free(arr); }
 
 #define MAKE2DARR(arr, n1, n2) { int l_; \
   xnew(arr, n1); \
@@ -127,6 +130,11 @@
 #define FREE2DARR(arr, n1, n2) { \
   FREE1DARR(arr[0], (n1) * (n2)); \
   free(arr); }
+
+#define COPY1DARR(a, b, n) { int i_; \
+  for (i_ = 0; i_ < (int) (n); i_++) \
+    SET_(a[i_], b[i_]); }
+
 
 
 __inline static void integr(mpfr_t y, int n, mpfr_t *f, mpfr_t *w)
@@ -226,20 +234,15 @@ static void get_yr_hnc(int l, int nmax, int npt,
 
 /* correct the hypernetted chain approximation
  *  `vc' is the trial correction function to y(r) */
-__inline static void get_corr1_hnc_hs(int l, int npt, int dm,
+__inline static void get_corr1_hs(mpfr_t B, int l, int npt, int dm,
     mpfr_t *ylr, mpfr_t *crl, mpfr_t *fr, mpfr_t *rDm1,
-    mpfr_t B2, mpfr_t *vc)
+    mpfr_t B2, mpfr_t *vc, mpfr_t Bc0, mpfr_t Bv0, mpfr_t eps)
 {
   int i;
-  mpfr_t Bc0, dBc, Bv0, dBv, eps, x;
+  mpfr_t dBc, dBv, x;
 
-  if ( l < 2 ) return;
-
-  INIT_(Bc0);
   INIT_(dBc);
-  INIT_(Bv0);
   INIT_(dBv);
-  INIT_(eps);
   INIT_(x);
 
   SET_SI_(Bc0, 0);
@@ -260,6 +263,12 @@ __inline static void get_corr1_hnc_hs(int l, int npt, int dm,
   contactv(Bv0, ylr, dm, B2);
   /* dBv = B2 * (vc[dm] + vc[dm-1])/2; */
   contactv(dBv, vc, dm, B2);
+  if ( l <= 1 ) {
+    SET_(B, Bc0);
+    SET_SI_(eps, 0);
+    return;
+  }
+
   /* eps = -(Bv0 - Bc0) / (dBv - dBc); */
   SUB_(eps, Bc0, Bv0);
   SUB_(x, dBv, dBc);
@@ -271,13 +280,316 @@ __inline static void get_corr1_hnc_hs(int l, int npt, int dm,
     ADD_SI_(x, fr[i], 1);
     FMA_X_(crl[i], x, vc[i]);
   }
-
-  CLEAR_(Bc0);
+  FMA_(B, dBv, eps, Bv0);
   CLEAR_(dBc);
-  CLEAR_(Bv0);
   CLEAR_(dBv);
-  CLEAR_(eps);
   CLEAR_(x);
+}
+
+
+
+/* Sum_{m = 3 to infinity} { rho^m [c(k)]^m }_{l+2} / m */
+__inline static void get_ksum(mpfr_t s, int l, int npt,
+    mpfr_t **ck, mpfr_t *w, mpfr_t s2)
+{
+  int i, j, k, m;
+  mpfr_t *a, x, y, z;
+
+  INIT_(x);
+  INIT_(y);
+  INIT_(z);
+  if ( s2 != NULL )
+    SET_SI_(s2, 0);
+  SET_SI_(s, 0);
+  MAKE1DARR(a, l + 1);
+  for ( i = 0; i < npt; i++ ) {
+    SET_SI_(y, 0);
+    SET_SI_(z, 0);
+    for ( j = 0; j <= l; j++ )
+      SET_(a[j], ck[j][i]);
+    for ( m = 2; m <= l + 2; m++ ) { /* rho^m [c(k)]^m */
+      /* update a[l + 2 - m], ..., a[0] */
+      for ( j = l + 2 - m; j >= 0; j-- ) {
+        /* a'[j] = Sum_{k = 0 to j} a[k] ck[j - k]
+         * we start from large j to preserve small-index data */
+        /* a[j] = a[j] * ck[0][i]; */
+        MUL_X_(a[j], ck[0][i]);
+        for ( k = j - 1; k >= 0; k-- )
+          /* a[j] += a[k] * ck[j - k][i]; */
+          FMA_X_(a[j], a[k], ck[j - k][i]);
+      }
+      if ( m == 2 ) continue;
+      /*
+      y += a[l + 2 - m] / m;
+      z += a[l + 2 - m] * (m - 2) / (2*m);
+      */
+      DIV_SI_(x, a[l + 2 - m], m);
+      ADD_X_(y, x);
+      DIV_SI_X_(x, 2);
+      MUL_SI_X_(x, m - 2);
+      ADD_X_(z, x);
+    }
+    FMA_X_(s, w[i], y);
+    if ( s2 != NULL ) {
+      FMA_X_(s2, w[i], z);
+    }
+  }
+  FREE1DARR(a, l + 1);
+  CLEAR_(x);
+  CLEAR_(y);
+  CLEAR_(z);
+}
+
+
+
+/* save the header for the virial file */
+__inline static char *savevirhead(const char *fn, const char *title,
+    int dim, int nmax, int doHNC, int mkcorr, int npt, double rmax)
+{
+  FILE *fp;
+  static char fndef[256];
+
+  if ( fn == NULL ) {
+    sprintf(fndef, "%sBn%s%sD%dn%dR%.0fM%d.dat",
+        title ? title : "", doHNC ? "HNC" : "PY", mkcorr ? "c" : "",
+        dim, nmax, rmax, npt);
+    fn = fndef;
+  }
+  xfopen(fp, fn, "w", return NULL);
+  fprintf(fp, "# %s %s %d %.14f %d | n Bc Bv Bm [Bh Br | corr]\n",
+      doHNC ? "HNC" : "PY", mkcorr ? "corr" : "",
+      nmax, rmax, npt);
+  fclose(fp);
+  return (char *) fn;
+}
+
+
+
+/* print a virial coefficient */
+__inline static void printB(const char *name, int n, mpfr_t B,
+    mpfr_t B2p, mpfr_t volp, const char *ending)
+{
+  if ( B == 0 ) return;
+  mpfr_printf("%s(%3d) = %15.8Re", name, n, B);
+  if ( B2p != 0 ) {
+    mpfr_t x, y;
+    INIT_(x);
+    INIT_(y);
+    DIV_(x, B, B2p);
+    DIV_(y, B, volp);
+    mpfr_printf(" (%15.8Re, %11.6Rf)", x, y);
+    CLEAR_(x);
+    CLEAR_(y);
+  }
+  printf("%s", ending);
+}
+
+
+
+/* save virial coefficients */
+__inline static int savevir(const char *fn, int dim, int l,
+    mpfr_t Bc, mpfr_t Bv, mpfr_t Bm, mpfr_t Bh, mpfr_t Br,
+    mpfr_t B2p, int mkcorr, mpfr_t fcorr)
+{
+  FILE *fp;
+  mpfr_t volp, x;
+
+  INIT_(volp);
+  INIT_(x);
+  /* print the result on screen */
+  /* volp = B2p / pow(2, (l+1)*(dim-1)); */
+  SET_SI_(x, 2);
+  POW_SI_(x, x, (l+1)*(dim-1));
+  DIV_(volp, B2p, x);
+  printB("Bc", l+2, Bc, B2p, volp, ", ");
+  printB("Bv", l+2, Bv, B2p, volp, ", ");
+  /* when making corrections, Bm is the corrected value */
+  printB("Bm", l+2, Bm, B2p, volp, "");
+  if ( mkcorr ) {
+    mpfr_printf(", %9.6Rf\n", fcorr);
+  } else { /* the following are useless when making corrections */
+    printf("\n");
+    if ( !mpfr_zero_p(Bh) || !mpfr_zero_p(Br) ) {
+      printB("Bh", l+2, Bh, B2p, volp, ", ");
+      printB("Br", l+2, Br, B2p, volp, "\n");
+    }
+  }
+
+  if (fn != NULL) {
+    mpfr_t Xc, Xv, Xm, Xh, Xr;
+    xfopen(fp, fn, "a", return -1);
+    INIT_(Xc);
+    INIT_(Xv);
+    INIT_(Xm);
+    INIT_(Xh);
+    INIT_(Xr);
+    /* normalize the virial coefficients */
+    if ( B2p != 0 ) {
+      DIV_(Xc, Bc, B2p);
+      DIV_(Xv, Bv, B2p);
+      DIV_(Xm, Bm, B2p);
+      DIV_(Xh, Bh, B2p);
+      DIV_(Xr, Br, B2p);
+    } else {
+      SET_(Xc, Bc);
+      SET_(Xv, Bv);
+      SET_(Xm, Bm);
+      SET_(Xh, Bh);
+      SET_(Xr, Br);
+    }
+    if ( mkcorr ) {
+      mpfr_fprintf(fp, "%4d%+24.14Re%+24.14Re%+24.14Re %+18.14Rf\n",
+          l + 2, Bc, Bv, Bm, fcorr);
+    } else {
+      mpfr_fprintf(fp, "%4d%+24.14Re%24.14Re%24.14Re%24.14Re%24.14Re\n",
+          l + 2, Bc, Bv, Bm, Bh, Br);
+    }
+    fclose(fp);
+    CLEAR_(Xc);
+    CLEAR_(Xv);
+    CLEAR_(Xm);
+    CLEAR_(Xh);
+    CLEAR_(Xr);
+  }
+  CLEAR_(volp);
+  CLEAR_(x);
+
+  return 0;
+}
+
+
+
+/* save c(r) or t(r) file */
+__inline static int savecrtr(const char *fn, int l, int npt,
+    mpfr_t *ri, mpfr_t *cr, mpfr_t *tr, mpfr_t *vc, mpfr_t **yr)
+{
+  FILE *fp;
+  int i, j;
+
+  if (fn == NULL) return -1;
+  xfopen(fp, fn, (l == 1) ? "w" : "a", return -1);
+  for ( i = 0; i < npt; i++ ) {
+    mpfr_fprintf(fp, "%10.7Rf %20.12Rf %20.12Rf %d",
+        ri[i], cr[i], tr[i], l);
+    if ( vc != NULL )
+      mpfr_fprintf(fp, " %20.12Rf", vc[i]);
+    if ( yr != NULL )
+      for ( j = 1; j <= l; j++ )
+        mpfr_fprintf(fp, " %20.12Rf", yr[j][i]);
+    fprintf(fp, "\n");
+  }
+  fprintf(fp, "\n");
+  fclose(fp);
+  return 0;
+}
+
+
+
+/* compute mu = Int (c - h t / 2) dr */
+__inline static void get_Bm_singer(mpfr_t s, int l, int npt,
+    mpfr_t **cr, mpfr_t **tr, mpfr_t *w)
+{
+  int i, u;
+  mpfr_t x, y;
+
+  INIT_(x);
+  INIT_(y);
+  for ( i = 0; i < npt; i++ ) {
+    SET_(x, cr[l][i]);
+    for ( u = 0; u < l; u++ ) {
+      /* x -= tr[l-u][i] * (cr[u][i] + tr[u][i]) / 2; */
+      FAM_(y, cr[u][i], tr[u][i], tr[l-u][i]);
+      DIV_SI_X_(y, 2);
+      SUB_X_(x, y);
+    }
+    FMA_X_(s, x, w[i]);
+  }
+  CLEAR_(x);
+  CLEAR_(y);
+  MUL_SI_X_(s, -(l+1));
+  DIV_SI_X_(s, (l+2));
+}
+
+
+
+
+/* compute -beta F = (1/2) Int (c - c t - t^2 / 2) dr (real part) */
+__inline static void get_Bh_singer(mpfr_t s, int l, int npt,
+    mpfr_t **cr, mpfr_t **tr, mpfr_t *w)
+{
+  int i, u;
+  mpfr_t x, y;
+
+  INIT_(x);
+  INIT_(y);
+  /* compute -2 beta F */
+  SET_SI_(s, 0);
+  for ( i = 0; i < npt; i++ ) {
+    SET_(x, cr[l][i]);
+    for ( u = 0; u < l; u++ ) {
+      /* x -= tr[l-u][i] * (cr[u][i] + tr[u][i] / 2); */
+      DIV_SI_(y, tr[u][i], 2);
+      FAM_(y, y, cr[u][i], tr[l-u][i]);
+      SUB_X_(x, y);
+    }
+    FMA_X_(s, x, w[i]);
+  }
+  CLEAR_(x);
+  CLEAR_(y);
+  MUL_SI_X_(s, -(l+1));
+  DIV_SI_X_(s, 2);
+}
+
+
+
+/* d^2_rho beta P = Int (c + h t) dr */
+__inline static void get_Bx_py(mpfr_t s, int l, int npt,
+    mpfr_t **cr, mpfr_t **tr, mpfr_t *w)
+{
+  int i, u;
+  mpfr_t x, y;
+
+  INIT_(x);
+  INIT_(y);
+  SET_SI_(s, 0);
+  for ( i = 0; i < npt; i++ ) {
+    SET_(x, cr[l][i]);
+    for ( u = 0; u < l; u++ ) {
+      ADD_(y, cr[u][i], tr[u][i]);
+      FMA_X_(x, tr[l-u][i], y);
+    }
+    FMA_X_(s, x, w[i]);
+  }
+  CLEAR_(x);
+  CLEAR_(y);
+  DIV_SI_X_(s, -(l+1)*(l+2));
+}
+
+
+
+/* d^2_rho beta P = (-1/2) Int (c - t c) dr (real part) */
+__inline static void get_Bp_py(mpfr_t s, int l, int npt,
+    mpfr_t **cr, mpfr_t **tr, mpfr_t *w)
+{
+  int i, u;
+  mpfr_t x, y;
+
+  INIT_(x);
+  INIT_(y);
+  //NEG_(s, s);
+  SET_SI_(s, 0);
+  for ( i = 0; i < npt; i++ ) {
+    SET_(x, cr[l][i]);
+    for ( u = 0; u < l; u++ ) {
+      /* x -= tr[l-u][i] * cr[u][i]; */
+      MUL_(y, tr[l-u][i], cr[u][i]);
+      SUB_X_(x, y);
+    }
+    FMA_X_(s, x, w[i]);
+  }
+  CLEAR_(x);
+  CLEAR_(y);
+  DIV_SI_X_(s, -2);
 }
 
 

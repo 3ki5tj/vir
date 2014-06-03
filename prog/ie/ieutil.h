@@ -33,18 +33,6 @@
   free(arr); }
 
 
-__inline static xdouble pow_si(xdouble x, int n)
-{
-  int sgn = 1;
-  xdouble y;
-
-  if ( n < 0) { sgn = -1; n = -n; }
-  for ( y = 1; n; n-- ) y *= x;
-  return sgn > 0 ? y : 1/y;
-}
-
-
-
 __inline static xdouble integr(int n, xdouble *f, xdouble *w)
 {
   xdouble y = 0;
@@ -139,62 +127,70 @@ __inline static void get_yr_py2(int l, int npt, xdouble *yrl, xdouble **tr)
  * `vc' is the trial correction function to y(r)
  * The corresponding correction to c(r) is (f(r) + 1) vc(r)
  * which is only effective for r > 1 */
-__inline static void get_corr1_hnc_hs(int l, int npt, int dm,
+__inline static xdouble get_corr1_hs(int l, int npt, int dm,
     xdouble *yr, xdouble *cr, xdouble *fr, xdouble *rDm1,
-    xdouble B2, xdouble *vc)
+    xdouble B2, xdouble *vc, xdouble *Bc0, xdouble *Bv0, xdouble *eps)
 {
   int i;
-  xdouble Bc0, dBc, Bv0, dBv, eps;
-
-  if ( l < 2 ) return;
+  xdouble dBc, dBv;
 
   /* Bc = - Int c(r) dr / (l + 2) */
-  Bc0 = dBc = 0;
+  *Bc0 = dBc = 0;
   for ( i = 0; i < npt; i++ ) {
-    Bc0 += cr[i] * rDm1[i];
+    *Bc0 += cr[i] * rDm1[i];
     dBc += vc[i] * (1 + fr[i]) * rDm1[i];
   }
-  Bc0 /= -(l + 2);
+  *Bc0 /= -(l + 2);
   dBc /= -(l + 2);
-  Bv0 = contactv(yr, dm, B2);
+  *Bv0 = contactv(yr, dm, B2);
   dBv = contactv(vc, dm, B2);
-  eps = -(Bv0 - Bc0) / (dBv - dBc);
-  //printf("l %d, eps %g, Bv0 %g, Bc0 %g, dBv %g, dBc %g, B2 %g\n", l, (double) eps, (double) Bv0, (double) Bc0, (double) dBv, (double) dBc, (double) B2);
+  if ( l <= 1 ) {
+    *eps = 0;
+    return *Bc0;
+  }
+  *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
+  //printf("l %d, eps %g, Bv0 %g, Bc0 %g, dBv %g, dBc %g, B2 %g\n", l, (double) *eps, (double) *Bv0, (double) *Bc0, (double) dBv, (double) dBc, (double) B2);
   for ( i = 0; i < npt; i++ ) {
-    vc[i] *= eps;
+    vc[i] *= *eps;
     cr[i] += (fr[i] + 1) * vc[i];
   }
+  return (*Bv0) + (*eps) * dBv;
 }
 
 
 
 /* correct the hypernetted chain approximation
  *  `vc' is the trial correction function to y(r) */
-__inline static void get_corr1_hnc(int l, int npt,
+__inline static xdouble get_corr1(int l, int npt,
     xdouble *yr, xdouble *cr, xdouble *fr, xdouble *dfr,
-    xdouble *rDm1, int dim, xdouble *vc)
+    xdouble *rDm1, int dim, xdouble *vc,
+    xdouble *Bc0, xdouble *Bv0, xdouble *eps)
 {
   int i;
-  xdouble Bc0, dBc, Bv0, dBv, eps;
+  xdouble dBc, dBv;
 
-  if ( l < 2 ) return;
-
-  Bc0 = dBc = Bv0 = dBv = 0;
+  *Bc0 = dBc = *Bv0 = dBv = 0;
   for ( i = 0; i < npt; i++ ) {
-    Bc0 += cr[i] * rDm1[i];
+    *Bc0 += cr[i] * rDm1[i];
     dBc += vc[i] * (1 + fr[i]) * rDm1[i];
-    Bv0 += dfr[i] * yr[i] * rDm1[i];
+    *Bv0 += dfr[i] * yr[i] * rDm1[i];
     dBv += dfr[i] * vc[i] * rDm1[i];
   }
-  Bc0 /= -(l + 2);
+  *Bc0 /= -(l + 2);
   dBc /= -(l + 2);
-  Bv0 /= dim * 2;
+  *Bv0 /= dim * 2;
   dBv /= dim * 2;
-  eps = -(Bv0 - Bc0) / (dBv - dBc);
+  if ( l <= 1 ) {
+    *eps = 0;
+    return *Bc0;
+  }
+
+  *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
   for ( i = 0; i < npt; i++ ) {
-    vc[i] *= eps;
+    vc[i] *= *eps;
     cr[i] += vc[i] * (1 + fr[i]);
   }
+  return *Bv0 + (*eps) * dBv;
 }
 
 
@@ -305,24 +301,107 @@ __inline static xdouble get_ht(int l, int npt,
   xdouble s = 0, x;
 
   for ( i = 0; i < npt; s += x * w[i], i++ )
-    for ( x = 0, u = 0; u < l; u++ ) {
+    for ( x = 0, u = 0; u < l; u++ )
       x += tr[l-u][i] * (cr[u][i] + tr[u][i]);
-      //printf("i %d, wt %g, tr %g, x %g\n", i, w[i], tr[l-u][i], x);
-    }
   return -s/l/(l+2);
 }
 
 
 
+/* save the header for the virial file */
+__inline static char *savevirhead(const char *fn, const char *title,
+    int dim, int nmax, int doHNC, int mkcorr, int npt, xdouble rmax)
+{
+  FILE *fp;
+  static char fndef[256];
 
-/* save file */
-__inline static int savefns(int l, int npt, xdouble *ri,
-    xdouble *cr, xdouble *tr, xdouble *vc, xdouble **yr,
-    const char *fn)
+  if ( fn == NULL ) {
+    sprintf(fndef, "%sBn%s%sD%dn%dR%.0fM%d.dat",
+        title ? title : "", doHNC ? "HNC" : "PY", mkcorr ? "c" : "",
+        dim, nmax, (double) rmax, npt);
+    fn = fndef;
+  }
+  xfopen(fp, fn, "w", return NULL);
+  fprintf(fp, "# %s %s %d %.14f %d | n Bc Bv Bm [Bh Br | corr]\n",
+      doHNC ? "HNC" : "PY", mkcorr ? "corr" : "",
+      nmax, (double) rmax, npt);
+  fclose(fp);
+  return (char *) fn;
+}
+
+
+
+/* print a virial coefficient */
+__inline static void printB(const char *name, int n, xdouble B,
+    xdouble B2p, xdouble volp, const char *ending)
+{
+  if ( B == 0 ) return;
+  printf("%s(%3d) = %15.8e", name, n, (double) B);
+  if ( B2p != 0 )
+    printf(" (%15.8e, %11.6f)", (double) (B/B2p), (double) (B/volp));
+  printf("%s", ending);
+}
+
+
+
+/* save virial coefficients */
+__inline static int savevir(const char *fn, int dim, int l,
+    xdouble Bc, xdouble Bv, xdouble Bm, xdouble Bh, xdouble Br,
+    xdouble B2p, int mkcorr, xdouble fcorr)
+{
+  FILE *fp;
+  xdouble volp;
+
+  /* print the result on screen */
+  volp = B2p / pow_si(2, (l+1)*(dim-1));
+  printB("Bc", l+2, Bc, B2p, volp, ", ");
+  printB("Bv", l+2, Bv, B2p, volp, ", ");
+  /* when making corrections, Bm is the corrected value */
+  printB("Bm", l+2, Bm, B2p, volp, "");
+  if ( mkcorr ) {
+    printf(", %9.6f\n", (double) fcorr);
+  } else { /* the following are useless when making corrections */
+    printf("\n");
+    if ( Bh != 0 || Br != 0 ) {
+      printB("Bh", l+2, Bh, B2p, volp, ", ");
+      printB("Br", l+2, Br, B2p, volp, "\n");
+    }
+  }
+
+  if (fn != NULL) {
+    xfopen(fp, fn, "a", return -1);
+    /* normalize the virial coefficients */
+    if ( B2p != 0 ) {
+      Bc /= B2p;
+      Bv /= B2p;
+      Bm /= B2p;
+      Bh /= B2p;
+      Br /= B2p;
+    }
+    if ( mkcorr ) {
+      fprintf(fp, "%4d%+24.14e%+24.14e%+24.14e %+18.14f\n",
+          l + 2, (double) Bc, (double) Bv, (double) Bm, (double) fcorr);
+    } else {
+      fprintf(fp, "%4d%+24.14e%24.14e%24.14e%24.14e%24.14e\n",
+          l + 2, (double) Bc, (double) Bv,
+          (double) Bm, (double) Bh, (double) Br);
+    }
+    fclose(fp);
+  }
+
+  return 0;
+}
+
+
+
+/* save c(r) or t(r) file */
+__inline static int savecrtr(const char *fn, int l, int npt,
+    xdouble *ri, xdouble *cr, xdouble *tr, xdouble *vc, xdouble **yr)
 {
   FILE *fp;
   int i, j;
 
+  if (fn == NULL) return -1;
   xfopen(fp, fn, (l == 1) ? "w" : "a", return -1);
   for ( i = 0; i < npt; i++ ) {
     fprintf(fp, "%10.7f %20.12f %20.12f %d",

@@ -652,7 +652,7 @@ A \emph{series composition} $A*B$
 \]
 The merged and blackened root is called the \emph{joint}.
 %
-The value of $A*B$ is $\rho \cdot (a*b)(\vr)$.
+The value of $A*B$ is a convolution $\rho \cdot (a*b)(\vr)$.
 %
 Generally, a series composition,
   or a \emph{chain},
@@ -997,7 +997,7 @@ For a polygon graph $G$, $s(G)$ always divides $2n$,
   i.e.,
   the only permissible symmetry operations
   are rotations and reflections,
-  and all other operations produces intersecting edges.
+  and all other operations produce intersecting edges.
 %
 To summarize
 %
@@ -1181,7 +1181,8 @@ where $C_l$ is the cycle sum:
 \end{align}
 %
 where the factor $2 \, l$ corresponds to the number of ways
-  of cycling and reflecting the elements in the $l$ cycle.
+  of cycling and reversing the elements in the $l$ cycle
+  [also cf. \eqref{eq:cyclesp}].
 %
 Summing \eqref{eq:ccyclintg} over $l$ yields
 %
@@ -1430,7 +1431,8 @@ Since the relabelling of the black vertices of $H$
   can occur only within each $G_i$ independently,
   the symmetry number is
   $s(H) = s(G_1) \cdots s(G_l)$,
-  which is indeed the inverse weight of $H$.
+  which is indeed the inverse weight of $H$
+  given by \eqref{eq:oz}.
 
 We now turn to $c(\vr)$.
 %
@@ -1448,8 +1450,7 @@ Let us first show that $G$ is a $c$-graph.
 %
 If $m \le 2$,
   $G$ is a cycle of $c$-graphs,
-  hence a $c$-graph,
-  by \eqref{eq:cyclesp}.
+  hence a $c$-graph.
 %
 Otherwise,
   $G$ is a parallel composition of $H_m$
@@ -1511,7 +1512,7 @@ We sort the $m$ chains as \\
     $m = m_1 + \cdots + m_t$.
 %
 The symmetry number is
-  $s(G) = m_1! \cdots m_r! \, s(H_1) \cdots s(H_m)$,
+  $s(G) = m_1! \cdots m_t! \, s(H_1) \cdots s(H_m)$,
   for there are $m_r!$ ways of
   permuting the chains of the same type $r$,
   and collectively relabelling the vertices within accordingly.
@@ -1595,9 +1596,9 @@ We now generalize the face decomposition in the PY case
   \eqref{eq:countvertices} and \eqref{eq:countpairs}.
 
 
-First, we say that a cycle is \emph{simple}
-  if it consists of $l$ ($l \ge 3$) $c$-graphs
-  in which at least $(l-1)$ $c$-graphs are $f$-graphs.
+First, a cycle of $l$ ($l \ge 3$) $c$-graphs
+  is \emph{simple}
+  in which at least $(l-1)$ of the $c$-graphs are $f$-graphs.
 %
 We now show that
 %
@@ -1648,7 +1649,7 @@ Now $J = v'_1 (=v_j) - v'_{l'} - \cdots - v'_{k'+1} - v'_{k'} (= v_{j+1}) \
   and thus can be reduced to a $c$-graph
   rooted at $v'_1$ and $v'_{k'}$.
 %
-Thus, $G$ can be decomposed to a cycle
+Thus, $G$ can be decomposed to a different cycle
   $K' = v'_1 - v'_2 - \cdots - v'_{k'} - v'_1$
   (green).
 %
@@ -1727,7 +1728,7 @@ Thus, $G$ can be decomposed to a cycle
 If $K'$ is simple, we are done.
 %
 Otherwise,
-  we replace the $c$-graph between $v'_1$ and $v'_{k'}$
+  we replace the $c$-graph between $v'_1$ and $v'_{k'}$ in $K'$
   by an $f$-graph.
 %
 On the simplified graph $G'$,
@@ -1798,7 +1799,7 @@ We will show below that
 %
 Since case (a) leaves $J$ intact,
   every cycle $J$ is discovered (and then eliminated)
-  only when (b) happens,
+  only in case (b),
   and the lemma follows.
 %
 
@@ -1842,7 +1843,7 @@ Given a $c$-pack $G$,
   according to the simple cycles
   discovered in Algorithm L.
 %
-Counting vertices and vertex pair
+Counting vertices and vertex pairs
   are readily established on the simple cycles.
 %
 First, each step of Algorithm L removes $(l - 2)$ vertices,
