@@ -557,6 +557,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
   int ned = -1, n = g->n, nocs, errfb, errnr;
   double fb = 0, nr = 0;
   static int degs[DG_NMAX], nlookup = 0;
+#pragma omp threadprivate(degs, nlookup)
 
   if (nlookup <= 0)
     /* we will always compute fb if a lookup table is available
@@ -574,10 +575,10 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
     /* check if the graph has a clique separator
      * but in special cases, fb and nr are computed as well */
     if (n <= 3) { /* assuming biconnectivity */
-      static double fbarr[4] = {1, 1, -1, -1};
+      static const double fbsmall[4] = {1, 1, -1, -1};
       errfb = errnr = 0;
       nocs = 1;
-      fb = fbarr[n];
+      fb = fbsmall[n];
       nr = 1;
 #ifdef DGMAP_EXISTS
     } else if (n <= nlookup) { /* lookup table */
@@ -643,8 +644,9 @@ static int getpair(int *pi, int *pj, const dg_t *g,
     real r2ij[][DG_NMAX], real rc)
 {
   int i, j, npr = 0, id, n = g->n;
-  static int pr[DG_NMAX*DG_NMAX];
   dgvs_t vs;
+  static int pr[DG_NMAX*DG_NMAX];
+#pragma omp threadprivate(pr)
 
   for (i = 0; i < n; i++) { /* the vertex to remove */
     if ( n > 2 &&

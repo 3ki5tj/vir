@@ -782,7 +782,7 @@ static void mcrat_direct(int n, double nequil, double nsteps,
     if (it % nstcom == 0)
       rvn_rmcom(x, DG_N_); /* remove the origin to the center of mass */
 
-    if (nstpos > 0 && it % nstpos == 0) { /* write coordinates */
+    if (inode == MASTER && nstpos > 0 && it % nstpos == 0) { /* write coordinates */
       static int posfr = 0;
       writepos(fnpos, x, DG_N_, posfr++);
     }

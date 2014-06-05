@@ -300,6 +300,14 @@ static double dg_fbnr0(const dg_t *g, double *nr, int method,
 #define DGFB_NEDB (-3)
 #endif
 
+  if ( DG_N_ == 1 ) {
+    *nr = 1;
+    return 1;
+  } else if ( DG_N_ == 2 ) {
+    if ( g->c[0] ) return -(*nr = 1);
+    else return (*nr = 0);
+  }
+
   if ( ned == NULL ) ned = &nedges;
 
   /* 1. special cases: very loose and very dense graphs */
