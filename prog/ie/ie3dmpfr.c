@@ -200,6 +200,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   }
 
   fnvir = savevirhead(fnvir, NULL, 3, nmax, doHNC, mkcorr, npt, rmax);
+
   SET_(B2p, B2);
   for ( l = 1; l < nmax - 1; l++ ) {
     /* compute t_l(k) */

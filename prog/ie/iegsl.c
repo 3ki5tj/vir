@@ -104,16 +104,16 @@ static int intgeq(int nmax, int npt, double rmax, int doHNC)
   MAKE1DARR(k2p, dht->size + 1)
   for ( i = 0; i < (int) dht->size; i++ ) {
     ri[i] = gsl_dht_x_sample(dht, i);
-    r2p[i] = pow(ri[i], dim*.5 - 1);
+    r2p[i] = POW(ri[i], (xdouble) dim/2 - 1);
     ki[i] = gsl_dht_k_sample(dht, i);
-    k2p[i] = pow(ki[i], dim*.5 - 1);
+    k2p[i] = POW(ki[i], (xdouble) dim/2 - 1);
   }
 
-  facr2k = pow(PI*2, dim*.5);
+  facr2k = POW(PI*2, (xdouble) dim/2);
   /* the factor (kmax/xmax)^2 is adapted for the inverse
    * discrete hankel transform using gsl_dht */
-  fack2r = pow(dht->kmax / dht->xmax, 2);
-  fack2r /= pow(PI*2, dim*.5);
+  fack2r = pow_si(dht->kmax / dht->xmax, 2);
+  fack2r /= POW(PI*2, (xdouble) dim/2);
 
   /* B2 = (1/2) (PI*2)^(dim/2) / dim!! for an even dim
    *    = (PI*2)^((dim - 1)/2) / dim!! for an odd dim */
@@ -121,7 +121,7 @@ static int intgeq(int nmax, int npt, double rmax, int doHNC)
   for ( i = 2 + dim % 2; i <= dim; i+=2 ) B2 *= PI*2/i;
   surfr = B2 * 2 * dim;
   tmp2 = dht->kmax / dht->xmax;
-  surfk = surfr * tmp2 * tmp2 / pow(PI*2, dim);
+  surfk = surfr * tmp2 * tmp2 / pow_si(PI*2, dim);
   printf("B2 %g, r2k %g, k2r %g\n", B2, facr2k, fack2r);
 
   /* compute r^(dim - 1) dr, used for integration
@@ -133,10 +133,10 @@ static int intgeq(int nmax, int npt, double rmax, int doHNC)
   MAKE1DARR(kDm1, npt);
   for ( i = 0; i < npt; i++ ) {
     tmp1 = gsl_dht_x_sample(dht, i);
-    tmp2 = pow(tmp1, dim - 2) * surfr;
+    tmp2 = pow_si(tmp1, dim - 2) * surfr;
     rDm1[i] = tmp2 * 2 / (dht->kmax * dht->kmax * dht->J2[i+1]);
     tmp1 = gsl_dht_k_sample(dht, i);
-    tmp2 = pow(tmp1, dim - 2) * surfk;
+    tmp2 = pow_si(tmp1, dim - 2) * surfk;
     kDm1[i] = tmp2 * 2 / (dht->kmax * dht->kmax * dht->J2[i+1]);
   }
 

@@ -94,6 +94,7 @@ the second command asks about 10G memory
 
 
 
+
 mcrat0: Methods of computing the hard-sphere weights
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -109,12 +110,19 @@ The default method for n > 9 is the hash table
 To use this method for n == 9, use --hash-mode=1
 
 
+mcrat0: Methods of detecting clique separators
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The default option is -p1.
+The recommended (newer) option is -p3.
+
+
 
 
 Usage of mcgc and mcgcr2
 ------------------------
 
 * mcgc and mcgcr2 need to be compiled for a fixed dimension D before use.
+  The following two examples use MPI, the OpenMP versions are discussed later.
 
   To use mcgc2 to compute the first 64 virial coefficients for D = 20
 
@@ -137,46 +145,78 @@ Usage of mcgc and mcgcr2
   or
     gcc -fopenmp
   For example, the above two examples
-    icc -openmp -DD=20 -DNMAX=64 mcgc2.c && OMP_NUM_THREADS=4 ./a.out -o a.dat
+    icc -openmp -DD=20 -DNMAX=64 mcgc2.c && ./a.out --nt=4 -o a.dat
   or
-    icc -openmp -DD=50 mcgcr2.c && OMP_NUM_THREADS=4 ./a.out -n 8 -m 3 -c 0.4 -o a.dat
+    icc -openmp -DD=50 mcgcr2.c && ./a.out --nt=4 -n 8 -m 3 -c 0.4 -o a.dat
 
-* Before each production run, a preliminary run are needed to
-  adjust parameters.
+  --nt means the number of threads to use.
+  
+  -n 8 specifies the maximal order, it can also be specified by -DNMAX=8
+       during the compiling
+
+* Before each production run, a preliminary run is needed to adjust parameters.
   To do this, use -E (see below) to specify the number of iterations
-  for parameter adjustment.
-  Only single-processor runs are supported,
-  and do not run the MPI or OpenMP version.
+    for parameter adjustment.
+  Only a single-processor run is supported,
+    and do not run the MPI or OpenMP version.
 
   -E specifies the number of parameter iterations
      e.g., '-E 10' means 10 iterations
+
   -0 specifies the number of steps in each iteration
      e.g., '-0 1e6' means 10^6 MC steps in each iteration
      Parameters are updated at the end of each iteration.
+
   -1 specifies the numbers of step for the production run,
-     Parameters are updated at the end of the simulation.
+     Parameters are also updated at the end of the simulation.
+
   -A specifies the interval of computing clique separators
-     and the default interval of computing fb,
-     -A0 to disable the computation of clique separators.
+     and the default interval of computing fb (signed star content).
+     Use -A0 to disable the computation of clique separators and fb.
+
+  -X specifies the maximal number of edges (E - N) to compute fb
+     otherwise fb is assumed to be 0.
+     To disable this feature, use `-X1000'.
 
   The result output file `Zr*.dat' will have a `dirty' flag
   on the first line.  So the previous data will not be loaded
   on input. But the parameters will always be used.
 
-* For mcgcr2.
+  Other options like -p3 (shared with mcrat0) can also be used.
+
+* For mcgcr2, there are a few other options.
+
   -m 3: means three intermediate ensembles
         between any two N and N + 1.
-  -C: means to update the radius of point insertion.
+
+  -C: means to update the radius of point insertion,
+      which is to used in the preliminary run.
+
   -c: specifies the initial radius of insertion
       instead of using the default value.
+
+* Example of a preparation run of mcgcr2.
+  Several rounds of preparation runs with different parameters are needed
+  for a large dimension.
+  In this way the parameters can be refined gradually.
+  In the last updating run, -C is usually disabled.
+
+  icc -DD=15 -DNMAX=128 mcgcr2.c && ./a.out -m 1 -E 10 -0 1e7 -1 1e8 -A0 -C
+    (Ten short rounds, each of 1e7 steps, to get a rough idea.
+     Update the radius. This usually finishes in about 20 minutes.)
+  icc -DD=15 -DNMAX=128 mcgcr2.c && ./a.out -m 1 -E 5 -0 1e8 -1 4e8 -A0 -C
+    (Longer runs)
+  icc -DD=15 -DNMAX=128 mcgcr2.c && ./a.out -m 1 -E 5 -0 1e9 -1 1e10 -A0 -C
+
+  At the end of each round, the temporary results are saved in Zrr.tmp.
 
 * In the first production run, use the switch `-R -B' or `-RB'.
   The flag `-R' means that no parameters will be updated.
   The flag `-B' means to clear all data from the previous run
     (which is presumably a preliminary preparation run
      with unrefined parameters).
-  In recent versions, the flag `-B' is unnecessary, for the
-    output `Zr*.dat' from the preparation run has a `dirty' flag,
+  In recent versions, the flag `-B' is unnecessary, and `-R' will suffice.
+    for the output `Zr*.dat' from the preparation run has a `dirty' flag,
     which achieves the same effect.
 
 * In successive production runs, use the switch -R,

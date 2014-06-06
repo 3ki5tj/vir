@@ -87,6 +87,9 @@
 /* x = x * x */
 #define SQR_X_(x) SQR_(x, x)
 
+/* xabs = |x| */
+#define ABS_(xabs, x) mpfr_abs(xabs, x, MPFR_RNDN)
+
 /* y = x ^ i */
 #define POW_SI_(y, x, i) mpfr_pow_si(y, x, i, MPFR_RNDN)
 
@@ -107,6 +110,12 @@
 /* y = (a + b) * c */
 #define FAM_(y, a, b, c) { \
   mpfr_add(y, a, b, MPFR_RNDN); mpfr_mul(y, y, c, MPFR_RNDN); }
+
+/* sign of a - b */
+#define CMP_(a, b) mpfr_cmp(a, b)
+
+/* sign of x - i */
+#define CMP_SI_(x, i) mpfr_cmp_si(x, i)
 
 
 
@@ -347,18 +356,19 @@ __inline static char *savevirhead(const char *fn, const char *title,
     int dim, int nmax, int doHNC, int mkcorr, int npt, double rmax)
 {
   FILE *fp;
+  int prec = (int) mpfr_get_default_prec();
   static char fndef[256];
 
   if ( fn == NULL ) {
-    sprintf(fndef, "%sBn%s%sD%dn%dR%.0fM%d.dat",
+    sprintf(fndef, "%sBn%s%sD%dn%dR%.0fM%dp%d.dat",
         title ? title : "", doHNC ? "HNC" : "PY", mkcorr ? "c" : "",
-        dim, nmax, rmax, npt);
+        dim, nmax, rmax, npt, prec);
     fn = fndef;
   }
   xfopen(fp, fn, "w", return NULL);
-  fprintf(fp, "# %s %s %d %.14f %d | n Bc Bv Bm [Bh Br | corr]\n",
+  fprintf(fp, "# %s %s %d %.14f %d %d | n Bc Bv Bm [Bh Br | corr]\n",
       doHNC ? "HNC" : "PY", mkcorr ? "corr" : "",
-      nmax, rmax, npt);
+      nmax, rmax, npt, prec);
   fclose(fp);
   return (char *) fn;
 }
@@ -366,22 +376,29 @@ __inline static char *savevirhead(const char *fn, const char *title,
 
 
 /* print a virial coefficient */
-__inline static void printB(const char *name, int n, mpfr_t B,
+__inline static int printB(const char *name, int n, mpfr_t B,
     mpfr_t B2p, mpfr_t volp, const char *ending)
 {
-  if ( B == 0 ) return;
+  mpfr_t x, xabs;
+  int px = 0;
+
+  if ( CMP_SI_(B, 0) == 0 ) return 0;
   mpfr_printf("%s(%3d) = %15.8Re", name, n, B);
-  if ( B2p != 0 ) {
-    mpfr_t x, y;
+  if ( CMP_SI_(B2p, 0) != 0 ) {
     INIT_(x);
-    INIT_(y);
+    INIT_(xabs);
     DIV_(x, B, B2p);
-    DIV_(y, B, volp);
-    mpfr_printf(" (%15.8Re, %11.6Rf)", x, y);
+    mpfr_printf(" (%15.8Re", x);
+    DIV_(x, B, volp);
+    ABS_(xabs, x);
+    px = ( CMP_SI_(xabs, 10000) < 0 );
+    if ( !px ) mpfr_printf(")");
+    else mpfr_printf(",%+12.6Rf)", x);
     CLEAR_(x);
-    CLEAR_(y);
+    CLEAR_(xabs);
   }
   printf("%s", ending);
+  return px;
 }
 
 
@@ -439,10 +456,10 @@ __inline static int savevir(const char *fn, int dim, int l,
     }
     if ( mkcorr ) {
       mpfr_fprintf(fp, "%4d%+24.14Re%+24.14Re%+24.14Re %+18.14Rf\n",
-          l + 2, Bc, Bv, Bm, fcorr);
+          l + 2, Xc, Xv, Xm, fcorr);
     } else {
       mpfr_fprintf(fp, "%4d%+24.14Re%24.14Re%24.14Re%24.14Re%24.14Re\n",
-          l + 2, Bc, Bv, Bm, Bh, Br);
+          l + 2, Xc, Xv, Xm, Xh, Xr);
     }
     fclose(fp);
     CLEAR_(Xc);

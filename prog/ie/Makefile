@@ -11,7 +11,7 @@ LMX =
 
 LFFTW = -lfftw3
 LFFTWL = -lfftw3l
-LFFTWQ = -lfftw3q -lquadmath
+LFFTWQ = -lfftw3q -lquadmath -lm
 LMPFR = -lmpfr -lgmp
 LGMP = -lgmp
 LGSL = -lgsl -lgslcblas

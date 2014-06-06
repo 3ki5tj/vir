@@ -332,14 +332,23 @@ __inline static char *savevirhead(const char *fn, const char *title,
 
 
 /* print a virial coefficient */
-__inline static void printB(const char *name, int n, xdouble B,
+__inline static int printB(const char *name, int n, xdouble B,
     xdouble B2p, xdouble volp, const char *ending)
 {
-  if ( B == 0 ) return;
+  double x;
+  int px = 0;
+
+  if ( B == 0 ) return px;
   printf("%s(%3d) = %15.8e", name, n, (double) B);
-  if ( B2p != 0 )
-    printf(" (%15.8e, %11.6f)", (double) (B/B2p), (double) (B/volp));
+  if ( B2p != 0 ) {
+    printf(" (%15.8e", (double) (B/B2p));
+    x = (double) (B/volp);
+    px = ( fabs(x) < 10000 );
+    if ( !px ) printf(")");
+    else printf(",%+12.6f)", x);
+  }
   printf("%s", ending);
+  return px;
 }
 
 

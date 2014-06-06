@@ -1,0 +1,43 @@
+Compute virial coefficients from integral equations
+====================================================
+
+Summary of programs
+--------------------
+
+ *  iegsl.c         GSL         an arbitrary even or odd dimension
+    
+    ie3dfftw.c      FFTW3       3-dimensional case
+                    fft.h       -DNOFFTW
+ *  ieodfftw.c      FFTW3       arbitrary odd-dimensional case
+                    fft.h       -DNOFFTW
+    
+ *  ljie3dfftw.c    FFTW3       3-dimensional case for the LJ potential
+    
+    fft.h           none        homemade code for FFT
+                                (support long double)
+    
+    ie3dmpfr.c      MPFR        3-dimensional case
+ *  ieodmpfr.c      MPFR        generalized odd-dimensional case
+    
+ *  mpfft.h         MPFR        mutiple-precision code for FFT
+
+"*" means essential files
+
+See bak/README for additional code.
+ie3dxxx.c is kept along with ieodxxx.c for the purpose of double checking.
+
+
+iegsl
+======
+
+icc iegsl.c -lgsl && ./a.out -D 20 --corr -n 64 -R 67 -M 32768
+
+
+
+ieodmpfr
+==========
+When ieodfftw fails, switch to the mpfr version to enable higher precisions.
+
+
+
+

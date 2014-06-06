@@ -37,7 +37,7 @@ int dim = 3;
 
 int K;
 int nmax = 10;
-xdouble rmax = (xdouble) 32.768L;
+double rmax = 32.768;
 int numpt = 32768;
 int ffttype = 1;
 int doHNC = 0;
@@ -56,7 +56,7 @@ static void doargs(int argc, char **argv)
   ao->desc = "computing the virial coefficients from the PY/HNC closure for the 3D hard-sphere fluid";
   argopt_add(ao, "-D", "%d", &dim, "dimension (odd) integer");
   argopt_add(ao, "-n", "%d", &nmax, "maximal order");
-  argopt_add(ao, "-R", "%" DBLSCNF "f", &rmax, "maximal r");
+  argopt_add(ao, "-R", "%lf", &rmax, "maximal r");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type");
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
@@ -244,7 +244,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   for (i = 1; i <= K; i++)
     B2 *= PI*2/(2*i + 1);
   surfr = B2 * 2 * dim;
-  surfk = surfr / pow(PI*2, dim);
+  surfk = surfr / pow_si(PI*2, dim);
   for ( i = 0; i < npt; i++ ) {
     rDm1[i] = surfr * pow_si(r2p[K-1][i], dim - 1) * dr;
     kDm1[i] = surfk * pow_si(k2p[K-1][i], dim - 1) * dk;
