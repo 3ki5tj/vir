@@ -38,11 +38,11 @@ static void doargs(int argc, char **argv)
 {
   argopt_t *ao = argopt_open(0);
   ao->desc = "computing free energy related quantities from the HNC closure";
-  argopt_add(ao, "-T", "%" DBLSCNF "f", &T, "temperature");
-  argopt_add(ao, "-r", "%" DBLSCNF "f", &rho, "rho");
-  argopt_add(ao, "-R", "%" DBLSCNF "f", &rmax, "maximal r");
+  argopt_add(ao, "-T", "%" XDBLSCNF "f", &T, "temperature");
+  argopt_add(ao, "-r", "%" XDBLSCNF "f", &rho, "rho");
+  argopt_add(ao, "-R", "%" XDBLSCNF "f", &rmax, "maximal r");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
-  argopt_add(ao, "-d", "%" DBLSCNF "f", &delta, "delta lambda");
+  argopt_add(ao, "-d", "%" XDBLSCNF "f", &delta, "delta lambda");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "-h");
   argopt_addhelp(ao, "--help");

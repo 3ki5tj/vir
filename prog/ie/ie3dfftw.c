@@ -4,6 +4,8 @@
  *  gcc ie3dfftw.c -lfftw3
  * Or for the long double precision
  *  gcc -DLDBL ie3dfftw.c -lfftw3l
+ * Or for the 128-bit precision
+ *  gcc -DF128 ieodfftw.c -lfftw3q -lquadmath -lm
  * To disable FFTW
  *  gcc -DNOFFTW ie3dfftw.c -lm
  * */
@@ -47,7 +49,7 @@ static void doargs(int argc, char **argv)
   argopt_t *ao = argopt_open(0);
   ao->desc = "computing the virial coefficients from the PY/HNC closure for the 3D hard-sphere fluid";
   argopt_add(ao, "-n", "%d", &nmax, "maximal order");
-  argopt_add(ao, "-R", "%" DBLSCNF "f", &rmax, "maximal r");
+  argopt_add(ao, "-R", "%" XDBLSCNF "f", &rmax, "maximal r");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type");
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
@@ -174,9 +176,11 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 
   B2p = B2;
   for ( l = 1; l < nmax - 1; l++ ) { /* c_l and t_l, B_{l+2} */
-    /* compute the ring sum based on ck */
-    Bh = get_ksum(l, npt, ck, ki2, &Br);
-    Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
+    if ( !mkcorr ) {
+      /* compute the ring sum based on ck */
+      Bh = get_ksum(l, npt, ck, ki2, &Br);
+      Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
+    }
 
     /* compute t_l(k) */
     get_tk_oz(l, npt, ck, tk);
@@ -233,7 +237,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     }
 
     B2p *= B2;
-    savevir(fnvir, 3, l, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
+    savevir(fnvir, 3, l+2, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
 
     /* c_l(r) --> c_l(k) */

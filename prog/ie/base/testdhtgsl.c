@@ -1,5 +1,5 @@
 /* demonstration of the GSL discrete hankel transform library
- * gcc dht.c -lgsl -lgslcblas */
+ * gcc testdhtgsl.c -lgsl -lgslcblas */
 #include <stdio.h>
 #include <math.h>
 #include <gsl/gsl_dht.h>

@@ -48,8 +48,8 @@ static void doargs(int argc, char **argv)
   argopt_t *ao = argopt_open(0);
   ao->desc = "computing the virial coefficients from the PY/HNC closure for the 3D hard-sphere fluid";
   argopt_add(ao, "-n", "%d", &nmax, "maximal order");
-  argopt_add(ao, "-T", "%" DBLSCNF "f", &T, "temperature");
-  argopt_add(ao, "-R", "%" DBLSCNF "f", &rmax, "maximal r");
+  argopt_add(ao, "-T", "%" XDBLSCNF "f", &T, "temperature");
+  argopt_add(ao, "-R", "%" XDBLSCNF "f", &rmax, "maximal r");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type");
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
@@ -195,9 +195,11 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   fnvir = savevirhead(fnvir, "LJ", 3, nmax, doHNC, mkcorr, npt, rmax);
 
   for ( l = 1; l < nmax - 1; l++ ) {
-    /* compute the ring sum based on ck */
-    Bh = get_ksum(l, npt, ck, ki2, &Br);
-    Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
+    if ( !mkcorr ) {
+      /* compute the ring sum based on ck */
+      Bh = get_ksum(l, npt, ck, ki2, &Br);
+      Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
+    }
 
     /* compute t_l(k) */
     get_tk_oz(l, npt, ck, tk);
@@ -252,7 +254,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
           crl, fr, dfr, ri2, 3, vc, &Bc, &Bv, &fcorr);
     }
 
-    savevir(fnvir, 3, l, Bc, Bv, Bm, Bh, Br, 0, mkcorr, fcorr);
+    savevir(fnvir, 3, l+2, Bc, Bv, Bm, Bh, Br, 0, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
 
     /* c(r) --> c(k) */

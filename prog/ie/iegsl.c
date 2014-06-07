@@ -1,19 +1,24 @@
 /* Computing the virial coefficients of an odd-dimensional hard-sphere fluid
  * by the PY or HNC integral equations
- *  gcc ieedgsl.c -lgsl -lgslcblas
+ *  gcc iegsl.c -lgsl -lgslcblas
  * This program works for both even and odd dimensions
  * */
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <gsl/gsl_dht.h>
-#include <gsl/gsl_sf_bessel.h>
 #define ZCOM_PICK
 #define ZCOM_ARGOPT
 #include "zcom.h"
 
 
+
+#include "slowdht.h"
+/*
+#include <gsl/gsl_dht.h>
+#include <gsl/gsl_sf_bessel.h>
 #include "xdouble.h"
+*/
+
 #include "ieutil.h"
 
 
@@ -64,34 +69,34 @@ static void doargs(int argc, char **argv)
 /* compute
  *  out(k) = fac Int {from 0 to infinity} dr
  *           r^(D/2) in(r) J_{D/2-1}(k r) */
-static void sphr(double *in, double *out, double fac,
-    gsl_dht *dht, double *arr, double *r2p, double *k2p)
+static void sphr(xdouble *in, xdouble *out, xdouble fac,
+    xdht *dht, xdouble *arr, xdouble *r2p, xdouble *k2p)
 {
   int i, npt = dht->size;
 
   for ( i = 0; i < npt; i++ ) arr[i] = in[i] * r2p[i];
-  gsl_dht_apply(dht, arr, out);
+  XDHT(apply)(dht, arr, out);
   for ( i = 0; i < npt; i++ ) out[i] *= fac / k2p[i];
 }
 
 
 
 /* compute the virial coefficients from the Percus-Yevick closure */
-static int intgeq(int nmax, int npt, double rmax, int doHNC)
+static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
 {
-  double facr2k, fack2r, surfr, surfk;
-  double Bc, Bv, Bm = 0, Bh = 0, Br, B2, B2p, tmp1, tmp2, fcorr = 0;
-  double *fr, *crl, *trl, **ck, **tk, **cr = NULL, **tr = NULL;
-  double **yr = NULL, *arr, *vc = NULL;
-  double *ri, *ki, *r2p, *k2p, *rDm1, *kDm1;
+  xdouble facr2k, fack2r, surfr, surfk;
+  xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, B2, B2p, tmp1, tmp2, fcorr = 0;
+  xdouble *fr, *crl, *trl, **cr = NULL, **tr = NULL, **ck, **tk;
+  xdouble **yr = NULL, *arr, *vc = NULL;
+  xdouble *ri, *ki, *r2p, *k2p, *rDm1, *kDm1;
   int i, dm, l;
-  gsl_dht *dht;
+  xdht *dht;
 
-  dht = gsl_dht_new(npt, dim*.5 - 1, rmax);
+  dht = XDHT(new)(npt, dim*.5 - 1, rmax);
 
   for ( tmp1 = 0, dm = 0; dm < (int) dht->size; dm++, tmp1 = tmp2 )
-    if ((tmp2 = gsl_dht_x_sample(dht, dm)) > 1) {
-      printf("r %g, %g, dm %d\n", tmp1, tmp2, dm);
+    if ((tmp2 = XDHT(x_sample)(dht, dm)) > 1) {
+      printf("r %g, %g, dm %d\n", (double) tmp1, (double) tmp2, dm);
       break;
     }
 
@@ -103,9 +108,9 @@ static int intgeq(int nmax, int npt, double rmax, int doHNC)
   MAKE1DARR(r2p, dht->size + 1)
   MAKE1DARR(k2p, dht->size + 1)
   for ( i = 0; i < (int) dht->size; i++ ) {
-    ri[i] = gsl_dht_x_sample(dht, i);
+    ri[i] = XDHT(x_sample)(dht, i);
     r2p[i] = POW(ri[i], (xdouble) dim/2 - 1);
-    ki[i] = gsl_dht_k_sample(dht, i);
+    ki[i] = XDHT(k_sample)(dht, i);
     k2p[i] = POW(ki[i], (xdouble) dim/2 - 1);
   }
 
@@ -122,7 +127,7 @@ static int intgeq(int nmax, int npt, double rmax, int doHNC)
   surfr = B2 * 2 * dim;
   tmp2 = dht->kmax / dht->xmax;
   surfk = surfr * tmp2 * tmp2 / pow_si(PI*2, dim);
-  printf("B2 %g, r2k %g, k2r %g\n", B2, facr2k, fack2r);
+  printf("B2 %g, r2k %g, k2r %g\n", (double) B2, (double) facr2k, (double) fack2r);
 
   /* compute r^(dim - 1) dr, used for integration
    *   \int r dr / xmax^2
@@ -132,10 +137,10 @@ static int intgeq(int nmax, int npt, double rmax, int doHNC)
   MAKE1DARR(rDm1, npt);
   MAKE1DARR(kDm1, npt);
   for ( i = 0; i < npt; i++ ) {
-    tmp1 = gsl_dht_x_sample(dht, i);
+    tmp1 = XDHT(x_sample)(dht, i);
     tmp2 = pow_si(tmp1, dim - 2) * surfr;
     rDm1[i] = tmp2 * 2 / (dht->kmax * dht->kmax * dht->J2[i+1]);
-    tmp1 = gsl_dht_k_sample(dht, i);
+    tmp1 = XDHT(k_sample)(dht, i);
     tmp2 = pow_si(tmp1, dim - 2) * surfk;
     kDm1[i] = tmp2 * 2 / (dht->kmax * dht->kmax * dht->J2[i+1]);
   }
@@ -169,9 +174,11 @@ static int intgeq(int nmax, int npt, double rmax, int doHNC)
 
   B2p = B2;
   for ( l = 1; l < nmax - 1; l++ ) {
-    /* compute the ring sum based on ck */
-    Bh = get_ksum(l, npt, ck, kDm1, &Br);
-    Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
+    if ( !mkcorr ) {
+      /* compute the ring sum based on ck */
+      Bh = get_ksum(l, npt, ck, kDm1, &Br);
+      Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
+    }
 
     /* compute t_l(k) */
     get_tk_oz(l, npt, ck, tk);
@@ -229,7 +236,7 @@ static int intgeq(int nmax, int npt, double rmax, int doHNC)
     }
 
     B2p *= B2;
-    savevir(fnvir, dim, l, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
+    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
 
     /* c_l(r) --> c_l(k) */
@@ -252,7 +259,7 @@ static int intgeq(int nmax, int npt, double rmax, int doHNC)
   if ( tr != NULL ) FREE2DARR(tr, nmax - 1, npt);
   if ( yr != NULL ) FREE2DARR(yr, nmax - 1, npt);
   if ( vc != NULL ) FREE1DARR(vc, npt);
-  gsl_dht_free(dht);
+  XDHT(free)(dht);
   return 0;
 }
 
@@ -261,7 +268,7 @@ static int intgeq(int nmax, int npt, double rmax, int doHNC)
 /* adjust rmax such that r = 1 lies at the middle of the dm'th and dm+1'th bins */
 static void adjustrmax(double *rmax, int npt)
 {
-  double dr, km, kp, kM, nu = dim*.5 - 1;
+  double dr, km, kp, kM, nu = (double) dim/2 - 1;
   int dm;
 
   dr = *rmax / npt;

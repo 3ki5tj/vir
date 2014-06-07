@@ -376,8 +376,8 @@ __inline static char *savevirhead(const char *fn, const char *title,
 
 
 /* print a virial coefficient */
-__inline static int printB(const char *name, int n, mpfr_t B,
-    mpfr_t B2p, mpfr_t volp, const char *ending)
+__inline static int printB(const char *name, int dim, int n,
+    mpfr_t B, mpfr_t B2p, mpfr_t volp, const char *ending)
 {
   mpfr_t x, xabs;
   int px = 0;
@@ -391,7 +391,7 @@ __inline static int printB(const char *name, int n, mpfr_t B,
     mpfr_printf(" (%15.8Re", x);
     DIV_(x, B, volp);
     ABS_(xabs, x);
-    px = ( CMP_SI_(xabs, 10000) < 0 );
+    px = ( CMP_SI_(xabs, 10000) < 0 && dim % 2 == 1 );
     if ( !px ) mpfr_printf(")");
     else mpfr_printf(",%+12.6Rf)", x);
     CLEAR_(x);
@@ -404,7 +404,7 @@ __inline static int printB(const char *name, int n, mpfr_t B,
 
 
 /* save virial coefficients */
-__inline static int savevir(const char *fn, int dim, int l,
+__inline static int savevir(const char *fn, int dim, int n,
     mpfr_t Bc, mpfr_t Bv, mpfr_t Bm, mpfr_t Bh, mpfr_t Br,
     mpfr_t B2p, int mkcorr, mpfr_t fcorr)
 {
@@ -414,21 +414,21 @@ __inline static int savevir(const char *fn, int dim, int l,
   INIT_(volp);
   INIT_(x);
   /* print the result on screen */
-  /* volp = B2p / pow(2, (l+1)*(dim-1)); */
+  /* volp = B2p / pow(2, (n-1)*(dim-1)); */
   SET_SI_(x, 2);
-  POW_SI_(x, x, (l+1)*(dim-1));
+  POW_SI_(x, x, (n-1)*(dim-1));
   DIV_(volp, B2p, x);
-  printB("Bc", l+2, Bc, B2p, volp, ", ");
-  printB("Bv", l+2, Bv, B2p, volp, ", ");
+  printB("Bc", dim, n, Bc, B2p, volp, ", ");
+  printB("Bv", dim, n, Bv, B2p, volp, ", ");
   /* when making corrections, Bm is the corrected value */
-  printB("Bm", l+2, Bm, B2p, volp, "");
+  printB("Bm", dim, n, Bm, B2p, volp, "");
   if ( mkcorr ) {
     mpfr_printf(", %9.6Rf\n", fcorr);
   } else { /* the following are useless when making corrections */
     printf("\n");
     if ( !mpfr_zero_p(Bh) || !mpfr_zero_p(Br) ) {
-      printB("Bh", l+2, Bh, B2p, volp, ", ");
-      printB("Br", l+2, Br, B2p, volp, "\n");
+      printB("Bh", dim, n, Bh, B2p, volp, ", ");
+      printB("Br", dim, n, Br, B2p, volp, "\n");
     }
   }
 
@@ -456,10 +456,10 @@ __inline static int savevir(const char *fn, int dim, int l,
     }
     if ( mkcorr ) {
       mpfr_fprintf(fp, "%4d%+24.14Re%+24.14Re%+24.14Re %+18.14Rf\n",
-          l + 2, Xc, Xv, Xm, fcorr);
+          n, Xc, Xv, Xm, fcorr);
     } else {
       mpfr_fprintf(fp, "%4d%+24.14Re%24.14Re%24.14Re%24.14Re%24.14Re\n",
-          l + 2, Xc, Xv, Xm, Xh, Xr);
+          n, Xc, Xv, Xm, Xh, Xr);
     }
     fclose(fp);
     CLEAR_(Xc);

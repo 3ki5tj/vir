@@ -85,11 +85,11 @@ static void sphr(int npt, mpfr_t *in, mpfr_t *out,
 /* compute the virial coefficients from the Percus-Yevick closure */
 static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
 {
-  mpfr_t dr, dk, pi2, facr2k, fack2r, surf, B2, B2p, tmp1, tmp2, tmp3;
+  mpfr_t dr, dk, pi2, facr2k, fack2r, surfr, surfk, B2, B2p, tmp1, tmp2, tmp3;
   mpfr_t Bc, Bv, Bm, Bh, Br, Bc0, dBc, Bv0, dBv, fcorr;
-  mpfr_t *fr, *crl, *trl, **ck, **tk;
-  mpfr_t **cr = NULL, **tr = NULL, **yr = NULL, *vc = NULL, *arr;
-  mpfr_t *ri, *ki, *ri2;
+  mpfr_t *fr, *crl, *trl, **cr = NULL, **tr = NULL, **ck, **tk;
+  mpfr_t **yr = NULL, *vc = NULL, *arr;
+  mpfr_t *ri, *ki, *ri2, *ki2;
   double rmax;
   int i, dm, l;
 
@@ -98,7 +98,8 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   INIT_(pi2);
   INIT_(facr2k);
   INIT_(fack2r);
-  INIT_(surf);
+  INIT_(surfr);
+  INIT_(surfk);
   INIT_(B2);
   INIT_(B2p);
   INIT_(tmp1);
@@ -152,6 +153,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   MAKE1DARR(ri, npt);
   MAKE1DARR(ki, npt);
   MAKE1DARR(ri2, npt);
+  MAKE1DARR(ki2, npt);
 
   for ( i = 0; i < npt; i++ ) {
     MUL_SI_(ri[i], dr, i*2 + (ffttype ? 1 : 0));
@@ -168,12 +170,18 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   POW_SI_(fack2r, pi2, -2); /* fack2r = 1/(2*pi)^2 */
   MUL_X_(fack2r, dk); /* fack2r *= dk */
 
-  /* surf = PI*4 */
-  MUL_SI_(surf, pi2, 2);
+  /* surfr = PI*4 */
+  MUL_SI_(surfr, pi2, 2);
+  /* surfk = surfr / (2*PI)^3 */
+  POW_SI_(tmp1, pi2, -3);
+  MUL_(surfk, surfr, tmp1);
   for ( i = 0; i < npt; i++ ) {
-    /* ri2[i] = ri[i]^2 * surf * dr */
+    /* ri2[i] = ri[i]^2 * surfr * dr */
     SQR_(ri2[i], ri[i]);
-    MUL3_X_(ri2[i], surf, dr);
+    MUL3_X_(ri2[i], surfr, dr);
+    /* ki2[i] = ki[i]^2 * surfk * dk */
+    SQR_(ki2[i], ki[i]);
+    MUL3_X_(ki2[i], surfk, dk);
   }
 
   /* B2 = PI*2/3; */
@@ -203,11 +211,23 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
 
   SET_(B2p, B2);
   for ( l = 1; l < nmax - 1; l++ ) {
+    if ( !mkcorr ) {
+      /* compute the ring sum based on ck */
+      get_ksum(Bh, l, npt, ck, ki2, Br);
+      /* Br = (doHNC ? -Br * (l+1) : -Br * 2) / l; */
+      MUL_SI_X_(Br, (doHNC ? -(l+1) : -2));
+      DIV_SI_X_(Br, l);
+    }
+
     /* compute t_l(k) */
     get_tk_oz(l, npt, ck, tk);
 
     /* t_l(k) --> t_l(r) */
     sphr(npt, tk[l], trl, fack2r, arr, ki, ri, ffttype);
+
+    if ( tr != NULL ) {
+      COPY1DARR(tr[l], trl, npt);
+    }
 
     if ( yr != NULL ) { /* compute the cavity function y(r) */
       get_yr_hnc(l, nmax, npt, yr, trl);
@@ -263,7 +283,8 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
     }
 
     MUL_X_(B2p, B2);
-    savevir(fnvir, 3, l, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
+    savevir(fnvir, 3, l+2, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
+    savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
 
     /* c_l(r) --> c_l(k) */
     sphr(npt, crl, ck[l], facr2k, arr, ri, ki, ffttype);
@@ -273,6 +294,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   FREE1DARR(ri, npt);
   FREE1DARR(ki, npt);
   FREE1DARR(ri2, npt);
+  FREE1DARR(ki2, npt);
   FREE1DARR(fr, npt);
   FREE1DARR(crl, npt);
   FREE1DARR(trl, npt);
@@ -288,7 +310,8 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   CLEAR_(pi2);
   CLEAR_(facr2k);
   CLEAR_(fack2r);
-  CLEAR_(surf);
+  CLEAR_(surfr);
+  CLEAR_(surfk);
   CLEAR_(B2);
   CLEAR_(B2p);
   CLEAR_(tmp1);

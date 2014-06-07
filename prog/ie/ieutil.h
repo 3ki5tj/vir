@@ -332,8 +332,8 @@ __inline static char *savevirhead(const char *fn, const char *title,
 
 
 /* print a virial coefficient */
-__inline static int printB(const char *name, int n, xdouble B,
-    xdouble B2p, xdouble volp, const char *ending)
+__inline static int printB(const char *name, int dim, int n,
+    xdouble B, xdouble B2p, xdouble volp, const char *ending)
 {
   double x;
   int px = 0;
@@ -343,7 +343,7 @@ __inline static int printB(const char *name, int n, xdouble B,
   if ( B2p != 0 ) {
     printf(" (%15.8e", (double) (B/B2p));
     x = (double) (B/volp);
-    px = ( fabs(x) < 10000 );
+    px = ( fabs(x) < 10000 && dim % 2 == 1);
     if ( !px ) printf(")");
     else printf(",%+12.6f)", x);
   }
@@ -354,7 +354,7 @@ __inline static int printB(const char *name, int n, xdouble B,
 
 
 /* save virial coefficients */
-__inline static int savevir(const char *fn, int dim, int l,
+__inline static int savevir(const char *fn, int dim, int n,
     xdouble Bc, xdouble Bv, xdouble Bm, xdouble Bh, xdouble Br,
     xdouble B2p, int mkcorr, xdouble fcorr)
 {
@@ -362,18 +362,18 @@ __inline static int savevir(const char *fn, int dim, int l,
   xdouble volp;
 
   /* print the result on screen */
-  volp = B2p / pow_si(2, (l+1)*(dim-1));
-  printB("Bc", l+2, Bc, B2p, volp, ", ");
-  printB("Bv", l+2, Bv, B2p, volp, ", ");
+  volp = B2p / pow_si(2, (n-1)*(dim-1));
+  printB("Bc", dim, n, Bc, B2p, volp, ", ");
+  printB("Bv", dim, n, Bv, B2p, volp, ", ");
   /* when making corrections, Bm is the corrected value */
-  printB("Bm", l+2, Bm, B2p, volp, "");
+  printB("Bm", dim, n, Bm, B2p, volp, "");
   if ( mkcorr ) {
     printf(", %9.6f\n", (double) fcorr);
   } else { /* the following are useless when making corrections */
     printf("\n");
     if ( Bh != 0 || Br != 0 ) {
-      printB("Bh", l+2, Bh, B2p, volp, ", ");
-      printB("Br", l+2, Br, B2p, volp, "\n");
+      printB("Bh", dim, n, Bh, B2p, volp, ", ");
+      printB("Br", dim, n, Br, B2p, volp, "\n");
     }
   }
 
@@ -389,10 +389,10 @@ __inline static int savevir(const char *fn, int dim, int l,
     }
     if ( mkcorr ) {
       fprintf(fp, "%4d%+24.14e%+24.14e%+24.14e %+18.14f\n",
-          l + 2, (double) Bc, (double) Bv, (double) Bm, (double) fcorr);
+          n, (double) Bc, (double) Bv, (double) Bm, (double) fcorr);
     } else {
       fprintf(fp, "%4d%+24.14e%24.14e%24.14e%24.14e%24.14e\n",
-          l + 2, (double) Bc, (double) Bv,
+          n, (double) Bc, (double) Bv,
           (double) Bm, (double) Bh, (double) Br);
     }
     fclose(fp);

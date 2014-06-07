@@ -7,8 +7,8 @@
 #include <quadmath.h>
 typedef __float128 xdouble;
 #define FFTWPFX(f) fftwq_##f
-#define DBLSCNF "Q"
-#define DBLPRNF "Q"
+#define XDBLSCNF "Q"
+#define XDBLPRNF "Q"
 
 #define PI M_PIq
 
@@ -16,13 +16,16 @@ typedef __float128 xdouble;
 #define EXP(x)    expq(x)
 #define LOG(x)    logq(x)
 #define POW(x, y) powq(x, y)
+#define J0(x)     j0q(x)
+#define J1(x)     j1q(x)
+#define JN(n, x)  jnq(n, x)
 
 #elif defined(LDBL)
 
 typedef long double xdouble;
 #define FFTWPFX(f) fftwl_##f
-#define DBLSCNF "L"
-#define DBLPRNF "L"
+#define XDBLSCNF "L"
+#define XDBLPRNF "L"
 
 #define PI (xdouble) 3.1415926535897932384626433832795L
 
@@ -30,13 +33,16 @@ typedef long double xdouble;
 #define EXP(x)    expl(x)
 #define LOG(x)    logl(x)
 #define POW(x, y) powl(x, y)
+#define J0(x)     j0l(x)
+#define J1(x)     j1l(x)
+#define JN(n, x)  jnl(n, x)
 
 #else
 
 typedef double xdouble;
 #define FFTWPFX(f) fftw_##f
-#define DBLSCNF "l"
-#define DBLPRNF ""
+#define XDBLSCNF "l"
+#define XDBLPRNF ""
 
 #define PI 3.1415926535897932384626433832795
 
@@ -44,6 +50,9 @@ typedef double xdouble;
 #define EXP(x)    exp(x)
 #define LOG(x)    log(x)
 #define POW(x, y) pow(x, y)
+#define J0(x)     j0(x)
+#define J1(x)     j1(x)
+#define JN(n, x)  jn(n, x)
 
 #endif
 

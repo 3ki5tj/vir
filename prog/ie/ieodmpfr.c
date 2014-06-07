@@ -154,8 +154,8 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
 {
   mpfr_t dr, dk, pi2, facr2k, fack2r, surfr, surfk, B2, B2p, tmp1, tmp2;
   mpfr_t Bc, Bv, Bm, Bh, Br, Bc0, dBc, Bv0, dBv, fcorr;
-  mpfr_t *fr, *crl, *trl, **ck, **tk;
-  mpfr_t **cr = NULL, **tr = NULL, **yr = NULL, *vc = NULL, *arr;
+  mpfr_t *fr, *crl, *trl, **cr = NULL, **tr = NULL, **ck, **tk;
+  mpfr_t **yr = NULL, *vc = NULL, *arr;
   mpfr_t *ri, *ki, **r2p, **invr2p, **k2p, **invk2p, *rDm1, *kDm1;
   double rmax;
   int i, dm, l, *coef;
@@ -335,11 +335,13 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
 
   SET_(B2p, B2);
   for ( l = 1; l < nmax - 1; l++ ) {
-    /* compute the ring sum based on ck */
-    get_ksum(Bh, l, npt, ck, kDm1, Br);
-    /* Br = (doHNC ? -Br * (l+1) : -Br * 2) / l; */
-    MUL_SI_X_(Br, (doHNC ? -(l+1) : -2));
-    DIV_SI_X_(Br, l);
+    if ( !mkcorr ) {
+      /* compute the ring sum based on ck */
+      get_ksum(Bh, l, npt, ck, kDm1, Br);
+      /* Br = (doHNC ? -Br * (l+1) : -Br * 2) / l; */
+      MUL_SI_X_(Br, (doHNC ? -(l+1) : -2));
+      DIV_SI_X_(Br, l);
+    }
 
     /* compute t_l(k) */
     get_tk_oz(l, npt, ck, tk);
@@ -406,7 +408,8 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
           crl, fr, rDm1, B2, vc, Bc, Bv, fcorr);
     }
     MUL_X_(B2p, B2);
-    savevir(fnvir, dim, l, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
+    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
+    savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
 
     /* c_l(r) --> c_l(k) */
     sphr(npt, crl, ck[l], facr2k, arr, coef, r2p, invk2p, ffttype);

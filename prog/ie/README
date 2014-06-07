@@ -5,20 +5,20 @@ Summary of programs
 --------------------
 
  *  iegsl.c         GSL         an arbitrary even or odd dimension
-    
+
     ie3dfftw.c      FFTW3       3-dimensional case
                     fft.h       -DNOFFTW
  *  ieodfftw.c      FFTW3       arbitrary odd-dimensional case
                     fft.h       -DNOFFTW
-    
+
  *  ljie3dfftw.c    FFTW3       3-dimensional case for the LJ potential
-    
+
     fft.h           none        homemade code for FFT
                                 (support long double)
-    
+
     ie3dmpfr.c      MPFR        3-dimensional case
  *  ieodmpfr.c      MPFR        generalized odd-dimensional case
-    
+
  *  mpfft.h         MPFR        mutiple-precision code for FFT
 
 "*" means essential files
@@ -30,14 +30,30 @@ ie3dxxx.c is kept along with ieodxxx.c for the purpose of double checking.
 iegsl
 ======
 
-icc iegsl.c -lgsl && ./a.out -D 20 --corr -n 64 -R 67 -M 32768
+Normal example
+  icc iegsl.c -lgsl -lgslcblas && ./a.out -D 20 --corr -n 64 -R 67 -M 32768
+
+For a large M with limited memory, use "slow dht"
+  icc -DSLOWDHT iegsl.c -lgsl && ./a.out -D 20 --corr -n 64 -R 67 -M 32768
+
+For slowdht with long double
+  icc -DLDBL -DSLOWDHT iegsl.c -lgsl -lgslcblas
+
+For slowdht with __float128
+  gcc -DF128 -DSLOWDHT -Wall -Wextra iegsl.c -lgsl -lgslcblas -lquadmath
+Note to use `gcc' instead of `icc' in this case.
 
 
+ieodfftw
+==========
+
+gcc -DF128 ieodfftw.c -lfftw3q -lquadmath -lm && ./a.out -D 15 -n 64 -R 66.01 -M 262144 --corr
 
 ieodmpfr
 ==========
 When ieodfftw fails, switch to the mpfr version to enable higher precisions.
 
+icc ieodmpfr.c -lmpfr -lgmp && ./a.out -D 15 -n 128 -R 131.072 -M 262144 --corr
 
 
 
