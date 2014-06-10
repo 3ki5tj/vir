@@ -3,9 +3,21 @@
 
 
 
+/* Enhanced version of GSL's discrete Hankel transform
+ * Features:
+ *  o long double and __float128
+ *  o using disk for large memory transforms */
+
+
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
+#ifdef unix
+#include <unistd.h>
+#include <errno.h>
+#endif
 #include "xdouble.h"
 #include <gsl/gsl_sf_bessel.h>
 
@@ -21,6 +33,8 @@
 #include <gsl/gsl_dht.h>
 #define xdht gsl_dht
 #define XDHT(f) gsl_dht_ ## f
+#define gsl_dht_newx(size, nu, xmax, usedisk) \
+        gsl_dht_new(size, nu, xmax)
 
 #endif
 
@@ -34,7 +48,20 @@ typedef struct slowdht_struct {
   xdouble   kmax;
   xdouble   *j;    /* j_{nu, s} = j[s] */
   xdouble   *J2;   /* J_{nu+1}^2(j_m) */
+  xdouble   *Jjj;  /* J_nu(j_i j_m / j_M) */
+#ifdef unix
+  char      Jjjfntmp[FILENAME_MAX];
+  int       Jjjfd;
+#endif
+  FILE      *Jjjfp;
+  xdouble   *Jjjarr;
 } slowdht;
+
+
+
+char *slowdht_tmpdir = NULL; /* ended with / */
+int slowdht_quiet = 0;
+unsigned slowdht_block = 32; /* block size for reading/writing the temporary file */
 
 
 
@@ -42,10 +69,10 @@ typedef struct slowdht_struct {
 __inline xdouble besselJnu(xdouble nu, xdouble x)
 {
   int inu = (int)(nu + .5);
-  if (FABS(nu - inu) < 1e-7)
+  if ( FABS(nu - inu) < 1e-7 )
     return JN(inu, x);
   else
-    return gsl_sf_bessel_Jnu(nu, x);
+    return gsl_sf_bessel_Jnu((double) nu, (double) x);
 }
 
 
@@ -55,13 +82,13 @@ __inline xdouble besseldJnu(xdouble nu, xdouble x)
 {
   int inu = (int) (nu + .5);
   xdouble x1, x2;
-  if (FABS(nu - inu) < 1e-7) {
-    if (inu == 0) return -J1(x);
+  if ( FABS(nu - inu) < 1e-7 ) {
+    if ( inu == 0 ) return -J1(x);
     x1 = JN(inu - 1, x);
     x2 = JN(inu + 1, x);
   } else {
-    x1 = gsl_sf_bessel_Jnu(nu - 1, x);
-    x2 = gsl_sf_bessel_Jnu(nu + 1, x);
+    x1 = gsl_sf_bessel_Jnu((double) nu - 1, (double) x);
+    x2 = gsl_sf_bessel_Jnu((double) nu + 1, (double) x);
   }
   return (x1 - x2) / 2;
 }
@@ -77,42 +104,52 @@ __inline xdouble besselzeroJnu(xdouble nu, int m)
   xdouble x, x1, y, yabs, dy, y1, y1abs;
   int i;
 
-  x = gsl_sf_bessel_zero_Jnu(nu, m);
+  x = gsl_sf_bessel_zero_Jnu((double) nu, m);
   /* the Newton-Raphson's method fails at x = 0 */
-  if (FABS(x) < 1e-8) return x;
+  if ( FABS(x) < 1e-8 ) return x;
   y = besselJnu(nu, x);
   yabs = FABS(y);
-  //printf("x %.20" XDBLPRNF "f, y %g, nu %g\n", x, (double) y, (double) nu);
   for ( i = 0; ; i++ ) {
     dy = besseldJnu(nu, x);
     x1 = x - y/dy;
     y1 = besselJnu(nu, x1);
     y1abs = FABS(y1);
-    if (y1abs >= yabs) break;
+    if ( y1abs >= yabs ) break;
     x = x1;
     y = y1;
     yabs = y1abs;
   }
-  //printf("iter %d, x %.20" XDBLPRNF "f, y %g\n", i, x, (double) y); getchar();
+  //printf("iter %d, x %.20" XDBLPRNF "f, y %g\n", i, x(double) y); getchar();
   return x;
 }
 
 
+enum {
+  SLOWDHT_NODISK = 0,     /* do not use disk */
+  SLOWDHT_USEDISK = 1,    /* use disk is necessary */
+  SLOWDHT_FORCEDISK = 2   /* always use the disk to save memory */
+};
 
-__inline slowdht *slowdht_new(size_t size, xdouble nu, xdouble xmax)
+
+
+#define slowdht_new(size, nu, xmax) \
+        slowdht_newx(size, nu, xmax, SLOWDHT_USEDISK)
+
+__inline slowdht *slowdht_newx(size_t size, xdouble nu, xdouble xmax,
+    int usedisk)
 {
   slowdht *dht;
-  size_t i;
+  size_t i, tabsize, m, id, wb;
   xdouble x;
 
-  if ((dht = calloc(1, sizeof(*dht))) == NULL) {
+  if ( (dht = calloc(1, sizeof(*dht))) == NULL ) {
     fprintf(stderr, "no memory for dht\n");
     exit(1);
   }
   dht->size = size;
   dht->nu = nu;
   dht->inu = (int) (nu + .5);
-  if (FABS(dht->nu - dht->inu) > 1e-3)
+  if ( FABS(dht->nu - dht->inu) > 1e-3 )
     dht->inu = -1;
   dht->xmax = xmax;
 
@@ -137,6 +174,109 @@ __inline slowdht *slowdht_new(size_t size, xdouble nu, xdouble xmax)
     x = besselJnu(nu + 1, dht->j[i]);
     dht->J2[i] = x*x;
   }
+
+  dht->Jjj = NULL;
+#ifdef unix
+  dht->Jjjfd = -1;
+#endif
+  dht->Jjjfp = NULL;
+  dht->Jjjarr = NULL;
+  tabsize = size * (size + 1) / 2;
+  if (  usedisk != SLOWDHT_FORCEDISK
+    && (dht->Jjj = calloc(tabsize, sizeof(xdouble))) != NULL ) {
+    /* compute the table and save it in the memory */
+    fprintf(stderr, "slowdht: using memory to save the transform coefficients (%gG)...\n",
+        (double) size*(size+1)/2/(1024.*1024*1024));
+    id = 0;
+    for ( m = 0; m < size; m++ ) {
+      if ( !slowdht_quiet )
+        fprintf(stderr, "computing the coefficients... %ld/%ld = %7.4lf%% \r",
+            (long) id, (long) tabsize, id*100./tabsize);
+      for ( i = m;  i < size; i++ ) {
+        x = dht->j[m+1] * dht->j[i+1] / dht->j[size + 1];
+        x = besselJnu(dht->nu, x);
+        dht->Jjj[ id++ ] = x;
+      }
+    }
+  } else if ( usedisk == SLOWDHT_NODISK ) {
+    fprintf(stderr, "no memory for dht->Jjj %ld\n", (long)tabsize);
+  } else {
+    /* compute the coefficients and save it to the disk */
+    if ( (dht->Jjjarr = calloc(size*slowdht_block, sizeof(xdouble)))
+          == NULL ) {
+      fprintf(stderr, "no memory for temporary array\n");
+      exit(1);
+    }
+
+    /* open a temporary file */
+#ifdef unix
+    /* the file may be huge > 32G, so creating it under /tmp
+     * may not be a good idea */
+    if ( slowdht_tmpdir != NULL ) {
+      strcpy(dht->Jjjfntmp, slowdht_tmpdir);
+      if ( slowdht_tmpdir[strlen(slowdht_tmpdir) - 1] != '/' )
+        strcat(dht->Jjjfntmp, "/");
+    } else
+      dht->Jjjfntmp[0] = '\0';
+    strcat(dht->Jjjfntmp, "slowdht_TMPXXXXXX");
+    dht->Jjjfd = mkstemp(dht->Jjjfntmp);
+    if ( dht->Jjjfd < 1 ) {
+      fprintf(stderr, "mkstemp: cannot make temporary file %s, %d (%s)\n",
+          dht->Jjjfntmp, dht->Jjjfd, strerror(errno));
+      exit(1);
+    }
+    /* remove dht->Jjjfntmp when the program exits */
+    unlink(dht->Jjjfntmp);
+#else
+    dht->Jjjfp = tmpfile();
+    if ( dht->Jjjfp == NULL ) {
+      fprintf(stderr, "tmpfile: cannot make temporary file\n");
+      exit(1);
+    }
+#endif
+
+    fprintf(stderr, "slowdht: using disk (%s) to save the transform coefficients (%s, %gG) ...\n",
+#ifdef unix
+        "unix",
+#else
+        "std",
+#endif
+        dht->Jjjfntmp ? dht->Jjjfntmp : "",
+        (double) size*size*sizeof(xdouble)/(1024.*1024*1024));
+
+    for ( m = 0; m < size; m += slowdht_block ) {
+      size_t k;
+
+      id = 0;
+      for ( k = 0; k < slowdht_block; k++ ) {
+        if ( m+k >= size ) break;
+        for ( i = 0; i < size; i++ ) {
+          x = dht->j[m+k+1] * dht->j[i+1] / dht->j[size + 1];
+          x = besselJnu(dht->nu, x);
+          dht->Jjjarr[id++] = x;
+        }
+      }
+
+#ifdef unix
+      if ( (wb = write(dht->Jjjfd, dht->Jjjarr, sizeof(xdouble)*size*k))
+           != sizeof(xdouble)*size*k ) {
+        fprintf(stderr, "\nwrite: failed at m %ld, written %ld. \n",
+            (long) m, (long) wb);
+        exit(1);
+      }
+#else
+      if ( (wb = fwrite(dht->Jjjarr, sizeof(xdouble), size*k, dht->Jjjfp))
+           != size*k ) {
+        fprintf(stderr, "\nfwrite: failed at m %ld, written %ld. \n",
+            (long) m, (long) wb);
+        exit(1);
+      }
+#endif
+      if ( !slowdht_quiet )
+        fprintf(stderr, "(disk) computing the coefficients... %ld/%ld = %7.4lf%% \r",
+            (long) m, (long) size, m*100./size);
+    }
+  }
   return dht;
 }
 
@@ -160,20 +300,82 @@ __inline xdouble slowdht_k_sample(slowdht *dht, int n)
 
 
 
+/* get the pair index from 0 to n*(n + 1)/2 - 1 */
+__inline int getpridx(int i, int j, int n)
+{
+  if ( i < 0 || i >= n || j < 0 || j >= n ) {
+    fprintf(stderr, "bad index error i %d, j %d, n %d\n", i, j, n);
+    exit(1);
+  }
+  if ( i > j ) { int i1 = i; i = j; j = i1; }
+  return n*i - (i + 1)*i/2 + j;
+  /* i = 0, j = 0, 1, ..., n-1 [n]
+   * i = 1, j = 1, 2, ..., n-1 [2*n-1]
+   * i = 2, j = 2, 3, ..., n-1 [3*n-3]
+   * ...
+   * i = i, ...,             [(i+1)*n - i*(i+1)/2]
+   * id = i*n-i*(i-1)/2 + (j-i).
+   * */
+}
+
+
 __inline int slowdht_apply(const slowdht *dht, xdouble *inp, xdouble *out)
 {
-  int m, k, M = (int) dht->size + 1;
+  size_t m, i, size = dht->size, wb, k, id, rows;
   xdouble x, y;
 
-  for ( m = 1; m < M; m++ ) {
-    y = 0;
-    for ( k = 1;  k < M; k++ ) {
-      x = dht->j[m] * dht->j[k] / dht->j[M];
-      x = besselJnu(dht->nu, x);
-      y += inp[k - 1] * x / dht->J2[k];
+#ifdef unix
+  if ( dht->Jjjfd > 0 ) lseek(dht->Jjjfd, 0, SEEK_SET);
+#else
+  if ( dht->Jjjfp != NULL ) rewind(dht->Jjjfp);
+#endif
+
+  for ( m = 0; m < size; m += slowdht_block ) {
+    /* read several row of the transform coefficients */
+    if ( (rows = slowdht_block) > size - m ) rows = size - m;
+
+    if ( dht->Jjjarr ) {
+#ifdef unix
+      if ( dht->Jjjfd > 0 ) {
+        if ( read(dht->Jjjfd, dht->Jjjarr, sizeof(xdouble)*size*rows)
+             != sizeof(xdouble)*size*rows ) {
+          fprintf(stderr, "read: failed at m %ld, written %ld. \n",
+              (long) m, (long) wb);
+          exit(1);
+        }
+      }
+#else
+      if ( dht->Jjjfp != NULL ) {
+        if ( fread(dht->Jjjarr, sizeof(xdouble), size*rows, dht->Jjjfp)
+             != size*rows ) {
+          fprintf(stderr, "fread: failed at m %ld, written %ld. \n",
+              (long) m, (long) wb);
+          exit(1);
+        }
+      }
+#endif
+      if ( !slowdht_quiet )
+        fprintf(stderr, "DHT %ld/%ld = %7.4f%%. \r",
+            (long) m, (long) size, (double) m * 100 / size);
     }
-    x = dht->xmax / dht->j[M];
-    out[m - 1] = 2*(x*x)*y;
+
+    id = 0;
+    for ( k = 0; k < rows; k++ ) {
+      y = 0;
+      for ( i = 0; i < size; i++ ) {
+        if ( dht->Jjjarr != NULL ) { /* from disk buffer */
+          x = dht->Jjjarr[id++];
+        } else if ( dht->Jjj != NULL ) { /* from memory */
+          x = dht->Jjj[ getpridx(m+k, i, size) ];
+        } else { /* compute directly */
+          x = dht->j[m+k+1] * dht->j[i+1] / dht->j[size+1];
+          x = besselJnu(dht->nu, x);
+        }
+        y += inp[i] * x / dht->J2[i+1];
+      }
+      x = dht->xmax / dht->j[size+1];
+      out[m+k] = 2*(x*x)*y;
+    }
   }
   return 0;
 }
@@ -182,6 +384,12 @@ __inline int slowdht_apply(const slowdht *dht, xdouble *inp, xdouble *out)
 
 __inline void slowdht_free(slowdht *dht)
 {
+#ifdef unix
+  if ( dht->Jjjfd ) close(dht->Jjjfd);
+#endif
+  if ( dht->Jjjfp ) fclose(dht->Jjjfp);
+  if ( dht->Jjjarr ) free(dht->Jjjarr);
+  if ( dht->Jjj ) free(dht->Jjj);
   free(dht->j);
   free(dht->J2);
   free(dht);
@@ -189,5 +397,5 @@ __inline void slowdht_free(slowdht *dht)
 
 
 
-#endif /* SLOW_DHT_H__ */
+#endif /* SLOWDHT_H__ */
 

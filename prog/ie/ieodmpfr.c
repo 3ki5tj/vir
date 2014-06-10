@@ -53,7 +53,10 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
-  if ( rmax == NULL ) rmax = "32.768";
+  if ( rmax == NULL ) {
+    static char srmax[32];
+    sprintf(rmax = srmax, "%d", nmax + 2);
+  }
   if ( dim < 3 || dim % 2 == 0 ) argopt_help(ao);
   K = (dim - 1)/2;
   if ( mkcorr ) singer = 0;
@@ -66,7 +69,7 @@ static void doargs(int argc, char **argv)
 /* get the coefficient c_l of spherical Bessel function jn(x)
  *  jn(x) = Sum_{l = 0 to n} c_l [sin(x) or cos(x)] / x^{n + l + 1},
  * where the l'th term is sin(x) if n + l is even, or cos(x) otherwise */
-static void getjn(int *c, int n)
+static void getjn(long *c, int n)
 {
   int i, k;
   const char *fs[2] = {"sin(x)", "cos(x)"};
@@ -82,7 +85,7 @@ static void getjn(int *c, int n)
   }
   printf("j%d(x) =", n);
   for ( i = 0; i <= n; i++ )
-    printf(" %+d*%s/x^%d", c[i], fs[(i+n)%2], n + i + 1);
+    printf(" %+ld*%s/x^%d", c[i], fs[(i+n)%2], n + i + 1);
   printf("\n");
 }
 
@@ -94,7 +97,7 @@ static void getjn(int *c, int n)
  * `arr' is the intermediate array
  * */
 static void sphr(int npt, mpfr_t *in, mpfr_t *out, mpfr_t fac,
-    mpfr_t *arr, int *coef, mpfr_t **r2p, mpfr_t **k2q, int ffttype)
+    mpfr_t *arr, long *coef, mpfr_t **r2p, mpfr_t **k2q, int ffttype)
 {
   int i, l, iscos;
   mpfr_t x;
@@ -158,7 +161,9 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   mpfr_t **yr = NULL, *vc = NULL, *arr;
   mpfr_t *ri, *ki, **r2p, **invr2p, **k2p, **invk2p, *rDm1, *kDm1;
   double rmax;
-  int i, dm, l, *coef;
+  int i, dm, l;
+  long *coef;
+  clock_t t0 = clock(), t1;
 
   INIT_(dr);
   INIT_(dk);
@@ -187,23 +192,8 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   SET_SI_(Bh, 0);
   SET_SI_(Br, 0);
 
-  /* dr = rmax/npt */
-  SET_STR_(dr, srmax);
-  DIV_SI_(dr, dr, npt);
   /* dm: number of bins in the hard core */
-  dm = (int) (1/GET_D_(dr) + .5);
-  if ( ffttype ) {
-    /* dr = 1./dm */
-    SET_SI_(dr, 1);
-    DIV_SI_X_(dr, dm);
-    rmax = GET_D_(dr) * npt;
-  } else {
-    dm += 1;
-    /* dr = 2./(dm*2 - 1) */
-    SET_SI_(dr, 2);
-    DIV_SI_X_(dr, dm*2 - 1);
-    rmax = GET_D_(dr) * (npt - .5);
-  }
+  rmax = adjustrmax(srmax, npt, dr, &dm, ffttype);
   /* dk = PI/npt/dr */
   CONST_PI_(dk);
   DIV_SI_X_(dk, npt);
@@ -211,8 +201,8 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
 
   /* print out the basic information */
   i = (int) mpfr_get_default_prec();
-  printf("precision %d, rmax %g, dk %g, %d bins in the hard core\n",
-      i, rmax, GET_D_(dk), dm);
+  printf("D %d, precision %d, rmax %g, dk %g, %d bins in the hard core\n",
+      dim, i, rmax, GET_D_(dk), dm);
 
   /* compute the coefficients of the spherical Bessel function */
   xnew(coef, K);
@@ -331,7 +321,8 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
     }
   }
 
-  fnvir = savevirhead(fnvir, NULL, dim, nmax, doHNC, mkcorr, npt, rmax);
+  t1 = clock();
+  fnvir = savevirhead(fnvir, NULL, dim, nmax, doHNC, mkcorr, npt, rmax, t1 - t0);
 
   SET_(B2p, B2);
   for ( l = 1; l < nmax - 1; l++ ) {
@@ -414,6 +405,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
     /* c_l(r) --> c_l(k) */
     sphr(npt, crl, ck[l], facr2k, arr, coef, r2p, invk2p, ffttype);
   }
+  savevirtail(fnvir, clock() - t1);
 
   free(coef);
   FREE1DARR(arr, npt + 1);

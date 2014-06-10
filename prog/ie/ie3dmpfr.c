@@ -47,7 +47,10 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
-  if ( rmax == NULL ) rmax = "32.768";
+  if ( rmax == NULL ) {
+    static char srmax[32];
+    sprintf(rmax = srmax, "%d", nmax + 2);
+  }
   if ( mkcorr ) singer = 0;
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
@@ -92,6 +95,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   mpfr_t *ri, *ki, *ri2, *ki2;
   double rmax;
   int i, dm, l;
+  clock_t t0 = clock(), t1;
 
   INIT_(dr);
   INIT_(dk);
@@ -121,23 +125,8 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   SET_SI_(Bh, 0);
   SET_SI_(Br, 0);
 
-  /* dr = rmax/npt */
-  SET_STR_(dr, srmax);
-  DIV_SI_X_(dr, npt);
   /* dm: number of bins in the hard core */
-  dm = (int) (1/GET_D_(dr) + .5);
-  if ( ffttype ) {
-    /* dr = 1./dm */
-    SET_SI_(dr, 1);
-    DIV_SI_X_(dr, dm);
-    rmax = GET_D_(dr) * npt;
-  } else {
-    dm += 1;
-    /* dr = 2./(dm*2 - 1) */
-    SET_SI_(dr, 2);
-    DIV_SI_X_(dr, dm*2 - 1);
-    rmax = GET_D_(dr) * (npt - .5);
-  }
+  rmax = adjustrmax(srmax, npt, dr, &dm, ffttype);
   /* dk = PI/npt/dr */
   CONST_PI_(dk);
   DIV_SI_X_(dk, npt);
@@ -207,7 +196,8 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
     }
   }
 
-  fnvir = savevirhead(fnvir, NULL, 3, nmax, doHNC, mkcorr, npt, rmax);
+  t1 = clock();
+  fnvir = savevirhead(fnvir, NULL, 3, nmax, doHNC, mkcorr, npt, rmax, t1 - t0);
 
   SET_(B2p, B2);
   for ( l = 1; l < nmax - 1; l++ ) {
@@ -289,6 +279,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
     /* c_l(r) --> c_l(k) */
     sphr(npt, crl, ck[l], facr2k, arr, ri, ki, ffttype);
   }
+  savevirtail(fnvir, clock() - t1);
 
   FREE1DARR(arr, npt + 1);
   FREE1DARR(ri, npt);

@@ -39,7 +39,7 @@ int dim = 3;
 
 int K;
 int nmax = 10;
-double rmax = 32.768;
+double rmax = 0;
 int numpt = 32768;
 int ffttype = 1;
 int doHNC = 0;
@@ -71,6 +71,7 @@ static void doargs(int argc, char **argv)
   argopt_parse(ao, argc, argv);
   if ( dim < 3 || dim % 2 == 0 ) argopt_help(ao);
   K = (dim - 1)/2;
+  if ( rmax <= 0 ) rmax = nmax + 2;
   if ( mkcorr ) singer = 0;
   printf("D %d, K %d, rmax %f, npt %d, HNC %d\n",
       dim, K, (double) rmax, numpt, doHNC);
@@ -167,18 +168,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   xdouble *ri, *ki, **r2p, **invr2p, **k2p, **invk2p, *rDm1, *kDm1;
   int i, dm, l, *coef;
   FFTWPFX(plan) plans[2] = {NULL, NULL};
+  clock_t t0 = clock(), t1;
 
-  dr = rmax / npt;
-  dm = (int) (1/dr + .5); /* number of bins in the hard core */
-  /* fix dr such that r = 1 lies at the middle of bins dm - 1 and dm */
-  if ( ffttype ) { /* r(i) = dr * (i + .5); */
-    dr = (xdouble) 1/dm;
-    rmax = dr * npt;
-  } else { /* r(i) = dr * i */
-    dm += 1;
-    dr = (xdouble) 2/(dm*2 - 1);
-    rmax = dr * (npt*2 - 1)/2;
-  }
+  rmax = adjustrmax(rmax, npt, &dr, &dm, ffttype);
   dk = PI/dr/npt;
 
   /* compute the coefficients of the spherical Bessel function */
@@ -281,7 +273,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     }
   }
 
-  fnvir = savevirhead(fnvir, NULL, dim, nmax, doHNC, mkcorr, npt, rmax);
+  t1 = clock();
+  fnvir = savevirhead(fnvir, NULL, dim, nmax, doHNC, mkcorr, npt, rmax, t1 - t0);
 
   B2p = B2;
   for ( l = 1; l < nmax - 1; l++ ) {
@@ -352,6 +345,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     /* c_l(r) --> c_l(k) */
     sphr(npt, crl, ck[l], facr2k, plans, arr, coef, r2p, invk2p, ffttype);
   }
+  savevirtail(fnvir, clock() - t1);
 
   FREE1DARR(coef, K);
 #ifndef NOFFTW

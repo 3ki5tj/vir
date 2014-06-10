@@ -33,6 +33,25 @@
   free(arr); }
 
 
+__inline static xdouble adjustrmax(xdouble rmax, int npt,
+    xdouble *dr, int *dm, int ffttype)
+{
+  /* fix dr such that r = 1 at the middle of bins dm - 1 and dm */
+  if ( ffttype ) { /* r(i) = dr * (i + .5) */
+    *dm = (int) (npt / rmax + 1e-8); /* number of bins in the core */
+    *dr = (xdouble) 1 / *dm;
+  } else {
+    *dm = (int) (npt / rmax + .5 + 1e-8);
+    *dr = (xdouble) 2 / (*dm*2 - 1);
+  }
+  rmax = *dr * npt;
+  printf("%d bins, %d within the hard core (dr %g), rmax %g\n",
+      npt, *dm, (double) *dr, (double) rmax);
+  return rmax;
+}
+
+
+
 __inline static xdouble integr(int n, xdouble *f, xdouble *w)
 {
   xdouble y = 0;
@@ -310,21 +329,22 @@ __inline static xdouble get_ht(int l, int npt,
 
 /* save the header for the virial file */
 __inline static char *savevirhead(const char *fn, const char *title,
-    int dim, int nmax, int doHNC, int mkcorr, int npt, xdouble rmax)
+    int dim, int nmax, int doHNC, int mkcorr, int npt, xdouble rmax,
+    clock_t inittime)
 {
   FILE *fp;
   static char fndef[256];
 
   if ( fn == NULL ) {
-    sprintf(fndef, "%sBn%s%sD%dn%dR%.0fM%d.dat",
+    sprintf(fndef, "%sBn%s%sD%dn%dR%.0fM%d%s.dat",
         title ? title : "", doHNC ? "HNC" : "PY", mkcorr ? "c" : "",
-        dim, nmax, (double) rmax, npt);
+        dim, nmax, (double) rmax, npt, STRPREC);
     fn = fndef;
   }
   xfopen(fp, fn, "w", return NULL);
-  fprintf(fp, "# %s %s %d %.14f %d | n Bc Bv Bm [Bh Br | corr]\n",
+  fprintf(fp, "# %s %s %d %.14f %d | n Bc Bv Bm [Bh Br | corr] | %.3fs\n",
       doHNC ? "HNC" : "PY", mkcorr ? "corr" : "",
-      nmax, (double) rmax, npt);
+      nmax, (double) rmax, npt, (double) inittime / CLOCKS_PER_SEC);
   fclose(fp);
   return (char *) fn;
 }
@@ -335,17 +355,17 @@ __inline static char *savevirhead(const char *fn, const char *title,
 __inline static int printB(const char *name, int dim, int n,
     xdouble B, xdouble B2p, xdouble volp, const char *ending)
 {
-  double x;
+  xdouble x;
   int px = 0;
 
   if ( B == 0 ) return px;
-  printf("%s(%3d) = %15.8e", name, n, (double) B);
+  printf("%s(%3d) = %15.7" XDBLPRNF "e", name, n, B);
   if ( B2p != 0 ) {
-    printf(" (%15.8e", (double) (B/B2p));
-    x = (double) (B/volp);
-    px = ( fabs(x) < 10000 && dim % 2 == 1);
+    printf(" (%15.8" XDBLPRNF "e", B/B2p);
+    x = B/volp;
+    px = ( FABS(x) < 10000 && dim % 2 == 1);
     if ( !px ) printf(")");
-    else printf(",%+12.6f)", x);
+    else printf(",%+12.6" XDBLPRNF "f)", x);
   }
   printf("%s", ending);
   return px;
@@ -388,17 +408,33 @@ __inline static int savevir(const char *fn, int dim, int n,
       Br /= B2p;
     }
     if ( mkcorr ) {
-      fprintf(fp, "%4d%+24.14e%+24.14e%+24.14e %+18.14f\n",
-          n, (double) Bc, (double) Bv, (double) Bm, (double) fcorr);
+      fprintf(fp, "%4d%+24.14" XDBLPRNF "e%+24.14" XDBLPRNF "e"
+                     "%+24.14" XDBLPRNF "e %+18.14" XDBLPRNF "f\n",
+          n, Bc, Bv, Bm, fcorr);
     } else {
-      fprintf(fp, "%4d%+24.14e%24.14e%24.14e%24.14e%24.14e\n",
-          n, (double) Bc, (double) Bv,
-          (double) Bm, (double) Bh, (double) Br);
+      fprintf(fp, "%4d%+24.14" XDBLPRNF "e%24.14" XDBLPRNF "e"
+          "%24.14" XDBLPRNF "e%24.14" XDBLPRNF "e%24.14" XDBLPRNF "e\n",
+          n, Bc, Bv, Bm, Bh, Br);
     }
     fclose(fp);
   }
 
   return 0;
+}
+
+
+
+/* save head */
+__inline static int savevirtail(const char *fn, clock_t endtime)
+{
+  FILE *fp;
+  
+  if (fn != NULL) {
+    xfopen(fp, fn, "a", return -1);
+    fprintf(fp, "# %.3fs\n", (double) endtime / CLOCKS_PER_SEC);
+    fclose(fp);
+    return 0;
+  } else return 1;
 }
 
 

@@ -9,9 +9,8 @@ typedef __float128 xdouble;
 #define FFTWPFX(f) fftwq_##f
 #define XDBLSCNF "Q"
 #define XDBLPRNF "Q"
-
+#define STRPREC "f128"
 #define PI M_PIq
-
 #define SQRT(x)   sqrtq(x)
 #define EXP(x)    expq(x)
 #define LOG(x)    logq(x)
@@ -26,9 +25,8 @@ typedef long double xdouble;
 #define FFTWPFX(f) fftwl_##f
 #define XDBLSCNF "L"
 #define XDBLPRNF "L"
-
+#define STRPREC "ldbl"
 #define PI (xdouble) 3.1415926535897932384626433832795L
-
 #define SQRT(x)   sqrtl(x)
 #define EXP(x)    expl(x)
 #define LOG(x)    logl(x)
@@ -43,9 +41,8 @@ typedef double xdouble;
 #define FFTWPFX(f) fftw_##f
 #define XDBLSCNF "l"
 #define XDBLPRNF ""
-
+#define STRPREC ""
 #define PI 3.1415926535897932384626433832795
-
 #define SQRT(x)   sqrt(x)
 #define EXP(x)    exp(x)
 #define LOG(x)    log(x)

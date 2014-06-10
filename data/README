@@ -12,7 +12,10 @@ mkeos.py      equation of state script (unfinished)
 
 fbtime.dat    time to compute fb
 
-pyhs          PY solution
+pyhs          analytic PY solution (prog/pyhs)
+pydata        a duplicate of pyhs, for making copies
+
+ie            integral equation data (prog/ie)
 
 stampede      data collected on stampede.tacc.utexas.edu
 

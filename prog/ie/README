@@ -33,7 +33,10 @@ iegsl
 Normal example
   icc iegsl.c -lgsl -lgslcblas && ./a.out -D 20 --corr -n 64 -R 67 -M 32768
 
-For a large M with limited memory, use "slow dht"
+For a large M with limited memory,
+   or if you need to use long double
+   or __float128 to handle large numbers,
+   use "slowdht"
   icc -DSLOWDHT iegsl.c -lgsl && ./a.out -D 20 --corr -n 64 -R 67 -M 32768
 
 For slowdht with long double

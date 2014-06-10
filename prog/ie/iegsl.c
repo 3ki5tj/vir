@@ -30,14 +30,16 @@ int dim = 2;
 #endif
 
 int nmax = 10;
-double rmax = 10.24;
-int numpt = 512;
+double rmax = 0;
+int numpt = 1024;
 int doHNC = 0;
 int singer = 0;
+int ring = 0;
 int mkcorr = 0;
 int verbose = 0;
 char *fnvir = NULL;
 char *fncrtr = NULL;
+int dhtdisk = SLOWDHT_USEDISK;
 
 
 
@@ -51,14 +53,21 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-R", "%lf", &rmax, "rmax");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
+  argopt_add(ao, "--ring", "%b", &ring, "use the ring formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--corr", "%b", &mkcorr, "try to correct HNC");
   argopt_add(ao, "-o", NULL, &fnvir, "output virial coefficient");
   argopt_add(ao, "--crtr", NULL, &fncrtr, "file name of c(r) and t(r)");
+  argopt_add(ao, "--disk", "%d", &dhtdisk, "use disk for discrete Hankel transform (DHT)");
+  argopt_add(ao, "--tmpdir", "%s", &slowdht_tmpdir, "directory for temporary files");
+  argopt_add(ao, "--dhtblock", "%u", &slowdht_block, "block size for DHT input/output");
+  argopt_add(ao, "--dhtquiet", "%b", &slowdht_quiet, "suppress DHT output");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
+  if ( rmax <= 0 ) rmax = nmax + 2;
   if ( mkcorr ) singer = 0;
+  if ( singer ) ring = 1;
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }
@@ -91,12 +100,13 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   xdouble *ri, *ki, *r2p, *k2p, *rDm1, *kDm1;
   int i, dm, l;
   xdht *dht;
+  clock_t t0 = clock(), t1;
 
-  dht = XDHT(new)(npt, dim*.5 - 1, rmax);
+  dht = XDHT(newx)(npt, dim*.5 - 1, rmax, dhtdisk);
 
   for ( tmp1 = 0, dm = 0; dm < (int) dht->size; dm++, tmp1 = tmp2 )
     if ((tmp2 = XDHT(x_sample)(dht, dm)) > 1) {
-      printf("r %g, %g, dm %d\n", (double) tmp1, (double) tmp2, dm);
+      printf("r %g, %g, dm %d. \n", (double) tmp1, (double) tmp2, dm);
       break;
     }
 
@@ -127,7 +137,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   surfr = B2 * 2 * dim;
   tmp2 = dht->kmax / dht->xmax;
   surfk = surfr * tmp2 * tmp2 / pow_si(PI*2, dim);
-  printf("B2 %g, r2k %g, k2r %g\n", (double) B2, (double) facr2k, (double) fack2r);
+  printf("D %d, B2 %g, r2k %g, k2r %g\n", dim, (double) B2, (double) facr2k, (double) fack2r);
 
   /* compute r^(dim - 1) dr, used for integration
    *   \int r dr / xmax^2
@@ -170,11 +180,12 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
     }
   }
 
-  fnvir = savevirhead(fnvir, "h", dim, nmax, doHNC, mkcorr, npt, rmax);
+  t1 = clock();
+  fnvir = savevirhead(fnvir, "h", dim, nmax, doHNC, mkcorr, npt, rmax, t1 - t0);
 
   B2p = B2;
   for ( l = 1; l < nmax - 1; l++ ) {
-    if ( !mkcorr ) {
+    if ( !mkcorr && ring ) {
       /* compute the ring sum based on ck */
       Bh = get_ksum(l, npt, ck, kDm1, &Br);
       Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
@@ -242,6 +253,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
     /* c_l(r) --> c_l(k) */
     sphr(crl, ck[l], facr2k, dht, arr, r2p, k2p);
   }
+  savevirtail(fnvir, clock() - t1);
 
   FREE1DARR(arr, npt);
   FREE1DARR(ri, npt);
@@ -266,20 +278,28 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
 
 
 /* adjust rmax such that r = 1 lies at the middle of the dm'th and dm+1'th bins */
-static void adjustrmax(double *rmax, int npt)
+static xdouble jadjustrmax(double rmax0, int npt)
 {
-  double dr, km, kp, kM, nu = (double) dim/2 - 1;
+  xdouble dr, km, kp, kM, rmax;
+  double nu = dim*.5 - 1;
   int dm;
 
-  dr = *rmax / npt;
+  dr = rmax0 / npt;
   dm = (int)(1/dr + .5);
-  km = gsl_sf_bessel_zero_Jnu(nu, dm);
-  kp = gsl_sf_bessel_zero_Jnu(nu, dm + 1);
   kM = gsl_sf_bessel_zero_Jnu(nu, npt + 1);
-  /* adjust rmax such that rmax (j_{nu,k} * .5 + j_{nu,k+1} * .5) / j_{nu,M} = 1 */
-  *rmax = kM*2/(km + kp);
-  printf("%d bins (dr %g) within the hard core, rmax %g, k %g - %g\n",
-      dm, dr, *rmax, km, kp);
+  while ( 1 ) {
+    km = gsl_sf_bessel_zero_Jnu(nu, dm);
+    kp = gsl_sf_bessel_zero_Jnu(nu, dm + 1);
+    /* adjust rmax such that rmax (j_{nu,k} * .5 + j_{nu,k+1} * .5) / j_{nu,M} = 1 */
+    rmax = kM*2/(km + kp);
+    //printf("dm %d, rmax %g, k %g, %g, %g\n", dm, (double) rmax, (double) km, (double) kp, (double) kM);
+    if ( rmax >= rmax0 - 1e-8 || dm == 1 ) break;
+    dm--;
+  }
+  dr = rmax / npt;
+  printf("D %d, %d bins, %d within the hard core (dr %g), rmax %g, k %g - %g\n",
+      dim, npt, dm, (double) dr, (double) rmax, (double) km, (double) kp);
+  return rmax;
 }
 
 
@@ -287,7 +307,6 @@ static void adjustrmax(double *rmax, int npt)
 int main(int argc, char **argv)
 {
   doargs(argc, argv);
-  adjustrmax(&rmax, numpt);
-  intgeq(nmax, numpt, rmax, doHNC);
+  intgeq(nmax, numpt, jadjustrmax(rmax, numpt), doHNC);
   return 0;
 }

@@ -150,7 +150,7 @@ Usage of mcgc and mcgcr2
     icc -openmp -DD=50 mcgcr2.c && ./a.out --nt=4 -n 8 -m 3 -c 0.4 -o a.dat
 
   --nt means the number of threads to use.
-  
+
   -n 8 specifies the maximal order, it can also be specified by -DNMAX=8
        during the compiling
 

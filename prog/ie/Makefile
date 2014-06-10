@@ -67,11 +67,11 @@ $(bins_gmp) : %: %.c $(deps)
 $(bins_gmp_d) : %_d: %.c $(deps)
 	$(CC) -o $@ $< $(LM) $(LGMP)
 
-$(bins_gsl) : %: %.c $(deps)
-	$(CX) -o $@ $< $(LMX) $(LGSL)
+$(bins_gsl) : %: %.c $(deps) slowdht.h
+	$(CX) -DSLOWDHT=1 -o $@ $< $(LMX) $(LGSL)
 
-$(bins_gsl_d) : %_d: %.c $(deps)
-	$(CC) -o $@ $< $(LM) $(LGSL)
+$(bins_gsl_d) : %_d: %.c $(deps) slowdht.h
+	$(CC) -DSLOWDHT=1 -o $@ $< $(LM) $(LGSL)
 
 $(bins_extra) : %: %.c $(deps)
 	$(CX) -o $@ $< $(LMX)

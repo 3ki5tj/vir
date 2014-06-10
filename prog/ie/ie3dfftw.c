@@ -32,7 +32,7 @@ typedef void *FFTWPFX(plan);
 
 
 int nmax = 10;
-xdouble rmax = (xdouble) 10.24L;
+xdouble rmax = 0;
 int numpt = 1024;
 int ffttype = 1;
 int doHNC = 0;
@@ -60,6 +60,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
+  if ( rmax <= 0 ) rmax = nmax + 2;
   if ( mkcorr ) singer = 0;
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
@@ -99,18 +100,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   xdouble **yr = NULL, *arr, *ri, *ki, *ri2, *ki2, *vc = NULL;
   int i, dm, l;
   FFTWPFX(plan) plan = NULL;
+  clock_t t0 = clock(), t1;
 
-  dr = rmax / npt;
-  dm = (int) (1/dr + .5); /* number of bins in the hard core */
-  /* fix dr such that r = 1 lies at the middle of bins dm-1 and dm */
-  if ( ffttype ) { /* r(i) = dr * (i + .5); */
-    dr = (xdouble) 1/dm;
-    rmax = dr * npt;
-  } else { /* r(i) = dr * i; */
-    dm += 1;
-    dr = (xdouble) 1/(dm - .5);
-    rmax = dr * (npt - .5);
-  }
+  rmax = adjustrmax(rmax, npt, &dr, &dm, ffttype);
   dk = PI/dr/npt;
 
   MAKE1DARR(arr, npt);
@@ -172,7 +164,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     }
   }
 
-  fnvir = savevirhead(fnvir, NULL, 3, nmax, doHNC, mkcorr, npt, rmax);
+  t1 = clock();
+  fnvir = savevirhead(fnvir, NULL, 3, nmax, doHNC, mkcorr, npt, rmax, t1 - t0);
 
   B2p = B2;
   for ( l = 1; l < nmax - 1; l++ ) { /* c_l and t_l, B_{l+2} */
@@ -243,6 +236,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     /* c_l(r) --> c_l(k) */
     sphr(npt, crl, ck[l], facr2k, plan, arr, ri, ki, ffttype);
   }
+  savevirtail(fnvir, clock() - t1);
 
 #ifndef NOFFTW
   FFTWPFX(destroy_plan)(plan);

@@ -12,9 +12,10 @@ static void test_slowdht(double nu, int M, double xmax)
   double xt, *frt, *fkt;
   xdouble xs, *frs, *fks;
   int i;
+  int disk = SLOWDHT_FORCEDISK;
 
   t = gsl_dht_new(M - 1, nu, xmax);
-  s = slowdht_new(M - 1, nu, xmax);
+  s = slowdht_newx(M - 1, nu, xmax, disk);
 
   frt = calloc(M, sizeof(*frt));
   frs = calloc(M, sizeof(*frs));

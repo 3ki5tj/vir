@@ -145,6 +145,28 @@
     SET_(a[i_], b[i_]); }
 
 
+__inline static double adjustrmax(const char *srmax, int npt,
+    mpfr_t dr, int *dm, int ffttype)
+{
+  double rmax = atof(srmax);
+
+  /* fix dr such that r = 1 at the middle of bins dm - 1 and dm */
+  if ( ffttype ) { /* r(i) = dr * (i + .5) */
+    *dm = (int) (npt / rmax + 1e-8); /* number of bins in the core */
+    SET_SI_(dr, 1);
+    DIV_SI_X_(dr, *dm);
+  } else {
+    *dm = (int) (npt / rmax + .5 + 1e-8);
+    SET_SI_(dr, 2);
+    DIV_SI_X_(dr, *dm * 2 - 1);
+  }
+  rmax = GET_D_(dr) * npt;
+  printf("%d bins, %d within the hard core (dr %g), rmax %g\n",
+      npt, *dm, GET_D_(dr), rmax);
+  return rmax;
+}
+
+
 
 __inline static void integr(mpfr_t y, int n, mpfr_t *f, mpfr_t *w)
 {
@@ -353,7 +375,8 @@ __inline static void get_ksum(mpfr_t s, int l, int npt,
 
 /* save the header for the virial file */
 __inline static char *savevirhead(const char *fn, const char *title,
-    int dim, int nmax, int doHNC, int mkcorr, int npt, double rmax)
+    int dim, int nmax, int doHNC, int mkcorr, int npt, double rmax,
+    clock_t inittime)
 {
   FILE *fp;
   int prec = (int) mpfr_get_default_prec();
@@ -366,9 +389,9 @@ __inline static char *savevirhead(const char *fn, const char *title,
     fn = fndef;
   }
   xfopen(fp, fn, "w", return NULL);
-  fprintf(fp, "# %s %s %d %.14f %d %d | n Bc Bv Bm [Bh Br | corr]\n",
+  fprintf(fp, "# %s %s %d %.14f %d %d | n Bc Bv Bm [Bh Br | corr] | %.3fs\n",
       doHNC ? "HNC" : "PY", mkcorr ? "corr" : "",
-      nmax, rmax, npt, prec);
+      nmax, rmax, npt, prec, (double) inittime / CLOCKS_PER_SEC);
   fclose(fp);
   return (char *) fn;
 }
@@ -383,7 +406,7 @@ __inline static int printB(const char *name, int dim, int n,
   int px = 0;
 
   if ( CMP_SI_(B, 0) == 0 ) return 0;
-  mpfr_printf("%s(%3d) = %15.8Re", name, n, B);
+  mpfr_printf("%s(%3d) = %15.7Re", name, n, B);
   if ( CMP_SI_(B2p, 0) != 0 ) {
     INIT_(x);
     INIT_(xabs);
@@ -472,6 +495,21 @@ __inline static int savevir(const char *fn, int dim, int n,
   CLEAR_(x);
 
   return 0;
+}
+
+
+
+/* save head */
+__inline static int savevirtail(const char *fn, clock_t endtime)
+{
+  FILE *fp;
+  
+  if (fn != NULL) {
+    xfopen(fp, fn, "a", return -1);
+    fprintf(fp, "# %.3fs\n", (double) endtime / CLOCKS_PER_SEC);
+    fclose(fp);
+    return 0;
+  } else return 1;
 }
 
 
