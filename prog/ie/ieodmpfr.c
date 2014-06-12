@@ -26,6 +26,7 @@ char *rmax = NULL;
 int numpt = 32768;
 int ffttype = 1;
 int doHNC = 0;
+int ring = 0;
 int singer = 0;
 int mkcorr = 0;
 int verbose = 0;
@@ -46,6 +47,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-p", "%d", &prec, "float-point precision in bits");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type");
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
+  argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--corr", "%b", &mkcorr, "try to correct HNC");
   argopt_add(ao, "-o", NULL, &fnvir, "output virial coefficient");
@@ -59,7 +61,8 @@ static void doargs(int argc, char **argv)
   }
   if ( dim < 3 || dim % 2 == 0 ) argopt_help(ao);
   K = (dim - 1)/2;
-  if ( mkcorr ) singer = 0;
+  if ( mkcorr ) singer = ring = 0;
+  if ( singer ) ring = 1;
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }
@@ -300,11 +303,10 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   MAKE2DARR(tk, nmax - 1, npt)
 
   /* construct f(r) and f(k) */
-  for ( i = 0; i < npt; i++ ) /* compute f(r) = exp(-beta u(r)) - 1 */
+  for ( i = 0; i < npt; i++ ) { /* compute f(r) = exp(-beta u(r)) - 1 */
     SET_SI_(fr[i], (i < dm) ? -1 : 0);
-  /* f(r) --> f(k) */
-  sphr(npt, fr, ck[0], facr2k, arr, coef, r2p, invk2p, ffttype);
-  //for (i = 0; i<npt;i++){printf("%d %g %g\n", i, GET_D_(k2p[K-1][i]), GET_D_(ck[0][i]));}// exit(1);
+    SET_(crl[i],  fr[i]);
+  }
 
   if ( singer ) {
     MAKE2DARR(cr, nmax - 1, npt);
@@ -326,7 +328,10 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
 
   SET_(B2p, B2);
   for ( l = 1; l < nmax - 1; l++ ) {
-    if ( !mkcorr ) {
+    /* c_l(r) --> c_l(k) for the previous l */
+    sphr(npt, crl, ck[l-1], facr2k, arr, coef, r2p, invk2p, ffttype);
+
+    if ( ring ) {
       /* compute the ring sum based on ck */
       get_ksum(Bh, l, npt, ck, kDm1, Br);
       /* Br = (doHNC ? -Br * (l+1) : -Br * 2) / l; */
@@ -401,9 +406,6 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
     MUL_X_(B2p, B2);
     savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
-
-    /* c_l(r) --> c_l(k) */
-    sphr(npt, crl, ck[l], facr2k, arr, coef, r2p, invk2p, ffttype);
   }
   savevirtail(fnvir, clock() - t1);
 

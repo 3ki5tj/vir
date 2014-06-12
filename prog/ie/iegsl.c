@@ -40,6 +40,7 @@ int verbose = 0;
 char *fnvir = NULL;
 char *fncrtr = NULL;
 int dhtdisk = SLOWDHT_USEDISK;
+int snapshot = 0;
 
 
 
@@ -53,7 +54,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-R", "%lf", &rmax, "rmax");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
-  argopt_add(ao, "--ring", "%b", &ring, "use the ring formula");
+  argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--corr", "%b", &mkcorr, "try to correct HNC");
   argopt_add(ao, "-o", NULL, &fnvir, "output virial coefficient");
@@ -62,11 +63,12 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--tmpdir", "%s", &slowdht_tmpdir, "directory for temporary files");
   argopt_add(ao, "--dhtblock", "%u", &slowdht_block, "block size for DHT input/output");
   argopt_add(ao, "--dhtquiet", "%b", &slowdht_quiet, "suppress DHT output");
+  argopt_add(ao, "-s", "%b", &snapshot, "save intermediate snapshots");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
   if ( rmax <= 0 ) rmax = nmax + 2;
-  if ( mkcorr ) singer = 0;
+  if ( mkcorr ) singer = ring = 0;
   if ( singer ) ring = 1;
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
@@ -98,7 +100,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   xdouble *fr, *crl, *trl, **cr = NULL, **tr = NULL, **ck, **tk;
   xdouble **yr = NULL, *arr, *vc = NULL;
   xdouble *ri, *ki, *r2p, *k2p, *rDm1, *kDm1;
-  int i, dm, l;
+  int i, dm, l, l0 = 1;
   xdht *dht;
   clock_t t0 = clock(), t1;
 
@@ -156,19 +158,18 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   }
 
   MAKE1DARR(fr, npt);
-  MAKE2DARR(tk, nmax - 1, npt)
   MAKE2DARR(ck, nmax - 1, npt)
+  MAKE2DARR(tk, nmax - 1, npt)
   MAKE1DARR(crl, npt);
   MAKE1DARR(trl, npt);
 
   /* construct f(r) and f(k) */
   for ( i = 0; i < npt; i++ ) /* compute f(r) = exp(-beta u(r)) - 1 */
-    fr[i] = (i < dm) ? -1. : 0;
-  sphr(fr, ck[0], facr2k, dht, arr, r2p, k2p); /* f(r) --> f(k) */
+    crl[i] = fr[i] = (i < dm) ? -1. : 0;
 
   if ( singer ) {
     MAKE2DARR(cr, nmax - 1, npt);
-    COPY1DARR(cr[0], fr, npt);
+    COPY1DARR(cr[0], fr, npt); /* cr[0] = fr */
     MAKE2DARR(tr, nmax - 1, npt);
   }
 
@@ -181,17 +182,24 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   }
 
   t1 = clock();
-  fnvir = savevirhead(fnvir, "h", dim, nmax, doHNC, mkcorr, npt, rmax, t1 - t0);
+  if ( snapshot )
+    l0 = snapshot_open(dim, nmax, rmax, doHNC, mkcorr, ring, singer,
+        npt, ck, tk, cr, tr, crl, trl, yr);
+  fnvir = savevirhead(fnvir, "h", dim, l0, nmax,
+      doHNC, mkcorr, npt, rmax, t1 - t0);
 
-  B2p = B2;
-  for ( l = 1; l < nmax - 1; l++ ) {
-    if ( !mkcorr && ring ) {
+  B2p = pow_si(B2, l0);
+  for ( l = l0; l < nmax - 1; l++ ) {
+    /* c_l(r) --> c_l(k) for the previous l */
+    sphr(crl, ck[l-1], facr2k, dht, arr, r2p, k2p);
+
+    if ( ring ) {
       /* compute the ring sum based on ck */
       Bh = get_ksum(l, npt, ck, kDm1, &Br);
       Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
     }
 
-    /* compute t_l(k) */
+    /* compute t_l(k) from c_0(k), ... c_{l-1}(k) */
     get_tk_oz(l, npt, ck, tk);
 
     /* t_l(k) --> t_l(r) */
@@ -212,10 +220,6 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
       /* HNC approximation: c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
       for ( i = 0; i < npt; i++ )
         crl[i] = (fr[i] + 1) * yr[l][i] - trl[i];
-      if ( mkcorr ) {
-        for ( i = 0; i < npt; i++ )
-          vc[i] = yr[l][i] - trl[i];
-      }
       Bv = contactv(yr[l], dm, B2);
     } else {
       /* PY approximation: c(r) = f(r) (1 + t(r)) */
@@ -243,17 +247,17 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
     if ( mkcorr ) {
       /* in the PY case, y(r) = 1 + t(r) */
       Bm = get_corr1_hs(l, npt, dm, doHNC ? yr[l] : trl,
-          crl, fr, rDm1, B2, vc, &Bm, &Bh, &fcorr);
+          crl, fr, rDm1, B2, vc, &Bc, &Bv, &fcorr);
     }
 
     B2p *= B2;
     savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
-
-    /* c_l(r) --> c_l(k) */
-    sphr(crl, ck[l], facr2k, dht, arr, r2p, k2p);
+    if ( snapshot )
+      snapshot_take(npt, ck[l-1], tk[l], crl, trl, nmax, yr);
   }
   savevirtail(fnvir, clock() - t1);
+  if ( snapshot ) snapshot_close();
 
   FREE1DARR(arr, npt);
   FREE1DARR(ri, npt);

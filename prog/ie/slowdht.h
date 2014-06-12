@@ -14,10 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#ifdef unix
-#include <unistd.h>
-#include <errno.h>
-#endif
 #include "xdouble.h"
 #include <gsl/gsl_sf_bessel.h>
 
@@ -49,10 +45,7 @@ typedef struct slowdht_struct {
   xdouble   *j;    /* j_{nu, s} = j[s] */
   xdouble   *J2;   /* J_{nu+1}^2(j_m) */
   xdouble   *Jjj;  /* J_nu(j_i j_m / j_M) */
-#ifdef unix
-  char      Jjjfntmp[FILENAME_MAX];
-  int       Jjjfd;
-#endif
+  char      Jjjfn[FILENAME_MAX];
   FILE      *Jjjfp;
   xdouble   *Jjjarr;
 } slowdht;
@@ -175,10 +168,9 @@ __inline slowdht *slowdht_newx(size_t size, xdouble nu, xdouble xmax,
     dht->J2[i] = x*x;
   }
 
+  sprintf(dht->Jjjfn, "DHTnu%" XDBLPRNF "gsz%ld%s.dat",
+      dht->nu, (long) dht->size, STRPREC);
   dht->Jjj = NULL;
-#ifdef unix
-  dht->Jjjfd = -1;
-#endif
   dht->Jjjfp = NULL;
   dht->Jjjarr = NULL;
   tabsize = size * (size + 1) / 2;
@@ -186,7 +178,7 @@ __inline slowdht *slowdht_newx(size_t size, xdouble nu, xdouble xmax,
     && (dht->Jjj = calloc(tabsize, sizeof(xdouble))) != NULL ) {
     /* compute the table and save it in the memory */
     fprintf(stderr, "slowdht: using memory to save the transform coefficients (%gG)...\n",
-        (double) size*(size+1)/2/(1024.*1024*1024));
+        (double) size*(size+1)/2*sizeof(xdouble)/(1024.*1024*1024));
     id = 0;
     for ( m = 0; m < size; m++ ) {
       if ( !slowdht_quiet )
@@ -204,45 +196,33 @@ __inline slowdht *slowdht_newx(size_t size, xdouble nu, xdouble xmax,
     /* compute the coefficients and save it to the disk */
     if ( (dht->Jjjarr = calloc(size*slowdht_block, sizeof(xdouble)))
           == NULL ) {
-      fprintf(stderr, "no memory for temporary array\n");
+      fprintf(stderr, "no memory for buffer array\n");
       exit(1);
     }
 
-    /* open a temporary file */
-#ifdef unix
-    /* the file may be huge > 32G, so creating it under /tmp
-     * may not be a good idea */
-    if ( slowdht_tmpdir != NULL ) {
-      strcpy(dht->Jjjfntmp, slowdht_tmpdir);
-      if ( slowdht_tmpdir[strlen(slowdht_tmpdir) - 1] != '/' )
-        strcat(dht->Jjjfntmp, "/");
-    } else
-      dht->Jjjfntmp[0] = '\0';
-    strcat(dht->Jjjfntmp, "slowdht_TMPXXXXXX");
-    dht->Jjjfd = mkstemp(dht->Jjjfntmp);
-    if ( dht->Jjjfd < 1 ) {
-      fprintf(stderr, "mkstemp: cannot make temporary file %s, %d (%s)\n",
-          dht->Jjjfntmp, dht->Jjjfd, strerror(errno));
-      exit(1);
+    /* open the Jjj file */
+    if ( (dht->Jjjfp = fopen(dht->Jjjfn, "rb")) != NULL ) {
+      /* check if the file is good */
+      long fpos;
+      fseek(dht->Jjjfp, 0, SEEK_END);
+      fpos = ftell(dht->Jjjfp);
+      if ( (size_t) fpos == size * size * sizeof(xdouble) ) {
+        goto END_JFILE;
+      } else {
+        fprintf(stderr, "slowdht: %s bad size %ld vs %ld\n",
+            dht->Jjjfn, fpos, (long) (size*size*sizeof(xdouble)));
+      }
     }
-    /* remove dht->Jjjfntmp when the program exits */
-    unlink(dht->Jjjfntmp);
-#else
-    dht->Jjjfp = tmpfile();
+
+    /* if the file does not exist, open it in update mode */
+    dht->Jjjfp = fopen(dht->Jjjfn, "wb+");
     if ( dht->Jjjfp == NULL ) {
-      fprintf(stderr, "tmpfile: cannot make temporary file\n");
+      fprintf(stderr, "cannot open %s\n", dht->Jjjfn);
       exit(1);
     }
-#endif
 
-    fprintf(stderr, "slowdht: using disk (%s) to save the transform coefficients (%s, %gG) ...\n",
-#ifdef unix
-        "unix",
-#else
-        "std",
-#endif
-        dht->Jjjfntmp ? dht->Jjjfntmp : "",
-        (double) size*size*sizeof(xdouble)/(1024.*1024*1024));
+    fprintf(stderr, "slowdht: to save the transform coefficients (%gG) to %s...\n",
+        (double) size*size*sizeof(xdouble)/(1024.*1024*1024), dht->Jjjfn);
 
     for ( m = 0; m < size; m += slowdht_block ) {
       size_t k;
@@ -257,25 +237,19 @@ __inline slowdht *slowdht_newx(size_t size, xdouble nu, xdouble xmax,
         }
       }
 
-#ifdef unix
-      if ( (wb = write(dht->Jjjfd, dht->Jjjarr, sizeof(xdouble)*size*k))
-           != sizeof(xdouble)*size*k ) {
-        fprintf(stderr, "\nwrite: failed at m %ld, written %ld. \n",
-            (long) m, (long) wb);
-        exit(1);
-      }
-#else
       if ( (wb = fwrite(dht->Jjjarr, sizeof(xdouble), size*k, dht->Jjjfp))
            != size*k ) {
         fprintf(stderr, "\nfwrite: failed at m %ld, written %ld. \n",
             (long) m, (long) wb);
         exit(1);
       }
-#endif
       if ( !slowdht_quiet )
-        fprintf(stderr, "(disk) computing the coefficients... %ld/%ld = %7.4lf%% \r",
-            (long) m, (long) size, m*100./size);
-    }
+        fprintf(stderr, "%s: computing the coefficients... %ld/%ld = %7.4lf%% \r",
+            dht->Jjjfn, (long) m, (long) size, m*100./size);
+    } /* end of the loop of m */
+
+END_JFILE:
+    ; /* open the Jjj file */
   }
   return dht;
 }
@@ -324,27 +298,13 @@ __inline int slowdht_apply(const slowdht *dht, xdouble *inp, xdouble *out)
   size_t m, i, size = dht->size, wb, k, id, rows;
   xdouble x, y;
 
-#ifdef unix
-  if ( dht->Jjjfd > 0 ) lseek(dht->Jjjfd, 0, SEEK_SET);
-#else
   if ( dht->Jjjfp != NULL ) rewind(dht->Jjjfp);
-#endif
 
   for ( m = 0; m < size; m += slowdht_block ) {
     /* read several row of the transform coefficients */
     if ( (rows = slowdht_block) > size - m ) rows = size - m;
 
     if ( dht->Jjjarr ) {
-#ifdef unix
-      if ( dht->Jjjfd > 0 ) {
-        if ( read(dht->Jjjfd, dht->Jjjarr, sizeof(xdouble)*size*rows)
-             != sizeof(xdouble)*size*rows ) {
-          fprintf(stderr, "read: failed at m %ld, written %ld. \n",
-              (long) m, (long) wb);
-          exit(1);
-        }
-      }
-#else
       if ( dht->Jjjfp != NULL ) {
         if ( fread(dht->Jjjarr, sizeof(xdouble), size*rows, dht->Jjjfp)
              != size*rows ) {
@@ -353,7 +313,6 @@ __inline int slowdht_apply(const slowdht *dht, xdouble *inp, xdouble *out)
           exit(1);
         }
       }
-#endif
       if ( !slowdht_quiet )
         fprintf(stderr, "DHT %ld/%ld = %7.4f%%. \r",
             (long) m, (long) size, (double) m * 100 / size);
@@ -384,9 +343,6 @@ __inline int slowdht_apply(const slowdht *dht, xdouble *inp, xdouble *out)
 
 __inline void slowdht_free(slowdht *dht)
 {
-#ifdef unix
-  if ( dht->Jjjfd ) close(dht->Jjjfd);
-#endif
   if ( dht->Jjjfp ) fclose(dht->Jjjfp);
   if ( dht->Jjjarr ) free(dht->Jjjarr);
   if ( dht->Jjj ) free(dht->Jjj);

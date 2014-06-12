@@ -44,10 +44,12 @@ int numpt = 32768;
 int ffttype = 1;
 int doHNC = 0;
 int singer = 0;
+int ring = 0;
 int mkcorr = 0;
 int verbose = 0;
 char *fnvir = NULL;
 char *fncrtr = NULL;
+int snapshot = 0;
 
 
 
@@ -62,17 +64,20 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type");
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
+  argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--corr", "%b", &mkcorr, "try to correct HNC");
   argopt_add(ao, "-o", NULL, &fnvir, "output virial coefficient");
   argopt_add(ao, "--crtr", NULL, &fncrtr, "file name of c(r) and t(r)");
+  argopt_add(ao, "-s", "%b", &snapshot, "save intermediate snapshots");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
   if ( dim < 3 || dim % 2 == 0 ) argopt_help(ao);
   K = (dim - 1)/2;
   if ( rmax <= 0 ) rmax = nmax + 2;
-  if ( mkcorr ) singer = 0;
+  if ( mkcorr ) singer = ring = 0;
+  if ( singer ) ring = 1;
   printf("D %d, K %d, rmax %f, npt %d, HNC %d\n",
       dim, K, (double) rmax, numpt, doHNC);
   if ( verbose ) argopt_dump(ao);
@@ -166,7 +171,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   xdouble *fr, *crl, *trl, **cr = NULL, **tr = NULL, **ck, **tk;
   xdouble **yr = NULL, *arr, *vc = NULL;
   xdouble *ri, *ki, **r2p, **invr2p, **k2p, **invk2p, *rDm1, *kDm1;
-  int i, dm, l, *coef;
+  int i, dm, l, l0 = 1, *coef;
   FFTWPFX(plan) plans[2] = {NULL, NULL};
   clock_t t0 = clock(), t1;
 
@@ -255,9 +260,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 
   /* construct f(r) and f(k) = c0(k) */
   for ( i = 0; i < npt; i++ ) /* compute f(r) = exp(-beta u(r)) - 1 */
-    fr[i] = (i < dm) ? -1 : 0;
-  /* f(r) --> f(k) */
-  sphr(npt, fr, ck[0], facr2k, plans, arr, coef, r2p, invk2p, ffttype);
+    crl[i] = fr[i] = (i < dm) ? -1 : 0;
 
   if ( singer ) {
     MAKE2DARR(cr, nmax - 1, npt);
@@ -274,11 +277,18 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   }
 
   t1 = clock();
-  fnvir = savevirhead(fnvir, NULL, dim, nmax, doHNC, mkcorr, npt, rmax, t1 - t0);
+  if ( snapshot )
+    l0 = snapshot_open(dim, nmax, rmax, doHNC, mkcorr, ring, singer,
+        npt, ck, tk, cr, tr, crl, trl, yr);
+  fnvir = savevirhead(fnvir, NULL, dim, l0, nmax,
+      doHNC, mkcorr, npt, rmax, t1 - t0);
 
-  B2p = B2;
-  for ( l = 1; l < nmax - 1; l++ ) {
-    if ( !mkcorr ) {
+  B2p = pow_si(B2, l0);
+  for ( l = l0; l < nmax - 1; l++ ) {
+    /* c_l(r) --> c_l(k) for the previous l */
+    sphr(npt, crl, ck[l-1], facr2k, plans, arr, coef, r2p, invk2p, ffttype);
+
+    if ( ring ) {
       /* compute the ring sum based on ck */
       Bh = get_ksum(l, npt, ck, kDm1, &Br);
       Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
@@ -341,11 +351,11 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     B2p *= B2;
     savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
-
-    /* c_l(r) --> c_l(k) */
-    sphr(npt, crl, ck[l], facr2k, plans, arr, coef, r2p, invk2p, ffttype);
+    if ( snapshot )
+      snapshot_take(npt, ck[l-1], tk[l], crl, trl, nmax, yr);
   }
   savevirtail(fnvir, clock() - t1);
+  if ( snapshot ) snapshot_close();
 
   FREE1DARR(coef, K);
 #ifndef NOFFTW

@@ -295,7 +295,7 @@ __inline static void get_corr1_hs(mpfr_t B, int l, int npt, int dm,
   /* dBv = B2 * (vc[dm] + vc[dm-1])/2; */
   contactv(dBv, vc, dm, B2);
   if ( l <= 1 ) {
-    SET_(B, Bc0);
+    SET_(B, Bv0);
     SET_SI_(eps, 0);
     return;
   }
@@ -426,6 +426,24 @@ __inline static int printB(const char *name, int dim, int n,
 
 
 
+/* save a virial coefficient to file */
+__inline static void saveB(FILE *fp, mpfr_t B, mpfr_t B2p)
+{
+  if ( CMP_SI_(B, 0) == 0 ) {
+    fprintf(fp, " 0");
+  } else if ( CMP_SI_(B2p, 0) == 0 ) {
+    mpfr_fprintf(fp, "%+24.14Re", B);
+  } else {
+    mpfr_t x;
+    INIT_(x);
+    DIV_(x, B, B2p);
+    mpfr_fprintf(fp, "%+24.14Re", x);
+    CLEAR_(x);
+  }
+}
+
+
+
 /* save virial coefficients */
 __inline static int savevir(const char *fn, int dim, int n,
     mpfr_t Bc, mpfr_t Bv, mpfr_t Bm, mpfr_t Bh, mpfr_t Br,
@@ -456,40 +474,23 @@ __inline static int savevir(const char *fn, int dim, int n,
   }
 
   if (fn != NULL) {
-    mpfr_t Xc, Xv, Xm, Xh, Xr;
     xfopen(fp, fn, "a", return -1);
-    INIT_(Xc);
-    INIT_(Xv);
-    INIT_(Xm);
-    INIT_(Xh);
-    INIT_(Xr);
+    fprintf(fp, "%4d", n);
     /* normalize the virial coefficients */
-    if ( B2p != 0 ) {
-      DIV_(Xc, Bc, B2p);
-      DIV_(Xv, Bv, B2p);
-      DIV_(Xm, Bm, B2p);
-      DIV_(Xh, Bh, B2p);
-      DIV_(Xr, Br, B2p);
-    } else {
-      SET_(Xc, Bc);
-      SET_(Xv, Bv);
-      SET_(Xm, Bm);
-      SET_(Xh, Bh);
-      SET_(Xr, Br);
-    }
     if ( mkcorr ) {
-      mpfr_fprintf(fp, "%4d%+24.14Re%+24.14Re%+24.14Re %+18.14Rf\n",
-          n, Xc, Xv, Xm, fcorr);
+      saveB(fp, Bc, B2p);
+      saveB(fp, Bv, B2p);
+      saveB(fp, Bm, B2p);
+      mpfr_fprintf(fp, "%+18.14Rf\n", fcorr);
     } else {
-      mpfr_fprintf(fp, "%4d%+24.14Re%24.14Re%24.14Re%24.14Re%24.14Re\n",
-          n, Xc, Xv, Xm, Xh, Xr);
+      saveB(fp, Bc, B2p);
+      saveB(fp, Bv, B2p);
+      saveB(fp, Bm, B2p);
+      saveB(fp, Bh, B2p);
+      saveB(fp, Br, B2p);
+      fprintf(fp, "\n");
     }
     fclose(fp);
-    CLEAR_(Xc);
-    CLEAR_(Xv);
-    CLEAR_(Xm);
-    CLEAR_(Xh);
-    CLEAR_(Xr);
   }
   CLEAR_(volp);
   CLEAR_(x);
@@ -503,13 +504,12 @@ __inline static int savevir(const char *fn, int dim, int n,
 __inline static int savevirtail(const char *fn, clock_t endtime)
 {
   FILE *fp;
-  
-  if (fn != NULL) {
-    xfopen(fp, fn, "a", return -1);
-    fprintf(fp, "# %.3fs\n", (double) endtime / CLOCKS_PER_SEC);
-    fclose(fp);
-    return 0;
-  } else return 1;
+
+  if (fn == NULL) return -1;
+  xfopen(fp, fn, "a", return -1);
+  fprintf(fp, "# %.3fs\n", (double) endtime / CLOCKS_PER_SEC);
+  fclose(fp);
+  return 0;
 }
 
 

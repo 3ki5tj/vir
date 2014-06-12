@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# scratch dir is more up to date
+rsync -avzL --exclude="*.tmp*" --exclude="ZrD*" --exclude="*.data" --exclude "test*" \
+  --exclude="*~" --exclude=".*.swp" --exclude="*.bak*" --exclude="fb*.bdb" \
+  --exclude="DHT*.dat" --exclude="Bn*.dat" --exclude="snapshot*" \
+  oo1@stampede.tacc.utexas.edu:/scratch/02464/oo1/vir/* .

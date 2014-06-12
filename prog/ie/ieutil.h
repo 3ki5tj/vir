@@ -165,9 +165,15 @@ __inline static xdouble get_corr1_hs(int l, int npt, int dm,
   dBv = contactv(vc, dm, B2);
   if ( l <= 1 ) {
     *eps = 0;
-    return *Bc0;
+    return *Bv0;
   }
   *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
+  if ( dBv * dBc > 0 )
+    fprintf(stderr, "Danger: n %d, "
+        "Bc %+" XDBLPRNF "g/%+" XDBLPRNF "g, Bv %+" XDBLPRNF "g/%+" XDBLPRNF "g\n",
+        l + 2, *Bc0, dBc, *Bv0, dBv);
+  //if ( *eps < 0 ) *eps = 0;
+  //else if ( *eps > 1 ) *eps = 1;
   //printf("l %d, eps %g, Bv0 %g, Bc0 %g, dBv %g, dBc %g, B2 %g\n", l, (double) *eps, (double) *Bv0, (double) *Bc0, (double) dBv, (double) dBc, (double) B2);
   for ( i = 0; i < npt; i++ ) {
     vc[i] *= *eps;
@@ -205,6 +211,8 @@ __inline static xdouble get_corr1(int l, int npt,
   }
 
   *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
+  //if ( *eps < 0 ) *eps = 0;
+  //else if ( *eps > 1 ) *eps = 1;
   for ( i = 0; i < npt; i++ ) {
     vc[i] *= *eps;
     cr[i] += vc[i] * (1 + fr[i]);
@@ -329,8 +337,8 @@ __inline static xdouble get_ht(int l, int npt,
 
 /* save the header for the virial file */
 __inline static char *savevirhead(const char *fn, const char *title,
-    int dim, int nmax, int doHNC, int mkcorr, int npt, xdouble rmax,
-    clock_t inittime)
+    int dim, int l0, int nmax, int doHNC, int mkcorr, int npt,
+    xdouble rmax, clock_t inittime)
 {
   FILE *fp;
   static char fndef[256];
@@ -341,7 +349,7 @@ __inline static char *savevirhead(const char *fn, const char *title,
         dim, nmax, (double) rmax, npt, STRPREC);
     fn = fndef;
   }
-  xfopen(fp, fn, "w", return NULL);
+  xfopen(fp, fn, (l0 == 1) ? "w" : "a", return NULL);
   fprintf(fp, "# %s %s %d %.14f %d | n Bc Bv Bm [Bh Br | corr] | %.3fs\n",
       doHNC ? "HNC" : "PY", mkcorr ? "corr" : "",
       nmax, (double) rmax, npt, (double) inittime / CLOCKS_PER_SEC);
@@ -373,6 +381,15 @@ __inline static int printB(const char *name, int dim, int n,
 
 
 
+/* save a virial coefficient to file */
+__inline static void saveB(FILE *fp, xdouble B, xdouble B2p)
+{
+  if ( B == 0 ) fprintf(fp, " 0");
+  else fprintf(fp, "%+24.14" XDBLPRNF "e", (B2p != 0 ? B/B2p : B));
+}
+
+
+
 /* save virial coefficients */
 __inline static int savevir(const char *fn, int dim, int n,
     xdouble Bc, xdouble Bv, xdouble Bm, xdouble Bh, xdouble Br,
@@ -399,22 +416,20 @@ __inline static int savevir(const char *fn, int dim, int n,
 
   if (fn != NULL) {
     xfopen(fp, fn, "a", return -1);
+    fprintf(fp, "%4d", n);
     /* normalize the virial coefficients */
-    if ( B2p != 0 ) {
-      Bc /= B2p;
-      Bv /= B2p;
-      Bm /= B2p;
-      Bh /= B2p;
-      Br /= B2p;
-    }
     if ( mkcorr ) {
-      fprintf(fp, "%4d%+24.14" XDBLPRNF "e%+24.14" XDBLPRNF "e"
-                     "%+24.14" XDBLPRNF "e %+18.14" XDBLPRNF "f\n",
-          n, Bc, Bv, Bm, fcorr);
+      saveB(fp, Bc, B2p);
+      saveB(fp, Bv, B2p);
+      saveB(fp, Bm, B2p);
+      fprintf(fp, "%+18.14" XDBLPRNF "f\n", fcorr);
     } else {
-      fprintf(fp, "%4d%+24.14" XDBLPRNF "e%24.14" XDBLPRNF "e"
-          "%24.14" XDBLPRNF "e%24.14" XDBLPRNF "e%24.14" XDBLPRNF "e\n",
-          n, Bc, Bv, Bm, Bh, Br);
+      saveB(fp, Bc, B2p);
+      saveB(fp, Bv, B2p);
+      saveB(fp, Bm, B2p);
+      saveB(fp, Bh, B2p);
+      saveB(fp, Br, B2p);
+      fprintf(fp, "\n");
     }
     fclose(fp);
   }
@@ -428,13 +443,12 @@ __inline static int savevir(const char *fn, int dim, int n,
 __inline static int savevirtail(const char *fn, clock_t endtime)
 {
   FILE *fp;
-  
-  if (fn != NULL) {
-    xfopen(fp, fn, "a", return -1);
-    fprintf(fp, "# %.3fs\n", (double) endtime / CLOCKS_PER_SEC);
-    fclose(fp);
-    return 0;
-  } else return 1;
+
+  if (fn == NULL) return -1;
+  xfopen(fp, fn, "a", return -1);
+  fprintf(fp, "# %.3fs\n", (double) endtime / CLOCKS_PER_SEC);
+  fclose(fp);
+  return 0;
 }
 
 
@@ -461,6 +475,159 @@ __inline static int savecrtr(const char *fn, int l, int npt,
   fprintf(fp, "\n");
   fclose(fp);
   return 0;
+}
+
+
+
+/* snapshot variables */
+char fnck[80], fntk[80], fncr[80], fntr[80], fnyr[80], fnyrbak[80];
+FILE *fpck, *fptk, *fpcr, *fptr, *fpyr;
+
+#define SNAPSHOT_READARRTXT(fp, fn, arr, n) { int i_; \
+  for ( i_ = 0; i_ < n; i_++ ) \
+    fscanf(fp, "%" XDBLSCNF "f", (xdouble *)(arr + i_)); }
+
+#define SNAPSHOT_WRITEARRTXT(fp, fn, arr, n) { int i_; \
+  for ( i_ = 0; i_ < n; i_++ ) \
+    fprintf(fp, "%22.14" XDBLPRNF "e ", *((xdouble *)(arr)+i_)); \
+  fprintf(fp, "\n"); }
+
+#define SNAPSHOT_READARRBIN(fp, fn, arr, n) \
+  die_if ( fread(arr, sizeof(xdouble), n, fp) != n, \
+    "cannot read %ld elements from %s\n", (long) n, fn)
+
+#define SNAPSHOT_WRITEARRBIN(fp, fn, arr, n) \
+  die_if ( fwrite(arr, sizeof(xdouble), n, fp) != n, \
+    "cannot write %ld elements to %s\n", (long) n, fn)
+
+#ifdef SNAPSHOT_TEXTIO
+int snapshot_textio = 1;
+#define SNAPSHOT_READARR    SNAPSHOT_READARRTXT
+#define SNAPSHOT_WRITEARR   SNAPSHOT_WRITEARRTXT
+#else
+int snapshot_textio = 0;
+#define SNAPSHOT_READARR    SNAPSHOT_READARRBIN
+#define SNAPSHOT_WRITEARR   SNAPSHOT_WRITEARRBIN
+#endif
+
+
+
+__inline static int snapshot_open(int dim, int nmax, xdouble rmax,
+    int doHNC, int mkcorr, int ring, int singer, int npt,
+    xdouble **ck, xdouble **tk, xdouble **cr, xdouble **tr,
+    xdouble *crl, xdouble *trl, xdouble **yr)
+{
+
+#define SNAPSHOT_MKNAME(fn, arr) \
+  sprintf(fn, "snapshotD%d%s%s%s%sR%.3fM%d%s_%s.dat", \
+      dim, doHNC ? "HNC" : "PY", mkcorr ? "c" : "", \
+      ring ? "r" : "", singer ? "s" : "", \
+      (double) rmax, npt, STRPREC, #arr)
+
+#define SNAPSHOT_OPENF(l, l0, fp, fn, arr, offset, arrl) { \
+  SNAPSHOT_MKNAME(fn, arr); \
+  if ( (fp = fopen(fn, "r+b")) != NULL ) { \
+    if ( snapshot_textio ) { /* text file */ \
+      int c; \
+      for ( l = 0; ; ) { \
+        if ((c = fgetc(fp)) == '\n') l++; \
+        if (feof(fp)) break; \
+      } \
+    } else { /* binary file */ \
+      long fpos, arrsz = npt * (long) sizeof(xdouble); \
+      fseek(fp, 0, SEEK_END); \
+      fpos = ftell(fp); \
+      die_if ( fpos % arrsz != 0, \
+        "%s is corrupted %ld / %ld\n", fn, fpos, arrsz); \
+      /* check the size */ \
+      l = (int) (fpos / arrsz); \
+      if ( l0 < 0 ) { \
+        l0 = l; \
+      } else { \
+        die_if ( l0 != l, \
+          "%s has %d arrays, instead of %d\n", fn, l, l0); \
+      } \
+    } \
+    if ( arr != NULL && l > 0 ) { /* read the 2D array */ \
+      int l1 = (l >= nmax - 1 - offset) ? nmax - 1 - offset : l; \
+      rewind(fp); \
+      SNAPSHOT_READARR(fp, fn, arr[offset], npt*l1); \
+    } \
+    if ( arrl != NULL && l > 0 ) { /* read the last 1D array */ \
+      if ( snapshot_textio ) { /* read text file */ \
+        int j_; \
+        rewind(fp); \
+        for ( j_ = 0; j_ < l; j_++ ) \
+          SNAPSHOT_READARR(fp, fn, arrl, npt); \
+      } else { /* read binary file */ \
+        fseek(fp, (l-1)*npt*sizeof(xdouble), SEEK_SET); \
+        SNAPSHOT_READARR(fp, fn, arrl, npt); \
+      } \
+      /*printf("%s, %s l %d\n", fn, #arrl, l);*/ \
+      /*SNAPSHOT_WRITEARR(stdout, #arrl, arrl, npt); getchar();*/ \
+    } \
+    fseek(fp, 0, SEEK_END); /* to the end */ \
+  } else if ( (fp = fopen(fn, "w+b")) == NULL ) { \
+    /* create a new file */ \
+    fprintf(stderr, "cannot open %s for %s\n", fn, #arr); \
+  } }
+
+  int l = 0, l0 = -1, n1, n2 = nmax - 1;
+
+  SNAPSHOT_OPENF(l, l0, fpck, fnck, ck, 0, NULL);
+  SNAPSHOT_OPENF(l, l0, fptk, fntk, tk, 1, NULL);
+  SNAPSHOT_OPENF(l, l0, fpcr, fncr, cr, 1, crl);
+  SNAPSHOT_OPENF(l, l0, fptr, fntr, tr, 1, trl);
+  if ( yr != NULL ) {
+    SNAPSHOT_OPENF(n1, n2, fpyr, fnyr, yr, 0, NULL);
+    fclose(fpyr);
+    strcat(strcpy(fnyrbak, fnyr), ".bak");
+  }
+  printf("snapshot initial l %d/%d\n", l+1, n2);
+  return l + 1;
+}
+
+
+
+__inline static void snapshot_take(int npt,
+    xdouble *ckl, xdouble *tkl, xdouble *crl, xdouble *trl,
+    int nmax, xdouble **yr)
+{
+#define SNAPSHOT_APPEND(fp, fn, arr, npt) \
+  if ( fp != NULL && arr != NULL ) { \
+    SNAPSHOT_WRITEARR(fp, fn, arr, npt); \
+    fflush(fp); }
+
+  /* do yr first, in case it is interrupted in the middle
+   * we still have a backup and other functions are untouched */
+  if ( yr != NULL ) {
+    int i;
+
+    /* make a copy before updating
+     * because we are going to overwrite it entirely */
+    copyfile(fnyr, fnyrbak);
+    if ( (fpyr = fopen(fnyr, "wb")) != NULL ) {
+      for ( i = 0; i < nmax - 1; i++)
+        SNAPSHOT_WRITEARR(fpyr, fnyr, yr[i], npt);
+      fclose(fpyr);
+    } else {
+      fprintf(stderr, "cannot update %s\n", fnyr);
+    }
+  }
+  SNAPSHOT_APPEND(fpck, fnck, ckl, npt);
+  SNAPSHOT_APPEND(fptk, fntk, tkl, npt);
+  SNAPSHOT_APPEND(fpcr, fncr, crl, npt);
+  SNAPSHOT_APPEND(fptr, fntr, trl, npt);
+}
+
+
+
+__inline static void snapshot_close(void)
+{
+  if ( fpck != NULL ) fclose(fpck);
+  if ( fptk != NULL ) fclose(fptk);
+  if ( fpcr != NULL ) fclose(fpcr);
+  if ( fptr != NULL ) fclose(fptr);
 }
 
 

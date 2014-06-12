@@ -1,0 +1,2 @@
+rsync -avz --exclude="DHT*.dat" --exclude="snapshot*" \
+  cz1@he.host.utmb.edu:lwork/vir/ie/*.dat .

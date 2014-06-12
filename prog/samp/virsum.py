@@ -79,6 +79,38 @@ def varanalysis(arr, fns = None, name = "", nsig = 3, nave = 0, verbose = True):
 
 
 
+def B3rat(d):
+  ''' return B3/B2^2 for d-dimensional system
+      M. Luban and A. Baram, J. Chem. Phys. 76. 3233 (1981)
+  '''
+  if d % 2 != 0:
+    # B3/B2^2 = 2 (1 - 2F1(1/2, (1-d)/2, 3/2, 1/4) / B(1/2, (1+d)/2) )
+    n = (d + 1) / 2
+    fac = 2.0
+    for i in range(1, n):
+      fac *= i / (i + .5)
+    sm = 1
+    i = n - 1
+    while i > 0:
+      sm = 1 + sm * .25 * (i - n) * (2 * i - 1) / i / (2*i + 1)
+      i -= 1
+    return 2 - 2 * sm / fac
+  else:
+    # B3/B2^2 = 4/3 - n!/Sqrt(Pi)/Gamma(n+1/2) (3/4)^(n-1/2) 2F1(1, n+1, 3/2, 1/4)_n
+    # = 4/3 - n!/(2*n-1)!! sqrt(3)/pi (3/2)^(n-1)
+    #         sum_{i 0 to n - 1} (n+1)...(n+i)/(3*5...(2*i+1)) (3/2)^i */
+    n = d / 2
+    fac = sqrt(3)/pi
+    for i in range(2, n+1):
+      fac *= 1.5 * i / (2*i - 1)
+    sm = 1
+    i = n - 1
+    while i > 0:
+      sm = 1 + sm * .5 * (n + i) / (2 * i + 1)
+      i -= 1
+    return 4./3 - fac * sm
+
+
 
 class INT:
   ''' a class for combining data from hsrh.c '''
@@ -1199,6 +1231,9 @@ def scanorders(fns, fnsummary = None):
   # print order - virial coefficients
   dim = getdimdir()
   src = "# %d %d\n" % (dim, nmax)
+  src += "%4d\t%+22.14e\t%12.5e\t%15.8e\n" % (
+      3, B3rat(dim), 0.0, 0.0)
+  #src += "  3\t%+22.14e\t0\t0\n" % (B3rat(dim))
   for n, x, err, tot, strtot in ls:
     fac = getfacdim(n, dim)
     # although we have a loop here, len(x) is usually 1

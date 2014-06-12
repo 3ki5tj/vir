@@ -36,6 +36,7 @@ xdouble rmax = 0;
 int numpt = 1024;
 int ffttype = 1;
 int doHNC = 0;
+int ring = 0;
 int singer = 0;
 int mkcorr = 0;
 int verbose = 0;
@@ -53,6 +54,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type");
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
+  argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--corr", "%b", &mkcorr, "correct the closure");
   argopt_add(ao, "-o", NULL, &fnvir, "output virial coefficient");
@@ -61,7 +63,8 @@ static void doargs(int argc, char **argv)
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
   if ( rmax <= 0 ) rmax = nmax + 2;
-  if ( mkcorr ) singer = 0;
+  if ( mkcorr ) singer = ring = 0;
+  if ( singer ) ring = 1;
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }
@@ -146,9 +149,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 
   /* construct f(r) and f(k) */
   for ( i = 0; i < npt; i++ ) /* compute f(r) = exp(-beta u(r)) - 1 */
-    fr[i] = (i < dm) ? -1 : 0;
-  sphr(npt, fr, ck[0], facr2k, plan, arr, ri, ki, ffttype); /* f(r) --> f(k) */
-  //for (i = 0; i<npt;i++){printf("%d %g %g\n", i,(double)ki[i],(double)ck[0][i]);} exit(1);
+    crl[i] = fr[i] = (i < dm) ? -1 : 0;
 
   if ( singer ) {
     MAKE2DARR(cr, nmax - 1, npt);
@@ -165,11 +166,15 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   }
 
   t1 = clock();
-  fnvir = savevirhead(fnvir, NULL, 3, nmax, doHNC, mkcorr, npt, rmax, t1 - t0);
+  fnvir = savevirhead(fnvir, NULL, 3, 1, nmax,
+      doHNC, mkcorr, npt, rmax, t1 - t0);
 
   B2p = B2;
   for ( l = 1; l < nmax - 1; l++ ) { /* c_l and t_l, B_{l+2} */
-    if ( !mkcorr ) {
+    /* c_l(r) --> c_l(k) for the previous l */
+    sphr(npt, crl, ck[l-1], facr2k, plan, arr, ri, ki, ffttype);
+
+    if ( ring ) {
       /* compute the ring sum based on ck */
       Bh = get_ksum(l, npt, ck, ki2, &Br);
       Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
@@ -232,9 +237,6 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     B2p *= B2;
     savevir(fnvir, 3, l+2, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
-
-    /* c_l(r) --> c_l(k) */
-    sphr(npt, crl, ck[l], facr2k, plan, arr, ri, ki, ffttype);
   }
   savevirtail(fnvir, clock() - t1);
 
