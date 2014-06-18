@@ -32,6 +32,7 @@ typedef void *FFTWPFX(plan);
 int nmax = 10;
 xdouble rmax = 0;
 int numpt = 1024;
+xdouble T = 1;
 xdouble beta = 1;
 int ffttype = 1;
 int doHNC = 0;
@@ -45,7 +46,6 @@ char *fncrtr = NULL;
 
 static void doargs(int argc, char **argv)
 {
-  xdouble T = 1;
   argopt_t *ao = argopt_open(0);
   ao->desc = "computing the virial coefficients from the PY/HNC closure for the 3D hard-sphere fluid";
   argopt_add(ao, "-n", "%d", &nmax, "maximal order");
@@ -105,6 +105,30 @@ static xdouble pot(xdouble r, xdouble *ndphir)
   *ndphir = invr6*(48*invr6 - 24);
   return 4*invr6*(invr6 - 1);
 }
+
+
+/* save the header for the virial file */
+__inline static char *LJsavevirhead(const char *fn,
+    int dim, int l0, int nmax, xdouble T, int doHNC, int mkcorr, int npt,
+    xdouble rmax, clock_t inittime)
+{
+  FILE *fp;
+  static char fndef[256];
+
+  if ( fn == NULL ) {
+    sprintf(fndef, "LJBn%s%sD%dn%dT%gR%.0fM%d%s.dat",
+        doHNC ? "HNC" : "PY", mkcorr ? "c" : "",
+        dim, nmax, (double) T, (double) rmax, npt, STRPREC);
+    fn = fndef;
+  }
+  xfopen(fp, fn, (l0 == 1) ? "w" : "a", return NULL);
+  fprintf(fp, "# %s %s %d %.14f %d | n Bc Bv Bm [Bh Br | corr] | %.3fs\n",
+      doHNC ? "HNC" : "PY", mkcorr ? "corr" : "",
+      nmax, (double) rmax, npt, (double) inittime / CLOCKS_PER_SEC);
+  fclose(fp);
+  return (char *) fn;
+}
+
 
 
 
@@ -187,7 +211,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   }
 
   t1 = clock();
-  fnvir = savevirhead(fnvir, "LJ", 3, 1, nmax,
+  fnvir = LJsavevirhead(fnvir, 3, 1, nmax, T,
       doHNC, mkcorr, npt, rmax, t1 - t0);
 
   for ( l = 1; l < nmax - 1; l++ ) {

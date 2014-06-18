@@ -76,7 +76,6 @@ static void doargs(int argc, char **argv)
 
 
 
-
 /* compute
  *  out(k) = fac Int {from 0 to infinity} dr
  *           r^(D/2) in(r) J_{D/2-1}(k r) */
@@ -104,27 +103,13 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   xdht *dht;
   clock_t t0 = clock(), t1;
 
-  dht = XDHT(newx)(npt, dim*.5 - 1, rmax, dhtdisk);
+  dht = XDHT(newx)(npt, (xdouble) dim/2 - 1, rmax, dhtdisk);
 
-  for ( tmp1 = 0, dm = 0; dm < (int) dht->size; dm++, tmp1 = tmp2 )
+  for ( tmp1 = 0, dm = 0; dm < npt; dm++, tmp1 = tmp2 )
     if ((tmp2 = XDHT(x_sample)(dht, dm)) > 1) {
       printf("r %g, %g, dm %d. \n", (double) tmp1, (double) tmp2, dm);
       break;
     }
-
-  /* auxiliary array */
-  MAKE1DARR(arr, npt);
-
-  MAKE1DARR(ri,  dht->size + 1)
-  MAKE1DARR(ki,  dht->size + 1)
-  MAKE1DARR(r2p, dht->size + 1)
-  MAKE1DARR(k2p, dht->size + 1)
-  for ( i = 0; i < (int) dht->size; i++ ) {
-    ri[i] = XDHT(x_sample)(dht, i);
-    r2p[i] = POW(ri[i], (xdouble) dim/2 - 1);
-    ki[i] = XDHT(k_sample)(dht, i);
-    k2p[i] = POW(ki[i], (xdouble) dim/2 - 1);
-  }
 
   facr2k = POW(PI*2, (xdouble) dim/2);
   /* the factor (kmax/xmax)^2 is adapted for the inverse
@@ -141,21 +126,31 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   surfk = surfr * tmp2 * tmp2 / pow_si(PI*2, dim);
   printf("D %d, B2 %g, r2k %g, k2r %g\n", dim, (double) B2, (double) facr2k, (double) fack2r);
 
-  /* compute r^(dim - 1) dr, used for integration
-   *   \int r dr / xmax^2
-   * ==>
-   *   2/(j_{nu,M})^2 * 1/[J_{nu+1}(j_{nu,k})]^2
-   * r = j_{nu,k} / j_{nu,M} */
+  MAKE1DARR(ri,   npt);
+  MAKE1DARR(ki,   npt);
+  MAKE1DARR(r2p,  npt);
+  MAKE1DARR(k2p,  npt);
   MAKE1DARR(rDm1, npt);
   MAKE1DARR(kDm1, npt);
   for ( i = 0; i < npt; i++ ) {
-    tmp1 = XDHT(x_sample)(dht, i);
-    tmp2 = pow_si(tmp1, dim - 2) * surfr;
-    rDm1[i] = tmp2 * 2 / (dht->kmax * dht->kmax * dht->J2[i+1]);
-    tmp1 = XDHT(k_sample)(dht, i);
-    tmp2 = pow_si(tmp1, dim - 2) * surfk;
-    kDm1[i] = tmp2 * 2 / (dht->kmax * dht->kmax * dht->J2[i+1]);
+    ri[i]   = XDHT(x_sample)(dht, i);
+    r2p[i]  = POW(ri[i], (xdouble) dim/2 - 1);
+    ki[i]   = XDHT(k_sample)(dht, i);
+    k2p[i]  = POW(ki[i], (xdouble) dim/2 - 1);
+
+    /* compute r^(dim - 1) dr, used for integration
+     *   \int r dr / xmax^2
+     * ==>
+     *   2/(j_{nu,M})^2 * 1/[J_{nu+1}(j_{nu,k})]^2
+     * r = j_{nu,k} / j_{nu,M} */
+    tmp1 = pow_si(ri[i], dim - 2) * surfr;
+    rDm1[i] = tmp1 * 2 / (dht->kmax * dht->kmax * dht->J2[i+1]);
+    tmp1 = pow_si(ki[i], dim - 2) * surfk;
+    kDm1[i] = tmp1 * 2 / (dht->kmax * dht->kmax * dht->J2[i+1]);
   }
+
+  /* auxiliary array for the Hankel transform */
+  MAKE1DARR(arr,  npt);
 
   MAKE1DARR(fr, npt);
   MAKE2DARR(ck, nmax - 1, npt)
@@ -259,16 +254,16 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   savevirtail(fnvir, clock() - t1);
   if ( snapshot ) snapshot_close();
 
-  FREE1DARR(arr, npt);
-  FREE1DARR(ri, npt);
-  FREE1DARR(ki, npt);
+  FREE1DARR(arr,  npt);
+  FREE1DARR(ri,   npt);
+  FREE1DARR(ki,   npt);
+  FREE1DARR(r2p,  npt);
+  FREE1DARR(k2p,  npt);
   FREE1DARR(rDm1, npt);
   FREE1DARR(kDm1, npt);
-  FREE1DARR(r2p, npt);
-  FREE1DARR(k2p, npt);
-  FREE1DARR(fr, npt);
-  FREE1DARR(crl, npt);
-  FREE1DARR(trl, npt);
+  FREE1DARR(fr,   npt);
+  FREE1DARR(crl,  npt);
+  FREE1DARR(trl,  npt);
   FREE2DARR(ck, nmax - 1, npt);
   FREE2DARR(tk, nmax - 1, npt);
   if ( cr != NULL ) FREE2DARR(cr, nmax - 1, npt);

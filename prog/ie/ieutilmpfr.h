@@ -481,7 +481,7 @@ __inline static int savevir(const char *fn, int dim, int n,
       saveB(fp, Bc, B2p);
       saveB(fp, Bv, B2p);
       saveB(fp, Bm, B2p);
-      mpfr_fprintf(fp, "%+18.14Rf\n", fcorr);
+      mpfr_fprintf(fp, " %+20.14Rf\n", fcorr);
     } else {
       saveB(fp, Bc, B2p);
       saveB(fp, Bv, B2p);

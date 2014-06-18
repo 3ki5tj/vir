@@ -26,6 +26,6 @@ $(EPS) : %.eps : %.gp $(deps)
 $(TIF) : %.tif : %.png $(deps)
 	convert $< $@
 clean:
-	rm -f $(PDF) $(PS) $(GP_PNG) *~
+	rm -f $(PDF) $(PS) $(EPS) $(GP_PNG) *~
 	rstrip.py -Rv
 

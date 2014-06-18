@@ -120,7 +120,8 @@ __inline xdouble besselzeroJnu(xdouble nu, int m)
 enum {
   SLOWDHT_NODISK = 0,     /* do not use disk */
   SLOWDHT_USEDISK = 1,    /* use disk is necessary */
-  SLOWDHT_FORCEDISK = 2   /* always use the disk to save memory */
+  SLOWDHT_FORCEDISK = 2,  /* always use the disk to save memory */
+  SLOWDHT_NOJJJ = 3       /* do not allocate the Jjj matrix */
 };
 
 
@@ -173,6 +174,9 @@ __inline slowdht *slowdht_newx(size_t size, xdouble nu, xdouble xmax,
   dht->Jjj = NULL;
   dht->Jjjfp = NULL;
   dht->Jjjarr = NULL;
+  if ( usedisk == SLOWDHT_NOJJJ )
+    return dht;
+
   tabsize = size * (size + 1) / 2;
   if (  usedisk != SLOWDHT_FORCEDISK
     && (dht->Jjj = calloc(tabsize, sizeof(xdouble))) != NULL ) {
@@ -298,6 +302,10 @@ __inline int slowdht_apply(const slowdht *dht, xdouble *inp, xdouble *out)
   size_t m, i, size = dht->size, wb, k, id, rows;
   xdouble x, y;
 
+  if ( dht->Jjj == NULL && dht->Jjjarr == NULL ) {
+    fprintf(stderr, "cannot apply discrete Hankel transform\n");
+    return -1;
+  }
   if ( dht->Jjjfp != NULL ) rewind(dht->Jjjfp);
 
   for ( m = 0; m < size; m += slowdht_block ) {

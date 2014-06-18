@@ -207,12 +207,29 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   printf("D %d, precision %d, rmax %g, dk %g, %d bins in the hard core\n",
       dim, i, rmax, GET_D_(dk), dm);
 
-  /* compute the coefficients of the spherical Bessel function */
-  xnew(coef, K);
-  getjn(coef, K - 1);
+  /* pi2 = PI*2 */
+  CONST_PI_(pi2);
+  MUL_SI_X_(pi2, 2);
 
-  /* auxiliary array, needs npt + 1 elements for cosine type-0 */
-  MAKE1DARR(arr, npt + 1);
+  /* facr2k = (PI*2)^K */
+  POW_SI_(facr2k, pi2, K);
+  MUL_X_(facr2k, dr); /* facr2k *= dr; */
+
+  /* fack2r = (PI*2)^(-K-1) */
+  POW_SI_(fack2r, pi2, -K-1);
+  MUL_X_(fack2r, dk); /* fack2r *= dk */
+
+  /* B2 = (PI*2)^K/(2 K + 1)!! */
+  SET_SI_(B2, 1); /* B2 = 1 */
+  for (i = 1; i <= K; i++) {
+    /* B2 *= PI*2/(i*2 + 1); */
+    MUL_X_(B2, pi2);
+    DIV_SI_X_(B2, i*2 + 1);
+  }
+
+  MUL_SI_(surfr, B2, dim*2);
+  POW_SI_(tmp1, pi2, dim);
+  DIV_(surfk, surfr, tmp1);
 
   MAKE1DARR(ri, npt);
   MAKE1DARR(ki, npt);
@@ -258,6 +275,12 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
         DIV_X_(invrl, ri[i]); /* invrl /= ri; */
         DIV_X_(invkl, ki[i]); /* invkl /= ki; */
       }
+
+      /* tmp1 = surf * ri^(dim - 1) * dr */
+      POW_SI_(tmp1, r2p[K-1][i], dim - 1);
+      MUL3_(rDm1[i], tmp1, surfr, dr);
+      POW_SI_(tmp1, k2p[K-1][i], dim - 1);
+      MUL3_(kDm1[i], tmp1, surfk, dk);
     }
     CLEAR_(rl);
     CLEAR_(invrl);
@@ -265,42 +288,19 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
     CLEAR_(invkl);
   }
 
-  /* pi2 = PI*2 */
-  CONST_PI_(pi2);
-  MUL_SI_X_(pi2, 2);
+  /* compute the coefficients of the spherical Bessel function */
+  xnew(coef, K);
+  getjn(coef, K - 1);
 
-  /* facr2k = (PI*2)^K */
-  POW_SI_(facr2k, pi2, K);
-  MUL_X_(facr2k, dr); /* facr2k *= dr; */
-
-  /* fack2r = (PI*2)^(-K-1) */
-  POW_SI_(fack2r, pi2, -K-1);
-  MUL_X_(fack2r, dk); /* fack2r *= dk */
-
-  /* B2 = (PI*2)^K/(2 K + 1)!! */
-  SET_SI_(B2, 1); /* B2 = 1 */
-  for (i = 1; i <= K; i++) {
-    /* B2 *= PI*2/(i*2 + 1); */
-    MUL_X_(B2, pi2);
-    DIV_SI_X_(B2, i*2 + 1);
-  }
-
-  MUL_SI_(surfr, B2, dim*2);
-  POW_SI_(tmp1, pi2, dim);
-  DIV_(surfk, surfr, tmp1);
-  for ( i = 0; i < npt; i++ ) {
-    /* tmp1 = surf * ri^(dim - 1) * dr */
-    POW_SI_(tmp1, r2p[K-1][i], dim - 1);
-    MUL3_(rDm1[i], tmp1, surfr, dr);
-    POW_SI_(tmp1, k2p[K-1][i], dim - 1);
-    MUL3_(kDm1[i], tmp1, surfk, dk);
-  }
+  /* auxiliary array for FFT
+   * needs npt + 1 elements for cosine type-0 */
+  MAKE1DARR(arr, npt + 1);
 
   MAKE1DARR(fr, npt);
   MAKE1DARR(crl, npt);
   MAKE1DARR(trl, npt);
-  MAKE2DARR(ck, nmax - 1, npt)
-  MAKE2DARR(tk, nmax - 1, npt)
+  MAKE2DARR(ck, nmax - 1, npt);
+  MAKE2DARR(tk, nmax - 1, npt);
 
   /* construct f(r) and f(k) */
   for ( i = 0; i < npt; i++ ) { /* compute f(r) = exp(-beta u(r)) - 1 */
@@ -368,7 +368,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
       /* Bv = B2*(yr[l][dm] + yr[l][dm-1])/2; */
       contactv(Bv, yr[l], dm, B2);
     } else {
-      /* Percus-Yevick approximation
+      /* Percus-Yevick approximation:
        * c(r) = f(r) (1 + t(r)) */
       for ( i = 0; i < npt; i++ )
         MUL_(crl[i], fr[i], trl[i]);

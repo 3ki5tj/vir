@@ -1,0 +1,18 @@
+# Mayer Sampling Monte Carlo calculation of virial coefficients on graphics processors
+# Andrew J. Schultz, Nathaniel S. Barlow, Vipin Chaudhary and David A. Kofke
+# Molecular Physics Vol 111 No. 4  2013  535-543
+#
+# Sixth, seventh and eighth virial coefficient of the Lennard-Jones model
+# Andrew J. Schultz and David Kofke
+# Molecular Physics Vol 107 No. 21 2009 2309-2318
+# T      B8         e(B8)
+0.6     -1.3e10     0.5e10
+0.75    -8e7        2e7
+0.8     -1.48e7     0.19e7
+1       -6.4e4      1.9e4
+1.3      0          400
+2        5          2
+2.5     -0.2        1.4
+5       -0.101      0.008
+10      -0.036      0.003
+40      -0.00229    0.00006

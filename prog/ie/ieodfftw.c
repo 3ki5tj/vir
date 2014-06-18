@@ -66,7 +66,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
   argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
-  argopt_add(ao, "--corr", "%b", &mkcorr, "try to correct HNC");
+  argopt_add(ao, "--corr", "%b", &mkcorr, "correct the closure");
   argopt_add(ao, "-o", NULL, &fnvir, "output virial coefficient");
   argopt_add(ao, "--crtr", NULL, &fncrtr, "file name of c(r) and t(r)");
   argopt_add(ao, "-s", "%b", &snapshot, "save intermediate snapshots");
@@ -118,7 +118,7 @@ static void getjn(int *c, int n)
  * `arr' are used in the intermediate steps by the FFTW plans `p'
  * */
 static void sphr(int npt, xdouble *in, xdouble *out, xdouble fac,
-    FFTWPFX(plan) p[2], xdouble *arr, int *coef,
+    FFTWPFX(plan) p[2], xdouble *arr, long *coef,
     xdouble **r2p, xdouble **k2q, int ffttype)
 {
   int i, l, iscos;
@@ -171,30 +171,25 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   xdouble *fr, *crl, *trl, **cr = NULL, **tr = NULL, **ck, **tk;
   xdouble **yr = NULL, *arr, *vc = NULL;
   xdouble *ri, *ki, **r2p, **invr2p, **k2p, **invk2p, *rDm1, *kDm1;
-  int i, dm, l, l0 = 1, *coef;
+  int i, dm, l, l0 = 1;
+  long *coef;
   FFTWPFX(plan) plans[2] = {NULL, NULL};
   clock_t t0 = clock(), t1;
 
   rmax = adjustrmax(rmax, npt, &dr, &dm, ffttype);
   dk = PI/dr/npt;
 
-  /* compute the coefficients of the spherical Bessel function */
-  MAKE1DARR(coef, K);
-  getjn(coef, K - 1);
+  facr2k = pow_si(PI*2, K) *  dr;
+  fack2r = pow_si(PI*2, -K-1) * dk;
 
-  /* FFTW auxiliary array, needs npt + 1 elements for FFTW_REDFT00 */
-  MAKE1DARR(arr, npt + 1);
-
-#ifndef NOFFTW
-  /* plans[0] is the sine transform, plans[1] is the cosine transform */
-  if ( ffttype ) {
-    plans[0] = FFTWPFX(plan_r2r_1d)(npt, arr, arr, FFTW_RODFT11, FFTW_ESTIMATE);
-    plans[1] = FFTWPFX(plan_r2r_1d)(npt, arr, arr, FFTW_REDFT11, FFTW_ESTIMATE);
-  } else {
-    plans[0] = FFTWPFX(plan_r2r_1d)(npt - 1, arr + 1, arr + 1, FFTW_RODFT00, FFTW_ESTIMATE);
-    plans[1] = FFTWPFX(plan_r2r_1d)(npt + 1, arr, arr, FFTW_REDFT00, FFTW_ESTIMATE);
-  }
-#endif
+  /* B2 = (PI*2)^K/(2 K + 1)!! */
+  B2 = 1;
+  for (i = 1; i <= K; i++)
+    B2 *= PI*2/(2*i + 1);
+  surfr = B2 * 2 * dim;
+  surfk = surfr / pow_si(PI*2, dim);
+  printf("dr %f, dm %d, rmax %f, ffttype %d, HNC %d, B2 %g\n",
+      (double) dr, dm, (double) rmax, ffttype, doHNC, (double) B2);
 
   MAKE1DARR(ri, npt);
   MAKE1DARR(ki, npt);
@@ -208,13 +203,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     xdouble rl, invrl, kl, invkl;
 
     for ( i = 0; i < npt; i++ ) {
-      if ( ffttype ) {
-        ri[i] = dr * (i*2 + 1)/2;
-        ki[i] = dk * (i*2 + 1)/2;
-      } else {
-        ri[i] = dr * i;
-        ki[i] = dk * i;
-      }
+      ri[i]  = dr * (i*2 + (ffttype ? 1 : 0))/2;
+      ki[i]  = dk * (i*2 + (ffttype ? 1 : 0))/2;
       rl = 1;
       kl = 1;
       for ( l = 1; l <= K; l++ ) {
@@ -232,33 +222,38 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
         invrl /= ri[i];
         invkl /= ki[i];
       }
+
+      rDm1[i] = surfr * pow_si(ri[i], dim - 1) * dr;
+      kDm1[i] = surfk * pow_si(ki[i], dim - 1) * dk;
     }
   }
 
-  facr2k = pow_si(PI*2, K) *  dr;
-  fack2r = pow_si(PI*2, -K-1) * dk;
+  /* compute the coefficients of the spherical Bessel function */
+  MAKE1DARR(coef, K);
+  getjn(coef, K - 1);
 
-  /* B2 = (PI*2)^K/(2 K + 1)!! */
-  B2 = 1;
-  for (i = 1; i <= K; i++)
-    B2 *= PI*2/(2*i + 1);
-  surfr = B2 * 2 * dim;
-  surfk = surfr / pow_si(PI*2, dim);
-  for ( i = 0; i < npt; i++ ) {
-    rDm1[i] = surfr * pow_si(r2p[K-1][i], dim - 1) * dr;
-    kDm1[i] = surfk * pow_si(k2p[K-1][i], dim - 1) * dk;
+  /* auxiliary array for FFTW
+   * needs npt + 1 elements for FFTW_REDFT00 */
+  MAKE1DARR(arr, npt + 1);
+
+#ifndef NOFFTW
+  /* plans[0] is the sine transform, plans[1] is the cosine transform */
+  if ( ffttype ) {
+    plans[0] = FFTWPFX(plan_r2r_1d)(npt, arr, arr, FFTW_RODFT11, FFTW_ESTIMATE);
+    plans[1] = FFTWPFX(plan_r2r_1d)(npt, arr, arr, FFTW_REDFT11, FFTW_ESTIMATE);
+  } else {
+    plans[0] = FFTWPFX(plan_r2r_1d)(npt - 1, arr + 1, arr + 1, FFTW_RODFT00, FFTW_ESTIMATE);
+    plans[1] = FFTWPFX(plan_r2r_1d)(npt + 1, arr, arr, FFTW_REDFT00, FFTW_ESTIMATE);
   }
-
-  printf("dr %f, dm %d, rmax %f, ffttype %d, HNC %d, B2 %g\n",
-      (double) dr, dm, (double) rmax, ffttype, doHNC, (double) B2);
+#endif
 
   MAKE1DARR(fr, npt);
-  MAKE2DARR(tk, nmax - 1, npt)
-  MAKE2DARR(ck, nmax - 1, npt)
   MAKE1DARR(crl, npt);
   MAKE1DARR(trl, npt);
+  MAKE2DARR(ck, nmax - 1, npt);
+  MAKE2DARR(tk, nmax - 1, npt);
 
-  /* construct f(r) and f(k) = c0(k) */
+  /* compute f(r) and f(k) = c0(k) */
   for ( i = 0; i < npt; i++ ) /* compute f(r) = exp(-beta u(r)) - 1 */
     crl[i] = fr[i] = (i < dm) ? -1 : 0;
 
@@ -365,10 +360,10 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   FREE1DARR(arr, npt);
   FREE1DARR(ri, npt);
   FREE1DARR(ki, npt);
-  FREE1DARR(rDm1, npt);
-  FREE1DARR(kDm1, npt);
   FREE2DARR(r2p, K, npt); FREE2DARR(invr2p, K, npt);
   FREE2DARR(k2p, K, npt); FREE2DARR(invk2p, K, npt);
+  FREE1DARR(rDm1, npt);
+  FREE1DARR(kDm1, npt);
   FREE1DARR(fr, npt);
   FREE1DARR(crl, npt);
   FREE1DARR(trl, npt);

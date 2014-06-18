@@ -108,11 +108,28 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   rmax = adjustrmax(rmax, npt, &dr, &dm, ffttype);
   dk = PI/dr/npt;
 
-  MAKE1DARR(arr, npt);
+  facr2k = PI*2 * dr;
+  fack2r = pow_si(PI*2, -2) * dk;
+
+  B2 = PI*2/3;
+  surfr = PI*4;
+  surfk = surfr * pow_si(PI*2, -3);
+  printf("dr %f, dm %d, rmax %f, ffttype %d, HNC %d, B2 %g\n",
+      (double) dr, dm, (double) rmax, ffttype, doHNC, (double) B2);
+
   MAKE1DARR(ri, npt);
   MAKE1DARR(ki, npt);
   MAKE1DARR(ri2, npt);
   MAKE1DARR(ki2, npt);
+  for ( i = 0; i < npt; i++ ) {
+    ri[i]  = dr * (i*2 + (ffttype ? 1 : 0))/2;
+    ki[i]  = dk * (i*2 + (ffttype ? 1 : 0))/2;
+    ri2[i] = surfr * ri[i] * ri[i] * dr;
+    ki2[i] = surfk * ki[i] * ki[i] * dk;
+  }
+
+  /* auxiliary array for FFTW */
+  MAKE1DARR(arr, npt + 1);
 
 #ifndef NOFFTW
   if ( ffttype ) {
@@ -122,32 +139,14 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     plan = FFTWPFX(plan_r2r_1d)(npt - 1, arr + 1, arr + 1, FFTW_RODFT00, FFTW_ESTIMATE);
   }
 #endif
-  for ( i = 0; i < npt; i++ ) {
-    ri[i] = dr * (i*2 + (ffttype ? 1 : 0))/2;
-    ki[i] = dk * (i*2 + (ffttype ? 1 : 0))/2;
-  }
-
-  facr2k = PI*2 * dr;
-  fack2r = pow_si(PI*2, -2) * dk;
-
-  B2 = PI*2/3;
-  surfr = PI*4;
-  surfk = surfr * pow_si(PI*2, -3);
-  for ( i = 0; i < npt; i++ ) {
-    ri2[i] = surfr * ri[i] * ri[i] * dr;
-    ki2[i] = surfk * ki[i] * ki[i] * dk;
-  }
-
-  printf("dr %f, dm %d, rmax %f, ffttype %d, HNC %d, B2 %g\n",
-      (double) dr, dm, (double) rmax, ffttype, doHNC, (double) B2);
 
   MAKE1DARR(fr, npt);
   MAKE1DARR(crl, npt);
   MAKE1DARR(trl, npt);
-  MAKE2DARR(ck, nmax - 1, npt)
-  MAKE2DARR(tk, nmax - 1, npt)
+  MAKE2DARR(ck, nmax - 1, npt);
+  MAKE2DARR(tk, nmax - 1, npt);
 
-  /* construct f(r) and f(k) */
+  /* compute f(r) and f(k) = c0(k) */
   for ( i = 0; i < npt; i++ ) /* compute f(r) = exp(-beta u(r)) - 1 */
     crl[i] = fr[i] = (i < dm) ? -1 : 0;
 

@@ -32,10 +32,10 @@ D = 28, DHT
   to verify the precision.
   should be long double.
 
-D = 26, DHT, -n 128
+D = 26, DHT, nmax = 128
   should use long double, for |Bc| ~ 1e-300 after B80
 
-D = 24, DHT, -n 128
+D = 24, DHT, nmax = 128
   should use long double, for |Bc| ~ 1e-300 after B103
 
 D = 22, DHT -n 128

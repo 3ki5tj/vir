@@ -422,7 +422,7 @@ __inline static int savevir(const char *fn, int dim, int n,
       saveB(fp, Bc, B2p);
       saveB(fp, Bv, B2p);
       saveB(fp, Bm, B2p);
-      fprintf(fp, "%+18.14" XDBLPRNF "f\n", fcorr);
+      fprintf(fp, " %+20.14" XDBLPRNF "f\n", fcorr);
     } else {
       saveB(fp, Bc, B2p);
       saveB(fp, Bv, B2p);

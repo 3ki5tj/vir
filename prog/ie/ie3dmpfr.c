@@ -140,20 +140,6 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   printf("precision %d, rmax %g, dk %g, %d bins in the hard core\n",
       i, rmax, GET_D_(dk), dm);
 
-  MAKE1DARR(arr, npt + 1);
-
-  MAKE1DARR(ri, npt);
-  MAKE1DARR(ki, npt);
-  MAKE1DARR(ri2, npt);
-  MAKE1DARR(ki2, npt);
-
-  for ( i = 0; i < npt; i++ ) {
-    MUL_SI_(ri[i], dr, i*2 + (ffttype ? 1 : 0));
-    DIV_SI_X_(ri[i], 2);
-    MUL_SI_(ki[i], dk, i*2 + (ffttype ? 1 : 0));
-    DIV_SI_X_(ki[i], 2);
-  }
-
   CONST_PI_(pi2);
   MUL_SI_X_(pi2, 2);
 
@@ -179,11 +165,26 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   /* B2 = PI*2/3; */
   DIV_SI_(B2, pi2, 3);
 
+  MAKE1DARR(ri, npt);
+  MAKE1DARR(ki, npt);
+  MAKE1DARR(ri2, npt);
+  MAKE1DARR(ki2, npt);
+
+  for ( i = 0; i < npt; i++ ) {
+    MUL_SI_(ri[i], dr, i*2 + (ffttype ? 1 : 0));
+    DIV_SI_X_(ri[i], 2);
+    MUL_SI_(ki[i], dk, i*2 + (ffttype ? 1 : 0));
+    DIV_SI_X_(ki[i], 2);
+  }
+
+  /* auxiliary arry for FFT */
+  MAKE1DARR(arr, npt + 1);
+
   MAKE1DARR(fr, npt);
   MAKE1DARR(crl, npt);
   MAKE1DARR(trl, npt);
-  MAKE2DARR(ck, nmax - 1, npt)
-  MAKE2DARR(tk, nmax - 1, npt)
+  MAKE2DARR(ck, nmax - 1, npt);
+  MAKE2DARR(tk, nmax - 1, npt);
 
   /* construct f(r) and f(k) */
   for ( i = 0; i < npt; i++ ) { /* compute f(r) = exp(-beta u(r)) - 1 */
@@ -236,7 +237,8 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
     }
 
     if ( doHNC ) {
-      /* hypernetted chain approximation: c(r) = (1 + f(r)) y(r) - (1 + t(r)) */
+      /* hypernetted chain approximation:
+       * c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
       for ( i = 0; i < npt; i++ ) {
         ADD_SI_(tmp1, fr[i], 1);
         FMS_(crl[i], tmp1, yr[l][i], trl[i]);
@@ -244,7 +246,8 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
       /* Bv = B2*(yr[l][dm] + yr[l][dm-1])/2; */
       contactv(Bv, yr[l], dm, B2);
     } else {
-      /* Percus-Yevick approximation: c(r) = f(r) (1 + t(r)) */
+      /* Percus-Yevick approximation:
+       * c(r) = f(r) (1 + t(r)) */
       for ( i = 0; i < npt; i++ )
         MUL_(crl[i], fr[i], trl[i]);
       /* Bv = B2 * trl(1+) */
