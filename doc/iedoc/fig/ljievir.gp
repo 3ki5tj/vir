@@ -116,7 +116,7 @@ plot [0.6:500][1e-2:2e3] \
   "iedata/LJ/LJB4B5.dat"                  u ($1):(abs($2))                              w l  ls 2  lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3           w e  ls 2  lw 1.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3           w e  ls 3  lw 1.0 notitle, \
-  ""                                      u ($1):-1                                     w lp ls 2  lw 1.0 t "Monte-Carlo", \
+  ""                                      u ($1):-1                                     w lp ls 2  lw 1.0 t "Monte Carlo", \
   "iedata/LJ/ieLJB4.dat"                  u ($1):(abs($7))                              w l  ls 4  lw 0.5 notitle, \
   ""                                      u ($1):(($7 > 0) ? abs($7) : 1/0)             w p  ls 4  lw 1.0 notitle, \
   ""                                      u ($1):(($7 < 0) ? abs($7) : 1/0)             w p  ls 5  lw 1.0 notitle, \
@@ -170,7 +170,7 @@ plot [0.6:100][1e-2:1e5] \
   "iedata/LJ/LJB4B5.dat"                  u ($1):(abs($4))                              w l  ls 2  lw 0.5 notitle, \
   ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0):3           w e  ls 2  lw 1.0 notitle, \
   ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0):3           w e  ls 3  lw 1.0 notitle, \
-  ""                                      u ($1):-1                                     w lp ls 2  lw 1.0 t "Monte-Carlo", \
+  ""                                      u ($1):-1                                     w lp ls 2  lw 1.0 t "Monte Carlo", \
   "iedata/LJ/ieLJB5.dat"                  u ($1):(abs($7))                              w l  ls 4  lw 0.5 notitle, \
   ""                                      u ($1):(($7 > 0) ? abs($7) : 1/0)             w p  ls 4  lw 1.0 notitle, \
   ""                                      u ($1):(($7 < 0) ? abs($7) : 1/0)             w p  ls 5  lw 1.0 notitle, \
@@ -227,7 +227,7 @@ plot [0.62:40][5e-3:1e7] \
   "iedata/LJ/LJB6.dat"                    u ($1):(abs($2))                              w l  ls 2  lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3           w e  ls 2  lw 1.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3           w e  ls 3  lw 1.0 notitle, \
-  ""                                      u ($1):-1                                     w lp ls 2  lw 1.0 t "Monte-Carlo", \
+  ""                                      u ($1):-1                                     w lp ls 2  lw 1.0 t "Monte Carlo", \
   "iedata/LJ/ieLJB6.dat"                  u ($1):(abs($7))                              w l  ls 4  lw 0.5 notitle, \
   ""                                      u ($1):(($7 > 0) ? abs($7) : 1/0)             w p  ls 4  lw 1.0 notitle, \
   ""                                      u ($1):(($7 < 0) ? abs($7) : 1/0)             w p  ls 5  lw 1.0 notitle, \
@@ -292,7 +292,7 @@ plot [0.6:40][1e-4:1e9] \
   "iedata/LJ/LJB7.dat"                    u ($1):(abs($2))                              w l  ls 2  lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3           w e  ls 2  lw 1.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3           w e  ls 3  lw 1.0 notitle, \
-  ""                                      u ($1):-1                                     w lp ls 2  lw 1.0 t "Monte-Carlo", \
+  ""                                      u ($1):-1                                     w lp ls 2  lw 1.0 t "Monte Carlo", \
   "iedata/LJ/ieLJB7.dat"                  u ($1):(abs($7))                              w l  ls 4  lw 0.5 notitle, \
   ""                                      u ($1):(($7 > 0) ? abs($7) : 1/0)             w p  ls 4  lw 1.0 notitle, \
   ""                                      u ($1):(($7 < 0) ? abs($7) : 1/0)             w p  ls 5  lw 1.0 notitle, \

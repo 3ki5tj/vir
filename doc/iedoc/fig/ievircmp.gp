@@ -3,7 +3,7 @@ reset
 
 set encoding cp1250 # make minus sign longer
 ##set encoding iso_8859_1
-set terminal postscript eps enhanced size 7, 10 font "Arial, 20"
+set terminal postscript eps enhanced size 7, 9 font "Arial, 20"
 set output "ievircmp.eps"
 
 tlfont="Arial, 24"
@@ -44,29 +44,29 @@ color4b = "#008080"
 # line styles for the small panels
 set style line 1  lc rgb "#aaaaaa" lt 1 lw 1
 
-set style line 2  lc rgb color1a lt 1 pt 4  ps 2.0 # empty square
-set style line 3  lc rgb color1a lt 1 pt 5  ps 2.0 # full  square
+set style line 2  lc rgb color1a lt 1 pt 4  ps 1.4 # empty square
+set style line 3  lc rgb color1a lt 1 pt 5  ps 1.4 # full  square
 
-set style line 4  lc rgb color1b lt 2 pt 12 ps 2.6 # empty diamond
-set style line 5  lc rgb color1b lt 2 pt 13 ps 2.6 # full  diamond
+set style line 4  lc rgb color1b lt 2 pt 12 ps 2.0 # empty diamond
+set style line 5  lc rgb color1b lt 2 pt 13 ps 2.0 # full  diamond
 
-set style line 6  lc rgb color2a lt 3 pt 10 ps 2.4 # empty inverted triangle
-set style line 7  lc rgb color2a lt 3 pt 11 ps 2.4 # full  inverted triangle
+set style line 6  lc rgb color2a lt 3 pt 10 ps 1.7 # empty inverted triangle
+set style line 7  lc rgb color2a lt 3 pt 11 ps 1.7 # full  inverted triangle
 
-set style line 8  lc rgb color2b lt 4 pt 8  ps 2.4 # empty triangle
-set style line 9  lc rgb color2b lt 4 pt 9  ps 2.4 # full  triangle
+set style line 8  lc rgb color2b lt 4 pt 8  ps 1.7 # empty triangle
+set style line 9  lc rgb color2b lt 4 pt 9  ps 1.7 # full  triangle
 
-set style line 10 lc rgb color3a lt 5 pt 6  ps 2.0 # empty circle
-set style line 11 lc rgb color3a lt 5 pt 7  ps 2.0 # full  circle
+set style line 10 lc rgb color3a lt 5 pt 6  ps 1.4 # empty circle
+set style line 11 lc rgb color3a lt 5 pt 7  ps 1.4 # full  circle
 
-set style line 12 lc rgb color3b lt 6 pt 14 ps 2.2 # empty pentagon
-set style line 13 lc rgb color3b lt 6 pt 15 ps 2.2 # full  pentagon
+set style line 12 lc rgb color3b lt 6 pt 14 ps 1.6 # empty pentagon
+set style line 13 lc rgb color3b lt 6 pt 15 ps 1.6 # full  pentagon
 
-set style line 14 lc rgb color4a lt 7 pt 14 ps 1.8 # empty pentagon
-set style line 15 lc rgb color4a lt 7 pt 15 ps 1.8 # full  pentagon
+set style line 14 lc rgb color4a lt 7 pt 14 ps 1.3 # empty pentagon
+set style line 15 lc rgb color4a lt 7 pt 15 ps 1.3 # full  pentagon
 
-set style line 16 lc rgb color4b lt 8 pt 12 ps 2.0
-set style line 17 lc rgb color4b lt 8 pt 13 ps 2.0
+set style line 16 lc rgb color4b lt 8 pt 12 ps 1.4 # empty diamond
+set style line 17 lc rgb color4b lt 8 pt 13 ps 1.4 # full  diamond
 
 
 
@@ -108,12 +108,12 @@ set label 100 "{/Arial-Italic D} = 2" at 13.5, 7e-1 font tlfont
 # Left: align text to the left
 # reverse: symbol first, text next
 # invert: first drawn shown last in the legend
-set key at 13.5, 10e-4 Left reverse spacing 1.5 font lbfont
+set key at 13.5, 17e-4 Left reverse spacing 1.5 font lbfont
 
 plot [2:16][3e-5:1] \
   "data/D2/BnD2n14.dat"                   u ($1):(abs($2))                              w l  ls 2  lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3           w e  ls 2  lw 3.0 notitle, \
-  ""                                      u ($1):-1                                     w lp ls 2  lw 3.0 t "Monte-Carlo", \
+  ""                                      u ($1):-1                                     w lp ls 2  lw 3.0 t "Monte Carlo", \
   "iedata/hBnPYcD2n32R34M32768.dat"       u ($1):(abs($4))                              w l  ls 4  lw 0.5 notitle, \
   ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)             w p  ls 4  lw 3.0 notitle, \
   ""                                      u ($1):-1                                     w lp ls 4  lw 3.0 t "Self-consistent", \
@@ -156,12 +156,12 @@ set label 100 "{/Arial-Italic D} = 3" at 13.5, 5e-1 font tlfont
 # Left: align text to the left
 # reverse: symbol first, text next
 # invert: first drawn shown last in the legend
-set key at 13.5, 12e-6 Left reverse spacing 1.5 font lbfont
+set key at 13.5, 30e-6 Left reverse spacing 1.5 font lbfont
 
 plot [2:16][5e-8:10e-1] \
   "data/D3/BnD3n12.dat"                   u ($1):(abs($2))                              w l  ls 2  lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3           w e  ls 2  lw 3.0 notitle, \
-  ""                                      u ($1):-1                                     w lp ls 2  lw 3.0 t "Monte-Carlo", \
+  ""                                      u ($1):-1                                     w lp ls 2  lw 3.0 t "Monte Carlo", \
   "iedata/BnPYcD3n16R18M4194304f128.dat"  u ($1):(abs($4))                              w l  ls 4  lw 0.5 notitle, \
   ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)             w p  ls 4  lw 3.0 notitle, \
   ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)             w p  ls 5  lw 3.0 notitle, \
@@ -210,13 +210,13 @@ set label 100 "{/Arial-Italic D} = 7" at 26, 8e-6 font tlfont
 # Left: align text to the left
 # reverse: symbol first, text next
 # invert: first drawn shown last in the legend
-set key at 26.5, 3.5 Left reverse spacing 1.5 font lbfont
+set key at 27, 9 Left reverse spacing 1.5 font lbfont
 
-plot [2:32][4e-6:4] \
+plot [2:32][4e-6:10] \
   "data/D7/BnD7n20.dat"                   u ($1):(abs($2))                              w l  ls 2  lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3           w e  ls 2  lw 3.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3           w e  ls 3  lw 3.0 notitle, \
-  ""                                      u ($1):-1                                     w lp ls 2  lw 3.0 t "Monte-Carlo", \
+  ""                                      u ($1):-1                                     w lp ls 2  lw 3.0 t "Monte Carlo", \
   "iedata/BnPYcD7n32R34M4194304.dat"      u ($1):(abs($4))                              w l  ls 4  lw 0.5 notitle, \
   ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)             w p  ls 4  lw 3.0 notitle, \
   ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)             w p  ls 5  lw 3.0 notitle, \
@@ -266,13 +266,13 @@ set label 100 "{/Arial-Italic D} = 10" at 26.0, 8.0e-4 font tlfont
 # Left: align text to the left
 # reverse: symbol first, text next
 # invert: first drawn shown last in the legend
-set key at 26.5, 3.5 Left reverse spacing 1.5 font lbfont
+set key at 26.5, 4.5 Left reverse spacing 1.5 font lbfont
 
-plot [2:32][5e-4:4] \
+plot [2:32][5e-4:5] \
   "data/D10r1n32/BnD10n32.dat"              u ($1):(abs($2))                              w l  ls 2  lw 0.5 notitle, \
   ""                                        u ($1):(($2 > 0) ? abs($2) : 1/0):3           w e  ls 2  lw 3.0 notitle, \
   ""                                        u ($1):(($2 < 0) ? abs($2) : 1/0):3           w e  ls 3  lw 3.0 notitle, \
-  ""                                        u ($1):-1                                     w lp ls 2  lw 3.0 t "Monte-Carlo", \
+  ""                                        u ($1):-1                                     w lp ls 2  lw 3.0 t "Monte Carlo", \
   "iedata/hBnPYcD10n128R130M131072ldbl.dat" u ($1):(abs($4))                              w l  ls 4  lw 0.5 notitle, \
   ""                                        u ($1):(($4 > 0) ? abs($4) : 1/0)             w p  ls 4  lw 3.0 notitle, \
   ""                                        u ($1):(($4 < 0) ? abs($4) : 1/0)             w p  ls 5  lw 3.0 notitle, \

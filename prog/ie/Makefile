@@ -92,6 +92,7 @@ sync2::
 clean:
 	rm -rf $(bins) $(bins_d) $(bins_q) \
 	  *~ a.out gmon.out MTSEED bin obj \
+	  *Bn*.dat snapshot* \
 	  r[0-9][0-9][0-9][a-z]* vv*.dat
 
 usb:

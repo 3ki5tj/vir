@@ -91,7 +91,7 @@ static void sphr(xdouble *in, xdouble *out, xdouble fac,
 
 
 
-/* compute the virial coefficients from the Percus-Yevick closure */
+/* compute virial coefficients from integral equations */
 static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
 {
   xdouble facr2k, fack2r, surfr, surfk;
@@ -176,10 +176,10 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
     }
   }
 
-  t1 = clock();
   if ( snapshot )
     l0 = snapshot_open(dim, nmax, rmax, doHNC, mkcorr, ring, singer,
         npt, ck, tk, cr, tr, crl, trl, yr);
+  t1 = clock();
   fnvir = savevirhead(fnvir, "h", dim, l0, nmax,
       doHNC, mkcorr, npt, rmax, t1 - t0);
 

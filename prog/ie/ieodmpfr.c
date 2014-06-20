@@ -155,7 +155,7 @@ static void sphr(int npt, mpfr_t *in, mpfr_t *out, mpfr_t fac,
 
 
 
-/* compute the virial coefficients from the Percus-Yevick closure */
+/* compute virial coefficients from integral equations */
 static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
 {
   mpfr_t dr, dk, pi2, facr2k, fack2r, surfr, surfk, B2, B2p, tmp1, tmp2;

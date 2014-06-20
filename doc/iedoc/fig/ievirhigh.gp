@@ -3,7 +3,7 @@ reset
 
 set encoding cp1250 # make minus sign longer
 #set encoding iso_8859_1
-set terminal postscript eps enhanced size 7, 10 font "Arial, 20"
+set terminal postscript eps enhanced size 7, 9 font "Arial, 20"
 set output "ievirhigh.eps"
 
 tcfont="Arial, 16"
@@ -166,13 +166,13 @@ plot [2:128][1e-9:1e22] \
   "iedata/BnPYcD21n128R131M262144p256.dat"    u ($1):(abs($4))                  w l ls 1 notitle, \
   ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 4 notitle, \
   ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 5 notitle, \
-  "iedata/hBnPYcD22n128R130M262144.dat"       u ($1):(abs($4))                  w l ls 1 notitle, \
+  "iedata/_hBnPYcD22n128R130M131072ldbl.dat"  u ($1):(abs($4))                  w l ls 1 notitle, \
   ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 8 notitle, \
   ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 9 notitle, \
   "iedata/BnPYcD23n128R131M262144p256.dat"    u ($1):(abs($4))                  w l ls 1 notitle, \
   ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 4 notitle, \
   ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 5 notitle, \
-  "iedata/hBnPYcD24n128R130M131072ldbl.dat"   u ($1):(abs($4))                  w l ls 1 notitle, \
+  "iedata/_hBnPYcD24n128R130M131072ldbl.dat"  u ($1):(abs($4))                  w l ls 1 notitle, \
   ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 8 notitle, \
   ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 9 notitle, \
   "iedata/BnPYcD25n128R131M262144p256.dat"    u ($1):(abs($4))                  w l ls 1 notitle, \
@@ -184,13 +184,13 @@ plot [2:128][1e-9:1e22] \
   "iedata/BnPYcD27n128R131M262144p256.dat"    u ($1):(abs($4))                  w l ls 1 notitle, \
   ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 4 notitle, \
   ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 5 notitle, \
-  "iedata/hBnPYcD28n128R130M131072ldbl.dat"   u ($1):(abs($4))                  w l ls 1 notitle, \
+  "iedata/_hBnPYcD28n128R130M131072ldbl.dat"  u ($1):(abs($4))                  w l ls 1 notitle, \
   ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 8 notitle, \
   ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 9 notitle, \
   "iedata/BnPYcD29n128R131M262144p384.dat"    u ($1):(abs($4))                  w l ls 1 notitle, \
   ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 4 notitle, \
   ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 5 notitle, \
-  "iedata/hBnPYcD30n128R130M131072ldbl.dat"   u ($1):(abs($4))                  w l ls 1 notitle, \
+  "iedata/_hBnPYcD30n128R130M131072ldbl.dat"  u ($1):(abs($4))                  w l ls 1 notitle, \
   ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 8 notitle, \
   ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 9 notitle, \
   1e-100 lw 0 notitle

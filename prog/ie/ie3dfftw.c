@@ -94,7 +94,7 @@ static void sphr(int npt, xdouble *in, xdouble *out, xdouble fac,
 
 
 
-/* compute the virial coefficients from the Percus-Yevick closure */
+/* compute virial coefficients from integral equations */
 static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 {
   xdouble dr, dk, facr2k, fack2r, surfr, surfk;

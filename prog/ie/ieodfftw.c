@@ -90,7 +90,7 @@ static void doargs(int argc, char **argv)
 /* get the coefficient c_l of spherical Bessel function jn(x)
  *  jn(x) = Sum_{l = 0 to n} c_l [sin(x) or cos(x)] / x^{n + l + 1},
  * where the l'th term is sin(x) if n + l is even, or cos(x) otherwise */
-static void getjn(int *c, int n)
+static void getjn(long *c, int n)
 {
   int i, k;
   const char *fs[2] = {"sin(x)", "cos(x)"};
@@ -106,7 +106,7 @@ static void getjn(int *c, int n)
   }
   printf("j%d(x) =", n);
   for ( i = 0; i <= n; i++ )
-    printf(" %+d*%s/x^%d", c[i], fs[(i+n)%2], n + i + 1);
+    printf(" %+ld*%s/x^%d", c[i], fs[(i+n)%2], n + i + 1);
   printf("\n");
 }
 
@@ -163,7 +163,7 @@ static void sphr(int npt, xdouble *in, xdouble *out, xdouble fac,
 
 
 
-/* compute the virial coefficients from the Percus-Yevick closure */
+/* compute virial coefficients from integral equations */
 static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 {
   xdouble dr, dk, facr2k, fack2r, surfr, surfk;

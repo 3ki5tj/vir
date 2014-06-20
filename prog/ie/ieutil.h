@@ -82,7 +82,7 @@ __inline static xdouble contactv(xdouble *f, int dm, xdouble B2)
 
 
 /* compute t(k) from c(k) from the Ornstein-Zernike relation */
-static void get_tk_oz(int l, int npt, xdouble **ck, xdouble **tk)
+__inline static void get_tk_oz(int l, int npt, xdouble **ck, xdouble **tk)
 {
   int i, u;
 

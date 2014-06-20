@@ -35,45 +35,34 @@
 
 \begin{document}
 
-\title{Computing virial coefficients from integral equations}
+\title{Thermodynamic integrals in integral equations}
 
-\author{C.-L. Lai}
-\author{C. Zhang}
-\author{B.M. Pettitt}
-\email{mpettitt@utmb.edu}
-\affiliation{
-  Sealy Center for Structural Biology and Molecular Physics,
-  Department of Biochemistry and Molecular Biology, \\
-  The University of Texas Medical Branch,
-  Galveston, Texas 7755, USA
-}
+%\author{C.-L. Lai}
+%\author{C. Zhang}
+%\author{B.M. Pettitt}
+%\email{mpettitt@utmb.edu}
+%\affiliation{
+%  Sealy Center for Structural Biology and Molecular Physics,
+%  Department of Biochemistry and Molecular Biology, \\
+%  The University of Texas Medical Branch,
+%  Galveston, Texas 7755, USA
+%}
 
-\begin{abstract}
-Several dynamic programming techniques were developed
-  to compute high-order virial coefficients of simple liquids
-  from the integral equations
-  of Percus-Yevick (PY) and hypernetted-chain (HNC) approximations.
-%
-With a simple order-by-order correction,
-  the method produced
-  good approximations of the virial coefficients in
-  high-dimensional hard-sphere liquids.
-%
-In addition, a graphic method of constructing integrals of
-  pressure-related thermodynamic quantities
-  is presented.
-\end{abstract}
+%\begin{abstract}
+%\end{abstract}
 \maketitle
 
 
 
+%\appendix
 
 
 
-\section{Introduction}
+\section{Basics}
 
-The equation of state of a simple liquid
-  can be written as a series expansion of
+We first review basic formulas of integral equations.
+%
+The virial expansion is a series expansion of
   the pressure $P$ in terms of the density $\rho$:
 %
 \begin{equation}
@@ -83,17 +72,14 @@ The equation of state of a simple liquid
 %
 where $\beta = 1/(k_B T)$ is the inverse temperature
  ($k_B$ is the Boltzmann constant).
-%
-We are interested in computing the virial coefficients $B_n$.
 
-
-The equation of state is commonly found
-  through an integral equation, which
-  can be broken into a pair of equations
+The theory of integral equations involves
+  a pair of equations
   regarding the direct correlation function $c(\vr)$
   and the indirect correlation function $t(\vr)$.
 %
-The first equation is the Ornstein-Zernike (OZ) relation\cite{hansen},
+The first equation is the exact
+  Ornstein-Zernike (OZ) relation\cite{hansen},
 %
 \begin{align}
   t(\vr) &= \rho [c * (c + t)](\vr), \notag \\
@@ -107,11 +93,9 @@ where ``$*$'' denotes a convolution of two spatial functions:
 \label{eq:convol}
 \end{equation}
 %
-The second equation is an approximate relation called ``closure'' \cite{hansen}.
+The second equation is an approximate relation called ``closure''\cite{hansen}.
 %
-Here we focus on two common choices,
-%
-the Percus-Yevick (PY) closure\cite{percusyevick}:
+The Percus-Yevick (PY) closure\cite{percusyevick}:
 %
 \begin{equation}
   c(\vr) = f(\vr) + f(\vr) \, t(\vr),
@@ -135,51 +119,17 @@ where
 \end{equation}
 with $\phi(\vr)$ being the potential.
 
-
-
-Our aim is to compute high-order virial coefficients from
-  the integral equations.
+Below we shall express thermodynamic quantities
+  as integral of $c(\vr)$ and $t(\vr)$
+  in integral equations by a graphic analysis,
 %
-This is done by a power expansion in $\rho$ of both sides
-  of \eqref{eq:oz}, \eqref{eq:py} and \eqref{eq:hnc}.
-%
-An explicit algorithm for the PY closure has already
-  been given by Shaul et al.\cite{sspk},
-  while that for the HNC closure was less satisfactory,
-  owing to an $O(n!)$ running time ($n$ is the order).
-%
-We will give a polynomial algorithm for the HNC closure
-  and some variants by dynamic programing.
-%
-Further, we give a simple correction to achieve self-consistency,
-  which proves to be useful for high-dimensional hard-sphere liquids.
-%
-We describe the methods in \secref{sec:methods}.
-
-
-
-
-
-\section{\label{sec:methods}Methods}
-
-Here, we show how to obtain virial coefficients from the integral equations.
-
-\subsection{Thermodynamic quantities and virial coefficients}
-
-The virial coefficients can be derived from
-  various thermodynamic quantities,
-  which can be the pressure, or its derivatives or integrals,
-  or their combinations.
-%
-Generally, each thermodynamic quantity
-  can be written as an integral of $c(\vr)$ and $t(\vr)$,
-  and in the Appendices \ref{sec:graph}, \ref{sec:py}, and \ref{sec:hnc},
-  we discuss a graphic method\cite{
-  morita1958, *morita1959, *morita1960, baxterpressure}
-  of constructing these integrals.
+and the virial coefficients in \eqref{eq:virial}
+  can be found from these expression.
 %
 Table \ref{tab:thermodyn}
-  gives a summary of the results.
+  summarizes the main results.
+
+
 
 %\begin{turnpage}
 \begin{table*}
@@ -378,21 +328,6 @@ Table \ref{tab:thermodyn}
 \end{tabular}
 \end{table*}
 %\end{turnpage}
-
-
-
-\section{Results}
-
-
-
-\section{Conclusions}
-
-
-
-\pagebreak
-
-\appendix
-
 
 
 
@@ -1922,6 +1857,6 @@ Table \ref{tab:thermodyn} gives
 
 
 
-\bibliography{ie}
+\bibliography{ievir}
 \end{document}
 

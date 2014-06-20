@@ -1,0 +1,45 @@
+%\documentclass[preprint,superscriptaddress,showpacs,preprintnumbers,amsmath,amssymb]{revtex4}
+\documentclass{article}
+
+%\usepackage[a4paper, top=0.9in, bottom=1 in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{pdfpages}
+
+\begin{document}
+
+\includepdf[pages=-]{ievirtext.pdf}
+
+\begin{figure}[h]
+  \makebox[\textwidth][c]{
+    \includegraphics[angle=0, width=1.2\linewidth]{ievircmp.pdf}
+  }%
+  \caption{}
+\end{figure}
+
+\begin{figure}[h]
+  \makebox[\textwidth][c]{
+    \includegraphics[angle=0, width=1.2\linewidth]{ievirlow.pdf}
+  }%
+  \caption{}
+\end{figure}
+
+\begin{figure}[h]
+  \makebox[\textwidth][c]{
+    \includegraphics[angle=0, width=1.2\linewidth]{ievirhigh.pdf}
+  }%
+  \caption{}
+\end{figure}
+
+\begin{figure}[h]
+  \makebox[\textwidth][c]{
+    \includegraphics[angle=0, width=1.6\linewidth]{ljievir.pdf}
+  }%
+  \caption{}
+\end{figure}
+
+\clearpage
+
+\includepdf[pages=-]{iegraph.pdf}
+
+\end{document}
