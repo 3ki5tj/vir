@@ -13,7 +13,7 @@ D               Method    Number of points    Precision*
 * Precision is the number of bits to represent the significant.
   The 64-bit double-precision floating-point number has 53 bits.
   The 80-bit extended-precision floating-point number has 64 bits.
-  The 128-bit extended-precision floating-point number has 113 bits.
+  The 128-bit quadruple-precision floating-point number has 113 bits.
 
 
 Notes

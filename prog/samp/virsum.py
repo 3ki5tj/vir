@@ -1046,6 +1046,7 @@ def niceprint(x, err, n = 0, i = 0, strtot = "", fac = None):
         n, i, scifmt.scifmt(x, err), x, err, strtot, sfac)
 
 
+
 def getdimdir(curdir = None):
   ''' guess the dimension from the directory `curdir' '''
   if not curdir: curdir = os.curdir
