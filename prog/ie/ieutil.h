@@ -7,9 +7,13 @@
 
 
 
-#ifndef PI
-#define PI (xdouble) 3.1415926535897932384626433832795L
+#if HAVEF128
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+#pragma GCC diagnostic ignored "-Wformat-extra-args"
 #endif
+
+
 
 #define MAKE1DARR(arr, n) { int i_; \
   xnew(arr, n); \
@@ -31,6 +35,7 @@
 #define FREE2DARR(arr, n1, n2) { \
   FREE1DARR(arr[0], (n1) * (n2)); \
   free(arr); }
+
 
 
 __inline static xdouble adjustrmax(xdouble rmax, int npt,
@@ -58,6 +63,8 @@ __inline static xdouble integr(int n, xdouble *f, xdouble *w)
   int i;
 
   for ( i = 0; i < n; i++ ) y += f[i] * w[i];
+  /* the Simpson formula does not improve the precision too much */
+  //for ( i = 0; i < n; i++ ) y += f[i] * w[i] * (i % 2 ? 4 : i == 0 ? 1 : 2)/3;
   return y;
 }
 
@@ -69,6 +76,7 @@ __inline static xdouble integr2(int n, xdouble *f1, xdouble *f2, xdouble *w)
   int i;
 
   for ( i = 0; i < n; i++ ) y += f1[i] * f2[i] * w[i];
+  //for ( i = 0; i < n; i++ ) y += f1[i] * f2[i] * w[i] * (i % 2 ? 4 : i == 0 ? 1 : 2)/3;
   return y;
 }
 
@@ -350,9 +358,9 @@ __inline static char *savevirhead(const char *fn, const char *title,
     fn = fndef;
   }
   xfopen(fp, fn, (l0 == 1) ? "w" : "a", return NULL);
-  fprintf(fp, "# %s %s %d %.14f %d | n Bc Bv Bm [Bh Br | corr] | %.3fs\n",
+  fprintf(fp, "# %s %s %d %.14f %d %s | n Bc Bv Bm [Bh Br | corr] | %.3fs\n",
       doHNC ? "HNC" : "PY", mkcorr ? "corr" : "",
-      nmax, (double) rmax, npt, (double) inittime / CLOCKS_PER_SEC);
+      nmax, (double) rmax, npt, STRPREC, (double) inittime / CLOCKS_PER_SEC);
   fclose(fp);
   return (char *) fn;
 }
@@ -385,7 +393,7 @@ __inline static int printB(const char *name, int dim, int n,
 __inline static void saveB(FILE *fp, xdouble B, xdouble B2p)
 {
   if ( B == 0 ) fprintf(fp, " 0");
-  else fprintf(fp, "%+24.14" XDBLPRNF "e", (B2p != 0 ? B/B2p : B));
+  else fprintf(fp, XDBLPRNE, (B2p != 0 ? B/B2p : B));
 }
 
 
@@ -422,7 +430,7 @@ __inline static int savevir(const char *fn, int dim, int n,
       saveB(fp, Bc, B2p);
       saveB(fp, Bv, B2p);
       saveB(fp, Bm, B2p);
-      fprintf(fp, " %+20.14" XDBLPRNF "f\n", fcorr);
+      fprintf(fp, " " XDBLPRNE "\n", fcorr);
     } else {
       saveB(fp, Bc, B2p);
       saveB(fp, Bv, B2p);
@@ -480,8 +488,7 @@ __inline static int savecrtr(const char *fn, int l, int npt,
 
 
 /* snapshot variables */
-char fnck[80], fntk[80], fncr[80], fntr[80], fnyr[80], fnyrbak[80];
-FILE *fpck, *fptk, *fpcr, *fptr, *fpyr;
+char fnck[80], fntk[80], fncr[80], fntr[80], fnyrstem[80], fnyr[80];
 
 #define SNAPSHOT_READARRTXT(fp, fn, arr, n) { int i_; \
   for ( i_ = 0; i_ < n; i_++ ) \
@@ -493,11 +500,11 @@ FILE *fpck, *fptk, *fpcr, *fptr, *fpyr;
   fprintf(fp, "\n"); }
 
 #define SNAPSHOT_READARRBIN(fp, fn, arr, n) \
-  die_if ( fread(arr, sizeof(xdouble), n, fp) != n, \
+  die_if ( fread(arr, sizeof(xdouble), n, fp) != (size_t) n, \
     "cannot read %ld elements from %s\n", (long) n, fn)
 
 #define SNAPSHOT_WRITEARRBIN(fp, fn, arr, n) \
-  die_if ( fwrite(arr, sizeof(xdouble), n, fp) != n, \
+  die_if ( fwrite(arr, sizeof(xdouble), n, fp) != (size_t) n, \
     "cannot write %ld elements to %s\n", (long) n, fn)
 
 #ifdef SNAPSHOT_TEXTIO
@@ -512,76 +519,108 @@ int snapshot_textio = 0;
 
 
 
+/* try to load array from file `fn' */
+__inline static int snapshot_loadf(int *l, int *l0, int nmax,
+    const char *fn, int npt, xdouble **arr, int offset, xdouble *arrl)
+{
+  FILE *fp;
+
+  if ( (fp = fopen(fn, "r+b")) == NULL ) {
+    fprintf(stderr, "cannot load %s\n", fn);
+    return -1;
+  }
+
+  if ( snapshot_textio ) { /* text file */
+    for ( *l = 0; ; ) {
+      if (fgetc(fp) == '\n') (*l)++;
+      if (feof(fp)) break;
+    }
+  } else { /* binary file */
+    long fpos, arrsz = npt * (long) sizeof(xdouble);
+    fseek(fp, 0, SEEK_END);
+    fpos = ftell(fp);
+    die_if ( fpos % arrsz != 0,
+      "%s is corrupted %ld / %ld\n", fn, fpos, arrsz);
+    /* check the size */
+    *l = (int) (fpos / arrsz);
+    if ( *l0 < 0 ) {
+      *l0 = *l;
+    } else { /* check against the known value */
+      die_if ( *l0 != *l,
+        "%s has %d arrays, instead of %d\n", fn, *l, *l0);
+    }
+  }
+
+  if ( arr != NULL && *l > 0 ) { /* read the 2D array */
+    int l1 = (*l >= nmax - 1 - offset) ? nmax - 1 - offset : *l;
+    rewind(fp);
+    SNAPSHOT_READARR(fp, fn, arr[offset], npt*l1);
+  }
+
+  if ( arrl != NULL && *l > 0 ) { /* read the last 1D array */
+    if ( snapshot_textio ) { /* read text file */
+      int j;
+      rewind(fp);
+      for ( j = 0; j < *l; j++ )
+        SNAPSHOT_READARR(fp, fn, arrl, npt);
+    } else { /* read binary file */
+      fseek(fp, (*l-1)*npt*sizeof(xdouble), SEEK_SET);
+      SNAPSHOT_READARR(fp, fn, arrl, npt);
+    }
+    /*printf("%s, %s l %d\n", fn, #arrl, *l);*/
+  }
+  fclose(fp);
+  return 0;
+}
+
+
+
 __inline static int snapshot_open(int dim, int nmax, xdouble rmax,
     int doHNC, int mkcorr, int ring, int singer, int npt,
     xdouble **ck, xdouble **tk, xdouble **cr, xdouble **tr,
     xdouble *crl, xdouble *trl, xdouble **yr)
 {
 
-#define SNAPSHOT_MKNAME(fn, arr) \
-  sprintf(fn, "snapshotD%d%s%s%s%sR%.3fM%d%s_%s.dat", \
+#define SNAPSHOT_MKSTEM(fn, arr) \
+  sprintf(fn, "snapshotD%d%s%s%s%sR%.3fM%d%s_%s", \
       dim, doHNC ? "HNC" : "PY", mkcorr ? "c" : "", \
       ring ? "r" : "", singer ? "s" : "", \
       (double) rmax, npt, STRPREC, #arr)
 
-#define SNAPSHOT_OPENF(l, l0, fp, fn, arr, offset, arrl) { \
-  SNAPSHOT_MKNAME(fn, arr); \
-  if ( (fp = fopen(fn, "r+b")) != NULL ) { \
-    if ( snapshot_textio ) { /* text file */ \
-      int c; \
-      for ( l = 0; ; ) { \
-        if ((c = fgetc(fp)) == '\n') l++; \
-        if (feof(fp)) break; \
-      } \
-    } else { /* binary file */ \
-      long fpos, arrsz = npt * (long) sizeof(xdouble); \
-      fseek(fp, 0, SEEK_END); \
-      fpos = ftell(fp); \
-      die_if ( fpos % arrsz != 0, \
-        "%s is corrupted %ld / %ld\n", fn, fpos, arrsz); \
-      /* check the size */ \
-      l = (int) (fpos / arrsz); \
-      if ( l0 < 0 ) { \
-        l0 = l; \
-      } else { \
-        die_if ( l0 != l, \
-          "%s has %d arrays, instead of %d\n", fn, l, l0); \
-      } \
-    } \
-    if ( arr != NULL && l > 0 ) { /* read the 2D array */ \
-      int l1 = (l >= nmax - 1 - offset) ? nmax - 1 - offset : l; \
-      rewind(fp); \
-      SNAPSHOT_READARR(fp, fn, arr[offset], npt*l1); \
-    } \
-    if ( arrl != NULL && l > 0 ) { /* read the last 1D array */ \
-      if ( snapshot_textio ) { /* read text file */ \
-        int j_; \
-        rewind(fp); \
-        for ( j_ = 0; j_ < l; j_++ ) \
-          SNAPSHOT_READARR(fp, fn, arrl, npt); \
-      } else { /* read binary file */ \
-        fseek(fp, (l-1)*npt*sizeof(xdouble), SEEK_SET); \
-        SNAPSHOT_READARR(fp, fn, arrl, npt); \
-      } \
-      /*printf("%s, %s l %d\n", fn, #arrl, l);*/ \
-      /*SNAPSHOT_WRITEARR(stdout, #arrl, arrl, npt); getchar();*/ \
-    } \
-    fseek(fp, 0, SEEK_END); /* to the end */ \
-  } else if ( (fp = fopen(fn, "w+b")) == NULL ) { \
-    /* create a new file */ \
-    fprintf(stderr, "cannot open %s for %s\n", fn, #arr); \
-  } }
+#define SNAPSHOT_OPENF(l, l0, fn, arr, offset, arrl) { \
+  SNAPSHOT_MKSTEM(fn, arr); strcat(fn, ".dat"); \
+  snapshot_loadf(&l, &l0, nmax, fn, npt, arr, offset, arrl); }
 
-  int l = 0, l0 = -1, n1, n2 = nmax - 1;
+  int l = 0, l0 = -1, n1 = 0, n2 = nmax - 1;
 
-  SNAPSHOT_OPENF(l, l0, fpck, fnck, ck, 0, NULL);
-  SNAPSHOT_OPENF(l, l0, fptk, fntk, tk, 1, NULL);
-  SNAPSHOT_OPENF(l, l0, fpcr, fncr, cr, 1, crl);
-  SNAPSHOT_OPENF(l, l0, fptr, fntr, tr, 1, trl);
+  SNAPSHOT_OPENF(l, l0, fnck, ck, 0, NULL);
+  SNAPSHOT_OPENF(l, l0, fntk, tk, 1, NULL);
+  SNAPSHOT_OPENF(l, l0, fncr, cr, 1, crl);
+  SNAPSHOT_OPENF(l, l0, fntr, tr, 1, trl);
   if ( yr != NULL ) {
-    SNAPSHOT_OPENF(n1, n2, fpyr, fnyr, yr, 0, NULL);
-    fclose(fpyr);
-    strcat(strcpy(fnyrbak, fnyr), ".bak");
+    SNAPSHOT_MKSTEM(fnyrstem, yr);
+    if ( l > 0 ) {
+      sprintf(fnyr, "%sl%d.dat", fnyrstem, l);
+      if ( snapshot_loadf(&n1, &n2, nmax, fnyr, npt, yr, 0, NULL) != 0 ) {
+        fprintf(stderr, "cannot load yr(%d) of %d arrays from %s\n",
+            l, n2, fnyr);
+
+#if 1
+        /* try the old file name, NOTE: only for compatibility */
+        sprintf(fnyr, "%s.dat", fnyrstem);
+        n1 = 0; n2 = nmax - 1;
+        if ( snapshot_loadf(&n1, &n2, nmax, fnyr, npt, yr, 0, NULL) != 0 ) {
+          fprintf(stderr, "cannot load yr (old style) of %d arrays from %s\n", n2, fnyr);
+          exit(-1);
+        }
+#else
+        /* currently we simply die if fnyr doesn't exists
+         * however, yr can be reconstructed, as in a rerun */
+        exit(-1);
+#endif
+
+      }
+    } /* l > 0 */
   }
   printf("snapshot initial l %d/%d\n", l+1, n2);
   return l + 1;
@@ -589,46 +628,46 @@ __inline static int snapshot_open(int dim, int nmax, xdouble rmax,
 
 
 
-__inline static void snapshot_take(int npt,
+/* append an array `arr' of size `npt' to file `fn' */
+__inline static int snapshot_appendf(const char *fn, xdouble *arr, int npt)
+{
+  if ( arr != NULL ) {
+    FILE *fp;
+
+    xfopen(fp, fn, "ab", exit(-1));
+    SNAPSHOT_WRITEARR(fp, fn, arr, npt);
+    fclose(fp);
+  }
+  return 0;
+}
+
+
+
+__inline static void snapshot_take(int l, int npt,
     xdouble *ckl, xdouble *tkl, xdouble *crl, xdouble *trl,
     int nmax, xdouble **yr)
 {
-#define SNAPSHOT_APPEND(fp, fn, arr, npt) \
-  if ( fp != NULL && arr != NULL ) { \
-    SNAPSHOT_WRITEARR(fp, fn, arr, npt); \
-    fflush(fp); }
-
-  /* do yr first, in case it is interrupted in the middle
-   * we still have a backup and other functions are untouched */
+  snapshot_appendf(fnck, ckl, npt);
+  snapshot_appendf(fntk, tkl, npt);
+  snapshot_appendf(fncr, crl, npt);
+  snapshot_appendf(fntr, trl, npt);
   if ( yr != NULL ) {
+    FILE *fp;
     int i;
 
-    /* make a copy before updating
-     * because we are going to overwrite it entirely */
-    copyfile(fnyr, fnyrbak);
-    if ( (fpyr = fopen(fnyr, "wb")) != NULL ) {
-      for ( i = 0; i < nmax - 1; i++)
-        SNAPSHOT_WRITEARR(fpyr, fnyr, yr[i], npt);
-      fclose(fpyr);
-    } else {
-      fprintf(stderr, "cannot update %s\n", fnyr);
-    }
+    sprintf(fnyr, "%sl%d.dat", fnyrstem, l);
+    xfopen(fp, fnyr, "wb", exit(-1));
+    for ( i = 0; i < nmax - 1; i++)
+      SNAPSHOT_WRITEARR(fp, fnyr, yr[i], npt);
+    fclose(fp);
   }
-  SNAPSHOT_APPEND(fpck, fnck, ckl, npt);
-  SNAPSHOT_APPEND(fptk, fntk, tkl, npt);
-  SNAPSHOT_APPEND(fpcr, fncr, crl, npt);
-  SNAPSHOT_APPEND(fptr, fntr, trl, npt);
 }
 
 
 
-__inline static void snapshot_close(void)
-{
-  if ( fpck != NULL ) fclose(fpck);
-  if ( fptk != NULL ) fclose(fptk);
-  if ( fpcr != NULL ) fclose(fpcr);
-  if ( fptr != NULL ) fclose(fptr);
-}
+#if HAVEF128
+#pragma GCC diagnostic pop
+#endif
 
 
 

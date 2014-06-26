@@ -145,54 +145,54 @@ plot [2:128][1e-9:1e22] \
   "data/D30r2n128/BnD30n128.dat"              u ($1):(abs($2))                  w l ls 6 lw 0.3 notitle, \
   ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 6        notitle, \
   ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 7        notitle, \
-  "iedata/BnPYcD15n128R131M262144p256.dat"    u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 4 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 5 notitle, \
-  "iedata/hBnPYcD16n128R130M131072ldbl.dat"   u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 8 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 9 notitle, \
-  "iedata/BnPYcD17n128R131M262144p256.dat"    u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 4 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 5 notitle, \
-  "iedata/hBnPYcD18n128R130M131072ldbl.dat"   u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 8 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 9 notitle, \
-  "iedata/BnPYcD19n128R131M262144p256.dat"    u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 4 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 5 notitle, \
-  "iedata/hBnPYcD20n128R130M131072ldbl.dat"   u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 8 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 9 notitle, \
-  "iedata/BnPYcD21n128R131M262144p256.dat"    u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 4 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 5 notitle, \
-  "iedata/_hBnPYcD22n128R130M131072ldbl.dat"  u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 8 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 9 notitle, \
-  "iedata/BnPYcD23n128R131M262144p256.dat"    u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 4 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 5 notitle, \
-  "iedata/_hBnPYcD24n128R130M131072ldbl.dat"  u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 8 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 9 notitle, \
-  "iedata/BnPYcD25n128R131M262144p256.dat"    u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 4 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 5 notitle, \
-  "iedata/hBnPYcD26n128R130M131072ldbl.dat"   u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 8 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 9 notitle, \
-  "iedata/BnPYcD27n128R131M262144p256.dat"    u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 4 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 5 notitle, \
-  "iedata/_hBnPYcD28n128R130M131072ldbl.dat"  u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 8 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 9 notitle, \
-  "iedata/BnPYcD29n128R131M262144p384.dat"    u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 4 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 5 notitle, \
-  "iedata/_hBnPYcD30n128R130M131072ldbl.dat"  u ($1):(abs($4))                  w l ls 1 notitle, \
-  ""                                          u ($1):(($4 > 0) ? abs($4) : 1/0) w p ls 8 notitle, \
-  ""                                          u ($1):(($4 < 0) ? abs($4) : 1/0) w p ls 9 notitle, \
+  "iedata/xBnPYcD15n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 4 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 5 notitle, \
+  "iedata/xBnPYcD16n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 8 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 9 notitle, \
+  "iedata/xBnPYcD17n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 4 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 5 notitle, \
+  "iedata/xBnPYcD18n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 8 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 9 notitle, \
+  "iedata/xBnPYcD19n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 4 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 5 notitle, \
+  "iedata/xBnPYcD20n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 8 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 9 notitle, \
+  "iedata/xBnPYcD21n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 4 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 5 notitle, \
+  "iedata/xBnPYcD22n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 8 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 9 notitle, \
+  "iedata/xBnPYcD23n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 4 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 5 notitle, \
+  "iedata/xBnPYcD24n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 8 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 9 notitle, \
+  "iedata/xBnPYcD25n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 4 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 5 notitle, \
+  "iedata/xBnPYcD26n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 8 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 9 notitle, \
+  "iedata/xBnPYcD27n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 4 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 5 notitle, \
+  "iedata/xBnPYcD28n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 8 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 9 notitle, \
+  "iedata/xBnPYcD29n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 4 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 5 notitle, \
+  "iedata/xBnPYcD30n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 8 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 9 notitle, \
   1e-100 lw 0 notitle
 
 

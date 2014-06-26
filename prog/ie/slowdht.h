@@ -169,8 +169,19 @@ __inline slowdht *slowdht_newx(size_t size, xdouble nu, xdouble xmax,
     dht->J2[i] = x*x;
   }
 
+#if HAVEF128
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+#pragma GCC diagnostic ignored "-Wformat-extra-args"
+#endif
+
   sprintf(dht->Jjjfn, "DHTnu%" XDBLPRNF "gsz%ld%s.dat",
       dht->nu, (long) dht->size, STRPREC);
+
+#if HAVEF128
+#pragma GCC diagnostic pop
+#endif
+
   dht->Jjj = NULL;
   dht->Jjjfp = NULL;
   dht->Jjjarr = NULL;
@@ -314,9 +325,9 @@ __inline int slowdht_apply(const slowdht *dht, xdouble *inp, xdouble *out)
 
     if ( dht->Jjjarr ) {
       if ( dht->Jjjfp != NULL ) {
-        if ( fread(dht->Jjjarr, sizeof(xdouble), size*rows, dht->Jjjfp)
+        if ( (wb = fread(dht->Jjjarr, sizeof(xdouble), size*rows, dht->Jjjfp))
              != size*rows ) {
-          fprintf(stderr, "fread: failed at m %ld, written %ld. \n",
+          fprintf(stderr, "fread: failed at m %ld, read %ld. \n",
               (long) m, (long) wb);
           exit(1);
         }

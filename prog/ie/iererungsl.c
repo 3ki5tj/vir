@@ -1,4 +1,5 @@
-/* re-run iegsl.c from snapshots */
+/* re-run iegsl.c from snapshots
+ * This tools help fixing missing lines in hBnXXX.dat */
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -84,6 +85,10 @@ __inline static xdouble get_invcorr1_hs(int l, int npt, int dm,
     vc[i] *= *eps;
     cr[i] -= (fr[i] + 1) * vc[i];
   }
+  /* Sometimes, the *Bc0 and *eps values are wrong,
+   * while B and *Bv0 are still correct.
+   * This means cr[] and tr[] (in the PY case) are correct
+   * but vc[], hence dBv and/or dBc, is incorrect */
   *Bc0 = ((dBv - dBc) * B + dBc * (*Bv0)) / dBv;
   return B;
 }
@@ -165,8 +170,12 @@ static int rerun(int nmax, int npt, xdouble rmax, int doHNC)
   B2p = B2;
   for ( l = 1; l < l0; l++ ) {
     /* compute the ring sum based on ck */
-    Bh = get_ksum(l, npt, ck, kDm1, &Br);
-    Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
+    if ( !mkcorr ) {
+      Bh = get_ksum(l, npt, ck, kDm1, &Br);
+      Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
+    } else {
+      Bh = Br = 0;
+    }
 
     /* compute the cavity function y(r) */
     get_yr_hnc(l, nmax, npt, yr, tr[l]);

@@ -347,10 +347,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
     if ( snapshot )
-      snapshot_take(npt, ck[l-1], tk[l], crl, trl, nmax, yr);
+      snapshot_take(l, npt, ck[l-1], tk[l], crl, trl, nmax, yr);
   }
   savevirtail(fnvir, clock() - t1);
-  if ( snapshot ) snapshot_close();
 
   FREE1DARR(coef, K);
 #ifndef NOFFTW

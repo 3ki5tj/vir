@@ -31,6 +31,7 @@ int dim = 2;
 
 int nmax = 10;
 double rmax = 0;
+xdouble Rmax = 0;
 int numpt = 1024;
 int doHNC = 0;
 int singer = 0;
@@ -51,7 +52,8 @@ static void doargs(int argc, char **argv)
   ao->desc = "computing the virial coefficients from the PY/HNC closure for the 3D hard-sphere fluid";
   argopt_add(ao, "-D", "%d", &dim, "dimension");
   argopt_add(ao, "-n", "%d", &nmax, "maximal order");
-  argopt_add(ao, "-R", "%lf", &rmax, "rmax");
+  argopt_add(ao, "-r", "%lf", &rmax, "rmax (flexible)");
+  argopt_add(ao, "-R", "%" XDBLSCNF "f", &Rmax, "rmax (fixed)");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
   argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
@@ -179,6 +181,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   if ( snapshot )
     l0 = snapshot_open(dim, nmax, rmax, doHNC, mkcorr, ring, singer,
         npt, ck, tk, cr, tr, crl, trl, yr);
+
   t1 = clock();
   fnvir = savevirhead(fnvir, "h", dim, l0, nmax,
       doHNC, mkcorr, npt, rmax, t1 - t0);
@@ -249,10 +252,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
     savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
     if ( snapshot )
-      snapshot_take(npt, ck[l-1], tk[l], crl, trl, nmax, yr);
+      snapshot_take(l, npt, ck[l-1], tk[l], crl, trl, nmax, yr);
   }
   savevirtail(fnvir, clock() - t1);
-  if ( snapshot ) snapshot_close();
 
   FREE1DARR(arr,  npt);
   FREE1DARR(ri,   npt);
@@ -306,6 +308,7 @@ static xdouble jadjustrmax(double rmax0, int npt)
 int main(int argc, char **argv)
 {
   doargs(argc, argv);
-  intgeq(nmax, numpt, jadjustrmax(rmax, numpt), doHNC);
+  if ( Rmax <= 0 ) Rmax = jadjustrmax(rmax, numpt);
+  intgeq(nmax, numpt, Rmax, doHNC);
   return 0;
 }

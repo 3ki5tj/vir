@@ -112,13 +112,13 @@ plot [2:22][8e-6:1] \
   ""                                      u ($1):(abs($2)):3                            w e  ls 6       lw 3.0 notitle, \
   "data/D4/BnD4n11.dat"                   u ($1):(abs($2)):3                            w l  ls 10 lt 4 lw 0.5 notitle, \
   ""                                      u ($1):(abs($2)):3                            w e  ls 10      lw 3.0 notitle, \
-  "iedata/hBnPYcD2n32R34M262144.dat"      u ($1):(abs($4))                              w l  ls 4  lt 1 lw 0.5 notitle, \
-  ""                                      u ($1):(abs($4))                              w p  ls 4       lw 3.0 notitle, \
-  "iedata/BnPYcD3n16R18M4194304f128.dat"  u ($1):(($1 <= 12) ? abs($4) : 1/0)           w l  ls 8  lt 2 lw 0.5 notitle, \
-  ""                                      u ($1):(($1 <= 12) ? abs($4) : 1/0)           w p  ls 8       lw 3.0 notitle, \
-  "iedata/hBnPYcD4n16R18M262144.dat"      u ($1):(($1 <= 8)  ? abs($4) : 1/0)           w l  ls 12 lt 4 lw 0.5 notitle, \
-  ""                                      u ($1):(($1 <= 8 && $4 > 0) ? abs($4) : 1/0)  w p  ls 12      lw 3.0 notitle, \
-  ""                                      u ($1):(($1 <= 8 && $4 < 0) ? abs($4) : 1/0)  w p  ls 13      lw 3.0 notitle, \
+  "iedata/xBnPYcD2n64.dat"                u ($1):(abs($2))                              w l  ls 4  lt 1 lw 0.5 notitle, \
+  ""                                      u ($1):(abs($2))                              w p  ls 4       lw 3.0 notitle, \
+  "iedata/xBnPYcD3n16.dat"                u ($1):(($1 <= 12) ? abs($2) : 1/0)           w l  ls 8  lt 2 lw 0.5 notitle, \
+  ""                                      u ($1):(($1 <= 12) ? abs($2) : 1/0)           w p  ls 8       lw 3.0 notitle, \
+  "iedata/xBnPYcD4n16.dat"                u ($1):(($1 <= 8)  ? abs($2) : 1/0)           w l  ls 12 lt 4 lw 0.5 notitle, \
+  ""                                      u ($1):(($1 <= 8 && $2 > 0) ? abs($2) : 1/0)  w p  ls 12      lw 3.0 notitle, \
+  ""                                      u ($1):(($1 <= 8 && $2 < 0) ? abs($2) : 1/0)  w p  ls 13      lw 3.0 notitle, \
   1e-100 lw 0 notitle
 
 
@@ -152,17 +152,17 @@ plot [2:28][1e-5:1] \
   "data/D8/BnD8n24.dat"                   u ($1):(abs($2))                                  w l ls 14 lt 5 lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3               w e ls 14      lw 1.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3               w e ls 15      lw 1.0 notitle, \
-  "iedata/BnPYcD5n16R16M4194304.dat"      u ($1):(($1 <= 5) ? abs($4) : 1/0)                w l ls 4  lt 1 lw 0.5 notitle, \
-  ""                                      u ($1):(($1 <= 5 && $4 > 0) ? abs($4) : 1/0)      w p ls 4       lw 1.0 notitle, \
-  "iedata/hBnPYcD6n32R34M262144.dat"      u ($1):(abs($4))                                  w l ls 8  lt 2 lw 0.5 notitle, \
-  ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)                 w p ls 8       lw 1.0 notitle, \
-  ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)                 w p ls 9       lw 1.0 notitle, \
-  "iedata/BnPYcD7n32R34M4194304.dat"      u ($1):(abs($4))                                  w l ls 12 lt 4 lw 0.5 notitle, \
-  ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)                 w p ls 12      lw 1.0 notitle, \
-  ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)                 w p ls 13      lw 1.0 notitle, \
-  "iedata/hBnPYcD8n64R66M262144.dat"      u ($1):(abs($4))                                  w l ls 16 lt 5 lw 0.5 notitle, \
-  ""                                      u ($1):($4 > 0 ? abs($4) : 1/0)                   w p ls 16      lw 2.0 notitle, \
-  ""                                      u ($1):($4 < 0 ? abs($4) : 1/0)                   w p ls 17      lw 2.0 notitle, \
+  "iedata/xBnPYcD5n16.dat"                u ($1):(($1 <= 5) ? abs($2) : 1/0)                w l ls 4  lt 1 lw 0.5 notitle, \
+  ""                                      u ($1):(($1 <= 5 && $2 > 0) ? abs($2) : 1/0)      w p ls 4       lw 1.0 notitle, \
+  "iedata/xBnPYcD6n128.dat"               u ($1):(abs($2))                                  w l ls 8  lt 2 lw 0.5 notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)                 w p ls 8       lw 1.0 notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)                 w p ls 9       lw 1.0 notitle, \
+  "iedata/xBnPYcD7n128.dat"               u ($1):(abs($2))                                  w l ls 12 lt 4 lw 0.5 notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)                 w p ls 12      lw 1.0 notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)                 w p ls 13      lw 1.0 notitle, \
+  "iedata/xBnPYcD8n128.dat"               u ($1):(abs($2))                                  w l ls 16 lt 5 lw 0.5 notitle, \
+  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)                   w p ls 16      lw 2.0 notitle, \
+  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)                   w p ls 17      lw 2.0 notitle, \
   1e-100 lw 0 notitle
 
 unset label 104
@@ -203,15 +203,15 @@ plot [2:28][2e-3:4e-1] \
   "data/D11r1n32/BnD11n32.dat"            u ($1):(abs($2))                      w l ls 10 lt 4   lw 0.3 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3   w e ls 10 ps 1.5 lw 1.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3   w e ls 11 ps 1.5 lw 1.0 notitle, \
-  "iedata/BnPYcD9n32R34M4194304f128.dat"  u ($1):(abs($4))                      w l ls 4  lt 1   lw 0.3 notitle, \
-  ""                                      u ($1):($4 > 0 ? abs($4) : 1/0)       w p ls 4  ps 1.8 lw 1.0 notitle, \
-  ""                                      u ($1):($4 < 0 ? abs($4) : 1/0)       w p ls 5  ps 1.8 lw 1.0 notitle, \
-  "iedata/hBnPYcD10n128R130M262144.dat"   u ($1):(abs($4))                      w l ls 8  lt 2   lw 0.3 notitle, \
-  ""                                      u ($1):($4 > 0 ? abs($4) : 1/0)       w p ls 8  ps 1.5 lw 1.0 notitle, \
-  ""                                      u ($1):($4 < 0 ? abs($4) : 1/0)       w p ls 9  ps 1.5 lw 1.0 notitle, \
-  "iedata/BnPYcD11n32R34M4194304f128.dat" u ($1):(abs($4))                      w l ls 12 lt 4   lw 0.3 notitle, \
-  ""                                      u ($1):($4 > 0 ? abs($4) : 1/0)       w p ls 12 ps 1.6 lw 1.0 notitle, \
-  ""                                      u ($1):($4 < 0 ? abs($4) : 1/0)       w p ls 13 ps 1.6 lw 1.0 notitle, \
+  "iedata/xBnPYcD9n128.dat"               u ($1):(abs($2))                      w l ls 4  lt 1   lw 0.3 notitle, \
+  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)       w p ls 4  ps 1.8 lw 1.0 notitle, \
+  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)       w p ls 5  ps 1.8 lw 1.0 notitle, \
+  "iedata/xBnPYcD10n128.dat"              u ($1):(abs($2))                      w l ls 8  lt 2   lw 0.3 notitle, \
+  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)       w p ls 8  ps 1.5 lw 1.0 notitle, \
+  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)       w p ls 9  ps 1.5 lw 1.0 notitle, \
+  "iedata/xBnPYcD11n128.dat"              u ($1):(abs($2))                      w l ls 12 lt 4   lw 0.3 notitle, \
+  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)       w p ls 12 ps 1.6 lw 1.0 notitle, \
+  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)       w p ls 13 ps 1.6 lw 1.0 notitle, \
   1e-100 lw 0 notitle
 
 unset arrow
@@ -250,15 +250,15 @@ plot [2:64][1e-4:1e7] \
   "data/D14r1n64/BnD14n64.dat"            u ($1):(abs($2))                    w l ls 10 lt 4   lw 0.3 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)   w p ls 10 ps 1.0 lw 1.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)   w p ls 11 ps 1.0 lw 1.0 notitle, \
-  "iedata/hBnPYcD12n128R130M262144.dat"   u ($1):(abs($4))                    w l ls 4  lt 1   lw 0.3 notitle, \
-  ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)   w p ls 4  ps 1.2 lw 1.0 notitle, \
-  ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)   w p ls 5  ps 1.2 lw 1.0 notitle, \
-  "iedata/BnPYcD13n64R66M4194304f128.dat" u ($1):(abs($4))                    w l ls 8  lt 2   lw 0.3 notitle, \
-  ""                                      u ($1):($4 > 0 ? abs($4) : 1/0)     w p ls 8  ps 1.2 lw 1.0 notitle, \
-  ""                                      u ($1):($4 < 0 ? abs($4) : 1/0)     w p ls 9  ps 1.2 lw 1.0 notitle, \
-  "iedata/hBnPYcD14n128R130M262144.dat"   u ($1):(abs($4))                    w l ls 12 lt 4   lw 0.3 notitle, \
-  ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)   w p ls 12 ps 1.1 lw 1.0 notitle, \
-  ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)   w p ls 13 ps 1.1 lw 1.0 notitle, \
+  "iedata/xBnPYcD12n128.dat"              u ($1):(abs($2))                    w l ls 4  lt 1   lw 0.3 notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)   w p ls 4  ps 1.2 lw 1.0 notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)   w p ls 5  ps 1.2 lw 1.0 notitle, \
+  "iedata/xBnPYcD13n128.dat"              u ($1):(abs($2))                    w l ls 8  lt 2   lw 0.3 notitle, \
+  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)     w p ls 8  ps 1.2 lw 1.0 notitle, \
+  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)     w p ls 9  ps 1.2 lw 1.0 notitle, \
+  "iedata/xBnPYcD14n128.dat"              u ($1):(abs($2))                    w l ls 12 lt 4   lw 0.3 notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)   w p ls 12 ps 1.1 lw 1.0 notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)   w p ls 13 ps 1.1 lw 1.0 notitle, \
   1e-100 lw 0 notitle
 
 unset arrow

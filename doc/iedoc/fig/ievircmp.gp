@@ -38,7 +38,7 @@ color2b = "#000000"
 color3a = "#600080"
 color3b = "#006000"
 
-color4a = "#606060"
+color4a = "#608080"
 color4b = "#008080"
 
 # line styles for the small panels
@@ -113,7 +113,7 @@ set key at 13.5, 17e-4 Left reverse spacing 1.5 font lbfont
 plot [2:16][3e-5:1] \
   "data/D2/BnD2n14.dat"                   u ($1):(abs($2))                              w l  ls 2  lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3           w e  ls 2  lw 3.0 notitle, \
-  ""                                      u ($1):-1                                     w lp ls 2  lw 3.0 t "Monte Carlo", \
+  ""                                      u ($1):-1                                     w lp ls 2  lw 3.0 t "Mayer sampling", \
   "iedata/hBnPYcD2n32R34M32768.dat"       u ($1):(abs($4))                              w l  ls 4  lw 0.5 notitle, \
   ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)             w p  ls 4  lw 3.0 notitle, \
   ""                                      u ($1):-1                                     w lp ls 4  lw 3.0 t "Self-consistent", \
@@ -149,7 +149,7 @@ set origin  lw, bh
 set rmargin 1.5
 set lmargin 7.0
 
-set ylabel theylabel font lbfont offset 1.5, 0.7
+set ylabel theylabel font lbfont offset 1.5, 1.0
 
 set label 100 "{/Arial-Italic D} = 3" at 13.5, 5e-1 font tlfont
 
@@ -161,7 +161,7 @@ set key at 13.5, 30e-6 Left reverse spacing 1.5 font lbfont
 plot [2:16][5e-8:10e-1] \
   "data/D3/BnD3n12.dat"                   u ($1):(abs($2))                              w l  ls 2  lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3           w e  ls 2  lw 3.0 notitle, \
-  ""                                      u ($1):-1                                     w lp ls 2  lw 3.0 t "Monte Carlo", \
+  ""                                      u ($1):-1                                     w lp ls 2  lw 3.0 t "Mayer sampling", \
   "iedata/BnPYcD3n16R18M4194304f128.dat"  u ($1):(abs($4))                              w l  ls 4  lw 0.5 notitle, \
   ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)             w p  ls 4  lw 3.0 notitle, \
   ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)             w p  ls 5  lw 3.0 notitle, \
@@ -201,7 +201,7 @@ set xlabel thexlabel font lbfont offset 2, 1.0
 
 set lmargin 6.0
 set format y '10^{%T}'
-set ylabel theylabel font lbfont offset 1.5, 0.5
+set ylabel theylabel font lbfont offset 1.5, -0.5
 
 set rmargin 0.
 
@@ -216,7 +216,7 @@ plot [2:32][4e-6:10] \
   "data/D7/BnD7n20.dat"                   u ($1):(abs($2))                              w l  ls 2  lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3           w e  ls 2  lw 3.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3           w e  ls 3  lw 3.0 notitle, \
-  ""                                      u ($1):-1                                     w lp ls 2  lw 3.0 t "Monte Carlo", \
+  ""                                      u ($1):-1                                     w lp ls 2  lw 3.0 t "Mayer sampling", \
   "iedata/BnPYcD7n32R34M4194304.dat"      u ($1):(abs($4))                              w l  ls 4  lw 0.5 notitle, \
   ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)             w p  ls 4  lw 3.0 notitle, \
   ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)             w p  ls 5  lw 3.0 notitle, \
@@ -259,7 +259,7 @@ set origin  lw, 0.0
 set lmargin 7.0
 set rmargin 1.5
 
-set ylabel theylabel font lbfont offset 1.0, 0.0
+set ylabel theylabel font lbfont offset 1.0, -0.5
 
 set label 100 "{/Arial-Italic D} = 10" at 26.0, 8.0e-4 font tlfont
 
@@ -272,7 +272,7 @@ plot [2:32][5e-4:5] \
   "data/D10r1n32/BnD10n32.dat"              u ($1):(abs($2))                              w l  ls 2  lw 0.5 notitle, \
   ""                                        u ($1):(($2 > 0) ? abs($2) : 1/0):3           w e  ls 2  lw 3.0 notitle, \
   ""                                        u ($1):(($2 < 0) ? abs($2) : 1/0):3           w e  ls 3  lw 3.0 notitle, \
-  ""                                        u ($1):-1                                     w lp ls 2  lw 3.0 t "Monte Carlo", \
+  ""                                        u ($1):-1                                     w lp ls 2  lw 3.0 t "Mayer sampling", \
   "iedata/hBnPYcD10n128R130M131072ldbl.dat" u ($1):(abs($4))                              w l  ls 4  lw 0.5 notitle, \
   ""                                        u ($1):(($4 > 0) ? abs($4) : 1/0)             w p  ls 4  lw 3.0 notitle, \
   ""                                        u ($1):(($4 < 0) ? abs($4) : 1/0)             w p  ls 5  lw 3.0 notitle, \
@@ -298,7 +298,6 @@ plot [2:32][5e-4:5] \
   ""                                        u ($1):(($2 < 0) ? abs($2) : 1/0)             w p  ls 9  lw 1.0 notitle, \
   ""                                        u ($1):-1                                     w lp ls 8  lw 3.0 t "HNC, compressibility", \
   1e-100 lw 0 notitle
-
 
 
 unset multiplot

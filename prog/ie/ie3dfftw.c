@@ -98,7 +98,7 @@ static void sphr(int npt, xdouble *in, xdouble *out, xdouble fac,
 static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 {
   xdouble dr, dk, facr2k, fack2r, surfr, surfk;
-  xdouble Bc, Bv, Bm = 0, Bh, Br, B2, B2p, fcorr = 0;
+  xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, B2, B2p, fcorr = 0;
   xdouble *fr, *crl, *trl, **ck, **tk, **cr = NULL, **tr = NULL;
   xdouble **yr = NULL, *arr, *ri, *ki, *ri2, *ki2, *vc = NULL;
   int i, dm, l;

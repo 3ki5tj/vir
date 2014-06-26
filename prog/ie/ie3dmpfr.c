@@ -4,7 +4,7 @@
  * */
 #include <stdio.h>
 #include <math.h>
-#include "mpfft.h"
+#include "fftmpfr.h"
 #define ZCOM_PICK
 #define ZCOM_ARGOPT
 #include "zcom.h"
@@ -153,14 +153,6 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   /* surfk = surfr / (2*PI)^3 */
   POW_SI_(tmp1, pi2, -3);
   MUL_(surfk, surfr, tmp1);
-  for ( i = 0; i < npt; i++ ) {
-    /* ri2[i] = ri[i]^2 * surfr * dr */
-    SQR_(ri2[i], ri[i]);
-    MUL3_X_(ri2[i], surfr, dr);
-    /* ki2[i] = ki[i]^2 * surfk * dk */
-    SQR_(ki2[i], ki[i]);
-    MUL3_X_(ki2[i], surfk, dk);
-  }
 
   /* B2 = PI*2/3; */
   DIV_SI_(B2, pi2, 3);
@@ -175,6 +167,13 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
     DIV_SI_X_(ri[i], 2);
     MUL_SI_(ki[i], dk, i*2 + (ffttype ? 1 : 0));
     DIV_SI_X_(ki[i], 2);
+
+    /* ri2[i] = ri[i]^2 * surfr * dr */
+    SQR_(ri2[i], ri[i]);
+    MUL3_X_(ri2[i], surfr, dr);
+    /* ki2[i] = ki[i]^2 * surfk * dk */
+    SQR_(ki2[i], ki[i]);
+    MUL3_X_(ki2[i], surfk, dk);
   }
 
   /* auxiliary arry for FFT */

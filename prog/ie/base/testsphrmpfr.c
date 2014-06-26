@@ -1,5 +1,5 @@
 #include <string.h>
-#include "mpfft.h"
+#include "fftmpfr.h"
 
 /* 3D Fourier transform slow version
  * a(k) = (4 pi / k) \int {0 to +inf} r a(r) sin(k r) dr

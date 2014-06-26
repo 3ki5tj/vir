@@ -4,11 +4,33 @@
 
 #if (defined(QUAD) || defined(F128))
 
+/* support __float128 for GCC
+ * Intel compiler defines __GNUC__, but it does not have __float128 */
+#if defined(__GNUC__) && !defined(__INTEL_COMPILER) \
+  && ( (__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || __GNUC__ > 4 )
+  #ifndef HAVEF128
+  #define HAVEF128 1
+  #endif
+  #include <quadmath.h>
+  /* ignore warnings for "%Qf"
+   * assume `diagnostic push' is available in this case */
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wformat"
+  #pragma GCC diagnostic ignored "-Wformat-extra-args"
+#else
+  #ifndef HAVEF128
+  #define HAVEF128 0
+  #endif
+  #error "Your compiler does not support __float128, if it does, please change xdouble.h."
+#endif
+
+
 #include <quadmath.h>
 typedef __float128 xdouble;
 #define FFTWPFX(f) fftwq_##f
 #define XDBLSCNF "Q"
 #define XDBLPRNF "Q"
+#define XDBLPRNE "%41.32Qe" /* full precision print */
 #define STRPREC "f128"
 #define PI M_PIq
 #define SQRT(x)   sqrtq(x)
@@ -19,12 +41,19 @@ typedef __float128 xdouble;
 #define J1(x)     j1q(x)
 #define JN(n, x)  jnq(n, x)
 
-#elif defined(LDBL)
+
+
+#elif (defined(LDBL) || defined(LONG))
+
+#ifndef HAVEF128
+#define HAVEF128 0
+#endif
 
 typedef long double xdouble;
 #define FFTWPFX(f) fftwl_##f
 #define XDBLSCNF "L"
 #define XDBLPRNF "L"
+#define XDBLPRNE "%27.18Le"
 #define STRPREC "ldbl"
 #define PI (xdouble) 3.1415926535897932384626433832795L
 #define SQRT(x)   sqrtl(x)
@@ -37,10 +66,15 @@ typedef long double xdouble;
 
 #else
 
+#ifndef HAVEF128
+#define HAVEF128 0
+#endif
+
 typedef double xdouble;
 #define FFTWPFX(f) fftw_##f
 #define XDBLSCNF "l"
 #define XDBLPRNF ""
+#define XDBLPRNE "%22.14e"
 #define STRPREC ""
 #define PI 3.1415926535897932384626433832795
 #define SQRT(x)   sqrt(x)
@@ -67,6 +101,12 @@ __inline static xdouble pow_si(xdouble x, int n)
   for ( y = 1; n; n-- ) y *= x;
   return sgn > 0 ? y : 1/y;
 }
+
+
+
+#if HAVEF128
+  #pragma GCC diagnostic pop
+#endif
 
 
 

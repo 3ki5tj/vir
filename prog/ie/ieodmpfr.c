@@ -4,7 +4,7 @@
  * */
 #include <stdio.h>
 #include <math.h>
-#include "mpfft.h"
+#include "fftmpfr.h"
 #define ZCOM_PICK
 #define ZCOM_ARGOPT
 #include "zcom.h"
