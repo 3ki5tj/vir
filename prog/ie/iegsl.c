@@ -97,7 +97,7 @@ static void sphr(xdouble *in, xdouble *out, xdouble fac,
 static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
 {
   xdouble facr2k, fack2r, surfr, surfk;
-  xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, B2, B2p, tmp1, tmp2, fcorr = 0;
+  xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, B2, tmp1, tmp2, fcorr = 0;
   xdouble *fr, *crl, *trl, **cr = NULL, **tr = NULL, **ck, **tk;
   xdouble **yr = NULL, *arr, *vc = NULL;
   xdouble *ri, *ki, *r2p, *k2p, *rDm1, *kDm1;
@@ -186,7 +186,6 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   fnvir = savevirhead(fnvir, "h", dim, l0, nmax,
       doHNC, mkcorr, npt, rmax, t1 - t0);
 
-  B2p = pow_si(B2, l0);
   for ( l = l0; l < nmax - 1; l++ ) {
     /* c_l(r) --> c_l(k) for the previous l */
     sphr(crl, ck[l-1], facr2k, dht, arr, r2p, k2p);
@@ -248,8 +247,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
           crl, fr, rDm1, B2, vc, &Bc, &Bv, &fcorr);
     }
 
-    B2p *= B2;
-    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
+    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
     if ( snapshot )
       snapshot_take(l, npt, ck[l-1], tk[l], crl, trl, nmax, yr);

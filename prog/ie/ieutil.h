@@ -7,6 +7,11 @@
 
 
 
+/* in case xdouble hasn't been included, include it here */
+#include "xdouble.h"
+
+
+
 #if HAVEF128
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat"
@@ -104,7 +109,7 @@ __inline static void get_tk_oz(int l, int npt, xdouble **ck, xdouble **tk)
 
 /* update the cavity function y(r)
  * for the hypernetted chain (HNC) approximation */
-static void get_yr_hnc(int l, int nmax, int npt,
+__inline static void get_yr_hnc(int l, int nmax, int npt,
     xdouble **yr, xdouble *trl)
 {
   int i, j, k, jl;
@@ -369,7 +374,8 @@ __inline static char *savevirhead(const char *fn, const char *title,
 
 /* print a virial coefficient */
 __inline static int printB(const char *name, int dim, int n,
-    xdouble B, xdouble B2p, xdouble volp, const char *ending)
+    xdouble B, xdouble B2p, xdouble B2q,
+    xdouble volp, xdouble volq, const char *ending)
 {
   xdouble x;
   int px = 0;
@@ -377,8 +383,8 @@ __inline static int printB(const char *name, int dim, int n,
   if ( B == 0 ) return px;
   printf("%s(%3d) = %15.7" XDBLPRNF "e", name, n, B);
   if ( B2p != 0 ) {
-    printf(" (%15.8" XDBLPRNF "e", B/B2p);
-    x = B/volp;
+    printf(" (%15.8" XDBLPRNF "e", B/B2p/B2q);
+    x = B/volp/volq;
     px = ( FABS(x) < 10000 && dim % 2 == 1);
     if ( !px ) printf(")");
     else printf(",%+12.6" XDBLPRNF "f)", x);
@@ -390,10 +396,10 @@ __inline static int printB(const char *name, int dim, int n,
 
 
 /* save a virial coefficient to file */
-__inline static void saveB(FILE *fp, xdouble B, xdouble B2p)
+__inline static void saveB(FILE *fp, xdouble B, xdouble B2p, xdouble B2q)
 {
   if ( B == 0 ) fprintf(fp, " 0");
-  else fprintf(fp, XDBLPRNE, (B2p != 0 ? B/B2p : B));
+  else fprintf(fp, " " XDBLPRNE, (B2p != 0 ? B/B2p/B2q : B));
 }
 
 
@@ -401,42 +407,48 @@ __inline static void saveB(FILE *fp, xdouble B, xdouble B2p)
 /* save virial coefficients */
 __inline static int savevir(const char *fn, int dim, int n,
     xdouble Bc, xdouble Bv, xdouble Bm, xdouble Bh, xdouble Br,
-    xdouble B2p, int mkcorr, xdouble fcorr)
+    xdouble B2, int mkcorr, xdouble fcorr)
 {
   FILE *fp;
-  xdouble volp;
+  int np = n - 1, nq = 0;
+  xdouble vol, volp, volq = 1, B2p, B2q = 1;
 
   /* print the result on screen */
-  volp = B2p / pow_si(2, (n-1)*(dim-1));
-  printB("Bc", dim, n, Bc, B2p, volp, ", ");
-  printB("Bv", dim, n, Bv, B2p, volp, ", ");
+  B2p = pow_si(B2, np);
+  if ( B2p == 0 ) { /* underflow */
+    nq = np / 2;
+    np -= nq;
+    B2p = pow_si(B2, np);
+    B2q = pow_si(B2, nq);
+  }
+  vol = B2/pow_si(2, dim-1);
+  volp = pow_si(vol, np);
+  volq = pow_si(vol, nq);
+  printB("Bc", dim, n, Bc, B2p, B2q, volp, volq, ", ");
+  printB("Bv", dim, n, Bv, B2p, B2q, volp, volq, ", ");
   /* when making corrections, Bm is the corrected value */
-  printB("Bm", dim, n, Bm, B2p, volp, "");
+  printB("Bm", dim, n, Bm, B2p, B2q, volp, volq, "");
   if ( mkcorr ) {
     printf(", %9.6f\n", (double) fcorr);
   } else { /* the following are useless when making corrections */
     printf("\n");
     if ( Bh != 0 || Br != 0 ) {
-      printB("Bh", dim, n, Bh, B2p, volp, ", ");
-      printB("Br", dim, n, Br, B2p, volp, "\n");
+      printB("Bh", dim, n, Bh, B2p, B2q, volp, volq, ", ");
+      printB("Br", dim, n, Br, B2p, B2q, volp, volq, "\n");
     }
   }
 
   if (fn != NULL) {
     xfopen(fp, fn, "a", return -1);
     fprintf(fp, "%4d", n);
-    /* normalize the virial coefficients */
+    saveB(fp, Bc, B2p, B2q);
+    saveB(fp, Bv, B2p, B2q);
+    saveB(fp, Bm, B2p, B2q);
     if ( mkcorr ) {
-      saveB(fp, Bc, B2p);
-      saveB(fp, Bv, B2p);
-      saveB(fp, Bm, B2p);
       fprintf(fp, " " XDBLPRNE "\n", fcorr);
     } else {
-      saveB(fp, Bc, B2p);
-      saveB(fp, Bv, B2p);
-      saveB(fp, Bm, B2p);
-      saveB(fp, Bh, B2p);
-      saveB(fp, Br, B2p);
+      saveB(fp, Bh, B2p, B2q);
+      saveB(fp, Br, B2p, B2q);
       fprintf(fp, "\n");
     }
     fclose(fp);

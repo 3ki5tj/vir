@@ -98,7 +98,7 @@ static void sphr(int npt, xdouble *in, xdouble *out, xdouble fac,
 static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 {
   xdouble dr, dk, facr2k, fack2r, surfr, surfk;
-  xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, B2, B2p, fcorr = 0;
+  xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, B2, fcorr = 0;
   xdouble *fr, *crl, *trl, **ck, **tk, **cr = NULL, **tr = NULL;
   xdouble **yr = NULL, *arr, *ri, *ki, *ri2, *ki2, *vc = NULL;
   int i, dm, l;
@@ -168,7 +168,6 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   fnvir = savevirhead(fnvir, NULL, 3, 1, nmax,
       doHNC, mkcorr, npt, rmax, t1 - t0);
 
-  B2p = B2;
   for ( l = 1; l < nmax - 1; l++ ) { /* c_l and t_l, B_{l+2} */
     /* c_l(r) --> c_l(k) for the previous l */
     sphr(npt, crl, ck[l-1], facr2k, plan, arr, ri, ki, ffttype);
@@ -233,8 +232,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
           crl, fr, ri2, B2, vc, &Bc, &Bv, &fcorr);
     }
 
-    B2p *= B2;
-    savevir(fnvir, 3, l+2, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
+    savevir(fnvir, 3, l+2, Bc, Bv, Bm, Bh, Br, B2, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
   }
   savevirtail(fnvir, clock() - t1);

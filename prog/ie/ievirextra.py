@@ -15,6 +15,9 @@ purepy = 0
 purehnc = 0
 errmax = 50  # error
 wreport = 0 # write a report
+scanall = 0 # scan all dimensions
+
+refval = 0 # reference value, for debugging
 
 
 def usage():
@@ -28,6 +31,7 @@ def usage():
    -n:     step size of the order
    -e:     maximal number in parentheses in the error estimate
    -w:     write a report
+   -a:     scan all dimensions (use -aw for a report)
   """
   exit(1)
 
@@ -36,15 +40,17 @@ def usage():
 def doargs():
   ''' Handle common parameters from command line options '''
   try:
-    opts, args = getopt.gnu_getopt(sys.argv[1:], "D:n:M:e:wv",
-        [ "dim=", "order=", "errmax=", "py", "hnc", "--report",
+    opts, args = getopt.gnu_getopt(sys.argv[1:], "D:n:M:e:wav",
+        [ "dim=", "order=", "errmax=", "py", "hnc", "report", "all",
+          "ref=",
           "verbose=", "help", ])
   except getopt.GetoptError, err:
     # print help information and exit:
     print str(err) # will print something like "option -a not recognized"
     usage()
 
-  global dim, nstep, nmax, wreport, purepy, purehnc, verbose, errmax
+  global dim, nstep, nmax, wreport, purepy, purehnc, scanall, verbose, errmax
+  global refval
 
   for o, a in opts:
     if o in ("-D", "--dim"):
@@ -57,14 +63,18 @@ def doargs():
       errmax = int(a)
     elif o in ("-w", "--report"):
       wreport = 1
-    elif o in ("-v",):
-      verbose += 1
-    elif o in ("--verbose=",):
-      verbose = int(a)
+    elif o in ("-a", "--all"):
+      scanall = 1
+    elif o in ("--ref"):
+      refval = float(a)
     elif o in ("--py",):
       purepy = 1
     elif o in ("--hnc",):
       purehnc = 1
+    elif o in ("-v",):
+      verbose += 1
+    elif o in ("--verbose",):
+      verbose = int(a)
     elif o in ("-h", "--help",):
       usage()
 
@@ -143,7 +153,7 @@ def extrapolate(dim, order, tag = "PYc", col = 3):
   newls = []
   for ils in range(nls):
     Bn, resol, rmax, npt, prec, fn = ls[ils]
-    if fabs(resol - resol0) < 0.1:
+    if fabs(resol - resol0) < resol0*0.24:
       pdiff = precdiff(prec, prec0)
       if fn == "_" + fn0 or pdiff > 0 or (pdiff == 0 and rmax > rmax0):
         newls[-1] = (Bn, resol, rmax, npt, prec, fn)
@@ -172,10 +182,13 @@ def extrapolate(dim, order, tag = "PYc", col = 3):
     vir3, resol3 = ls[-3][0], ls[-3][1]
     virlimit1, dvir1 = virextrapolate2(vir1, resol1, vir2, resol2)
     virlimit2, dvir2 = virextrapolate2(vir1, resol1, vir3, resol3)
-    if verbose:
-      print virlimit1, virlimit2, "error", fabs(virlimit1 - virlimit2), fabs(dvir1)
-    err = min(fabs(virlimit1 - virlimit2), fabs(dvir1))
-    virlimit = virlimit1
+    if refval != 0: # print the difference from the reference value
+      print virlimit1, virlimit1 - refval, resol1, resol2
+      print virlimit2, virlimit2 - refval, resol1, resol3
+    qq = (1.*resol2/resol3)**2
+    virlimit = (virlimit1*qq - virlimit2)/(qq - 1)
+    err = fabs(virlimit1 - virlimit2)/(qq - 1)
+    err = min(err, fabs(dvir1))
 
   if verbose:
     for x in ls:
@@ -194,9 +207,7 @@ def niceprint(x, err, dim = 0, n = 0, cnt = ""):
 
 
 
-if __name__ == "__main__":
-  doargs()
-
+def doit(dim):
   fns = ""
   tag, cols = "PYc", ((3, "self-consistent"),)
   if purepy:
@@ -251,3 +262,15 @@ if __name__ == "__main__":
     fn = "xBn%sD%sn%s.dat" % (tag, dim, nmax)
     print "writing", fn
     open(fn, "w").write(src)
+
+
+
+if __name__ == "__main__":
+  doargs()
+  if scanall:
+    for dim in range(2, 31):
+      doit(dim)
+  else:
+    doit(dim)
+
+

@@ -98,7 +98,7 @@ __inline static xdouble get_invcorr1_hs(int l, int npt, int dm,
 static int rerun(int nmax, int npt, xdouble rmax, int doHNC)
 {
   xdouble facr2k, fack2r, surfr, surfk;
-  xdouble Bc = 0, Bv = 0, Bm = 0, Bh = 0, Br = 0, B2, B2p, tmp1, tmp2, fcorr = 0;
+  xdouble Bc = 0, Bv = 0, Bm = 0, Bh = 0, Br = 0, B2, tmp1, tmp2, fcorr = 0;
   xdouble *fr, **cr, **tr, **ck, **tk, **yr, *vc;
   xdouble *ri, *ki, *r2p, *k2p, *rDm1, *kDm1;
   int i, dm, l, l0 = 1;
@@ -167,7 +167,6 @@ static int rerun(int nmax, int npt, xdouble rmax, int doHNC)
   fnvir = savevirhead(fnvir, "_h", dim, 1, nmax,
       doHNC, mkcorr, npt, rmax, t1 - t0);
 
-  B2p = B2;
   for ( l = 1; l < l0; l++ ) {
     /* compute the ring sum based on ck */
     if ( !mkcorr ) {
@@ -214,8 +213,7 @@ static int rerun(int nmax, int npt, xdouble rmax, int doHNC)
       }
     }
 
-    B2p *= B2;
-    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
+    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2, mkcorr, fcorr);
   }
   savevirtail(fnvir, clock() - t1);
 

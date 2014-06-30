@@ -1,13 +1,13 @@
 (* compute the virial coefficients from the polynomials
    specifialized program to handle the output of pyhs2.ma
-   Copyright (c) Cheng Zhang 2013
+   Copyright (c) Cheng Zhang 2013, 2014
 
   Usage:
 
     math < getvir.ma [dim] [opt] [nmax] [prec]
 
   `dim' dimension, must be an odd integer
-  `opt' can be any of `c' (compressibility), `p' (pressure),
+  `opt' can be `c' (compressibility), `p' (pressure), or both
   `nmax' is the maximal number of terms in the virial series
   `prec' is the precision
 *)
@@ -78,8 +78,8 @@ vircoef[d_, poly_, nmax_, X_, X0_, t_, ch_, prec_ : 20] := Module[
 
 
 
-nmax = 64; (* number of terms in the virial expansion *)
-prec = 40; (* number of digits for virial coefficients *)
+nmax = 128; (* number of terms in the virial expansion *)
+prec = 100; (* number of digits for virial coefficients *)
 
 
 (* 1. handle input arguments *)

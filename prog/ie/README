@@ -13,6 +13,10 @@ C programs (native datatypes family)
     iegsl.c         GSL         an arbitrary even or odd dimension
                     slowdht.h
 
+    snapfixgsl.c    GSL         fix the snapshotXXX_.dat output of iegsl.c
+                                e.g., the snapshotXXX_ck.dat and snapshotXXX_tr.dat
+                                may be of a different frame.
+
  ~  ie3dfftw.c      FFTW3       3-dimensional case
                     fft.h       -DNOFFTW
     ieodfftw.c      FFTW3       arbitrary odd-dimensional case
@@ -51,7 +55,10 @@ Python script
 --------------
     ievirextra.py               extrapolation script
 
-    scifmt.py                   format a number with error in parentheses.
+    scifmt.py                   format a number with error in parentheses
+                                used in ievirextra.py
+
+
 
 
 See bak/README for additional code.
@@ -183,12 +190,14 @@ For D = 30, n = 128, M = 3072 (sampling points)
         For B(128):
           long double:    -1.1138e+8
           __float128:     -1.1154e+8
-        So the difference is 0.15%.
+        So the difference is 0.142%.
 
         By comparison, with -M2048, B(128) are given below
           long double:    -2.3072e+3
-          __float128:     -2.3108e+3
-        So the difference is also about 0.15%.
+          __float128:     -2.3105e+3
+        So the difference is also about 0.157%.
+        It is possible that the difference diminishes with
+        the number of evaluation points.
 
         Note that the figure themselves are very wrong,
           the correct figure from -M65536 (long double) is -6.8e11.
@@ -199,7 +208,29 @@ For D = 30, n = 128, M = 3072 (sampling points)
         the long double version.
         (1497 vs 61s, disk-based, no matrix time, T60)
 
-
+        Precision of using long double and double
+        -M4096 -n128 compared with __float128
+        see data/iebenchmark
+        --------------------------------------
+            D       long double       double
+            2         4.76e-7         2.53e-5
+                      8.88e-16        2.75e-10  (-n32)
+            4         1.04e-4         7.36e-2
+                      2.97e-11        5.15e-14  (-n16)
+            6         2.22e-16        9.73e-14
+                      0               1.58e-14  (-n64)
+            8         0               1.09e-13
+            10        3.55e-15        3.62e-12
+            12        8.04e-14        8.31e-11
+            14        2.28e-13        1.15e-8
+            16        1.81e-10        2.87e-7
+            18        4.02e-9         2.46e-6
+            20        7.64e-8         5.71e-5
+            22        1.29e-6         1.75e-3
+            24        1.97e-5         underflow
+            26        7.53e-5         underflow
+            28        5.30e-4         underflow
+            30        1.26e-3         underflow
 
 
 

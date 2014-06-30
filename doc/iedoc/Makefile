@@ -8,7 +8,7 @@ $(prj)doc.pdf: $(prj)doc.tex $(prj)text.pdf iegraph.pdf $(figs)
 
 iegraph.pdf: iegraph.tex $(prj).bib
 	latex $<
-	bibtex $*
+	bibtex iegraph
 	latex $<
 	pdflatex $<
 
