@@ -422,10 +422,10 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   FREE1DARR(trl, npt);
   FREE2DARR(ck, nmax - 1, npt);
   FREE2DARR(tk, nmax - 1, npt);
-  if ( cr != NULL ) FREE2DARR(cr, nmax - 1, npt);
-  if ( tr != NULL ) FREE2DARR(tr, nmax - 1, npt);
-  if ( yr != NULL ) FREE2DARR(yr, nmax - 1, npt);
-  if ( vc != NULL ) FREE1DARR(vc, npt);
+  FREE2DARR(cr, nmax - 1, npt);
+  FREE2DARR(tr, nmax - 1, npt);
+  FREE2DARR(yr, nmax - 1, npt);
+  FREE1DARR(vc, npt);
 
   CLEAR_(dr);
   CLEAR_(dk);

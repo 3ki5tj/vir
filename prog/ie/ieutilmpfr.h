@@ -125,9 +125,9 @@
     INIT_(arr[i_]); \
     SET_SI_(arr[i_], 0); } }
 
-#define FREE1DARR(arr, n) { int i_; \
+#define FREE1DARR(arr, n) if ((arr) != NULL) { int i_; \
   for (i_ = 0; i_ < (int) (n); i_++) \
-    CLEAR_(arr[i_]); \
+    CLEAR_((arr)[i_]); \
     free(arr); }
 
 #define MAKE2DARR(arr, n1, n2) { int l_; \
@@ -136,8 +136,8 @@
   for ( l_ = 1; l_ < (n1); l_++ ) \
     arr[l_] = arr[0] + l_ * (n2); }
 
-#define FREE2DARR(arr, n1, n2) { \
-  FREE1DARR(arr[0], (n1) * (n2)); \
+#define FREE2DARR(arr, n1, n2) if ((arr) != NULL) { \
+  FREE1DARR((arr)[0], (n1) * (n2)); \
   free(arr); }
 
 #define COPY1DARR(a, b, n) { int i_; \

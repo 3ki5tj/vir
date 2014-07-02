@@ -9,7 +9,7 @@
 \usepackage{dcolumn}
 \usepackage{bm}
 \usepackage{tikz}
-\usepackage{scrextend} % for addmargin
+%\usepackage{setspace}
 
 \newtheorem{defn}{Definition}
 \newtheorem{thrm}{Theorem}
@@ -32,7 +32,8 @@
 
 \newcommand{\secref}[1]{Sec. \ref{#1}}
 
-
+\newcommand{\llbra}{[\![}
+\newcommand{\llket}{]\!]}
 
 \begin{document}
 
@@ -61,26 +62,22 @@
 
 \section{Basics}
 
-We first review basic formulas of integral equations.
+We first repeat a few basic formulas in the main text.
 %
-The virial expansion is a series expansion of
-  the pressure $P$ in terms of the density $\rho$:
+The virial expansion is
 %
 \begin{equation}
   \beta P = \rho + B_2 \rho^2 + B_3 \rho^3 + \cdots,
 \label{eq:virial}
 \end{equation}
 %
-where $\beta = 1/(k_B T)$ is the inverse temperature
- ($k_B$ is the Boltzmann constant).
+where $\beta = 1/(k_B T)$ is the inverse temperature.
 
 The theory of integral equations involves
-  a pair of equations
-  regarding the direct correlation function $c(\vr)$
+  the direct correlation function $c(\vr)$
   and the indirect correlation function $t(\vr)$.
 %
-The first equation is the exact
-  Ornstein-Zernike (OZ) relation\cite{hansen},
+The Ornstein-Zernike (OZ) relation\cite{hansen} reads
 %
 \begin{align}
   t(\vr) &= \rho [c * (c + t)](\vr), \notag \\
@@ -88,37 +85,37 @@ The first equation is the exact
 \label{eq:oz}
 \end{align}
 %
-where ``$*$'' denotes a convolution of two spatial functions:
+where ``$*$'' denotes a convolution:
 \begin{equation}
   (a * b)(\vr) = \int d\vr' a(\vr - \vr') \, b(\vr').
 \label{eq:convol}
 \end{equation}
 %
-The second equation is an approximate relation called ``closure''\cite{hansen}.
-%
-The Percus-Yevick (PY) closure\cite{percusyevick}:
+The Percus-Yevick (PY) closure\cite{percusyevick} reads
 %
 \begin{equation}
   c(\vr) = f(\vr) + f(\vr) \, t(\vr),
   \label{eq:py}
 \end{equation}
-%
-or the hypernetted-chain (HNC) closure\cite{
-morita1958, *morita1959, *morita1960}
-%
-\begin{align}
-  c(\vr) &= f(\vr) \, e^{t(\vr)} - t(\vr) - 1 \notag \\
-         &= f(\vr) + f(\vr) \, t(\vr)
-          + \sum_{m=2}^\infty [1 + f(\vr)] \frac{ t^m(\vr) }{ m! },
-  \label{eq:hnc}
-\end{align}
-%
 where
 \begin{equation}
   f(\vr) = e^{-\beta \phi(\vr)} - 1,
   \label{eq:fbond}
 \end{equation}
-with $\phi(\vr)$ being the potential.
+with $\phi(\vr)$ being the pair potential.
+%
+Alternatively, the hypernetted-chain (HNC) closure\cite{
+morita1958, *morita1959, *morita1960} reads
+%
+\begin{align}
+  c(\vr) &= f(\vr) \, e^{t(\vr)} - t(\vr) - 1 \notag \\
+         &= \sum_{m=0}^\infty
+                \Big\{ \llbra m \ge 2 \llket + f(\vr) \Big\}
+                \frac{ t^m(\vr) }{ m! },
+  \label{eq:hnc}
+\end{align}
+%
+where $\llbra P \llket$ is the Iverson bracket, which is 1 if condition $P$ is true, or 0 otherwise.
 
 Below we shall express thermodynamic quantities
   as integrals of $c(\vr)$ and $t(\vr)$
@@ -130,6 +127,12 @@ and the virial coefficients $B_n$ in \eqref{eq:virial}
 Table \ref{tab:thermodyn}
   summarizes the main results.
 
+\ifdim \columnwidth < 4in
+  \newcommand{\tabscale}{1.0}
+\else
+  % shrink the table in the preprint mode
+  \newcommand{\tabscale}{0.85}
+\fi
 
 %\begin{turnpage}
 \begin{table*}
@@ -139,6 +142,8 @@ Table \ref{tab:thermodyn}
   Thermodynamic quantities from integrals of $c(\vr)$ and $t(\vr)$
 }
 \label{tab:thermodyn}
+% shrink the table in the preprint mode
+\scalebox{\tabscale}{
 \begin{tabular}{p{1.3cm} p{1.2cm} c l r p{1.6cm} c l}
   \hline
   \hline
@@ -272,7 +277,7 @@ Table \ref{tab:thermodyn}
   %
   \multicolumn{8}{l}{
     $^\#$
-    The superscript ``ex'' means that the ideal gas contribution has been excluded.
+    The superscript ``ex'' means that the excess (non-ideal-gas) part.
   }
   \\
   \noalign{\smallskip}
@@ -326,6 +331,7 @@ Table \ref{tab:thermodyn}
   \noalign{\smallskip}
   \hline
 \end{tabular}
+} % \scalebox
 \end{table*}
 %\end{turnpage}
 
@@ -427,8 +433,8 @@ The spatial correlation functions,
 
 
 
-For a graph with no root vertex,
-  we avoid integrating one of the vertices
+For a graph of no root,
+  we avoid integrating the last vertex
   to keep the integral finite, e.g.,
 %
 %For example,
@@ -448,7 +454,7 @@ For a graph with no root vertex,
     f(\vr_{12}) f(\vr_{23}) f(\vr_{31}).
 \]
 %
-The choice of the special vertex is arbitrary
+The choice of the last vertex is arbitrary
   for it alters only the origin of the integration,
   but not the value. % of the integral.
 %
@@ -991,16 +997,16 @@ Under the PY-closure,
 
 
 
-A polygon graph, hence a polygon pack,
-  can always be decomposed as a cycle of small polygon graphs:
+A polygon graph or pack
+  can always be decomposed as a cycle of small polygon graphs.
 %
-removing the edge between the roots in a polygon graph
-  yields a chain of polygon graphs,
-  which can be closed
-  by the edge between the roots
-  to form a cycle.
+%removing the edge between the roots in a polygon graph
+%  yields a chain of polygon graphs,
+%  which can be closed
+%  by the edge between the roots
+%  to form a cycle.
 %
-The cycle decomposition is, however, not unique.
+%The cycle decomposition is, however, not unique.
 %
 Geometrically,
   each face of the polygon corresponds to a cycle decomposition,
@@ -1058,7 +1064,7 @@ Geometrically,
 
 
 
-If $G$ has $m(G)$ faces, then by Euler's formula, we get
+If $G$ has $m(G)$ faces, then by counting the vertices, we get
 %
 \begin{equation}
   n(G) = 2 + \sum_{a = 1}^{m(G)} (l_a - 2)
@@ -1164,7 +1170,7 @@ To obtain an expression of pressure,
 \label{eq:crcompr}
 \end{equation}
 %
-where the superscript ``ex'' means to exclude the ideal-gas contribution.
+where the superscript ``ex'' means to the excess, or non-ideal-gas, part of the contribution.
 %
 Note that
   the integral $I(G)$ of a polygon pack $G$ of $n$ vertices
@@ -1183,8 +1189,8 @@ Thus, an integration over $\rho$ yields\cite{baxterpressure}
 \label{eq:baxterpressure}
 \end{align}
 %
-where we have used \eqref{eq:Clsum} and \eqref{eq:Clsuml}.
-
+where we have used
+\eqref{eq:pyintgcr2sums}, \eqref{eq:Clsum} and \eqref{eq:Clsuml}.
 
 
 Similarly,
@@ -1373,14 +1379,13 @@ Since the relabelling of the black vertices of $H$
 We now turn to $c(\vr)$.
 %
 Under the HNC closure \eqref{eq:hnc},
-  a $n$-vertex graph $G$ in $c(\vr)$ is
+  an $n$-vertex graph $G$ in $c(\vr)$ is
   a parallel composition of
   $m$ $c$-chains $H_1$, \dots, $H_m$,
   and possibly also an $f$-graph,
+  i.e., $G = H_1 \cdots H_m (\cdot f)$,
   if it is generated by the term
-  $[1 + f(\vr)] \frac{ t^m(\vr) }{ m!}$
-%
-(the $f$-graph is, however, required if $m \le 1$).
+  $\big\{\llbra m \ge 2 \llket + f(\vr)\big\} \, t^m(\vr) / m!$
 %
 Let us first show that $G$ is a $c$-graph.
 %
@@ -1390,8 +1395,8 @@ If $m \le 2$,
 %
 Otherwise,
   $G$ is a parallel composition of $H_m$
-  and the graph $G'$ constructed
-  by deleting all non-root vertices in $H_m$ from $G$.
+  and the graph
+  $G' = H_1 \cdots H_{m-1} (\cdot f)$.
 %
 We can then show that $G$ is a $c$-graph by an induction on $m$.
 
@@ -1407,7 +1412,7 @@ If the two roots are not consecutive joints of the cycle,
 %
 Otherwise, $G$ can be written as a cycle
   $v_1 - \cdots - v_l - v_1$
-  rooted at the joints $v_1$ and $v_l$
+  rooted at the two consecutive joints $v_1$ and $v_l$
   ($l \ge 3$),
 %
 or, equivalently, $G = G_l \cdot H_m$,
@@ -1418,14 +1423,14 @@ or, equivalently, $G = G_l \cdot H_m$,
 %
 By the induction hypothesis,
   $G_l$ can be generated by the term
-  $[1+f(\vr)] \frac{ t^{m - 1}(\vr) }{ (m - 1)! }$
+  $\big\{ \llbra m \ge 3 \llket +f(\vr) \big\} t^{m - 1}(\vr) / (m - 1)!$
   of some $m$,
 whereas
   the $H_m$ can be generated by $t(\vr)$.
 %
 It follows that
   $G$ can be generated by the term
-  $[1 + f(\vr)] \frac{ t^{m}(\vr) }{ m! } $,
+  $\big\{ \llbra m \ge 2 \llket  + f(\vr)\big\} t^{m}(\vr) / m! $,
 %
 
 
@@ -1433,11 +1438,9 @@ It follows that
 Now for the weight.
 %
 Suppose $G$ is generated by
-  a parallel composition of $m$ $c$-chains
-  $H_1$, \dots, $H_m$,
-  and optionally also an $f$-graph.
+  a parallel composition $G = H_1 \cdots H_m (\cdot f)$,
 %
-We sort the $m$ chains as \\
+we sort the $m$ chains as \\
   \hphantom{~~~~}
     $m_1$ identical chains of type 1, \\
   \hphantom{~~~~}
@@ -1477,7 +1480,7 @@ which is indeed the inverse of $s(G)$.
 
 
 
-We call a $c$-graph without marked roots a \emph{$c$-pack},
+We call a $c$-graph without the marked roots a \emph{$c$-pack},
 %
 in which,
   an ordered pair of vertices forms a \emph{pivot}
@@ -1693,8 +1696,8 @@ Algorithm L in above proof allows us to
     Find a simple cycle in $G$,
       $v_1 - v_2 - \cdots - v_l - v_1$
       using Algorithm L,
-      such that the $c$-graph between $v_j$ and $v_{j+1}$
-      is an $f$-graph $(1 \le j < l)$.
+      such that the $c$-graphs between $v_j$ and $v_{j+1}$
+      are $f$-graphs $j = 1, \dots, l-1$.
   \item
     Remove $v_2, v_3, \dots, v_{l-1}$,
       and join $v_1$ and $v_l$ if they are not adjacent.
@@ -1712,7 +1715,9 @@ Thus,
   A $c$-pack $G$ can be reduced
     by Algorithm D to an $f$-graph in $m(G)$ steps,
     where $m(G)$ is the number of ways of decomposing
-    $G$ as a cycle of $c$-graphs.
+    $G$ as a cycle of $c$-graphs,
+    which is independent of the order of the vertex elimination
+    in Algorithm D.
 \label{thm:hncdecomp}
 \end{lemm}
 

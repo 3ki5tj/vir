@@ -104,6 +104,15 @@ static xdouble pot(xdouble r, xdouble *ndphir)
   invr6 = invr6*invr6*invr6;
   *ndphir = invr6*(48*invr6 - 24);
   return 4*invr6*(invr6 - 1);
+/*
+  *ndphir = 2*r*r/(EXP(r*r) - 1);
+  return -log(1-EXP(-r*r));
+*/
+/* for r^(-12)th potential */
+/*
+  *ndphir = 12*invr6*invr6;
+  return invr6*invr6;
+*/
 }
 
 
@@ -136,7 +145,7 @@ __inline static char *LJsavevirhead(const char *fn,
 static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 {
   xdouble dr, dk, facr2k, fack2r, surfr, surfk;
-  xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, B2, B2tail, fcorr;
+  xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, B2, B2tail = 0, fcorr;
   xdouble *fr, *dfr, *crl, *trl, **ck, **tk, **cr = NULL, **tr = NULL;
   xdouble **yr = NULL, *arr, *vc = NULL;
   xdouble *ri, *ki, *ri2, *ki2;
@@ -277,7 +286,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
           crl, fr, dfr, ri2, 3, vc, &Bc, &Bv, &fcorr);
     }
 
-    savevir(fnvir, 3, l+2, Bc, Bv, Bm, Bh, Br, 0, mkcorr, fcorr);
+    savevir(fnvir, 3, l+2, Bc, Bv, Bm, Bh, Br, B2, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
   }
   savevirtail(fnvir, clock() - t1);
@@ -296,10 +305,10 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   FREE1DARR(trl, npt);
   FREE2DARR(ck, nmax - 1, npt);
   FREE2DARR(tk, nmax - 1, npt);
-  if ( cr != NULL ) FREE2DARR(cr, nmax - 1, npt);
-  if ( tr != NULL ) FREE2DARR(tr, nmax - 1, npt);
-  if ( yr != NULL ) FREE2DARR(yr, nmax - 1, npt);
-  if ( vc != NULL ) FREE1DARR(vc, npt);
+  FREE2DARR(cr, nmax - 1, npt);
+  FREE2DARR(tr, nmax - 1, npt);
+  FREE2DARR(yr, nmax - 1, npt);
+  FREE1DARR(vc, npt);
   return 0;
 }
 

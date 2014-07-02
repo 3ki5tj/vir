@@ -24,8 +24,8 @@
   xnew(arr, n); \
   for (i_ = 0; i_ < (int) (n); i_++) arr[i_] = 0; }
 
-#define FREE1DARR(arr, n) { int i_; \
-  for (i_ = 0; i_ < (int) (n); i_++) arr[i_] = 0; \
+#define FREE1DARR(arr, n) if ( (arr) != NULL ) { int i_; \
+  for (i_ = 0; i_ < (int) (n); i_++) (arr)[i_] = 0; \
   free(arr); }
 
 #define COPY1DARR(dest, src, n) { int i_; \
@@ -37,8 +37,8 @@
   for ( l_ = 1; l_ < (n1); l_++ ) \
     arr[l_] = arr[0] + l_ * (n2); }
 
-#define FREE2DARR(arr, n1, n2) { \
-  FREE1DARR(arr[0], (n1) * (n2)); \
+#define FREE2DARR(arr, n1, n2) if ( (arr) != NULL ) { \
+  FREE1DARR((arr)[0], (n1) * (n2)); \
   free(arr); }
 
 
@@ -62,14 +62,21 @@ __inline static xdouble adjustrmax(xdouble rmax, int npt,
 
 
 
+#ifdef SIMPSON
+/* the Simpson formula does not improve the precision too much */
+#define INT_GETW(i) ((xdouble) (i % 2 ? 4 : i == 0 ? 1 : 2) / 3)
+#else
+#define INT_GETW(i) 1
+#endif
+
+
 __inline static xdouble integr(int n, xdouble *f, xdouble *w)
 {
   xdouble y = 0;
   int i;
 
-  for ( i = 0; i < n; i++ ) y += f[i] * w[i];
-  /* the Simpson formula does not improve the precision too much */
-  //for ( i = 0; i < n; i++ ) y += f[i] * w[i] * (i % 2 ? 4 : i == 0 ? 1 : 2)/3;
+  for ( i = 0; i < n; i++ )
+    y += f[i] * w[i] * INT_GETW(i);
   return y;
 }
 
@@ -80,8 +87,20 @@ __inline static xdouble integr2(int n, xdouble *f1, xdouble *f2, xdouble *w)
   xdouble y = 0;
   int i;
 
-  for ( i = 0; i < n; i++ ) y += f1[i] * f2[i] * w[i];
-  //for ( i = 0; i < n; i++ ) y += f1[i] * f2[i] * w[i] * (i % 2 ? 4 : i == 0 ? 1 : 2)/3;
+  for ( i = 0; i < n; i++ )
+    y += f1[i] * f2[i] * w[i] * INT_GETW(i);
+  return y;
+}
+
+
+
+__inline static xdouble integre(int n, xdouble *f, xdouble *fr, xdouble *w)
+{
+  xdouble y = 0;
+  int i;
+
+  for ( i = 0; i < n; i++ )
+    y += f[i] * (fr[i] + 1) * w[i] * INT_GETW(i);
   return y;
 }
 
@@ -166,14 +185,8 @@ __inline static xdouble get_corr1_hs(int l, int npt, int dm,
   int i;
   xdouble dBc, dBv;
 
-  /* Bc = - Int c(r) dr / (l + 2) */
-  *Bc0 = dBc = 0;
-  for ( i = 0; i < npt; i++ ) {
-    *Bc0 += cr[i] * rDm1[i];
-    dBc += vc[i] * (1 + fr[i]) * rDm1[i];
-  }
-  *Bc0 /= -(l + 2);
-  dBc /= -(l + 2);
+  *Bc0 = -integr(npt, cr, rDm1) / (l + 2);
+  dBc = -integre(npt, vc, fr, rDm1) / (l + 2);
   *Bv0 = contactv(yr, dm, B2);
   dBv = contactv(vc, dm, B2);
   if ( l <= 1 ) {
@@ -197,27 +210,28 @@ __inline static xdouble get_corr1_hs(int l, int npt, int dm,
 
 
 
+/* switch between the continuous and discontinuous case */
+#define get_corr1x(l, npt, dm, yr, cr, fr, rdfr, rDm1, dim, B2, vc, Bc0, Bv0, fcorr) \
+  (rdfr == NULL \
+    ? get_corr1_hs(l, npt, dm, yr, cr, fr, rDm1, B2, vc, Bc0, Bv0, fcorr) \
+    : get_corr1(l, npt, yr, cr, fr, rdfr, rDm1, dim, vc, Bc0, Bv0, fcorr))
+
+
+
 /* correct the hypernetted chain approximation
  *  `vc' is the trial correction function to y(r) */
 __inline static xdouble get_corr1(int l, int npt,
-    xdouble *yr, xdouble *cr, xdouble *fr, xdouble *dfr,
+    xdouble *yr, xdouble *cr, xdouble *fr, xdouble *rdfr,
     xdouble *rDm1, int dim, xdouble *vc,
     xdouble *Bc0, xdouble *Bv0, xdouble *eps)
 {
   int i;
   xdouble dBc, dBv;
 
-  *Bc0 = dBc = *Bv0 = dBv = 0;
-  for ( i = 0; i < npt; i++ ) {
-    *Bc0 += cr[i] * rDm1[i];
-    dBc += vc[i] * (1 + fr[i]) * rDm1[i];
-    *Bv0 += dfr[i] * yr[i] * rDm1[i];
-    dBv += dfr[i] * vc[i] * rDm1[i];
-  }
-  *Bc0 /= -(l + 2);
-  dBc /= -(l + 2);
-  *Bv0 /= dim * 2;
-  dBv /= dim * 2;
+  *Bc0 = -integr(npt, cr, rDm1) / (l + 2);
+  dBc = -integre(npt, vc, fr, rDm1) / (l + 2);
+  *Bv0 = integr2(npt, yr, rdfr, rDm1) / (dim * 2);
+  dBv = integr2(npt, vc, rdfr, rDm1) / (dim * 2);
   if ( l <= 1 ) {
     *eps = 0;
     return *Bc0;
@@ -226,6 +240,7 @@ __inline static xdouble get_corr1(int l, int npt,
   *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
   //if ( *eps < 0 ) *eps = 0;
   //else if ( *eps > 1 ) *eps = 1;
+  //printf("l %d, eps %g, Bv0 %g, Bc0 %g, dBv %g, dBc %g\n", l, (double) *eps, (double) *Bv0, (double) *Bc0, (double) dBv, (double) dBc);
   for ( i = 0; i < npt; i++ ) {
     vc[i] *= *eps;
     cr[i] += vc[i] * (1 + fr[i]);

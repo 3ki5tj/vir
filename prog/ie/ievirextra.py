@@ -190,9 +190,17 @@ def extrapolate(dim, order, tag = "PYc", col = 3):
     err = fabs(virlimit1 - virlimit2)/(qq - 1)
     err = min(err, fabs(dvir1))
 
-  if verbose:
+  if verbose and len(ls):
+    print "first order:"
+    print "     vir             error           detail"
     for x in ls:
       print x[0], x[0]-virlimit, x[1:]
+    if len(ls) >= 2:
+      print "second order:"
+      print "     vir             error            detail"
+      for x in ls[:-1]:
+        y, yerr = virextrapolate2(ls[-1][0], ls[-1][1], x[0], x[1])
+        print y, y - virlimit, x[1:]
   return virlimit, err, ls
 
 

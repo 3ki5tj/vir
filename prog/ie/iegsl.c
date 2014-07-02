@@ -43,6 +43,8 @@ char *fncrtr = NULL;
 int dhtdisk = SLOWDHT_USEDISK;
 int snapshot = 0;
 
+int gaussf = 0; /* Gaussian model */
+
 
 
 static void doargs(int argc, char **argv)
@@ -66,6 +68,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--dhtblock", "%u", &slowdht_block, "block size for DHT input/output");
   argopt_add(ao, "--dhtquiet", "%b", &slowdht_quiet, "suppress DHT output");
   argopt_add(ao, "-s", "%b", &snapshot, "save intermediate snapshots");
+  argopt_add(ao, "-G", "%b", &gaussf, "Gaussian model instead of hard spheres");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
@@ -98,8 +101,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
 {
   xdouble facr2k, fack2r, surfr, surfk;
   xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, B2, tmp1, tmp2, fcorr = 0;
-  xdouble *fr, *crl, *trl, **cr = NULL, **tr = NULL, **ck, **tk;
-  xdouble **yr = NULL, *arr, *vc = NULL;
+  xdouble *fr, *rdfr = NULL, *crl, *trl, **cr = NULL, **tr = NULL, **ck, **tk;
+  xdouble **yr = NULL, *arr, *vc = NULL, *yrl;
   xdouble *ri, *ki, *r2p, *k2p, *rDm1, *kDm1;
   int i, dm, l, l0 = 1;
   xdht *dht;
@@ -126,6 +129,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   surfr = B2 * 2 * dim;
   tmp2 = dht->kmax / dht->xmax;
   surfk = surfr * tmp2 * tmp2 / pow_si(PI*2, dim);
+  if ( gaussf ) B2 = SQRT(pow_si(PI, dim))/2;
   printf("D %d, B2 %g, r2k %g, k2r %g\n", dim, (double) B2, (double) facr2k, (double) fack2r);
 
   MAKE1DARR(ri,   npt);
@@ -155,14 +159,22 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   MAKE1DARR(arr,  npt);
 
   MAKE1DARR(fr, npt);
+  if ( gaussf ) MAKE1DARR(rdfr, npt);
   MAKE2DARR(ck, nmax - 1, npt)
   MAKE2DARR(tk, nmax - 1, npt)
   MAKE1DARR(crl, npt);
   MAKE1DARR(trl, npt);
 
   /* construct f(r) and f(k) */
-  for ( i = 0; i < npt; i++ ) /* compute f(r) = exp(-beta u(r)) - 1 */
-    crl[i] = fr[i] = (i < dm) ? -1. : 0;
+  for ( i = 0; i < npt; i++ ) { /* compute f(r) = exp(-beta u(r)) - 1 */
+    if ( gaussf ) {
+      fr[i] = -exp(-ri[i]*ri[i]);
+      rdfr[i] = 2*ri[i]*ri[i]*exp(-ri[i]*ri[i]);
+    } else {
+      fr[i] = (i < dm) ? -1. : 0;
+    }
+    crl[i] = fr[i];
+  }
 
   if ( singer ) {
     MAKE2DARR(cr, nmax - 1, npt);
@@ -217,12 +229,17 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
       /* HNC approximation: c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
       for ( i = 0; i < npt; i++ )
         crl[i] = (fr[i] + 1) * yr[l][i] - trl[i];
-      Bv = contactv(yr[l], dm, B2);
     } else {
       /* PY approximation: c(r) = f(r) (1 + t(r)) */
       for ( i = 0; i < npt; i++ )
         crl[i] = fr[i] * trl[i];
-      Bv = contactv(trl, dm, B2);
+    }
+    /* in the PY case, y(r) = 1 + t(r) */
+    yrl = doHNC ? yr[l] : trl;
+    if ( gaussf ) {
+      Bv = integr2(npt, yrl, rdfr, rDm1) / (dim * 2);
+    } else {
+      Bv = contactv(yrl, dm, B2);
     }
 
     /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) S_D r^(D-1) dr */
@@ -242,9 +259,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
     }
 
     if ( mkcorr ) {
-      /* in the PY case, y(r) = 1 + t(r) */
-      Bm = get_corr1_hs(l, npt, dm, doHNC ? yr[l] : trl,
-          crl, fr, rDm1, B2, vc, &Bc, &Bv, &fcorr);
+      Bm = get_corr1x(l, npt, dm, yrl, crl, fr, rdfr, rDm1,
+                      dim, B2, vc, &Bc, &Bv, &fcorr);
     }
 
     savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2, mkcorr, fcorr);
@@ -262,14 +278,15 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   FREE1DARR(rDm1, npt);
   FREE1DARR(kDm1, npt);
   FREE1DARR(fr,   npt);
+  FREE1DARR(rdfr, npt);
   FREE1DARR(crl,  npt);
   FREE1DARR(trl,  npt);
   FREE2DARR(ck, nmax - 1, npt);
   FREE2DARR(tk, nmax - 1, npt);
-  if ( cr != NULL ) FREE2DARR(cr, nmax - 1, npt);
-  if ( tr != NULL ) FREE2DARR(tr, nmax - 1, npt);
-  if ( yr != NULL ) FREE2DARR(yr, nmax - 1, npt);
-  if ( vc != NULL ) FREE1DARR(vc, npt);
+  FREE2DARR(cr, nmax - 1, npt);
+  FREE2DARR(tr, nmax - 1, npt);
+  FREE2DARR(yr, nmax - 1, npt);
+  FREE1DARR(vc, npt);
   XDHT(free)(dht);
   return 0;
 }
