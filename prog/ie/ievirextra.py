@@ -22,7 +22,7 @@ refval = 0 # reference value, for debugging
 
 def usage():
   """ print usage and die """
-  print sys.argv[0], "[Options] [input.dat]"
+  print sys.argv[0], "[Options]"
   print """
   Extrapolate virial coefficients
 
@@ -113,17 +113,26 @@ def precdiff(prec0, prec1):
 
 
 def virextrapolate2(vir1, resol1, vir2, resol2):
-  q = 1.*resol1/resol2
-  dvir = (vir2 - vir1) / (q*q - 1)
-  virlimit = vir1 - dvir
-  return virlimit, dvir
+  qq = (1.*resol1/resol2)**2
+  vir12 = (vir1*qq - vir2) / (qq - 1)
+  return vir12, min(fabs(vir1 - vir12), fabs(vir2 - vir12))
 
 
 
-def extrapolate(dim, order, tag = "PYc", col = 3):
-  ''' estimate virial coefficients '''
+def virextrapolate3(vir1, resol1, vir2, resol2, vir3, resol3):
+  vir12, err12 = virextrapolate2(vir1, resol1, vir2, resol2)
+  vir13, err13 = virextrapolate2(vir1, resol1, vir3, resol3)
+  if refval != 0: # print the difference from the reference value
+    print vir12, vir12 - refval, resol1, resol2
+    print vir13, vir13 - refval, resol1, resol3
+  qq = (1.*resol2/resol3)**2
+  vir123 = (vir12*qq - vir13)/(qq - 1)
+  err123 = min(fabs(vir12 - vir123), fabs(vir13 - vir123))
+  return vir123, err123
 
-  # 1. extract all virials coefficients from the sources
+
+
+def searchdatalist(dim, order, tag, col):
   template = "*Bn%sD%dn*.dat" % (tag, dim)
   fns = glob.glob(template)
   ls = []
@@ -145,8 +154,11 @@ def extrapolate(dim, order, tag = "PYc", col = 3):
     Bn = getvir(fn, order, col)
     if Bn == 0: continue
     ls += [(Bn, resol, rmax, npt, prec, fn),]
+  return ls
 
-  # 2. sort the list by resolution
+
+
+def sortdatalist(ls):
   ls = sorted(ls, key = lambda x: x[1])
   nls = len(ls)
   resol0, fn0, prec0, rmax0 = 0, "", "", 0
@@ -165,8 +177,11 @@ def extrapolate(dim, order, tag = "PYc", col = 3):
     else:
       newls += [(Bn, resol, rmax, npt, prec, fn),]
     resol0, prec0, fn0, rmax0 = resol, prec, fn, rmax
+  return newls
 
-  ls = newls
+
+
+def estimatevir3(ls):
   if len(ls) == 0:
     virlimit, err = 0, 0
   elif len(ls) == 1:
@@ -174,21 +189,12 @@ def extrapolate(dim, order, tag = "PYc", col = 3):
   elif len(ls) == 2: # two files
     vir1, resol1 = ls[-1][0], ls[-1][1]
     vir2, resol2 = ls[-2][0], ls[-2][1]
-    virlimit, dvir = virextrapolate2(vir1, resol1, vir2, resol2)
-    err = fabs(dvir)
+    virlimit, err = virextrapolate2(vir1, resol1, vir2, resol2)
   else: # three or more files
     vir1, resol1 = ls[-1][0], ls[-1][1] # the most accurate
     vir2, resol2 = ls[-2][0], ls[-2][1]
     vir3, resol3 = ls[-3][0], ls[-3][1]
-    virlimit1, dvir1 = virextrapolate2(vir1, resol1, vir2, resol2)
-    virlimit2, dvir2 = virextrapolate2(vir1, resol1, vir3, resol3)
-    if refval != 0: # print the difference from the reference value
-      print virlimit1, virlimit1 - refval, resol1, resol2
-      print virlimit2, virlimit2 - refval, resol1, resol3
-    qq = (1.*resol2/resol3)**2
-    virlimit = (virlimit1*qq - virlimit2)/(qq - 1)
-    err = fabs(virlimit1 - virlimit2)/(qq - 1)
-    err = min(err, fabs(dvir1))
+    virlimit, err = virextrapolate3(vir1, resol1, vir2, resol2, vir3, resol3)
 
   if verbose and len(ls):
     print "first order:"
@@ -201,17 +207,80 @@ def extrapolate(dim, order, tag = "PYc", col = 3):
       for x in ls[:-1]:
         y, yerr = virextrapolate2(ls[-1][0], ls[-1][1], x[0], x[1])
         print y, y - virlimit, x[1:]
+  return virlimit, err
+
+
+
+def estimatevir(ls):
+  virlimit, err = estimatevir3(ls)
+  
+  if len(ls) > 3 and ls[-2][1] > ls[-1][1] * .52: # drop the second largest item
+    ls1 = ls[:-2] + ls[-1:]
+    virlimit1, err1 = estimatevir3(ls1)
+    if err1 < err:
+      if verbose:
+        print "remove 2nd %s, %s(%s) --> %s(%s), %s, %s, %s" % (
+          ls[-2][-1], virlimit, err, virlimit1, err1,
+          ls1[-1][-1], ls1[-2][-1], ls1[-3][-1])
+      virlimit, err, ls = virlimit1, err1, ls1
+
+  if len(ls) > 3 and ls[-3][1] > ls[-2][1] * .52:
+    ls1 = ls[:-3] + ls[-2:]
+    virlimit1, err1 = estimatevir3(ls1)
+    if err1 < err:
+      if verbose:
+        print "remove 3rd %s, %s(%s) --> %s(%s), %s, %s, %s" % (
+          ls[-3][-1], virlimit, err, virlimit1, err1,
+          ls1[-1][-1], ls1[-2][-1], ls1[-3][-1])
+      virlimit, err, ls = virlimit1, err1, ls1
+  
   return virlimit, err, ls
+    
 
 
-def niceprint(x, err, dim = 0, n = 0, cnt = ""):
+
+def extrapolate(dim, order, tag = "PYc", col = 3):
+  ''' estimate virial coefficients '''
+
+  # 1. extract all virials coefficients from the sources
+  lsall = searchdatalist(dim, order, tag, col)
+
+  # 2. sort the list by resolution, remove similar results
+  ls0 = sortdatalist(lsall)
+
+  # 3. compute the virial coefficient
+  virlimit0, err0, ls0 = estimatevir(ls0)
+  virlimit, err, ls, lsprec = virlimit0, err0, ls0, "all"
+
+  # 4. classify the list by precision
+  #    do the list with a particular precision
+  precs = list(set(x[-2] for x in lsall))
+  if len(precs) > 1:
+    for prec in precs:
+      ls1 = sortdatalist([x for x in lsall if x[-2] == prec])
+      virlimit1, err1, ls1 = estimatevir(ls1)
+      if err1 != 0 and err1 < err:
+        print "replace set [%s] by set [%s], %s(%s) -> %s(%s)" % (
+            lsprec, prec, virlimit, err, virlimit1, err1)
+        virlimit, err, ls, lsprec = virlimit1, err1, ls1, prec
+      if verbose:
+        print "list %4s %d: %24s %20s %24s %20s " % (
+            prec, len(ls1), virlimit1, err1, virlimit0, err0)
+  elif len(precs) == 1:
+    lsprec = precs[0] # only one precision
+
+  return virlimit, err, ls, lsprec
+
+
+
+def niceprint(x, err, dim = 0, n = 0, cnt = "", lsprec = ""):
   try:
     import scifmt
-    print "%4d|%4d: %30s %+20.10e %9.2e %s" % (
+    print "%4d|%4d: %30s %+20.10e %9.2e %s %s" % (
         dim, n, scifmt.scifmt(x, err).text(errmax = errmax),
-        x, err, cnt)
+        x, err, cnt, lsprec)
   except Exception:
-    print "%4d %24.14e %e %d" % (n, Bn, err, cnt)
+    print "%4d %24.14e %e %s %s" % (n, Bn, err, cnt, lsprec)
 
 
 
@@ -232,7 +301,7 @@ def doit(dim):
     # loop over n until exhaustion
     for n in range(nmin, 10000, nstep):
       # compute the virial coefficients for dim, n
-      Bn, err, ls = extrapolate(dim, n, tag, col)
+      Bn, err, ls, lsprec = extrapolate(dim, n, tag, col)
       #print dim, n, Bn, err
 
       if len(ls) == 0: break
@@ -246,7 +315,7 @@ def doit(dim):
           for x in ls: print x
           raw_input
       #print "%4d %24.14e %e %d" % (n, Bn, err, len(ls))
-      niceprint(Bn, err, dim, n, len(ls))
+      niceprint(Bn, err, dim, n, len(ls), lsprec)
 
   print fns
 

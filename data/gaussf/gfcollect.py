@@ -1,0 +1,1 @@
+../../prog/gaussf/gfcollect.py

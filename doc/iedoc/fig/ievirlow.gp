@@ -30,8 +30,8 @@ lbfont  = "Arial, 20"
 color1a = "#dd0000"
 color1b = "#002280"
 
-color2a = "#804000"
-color2b = "#000000"
+color2a = "#000000"
+color2b = "#804000"
 
 color3a = "#600080"
 color3b = "#006000"

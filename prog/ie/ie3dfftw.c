@@ -31,7 +31,7 @@ typedef void *FFTWPFX(plan);
 
 
 
-int nmax = 10;
+int nmax = 12;
 xdouble rmax = 0;
 int numpt = 1024;
 int ffttype = 1;

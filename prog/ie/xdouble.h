@@ -35,6 +35,8 @@ typedef __float128 xdouble;
 #define PI M_PIq
 #define SQRT(x)   sqrtq(x)
 #define EXP(x)    expq(x)
+#define SIN(x)    sinq(x)
+#define COS(x)    cosq(x)
 #define LOG(x)    logq(x)
 #define POW(x, y) powq(x, y)
 #define J0(x)     j0q(x)
@@ -58,6 +60,8 @@ typedef long double xdouble;
 #define PI (xdouble) 3.1415926535897932384626433832795L
 #define SQRT(x)   sqrtl(x)
 #define EXP(x)    expl(x)
+#define SIN(x)    sinl(x)
+#define COS(x)    cosl(x)
 #define LOG(x)    logl(x)
 #define POW(x, y) powl(x, y)
 #define J0(x)     j0l(x)
@@ -79,6 +83,8 @@ typedef double xdouble;
 #define PI 3.1415926535897932384626433832795
 #define SQRT(x)   sqrt(x)
 #define EXP(x)    exp(x)
+#define SIN(x)    sin(x)
+#define COS(x)    cos(x)
 #define LOG(x)    log(x)
 #define POW(x, y) pow(x, y)
 #define J0(x)     j0(x)

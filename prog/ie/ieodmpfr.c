@@ -21,7 +21,7 @@ int dim = 3;
 
 int K;
 int prec = 256;
-int nmax = 10;
+int nmax = 12;
 char *rmax = NULL;
 int numpt = 32768;
 int ffttype = 1;

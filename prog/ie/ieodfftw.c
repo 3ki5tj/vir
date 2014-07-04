@@ -38,7 +38,7 @@ int dim = 3;
 #endif
 
 int K;
-int nmax = 10;
+int nmax = 12;
 double rmax = 0;
 int numpt = 32768;
 int ffttype = 1;

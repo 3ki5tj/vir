@@ -33,10 +33,10 @@ set format y '10^{%T}'
 lbfont2 = "Arial, 12"
 
 color1a = "#dd0000"
-color1b = "#002280"
+color1b = "#44aaff"
 
-color2a = "#804000"
-color2b = "#000000"
+color2a = "#000000"
+color2b = "#ffcc44"
 
 
 
@@ -57,8 +57,8 @@ set style line 1  lc rgb "#aaaaaa" lt 1 lw 0.2
 set style line 2  lc rgb color1a lt 1 lw 2.0 pt 4  ps 1.0 # empty square
 set style line 3  lc rgb color1a lt 1 lw 1.0 pt 5  ps 1.0 # full  square
 
-set style line 4  lc rgb color1b lt 1 lw 2.0 pt 12 ps 1.3 # empty diamond
-set style line 5  lc rgb color1b lt 1 lw 1.0 pt 13 ps 1.3 # full  diamond
+set style line 4  lc rgb color1b lt 1 lw 2.0 pt 12 ps 1.1 # empty diamond
+set style line 5  lc rgb color1b lt 1 lw 1.0 pt 13 ps 1.1 # full  diamond
 
 set style line 6  lc rgb color2a lt 1 lw 2.0 pt 10 ps 1.2 # empty inverted triangle
 set style line 7  lc rgb color2a lt 1 lw 1.0 pt 11 ps 1.2 # full  inverted triangle
@@ -79,22 +79,22 @@ D14xmax = D14nmax - 10
 D14ymax = 5e13
 
 
-set label "{/Arial-Italic D} = 15"  at xlbl, 3e21   font lbfont textcolor rgb color1b
-set label "{/Arial-Italic D} = 16"  at xlbl, 1e21   font lbfont textcolor rgb color2b
-set label "{/Arial-Italic D} = 17"  at xlbl, 4e20   font lbfont textcolor rgb color1b
-set label "{/Arial-Italic D} = 18"  at xlbl, 1.5e20 font lbfont textcolor rgb color2b
-set label "{/Arial-Italic D} = 19"  at xlbl, 5e19   font lbfont textcolor rgb color1b
-set label "{/Arial-Italic D} = 20"  at xlbl, 1.5e19 font lbfont textcolor rgb color2b
-set label "{/Arial-Italic D} = 21"  at xlbl, 4e18   font lbfont textcolor rgb color1b
-set label "{/Arial-Italic D} = 22"  at xlbl, 1e18   font lbfont textcolor rgb color2b
-set label "{/Arial-Italic D} = 23"  at xlbl, 2e17   font lbfont textcolor rgb color1b
-set label "{/Arial-Italic D} = 24"  at xlbl, 3e16   font lbfont textcolor rgb color2b
-set label "{/Arial-Italic D} = 25"  at xlbl, 5e15   font lbfont textcolor rgb color1b
-set label "{/Arial-Italic D} = 26"  at xlbl, 1e15   font lbfont textcolor rgb color2b
-set label "{/Arial-Italic D} = 27"  at xlbl, 2e14   font lbfont textcolor rgb color1b
-set label "{/Arial-Italic D} = 28"  at xlbl, 3e13   font lbfont textcolor rgb color2b
-set label "{/Arial-Italic D} = 29"  at xlbl, 5e12   font lbfont textcolor rgb color1b
-set label "{/Arial-Italic D} = 30"  at xlbl, 1e12   font lbfont textcolor rgb color2b
+set label "{/Arial-Italic D} = 15"  at xlbl, 3e21   font lbfont textcolor rgb color1a
+set label "{/Arial-Italic D} = 16"  at xlbl, 1e21   font lbfont textcolor rgb color2a
+set label "{/Arial-Italic D} = 17"  at xlbl, 4e20   font lbfont textcolor rgb color1a
+set label "{/Arial-Italic D} = 18"  at xlbl, 1.5e20 font lbfont textcolor rgb color2a
+set label "{/Arial-Italic D} = 19"  at xlbl, 5e19   font lbfont textcolor rgb color1a
+set label "{/Arial-Italic D} = 20"  at xlbl, 1.5e19 font lbfont textcolor rgb color2a
+set label "{/Arial-Italic D} = 21"  at xlbl, 4e18   font lbfont textcolor rgb color1a
+set label "{/Arial-Italic D} = 22"  at xlbl, 1e18   font lbfont textcolor rgb color2a
+set label "{/Arial-Italic D} = 23"  at xlbl, 2e17   font lbfont textcolor rgb color1a
+set label "{/Arial-Italic D} = 24"  at xlbl, 3e16   font lbfont textcolor rgb color2a
+set label "{/Arial-Italic D} = 25"  at xlbl, 5e15   font lbfont textcolor rgb color1a
+set label "{/Arial-Italic D} = 26"  at xlbl, 1e15   font lbfont textcolor rgb color2a
+set label "{/Arial-Italic D} = 27"  at xlbl, 2e14   font lbfont textcolor rgb color1a
+set label "{/Arial-Italic D} = 28"  at xlbl, 3e13   font lbfont textcolor rgb color2a
+set label "{/Arial-Italic D} = 29"  at xlbl, 5e12   font lbfont textcolor rgb color1a
+set label "{/Arial-Italic D} = 30"  at xlbl, 1e12   font lbfont textcolor rgb color2a
 
 plot [2:128][1e-9:1e22] \
   "data/D15r1n128/BnD15n128.dat"              u ($1):(abs($2))                  w l ls 2 lw 0.3 notitle, \

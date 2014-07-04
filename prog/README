@@ -8,8 +8,9 @@ Directories
   o ./intg    Monte-Carlo integration
   o ./samp    Mayer sampling
   o ./java    java code for Mayer sampling
-  o ./ie      integral equation (numerical solution)
+  o ./ie      integral equation (numerical solution, C with MPFR, GSL)
   o ./pyhs    analytical PY solution (Mathematica)
+  o ./gaussf  Gaussian model (C with nauty, GMP)
   o .         basic routines of manipulating diagrams (graphs)
               serving ./samp
 

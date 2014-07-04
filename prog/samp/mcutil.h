@@ -759,6 +759,93 @@ INLINE char *fnappend(const char *fn, int i)
 
 
 
+typedef struct {
+  double xmin;
+  double xmax;
+  double dx;
+  double sphr;
+  double vol;
+  double *arr;
+  double *wt;
+  int dim;
+  int order;
+  int n;
+  int nsamp;
+} hscr_t;
+
+
+
+INLINE hscr_t *hscr_open(real xmax, real dx, int dim, int order)
+{
+  hscr_t *hs;
+  int i;
+
+  xnew(hs, 1);
+  hs->xmin = 0;
+  hs->xmax = xmax;
+  hs->dx = dx;
+  hs->dim = dim;
+  hs->order = order;
+  hs->n = (int)(xmax/dx + 0.99999999);
+  hs->nsamp = 0;
+  hs->sphr = (dim % 2 + 1) * dim;
+  for (i = 2 + dim % 2; i <= dim; i += 2 )
+    hs->sphr *= M_PI*2/i;
+  hs->vol = hs->sphr / dim;
+  xnew(hs->arr, hs->n);
+  xnew(hs->wt, hs->n);
+  return hs;
+}
+
+
+
+INLINE int hscr_add(hscr_t *hs, double x, double fb)
+{
+  int ix = (int)((x - hs->xmin)/hs->dx);
+  if (ix < hs->n) {
+    hs->arr[ix] += fb;
+    hs->wt[ix] += 1;
+  }
+  hs->nsamp += 1;
+  return 0;
+}
+
+
+
+INLINE int hscr_save(hscr_t *hs, const char *fn, double norm)
+{
+  FILE *fp;
+  int i;
+  double y, fb, r;
+
+  xfopen(fp, fn, "w", return -1);
+  norm *= pow(hs->vol, hs->order - 1);
+  for ( i = 0; i < hs->n; i++ ) {
+    fb = hs->wt[i] > 0 ? hs->arr[i]/hs->wt[i] : 0;
+    r = (i+.5)*hs->dx;
+    y = hs->arr[i]/(hs->nsamp*hs->sphr*pow(r, hs->dim - 1)*hs->dx);
+    if (norm > 0) y *= norm;
+    fprintf(fp, "%12.7f %22.14e %22.14e %22.14e\n",
+        r, y, fb, hs->wt[i]/hs->nsamp);
+    //tot += y * hs->sphr*pow(r, hs->dim - 1)*hs->dx;
+  }
+  //printf("tot %g\n", tot);
+  fclose(fp);
+  return 0;
+}
+
+
+
+INLINE void hscr_close(hscr_t *hs)
+{
+  if (!hs) return;
+  if (hs->arr) free(hs->arr);
+  if (hs->wt) free(hs->wt);
+  memset(hs, 0, sizeof(*hs));
+}
+
+
+
 #ifdef DGMAP_EXISTS
   #define DGMAP_FREEMEMORIES() dgmap_free()
 #else

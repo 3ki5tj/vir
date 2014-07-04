@@ -498,13 +498,13 @@ __inline static int savecrtr(const char *fn, int l, int npt,
   if (fn == NULL) return -1;
   xfopen(fp, fn, (l == 1) ? "w" : "a", return -1);
   for ( i = 0; i < npt; i++ ) {
-    fprintf(fp, "%10.7f %20.12f %20.12f %d",
-        (double) ri[i], (double) cr[i], (double) tr[i], l);
+    fprintf(fp, XDBLPRNE " " XDBLPRNE " " XDBLPRNE " %d",
+        ri[i], cr[i], tr[i], l);
     if ( vc != NULL )
-      fprintf(fp, " %20.12f", (double) vc[i]);
+      fprintf(fp, " " XDBLPRNE, vc[i]);
     if ( yr != NULL )
       for ( j = 1; j <= l; j++ )
-        fprintf(fp, " %20.12f", (double) yr[j][i]);
+        fprintf(fp, " " XDBLPRNE, yr[j][i]);
     fprintf(fp, "\n");
   }
   fprintf(fp, "\n");

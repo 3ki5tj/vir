@@ -79,6 +79,10 @@ __inline xdouble besseldJnu(xdouble nu, xdouble x)
     if ( inu == 0 ) return -J1(x);
     x1 = JN(inu - 1, x);
     x2 = JN(inu + 1, x);
+  } else if ( FABS(nu - 0.5) < 1e-7 ) {
+    x1 = COS(x);
+    x2 = SIN(x)/x/2;
+    return (x1 - x2) * SQRT(2/PI/x);
   } else {
     x1 = gsl_sf_bessel_Jnu((double) nu - 1, (double) x);
     x2 = gsl_sf_bessel_Jnu((double) nu + 1, (double) x);
@@ -160,6 +164,7 @@ __inline slowdht *slowdht_newx(size_t size, xdouble nu, xdouble xmax,
   }
   dht->kmax = dht->j[dht->size+1] / xmax;
 
+  printf("XXX\n");
   if ((dht->J2 = calloc(dht->size + 1, sizeof(xdouble))) == NULL) {
     fprintf(stderr, "no memory for dht->J2 %d\n", (int) dht->size);
     exit(1);

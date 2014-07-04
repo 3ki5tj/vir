@@ -29,7 +29,7 @@ int dim = D;
 int dim = 2;
 #endif
 
-int nmax = 10;
+int nmax = 12;
 double rmax = 0;
 xdouble Rmax = 0;
 int numpt = 1024;
@@ -125,7 +125,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   /* B2 = (1/2) (PI*2)^(dim/2) / dim!! for an even dim
    *    = (PI*2)^((dim - 1)/2) / dim!! for an odd dim */
   B2 = dim % 2 ? 1 : 0.5;
-  for ( i = 2 + dim % 2; i <= dim; i+=2 ) B2 *= PI*2/i;
+  for ( i = 2 + dim % 2; i <= dim; i += 2 ) B2 *= PI*2/i;
   surfr = B2 * 2 * dim;
   tmp2 = dht->kmax / dht->xmax;
   surfk = surfr * tmp2 * tmp2 / pow_si(PI*2, dim);
@@ -168,8 +168,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   /* construct f(r) and f(k) */
   for ( i = 0; i < npt; i++ ) { /* compute f(r) = exp(-beta u(r)) - 1 */
     if ( gaussf ) {
-      fr[i] = -exp(-ri[i]*ri[i]);
-      rdfr[i] = 2*ri[i]*ri[i]*exp(-ri[i]*ri[i]);
+      xdouble r2 = ri[i] * ri[i];
+      fr[i] = -EXP(-r2);
+      rdfr[i] = 2*r2*EXP(-r2);
     } else {
       fr[i] = (i < dm) ? -1. : 0;
     }
@@ -195,7 +196,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
         npt, ck, tk, cr, tr, crl, trl, yr);
 
   t1 = clock();
-  fnvir = savevirhead(fnvir, "h", dim, l0, nmax,
+  fnvir = savevirhead(fnvir, gaussf ? "hGF" : "h", dim, l0, nmax,
       doHNC, mkcorr, npt, rmax, t1 - t0);
 
   for ( l = l0; l < nmax - 1; l++ ) {

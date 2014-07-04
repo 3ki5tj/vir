@@ -76,6 +76,11 @@ char *dbfnbak = NULL; /* backup output database */
 int dbbinary = -1; /* binary database */
 int dbnobak = 0; /* do not backup the database */
 
+int nstcr = 0; /* frequency of writing */
+int nstcrrep = 100000; /* frequency of reporting cr */
+double crxmax = 0;
+double crdx = 0.01; /* interval of dx */
+char fncr[80];
 
 
 /* handle arguments */
@@ -131,6 +136,11 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--dbout",       NULL,   &dbfnout,     "output database");
   argopt_add(ao, "--dbbin",       "%d",   &dbbinary,    "if the output database is binary, 1: binary, 0: text, -1: default");
   argopt_add(ao, "--dbnobak",     "%b",   &dbnobak,     "do not backup database");
+
+  argopt_add(ao, "--nstcr",       "%d",   &nstcr,       "frequency of computing cr");
+  argopt_add(ao, "--nstcrrep",    "%d",   &nstcrrep,    "frequency of reporting cr");
+  argopt_add(ao, "--crxmax",      "%lf",  &crxmax,      "maximal r");
+  argopt_add(ao, "--crdx",        "%lf",  &crdx,        "grid spacing of cr");
 
   argopt_parse(ao, argc, argv);
 
@@ -264,6 +274,9 @@ static void doargs(int argc, char **argv)
     sscat(dbfnbak, ".bak");
   }
 
+  if (crxmax == 0) crxmax = n + 4;
+  sprintf(fncr, "crD%dn%d.dat", D, n);
+
   if (inode == MASTER) {
     argopt_dump(ao);
     printf("D %d, n %d, %g steps, amp %g, nstfb %d, %d-bit, "
@@ -391,7 +404,7 @@ static void report(const av0_t *fbsm, const av0_t *nrsm,
 #else /* estimate the virial coefficient from the partition function */
   nr = 0;
   /* Bn = Zn <fb> * (1 - n)/ n !
-   * Bn/B2^(n-1) = 2^(n-1) Zn/Z2^(n-1) */
+   * Bn/B2^(n-1) = 2^(n-1) Bn/Z2^(n-1) */
   {
     int k;
     for (rv = 1., k = 2; k <= n; k++)
@@ -410,6 +423,25 @@ static void report(const av0_t *fbsm, const av0_t *nrsm,
   printf("\n");
   save(fnout, vir, fbsm, nrsm);
   if (inode == MASTER) mtsave(NULL);
+}
+
+
+
+static void savecr(hscr_t *hs, rvn_t *x, int n, double fb)
+{
+  int i, j;
+  static int cnt;
+  real r;
+  char fn[80];
+
+  for (i = 0; i < n; i++) {
+    for (j = i+1; j < n; j++) {
+      r = rvn_dist(x[i], x[j]);
+      hscr_add(hs, r, fb);
+    }
+  }
+  if (++cnt % nstcrrep == 0)
+    hscr_save(hs, fncr, Zn);
 }
 
 
@@ -438,6 +470,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 #endif
   av0_t fbsm, nrsm, cacc, racc;
   unqid_t gmapid;
+  hscr_t *hscr = NULL;
 
   die_if (DG_N_ > DGMAP_NMAX, "no diagram map for n %d\n", DG_N_);
 
@@ -470,11 +503,13 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   nr = dgmap_nr0(DG_N_, gmapid);
 #endif /* !defined(DG_NORING) */
 
+  hscr = hscr_open(crxmax, crdx, D, DG_N_);
+
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
     if (ratcr > 0 && (ratcr >= 1 || rnd0() < ratcr)) {
       /* particle replacement */
-      /* it usually makes the simulation slower the result less precise
+      /* it usually makes the simulation slower with a less-precise result
        * we keep it only for a psychological backup */
       dg_decode(g, &code);
       /* regenerate a configuration */
@@ -550,7 +585,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
         }
 #endif /* !defined(DG_NORING) */
       }
-#endif /* defined(CHECK */
+#endif /* defined(CHECK) */
     }
 
     av0_add(&fbsm, fb);
@@ -560,6 +595,10 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
     if (it % nstcom == 0) rvn_rmcom(x, DG_N_);
 
+    if (it % nstcr == 0) {
+      savecr(hscr, x, DG_N_, fb);
+    }
+
     if (it % nstrep == 0 || t > nsteps - .5) {
       it = 0;
       report(&fbsm, &nrsm, &cacc, &racc, t, gmapid, NULL);
@@ -567,6 +606,8 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   }
   dg_close(g);
   dg_close(ng);
+  hscr_save(hscr, fncr, Zn);
+  hscr_close(hscr);
 }
 #endif /* defined(DGMAP_EXISTS) */
 
@@ -612,6 +653,7 @@ static void mcrat_direct(int n, double nequil, double nsteps,
   double t, fb, nr = 0;
   dg_t *g, *ng;
   av0_t fbsm, nrsm, cacc, racc;
+  hscr_t *hscr;
 
   /* both the large map and hash table are shared among threads */
 #ifdef DGMAPL_EXISTS
@@ -654,6 +696,7 @@ static void mcrat_direct(int n, double nequil, double nsteps,
 
   av0_clear(&nrsm);
   av0_clear(&fbsm);
+
   av0_clear(&cacc);
   av0_clear(&racc);
   if (!bsim0) /* try to load previous data */
@@ -673,6 +716,8 @@ static void mcrat_direct(int n, double nequil, double nsteps,
       "%d, initial diagram not biconnected D %d\n", inode, D);
   fb = dg_fbnr(g, &nr);
   hasfb = 1;
+
+  hscr = hscr_open(crxmax, crdx, D, DG_N_);
 
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
@@ -787,6 +832,10 @@ static void mcrat_direct(int n, double nequil, double nsteps,
       writepos(fnpos, x, DG_N_, posfr++);
     }
 
+    if (it % nstcr == 0) {
+      savecr(hscr, x, DG_N_, fb);
+    }
+
     if (it % nstrep == 0 || t > nsteps - .5) {
       it = 0;
       report(&fbsm, &nrsm, &cacc, &racc, t, -1, &neval);
@@ -810,6 +859,8 @@ static void mcrat_direct(int n, double nequil, double nsteps,
   }
   dg_close(g);
   dg_close(ng);
+  hscr_save(hscr, fncr, Zn);
+  hscr_close(hscr);
 
 #pragma omp barrier
 #ifdef DGMAPL_EXISTS
