@@ -164,7 +164,6 @@ __inline slowdht *slowdht_newx(size_t size, xdouble nu, xdouble xmax,
   }
   dht->kmax = dht->j[dht->size+1] / xmax;
 
-  printf("XXX\n");
   if ((dht->J2 = calloc(dht->size + 1, sizeof(xdouble))) == NULL) {
     fprintf(stderr, "no memory for dht->J2 %d\n", (int) dht->size);
     exit(1);

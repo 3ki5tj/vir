@@ -31,17 +31,21 @@ typedef void *FFTWPFX(plan);
 
 int nmax = 10;
 xdouble rmax = 0;
-int numpt = 1024;
+int numpt = 4096;
 xdouble T = 1;
 xdouble beta = 1;
 int ffttype = 1;
-int doHNC = 0;
+int dohnc = 0;
 int ring = 0;
 int singer = 0;
 int mkcorr = 0;
 int verbose = 0;
 char *fnvir = NULL;
 char *fncrtr = NULL;
+
+xdouble hncamp = 1, hncq = 1, hncalpha = -1;
+xdouble shift = 0;
+
 
 
 static void doargs(int argc, char **argv)
@@ -53,7 +57,11 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &rmax, "maximal r");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type");
-  argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
+  argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted chain approximation");
+  argopt_add(ao, "-a", "%" XDBLSCNF "f", &hncamp, "a0 of the hypernetted chain approximation");
+  argopt_add(ao, "-q", "%" XDBLSCNF "f", &hncq,  "q  of the hypernetted chain approximation");
+  argopt_add(ao, "-A", "%" XDBLSCNF "f", &hncalpha, "Roger-Young switch function 1 - exp(-alpha*r)");
+  argopt_add(ao, "-c", "%" XDBLSCNF "f", &shift, "shift of t(r) in computing Bv");
   argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--corr", "%b", &mkcorr, "correct the closure");
@@ -66,8 +74,12 @@ static void doargs(int argc, char **argv)
   if ( rmax <= 0 ) rmax = (nmax + 2)*2.0;
   beta = 1/T;
   if ( mkcorr ) singer = ring = 0;
+  else if ( fabs(hncamp - 1) > 1e-6 || fabs(hncq - 1) > 1e-6 || hncalpha >= 0 )
+    dohnc = 1; /* turn on HNC, if necessary */
+  if ( fabs(hncq - 1) > 1e-6 && hncq > 0 && hncamp <= 0 )
+    hncamp = 1/hncq; /* set amp automatically = 1/q */
   if ( singer ) ring = 1;
-  printf("rmax = %f, T %lf, HNC %d\n", (double) rmax, (double) T, doHNC);
+  printf("rmax = %f, T %lf, HNC %d\n", (double) rmax, (double) T, dohnc);
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }
@@ -118,7 +130,7 @@ static xdouble pot(xdouble r, xdouble *ndphir)
 
 /* save the header for the virial file */
 __inline static char *LJsavevirhead(const char *fn,
-    int dim, int l0, int nmax, xdouble T, int doHNC, int mkcorr, int npt,
+    int dim, int l0, int nmax, xdouble T, int dohnc, int mkcorr, int npt,
     xdouble rmax, clock_t inittime)
 {
   FILE *fp;
@@ -126,13 +138,13 @@ __inline static char *LJsavevirhead(const char *fn,
 
   if ( fn == NULL ) {
     sprintf(fndef, "LJBn%s%sD%dn%dT%gR%.0fM%d%s.dat",
-        doHNC ? "HNC" : "PY", mkcorr ? "c" : "",
+        dohnc ? "HNC" : "PY", mkcorr ? "c" : "",
         dim, nmax, (double) T, (double) rmax, npt, STRPREC);
     fn = fndef;
   }
   xfopen(fp, fn, (l0 == 1) ? "w" : "a", return NULL);
   fprintf(fp, "# %s %s %d %.14f %d | n Bc Bv Bm [Bh Br | corr] | %.3fs\n",
-      doHNC ? "HNC" : "PY", mkcorr ? "corr" : "",
+      dohnc ? "HNC" : "PY", mkcorr ? "corr" : "",
       nmax, (double) rmax, npt, (double) inittime / CLOCKS_PER_SEC);
   fclose(fp);
   return (char *) fn;
@@ -142,19 +154,21 @@ __inline static char *LJsavevirhead(const char *fn,
 
 
 /* compute the virial coefficients from the Percus-Yevick closure */
-static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
+static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
 {
   xdouble dr, dk, facr2k, fack2r, surfr, surfk;
   xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, B2, B2tail = 0, fcorr;
-  xdouble *fr, *dfr, *crl, *trl, **ck, **tk, **cr = NULL, **tr = NULL;
+  xdouble *fr, *rdfr, *swr = NULL, *fr1 = NULL, *rdfr1 = NULL, *phi2 = NULL;
+  xdouble *crl, *trl, **ck, **tk, **cr = NULL, **tr = NULL;
   xdouble **yr = NULL, *arr, *vc = NULL;
-  xdouble *ri, *ki, *ri2, *ki2;
+  xdouble *ri, *ki, *ri2, *ki2, rm;
   int i, dm, l;
   FFTWPFX(plan) plan = NULL;
   clock_t t0 = clock(), t1;
 
   rmax = adjustrmax(rmax, npt, &dr, &dm, ffttype);
   dk = PI/dr/npt;
+  rm = POW(2, (xdouble) 1 / 6);
 
   MAKE1DARR(arr, npt);
   MAKE1DARR(ri, npt);
@@ -179,16 +193,37 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   fack2r = pow_si(PI*2, -2) * dk;
 
   MAKE1DARR(fr, npt);
-  MAKE1DARR(dfr, npt);
+  MAKE1DARR(rdfr, npt);
+  MAKE1DARR(fr1, npt);
+  MAKE1DARR(phi2, npt);
+  MAKE1DARR(rdfr1, npt);
+  MAKE1DARR(swr, npt);
   MAKE1DARR(crl, npt);
   MAKE1DARR(trl, npt);
   MAKE2DARR(ck, nmax - 1, npt)
   MAKE2DARR(tk, nmax - 1, npt)
 
   for ( i = 0; i < npt; i++ ) { /* compute f(r) = exp(-beta u(r)) - 1 */
-    xdouble bphi = beta * pot(ri[i], &dfr[i]);
-    crl[i] = fr[i] = EXP(-bphi) - 1;
-    dfr[i] *= beta * (1 + fr[i]);
+    xdouble nrdphi, phi1, xp1;
+    xdouble phi = pot(ri[i], &nrdphi);
+    if ( ri[i] < rm ) {
+      phi1 = phi + 1;
+      phi2[i] = -1;
+    } else {
+      phi1 = 0;
+      phi2[i] = phi;
+      crl[i] = -beta * phi2[i];
+    }
+    xp1 = EXP(-beta * phi1);
+    fr1[i] = xp1 - 1;
+    rdfr1[i] = beta * nrdphi * xp1;
+    fr[i] = EXP(-beta * phi) - 1;
+    rdfr[i] = beta * nrdphi * (1 + fr[i]);
+    if ( dohnc ) {
+      crl[i] = xp1 * exp(-beta * phi2[i]) - 1;
+    } else {
+      crl[i] = fr1[i] - (fr1[i] + 1) * beta * phi2[i];
+    }
   }
 
   surfr = PI*4;
@@ -202,18 +237,25 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   B2 += B2tail;
 
   printf("beta %g, dr %f, dm %d, rmax %f, ffttype %d, HNC %d, B2 %g %g\n",
-      (double) beta, (double) dr, dm, (double) rmax, ffttype, doHNC,
+      (double) beta, (double) dr, dm, (double) rmax, ffttype, dohnc,
       (double) B2, (double) B2tail);
 
   if ( singer ) {
     MAKE2DARR(cr, nmax - 1, npt);
-    COPY1DARR(cr[0], fr, npt);
+    COPY1DARR(cr[0], fr, npt); /* TODO: fix this */
     MAKE2DARR(tr, nmax - 1, npt);
   }
 
-  if ( doHNC || mkcorr ) {
+  if ( dohnc || mkcorr ) {
     MAKE2DARR(yr, nmax - 1, npt);
-    for ( i = 0; i < npt; i++ ) yr[0][i] = 1;
+    for ( i = 0; i < npt; i++ ) {
+      swr[i] = 1;
+      if ( hncalpha >= 0 )
+        swr[i] = 1 - exp( -hncalpha * ri[i] );
+    }
+    for ( i = 0; i < npt; i++ ) {
+      yr[0][i] = hncamp / swr[i] * EXP( -beta * phi2[i] );
+    }
     if ( mkcorr ) {
       MAKE1DARR(vc, npt);
     }
@@ -221,7 +263,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 
   t1 = clock();
   fnvir = LJsavevirhead(fnvir, 3, 1, nmax, T,
-      doHNC, mkcorr, npt, rmax, t1 - t0);
+      dohnc, mkcorr, npt, rmax, t1 - t0);
 
   for ( l = 1; l < nmax - 1; l++ ) {
     /* c(r) --> c(k) for the previous l */
@@ -230,7 +272,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     if ( ring ) {
       /* compute the ring sum based on ck */
       Bh = get_ksum(l, npt, ck, ki2, &Br);
-      Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
+      Br = (dohnc ? -Br * (l+1) : -Br * 2) / l;
     }
 
     /* compute t_l(k) */
@@ -243,25 +285,25 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
       COPY1DARR(tr[l], trl, npt);
     }
 
-    if ( yr != NULL ) { /* comput the cavity function y(r) */
-      get_yr_hnc(l, nmax, npt, yr, trl);
+    if ( yr != NULL ) { /* compute the cavity function y(r) */
+      get_yr_hncx(l, nmax, npt, yr, trl, hncq, swr);
     }
 
     if ( mkcorr ) { /* construct the correction function */
       for ( i = 0; i < npt; i++ )
-        vc[i] = yr[l][i] - trl[i];
+        vc[i] = yr[l][i] - trl[i]; // + beta * phi2[i];
     }
 
-    if ( doHNC ) {
-      /* hypernetted approximation: c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
-      for ( i = 0; i < npt; i++)
-        crl[i] = (fr[i] + 1) * yr[l][i] - trl[i];
-      Bv = integr2(npt, dfr, yr[l], ri2) / 6;
-    } else {
-      /* Percus-Yevick approximation: c(r) = f(r) (1 + t(r)) */
+    if ( dohnc ) {
+      /* hypernetted-chain approximation: c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
       for ( i = 0; i < npt; i++ )
-        crl[i] = fr[i] * trl[i];
-      Bv = integr2(npt, dfr, trl, ri2) / 6;
+        crl[i] = (fr1[i] + 1) * yr[l][i] - trl[i];
+      Bv = integr2(npt, rdfr1, yr[l], ri2) / 6;
+    } else {
+      /* MSA approximation */
+      for ( i = 0; i < npt; i++ )
+        crl[i] = fr1[i] * trl[i];
+      Bv = integr2(npt, rdfr1, trl, ri2) / 6;
     }
 
     /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) 4 pi r^2 dr */
@@ -269,7 +311,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 
     if ( cr != NULL ) {
       COPY1DARR(cr[l], crl, npt); /* cr[l] = crl */
-      if ( doHNC ) {
+      if ( dohnc ) {
         Bm = get_Bm_singer(l, npt, cr, tr, ri2);
         Bh = get_Bh_singer(l, npt, cr, tr, ri2) - Bh*(l+1)/2;
       } else {
@@ -281,9 +323,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
     }
 
     if ( mkcorr ) {
-      /* in the PY case, y(r) = 1 + t(r) */
-      Bm = get_corr1(l, npt, doHNC ? yr[l] : trl,
-          crl, fr, dfr, ri2, 3, vc, &Bc, &Bv, &fcorr);
+      if (l > 1) Bv *= 1 + shift;
+      Bm = get_corr1(l, npt, crl, fr1, rdfr1, ri2, 3,
+          vc, &Bc, &Bv, &fcorr);
     }
 
     savevir(fnvir, 3, l+2, Bc, Bv, Bm, Bh, Br, B2, mkcorr, fcorr);
@@ -300,7 +342,11 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
   FREE1DARR(ri2, npt);
   FREE1DARR(ki2, npt);
   FREE1DARR(fr, npt);
-  FREE1DARR(dfr, npt);
+  FREE1DARR(rdfr, npt);
+  FREE1DARR(fr1, npt);
+  FREE1DARR(phi2, npt);
+  FREE1DARR(rdfr1, npt);
+  FREE1DARR(swr, npt);
   FREE1DARR(crl, npt);
   FREE1DARR(trl, npt);
   FREE2DARR(ck, nmax - 1, npt);
@@ -317,7 +363,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int doHNC)
 int main(int argc, char **argv)
 {
   doargs(argc, argv);
-  intgeq(nmax, numpt, rmax, ffttype, doHNC);
+  intgeq(nmax, numpt, rmax, ffttype, dohnc);
 #ifndef NOFFTW
   FFTWPFX(cleanup)();
 #endif

@@ -274,7 +274,7 @@ static void doargs(int argc, char **argv)
     sscat(dbfnbak, ".bak");
   }
 
-  if (crxmax == 0) crxmax = n + 4;
+  if (fabs(crxmax) < 1e-6) crxmax = n + 4;
   sprintf(fncr, "crD%dn%d.dat", D, n);
 
   if (inode == MASTER) {
@@ -432,7 +432,6 @@ static void savecr(hscr_t *hs, rvn_t *x, int n, double fb)
   int i, j;
   static int cnt;
   real r;
-  char fn[80];
 
   for (i = 0; i < n; i++) {
     for (j = i+1; j < n; j++) {

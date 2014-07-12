@@ -20,7 +20,7 @@ int dim = 2;
 int nmax = 10;
 double rmax = 0;
 int numpt = 1024;
-int doHNC = 0;
+int dohnc = 0;
 int singer = 1; /* always turn on singer */
 int ring = 1; /* always turn on ring */
 int mkcorr = 0;
@@ -38,7 +38,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-n", "%d", &nmax, "maximal order");
   argopt_add(ao, "-R", "%lf", &rmax, "rmax");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
-  argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
+  argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted chain approximation");
   argopt_add(ao, "--corr", "%b", &mkcorr, "try to correct HNC");
   argopt_add(ao, "-o", NULL, &fnvir, "output virial coefficient");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
@@ -95,7 +95,7 @@ __inline static xdouble get_invcorr1_hs(int l, int npt, int dm,
 
 
 
-static int rerun(int nmax, int npt, xdouble rmax, int doHNC)
+static int rerun(int nmax, int npt, xdouble rmax, int dohnc)
 {
   xdouble facr2k, fack2r, surfr, surfk;
   xdouble Bc = 0, Bv = 0, Bm = 0, Bh = 0, Br = 0, B2, tmp1, tmp2, fcorr = 0;
@@ -161,17 +161,17 @@ static int rerun(int nmax, int npt, xdouble rmax, int doHNC)
     cr[0][i] = fr[i] = (i < dm) ? -1. : 0;
   for ( i = 0; i < npt; i++ ) yr[0][i] = 1;
 
-  l0 = snapshot_open(dim, nmax, rmax, doHNC, mkcorr, ring, singer,
+  l0 = snapshot_open(dim, nmax, rmax, dohnc, mkcorr, ring, singer,
       npt, ck, tk, cr, tr, NULL, NULL, NULL);
   t1 = clock();
   fnvir = savevirhead(fnvir, "_h", dim, 1, nmax,
-      doHNC, mkcorr, npt, rmax, t1 - t0);
+      dohnc, mkcorr, npt, rmax, t1 - t0);
 
   for ( l = 1; l < l0; l++ ) {
     /* compute the ring sum based on ck */
     if ( !mkcorr ) {
       Bh = get_ksum(l, npt, ck, kDm1, &Br);
-      Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
+      Br = (dohnc ? -Br * (l+1) : -Br * 2) / l;
     } else {
       Bh = Br = 0;
     }
@@ -185,18 +185,18 @@ static int rerun(int nmax, int npt, xdouble rmax, int doHNC)
         vc[i] = yr[l][i] - tr[l][i];
 
       /* Bv is unaffected */
-      if ( doHNC ) {
+      if ( dohnc ) {
         Bv = contactv(yr[l], dm, B2);
       } else {
         Bv = contactv(tr[l], dm, B2);
       }
 
       /* in the PY case, y(r) = 1 + t(r) */
-      Bm = get_invcorr1_hs(l, npt, dm, doHNC ? yr[l] : tr[l],
+      Bm = get_invcorr1_hs(l, npt, dm, dohnc ? yr[l] : tr[l],
           cr[l], fr, rDm1, B2, vc, &Bc, &Bv, &fcorr);
     } else {
       /* without correction */
-      if ( doHNC ) {
+      if ( dohnc ) {
         Bv = contactv(yr[l], dm, B2);
       } else {
         Bv = contactv(tr[l], dm, B2);
@@ -204,7 +204,7 @@ static int rerun(int nmax, int npt, xdouble rmax, int doHNC)
 
       Bc = -integr(npt, cr[l], rDm1) / (l + 2);
 
-      if ( doHNC ) {
+      if ( dohnc ) {
         Bm = get_Bm_singer(l, npt, cr, tr, rDm1);
         Bh = get_Bh_singer(l, npt, cr, tr, rDm1) - Bh*(l+1)/2;
       } else {
@@ -264,6 +264,6 @@ static xdouble jadjustrmax(double rmax0, int npt)
 int main(int argc, char **argv)
 {
   doargs(argc, argv);
-  rerun(nmax, numpt, jadjustrmax(rmax, numpt), doHNC);
+  rerun(nmax, numpt, jadjustrmax(rmax, numpt), dohnc);
   return 0;
 }

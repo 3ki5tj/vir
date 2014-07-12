@@ -375,7 +375,7 @@ __inline static void get_ksum(mpfr_t s, int l, int npt,
 
 /* save the header for the virial file */
 __inline static char *savevirhead(const char *fn, const char *title,
-    int dim, int nmax, int doHNC, int mkcorr, int npt, double rmax,
+    int dim, int nmax, int dohnc, int mkcorr, int npt, double rmax,
     clock_t inittime)
 {
   FILE *fp;
@@ -384,13 +384,13 @@ __inline static char *savevirhead(const char *fn, const char *title,
 
   if ( fn == NULL ) {
     sprintf(fndef, "%sBn%s%sD%dn%dR%.0fM%dp%d.dat",
-        title ? title : "", doHNC ? "HNC" : "PY", mkcorr ? "c" : "",
+        title ? title : "", dohnc ? "HNC" : "PY", mkcorr ? "c" : "",
         dim, nmax, rmax, npt, prec);
     fn = fndef;
   }
   xfopen(fp, fn, "w", return NULL);
   fprintf(fp, "# %s %s %d %.14f %d %d | n Bc Bv Bm [Bh Br | corr] | %.3fs\n",
-      doHNC ? "HNC" : "PY", mkcorr ? "corr" : "",
+      dohnc ? "HNC" : "PY", mkcorr ? "corr" : "",
       nmax, rmax, npt, prec, (double) inittime / CLOCKS_PER_SEC);
   fclose(fp);
   return (char *) fn;

@@ -310,6 +310,7 @@ INLINE double getZrat(int d, int n, const char *fn)
 
 
 /* load the compiled partition functions from the file "Z.dat"
+ * the value is Zn/Vol^(n-1)
  * return 0 if failed */
 INLINE double loadZ(int d, int n, const char *fn)
 {
@@ -766,10 +767,9 @@ typedef struct {
   double sphr;
   double vol;
   double *arr;
-  double *wt;
   int dim;
   int order;
-  int n;
+  int npt; /* number of points along r */
   int nsamp;
 } hscr_t;
 
@@ -786,14 +786,13 @@ INLINE hscr_t *hscr_open(real xmax, real dx, int dim, int order)
   hs->dx = dx;
   hs->dim = dim;
   hs->order = order;
-  hs->n = (int)(xmax/dx + 0.99999999);
+  hs->npt = (int)(xmax/dx + 0.99999999);
   hs->nsamp = 0;
   hs->sphr = (dim % 2 + 1) * dim;
   for (i = 2 + dim % 2; i <= dim; i += 2 )
     hs->sphr *= M_PI*2/i;
   hs->vol = hs->sphr / dim;
-  xnew(hs->arr, hs->n);
-  xnew(hs->wt, hs->n);
+  xnew(hs->arr, hs->npt);
   return hs;
 }
 
@@ -802,10 +801,7 @@ INLINE hscr_t *hscr_open(real xmax, real dx, int dim, int order)
 INLINE int hscr_add(hscr_t *hs, double x, double fb)
 {
   int ix = (int)((x - hs->xmin)/hs->dx);
-  if (ix < hs->n) {
-    hs->arr[ix] += fb;
-    hs->wt[ix] += 1;
-  }
+  if (ix < hs->npt) hs->arr[ix] += fb;
   hs->nsamp += 1;
   return 0;
 }
@@ -815,21 +811,22 @@ INLINE int hscr_add(hscr_t *hs, double x, double fb)
 INLINE int hscr_save(hscr_t *hs, const char *fn, double norm)
 {
   FILE *fp;
-  int i;
-  double y, fb, r;
+  int i, imax;
+  double y, r;
 
   xfopen(fp, fn, "w", return -1);
   norm *= pow(hs->vol, hs->order - 1);
-  for ( i = 0; i < hs->n; i++ ) {
-    fb = hs->wt[i] > 0 ? hs->arr[i]/hs->wt[i] : 0;
+  /* divide it by (n - 2)! for permutations of the black dots */
+  for ( i = 2; i <= hs->order - 2; i++ ) norm /= i;
+  for ( imax = hs->npt - 1; imax > 0; imax-- )
+    if ( fabs(hs->arr[imax]) > 0 ) break;
+  fprintf(fp, "# %d %d %d\n", hs->dim, hs->order, imax + 1);
+  for ( i = 0; i <= imax; i++ ) {
     r = (i+.5)*hs->dx;
     y = hs->arr[i]/(hs->nsamp*hs->sphr*pow(r, hs->dim - 1)*hs->dx);
     if (norm > 0) y *= norm;
-    fprintf(fp, "%12.7f %22.14e %22.14e %22.14e\n",
-        r, y, fb, hs->wt[i]/hs->nsamp);
-    //tot += y * hs->sphr*pow(r, hs->dim - 1)*hs->dx;
+    fprintf(fp, "%12.7f %22.14e\n", r, y);
   }
-  //printf("tot %g\n", tot);
   fclose(fp);
   return 0;
 }
@@ -840,7 +837,6 @@ INLINE void hscr_close(hscr_t *hs)
 {
   if (!hs) return;
   if (hs->arr) free(hs->arr);
-  if (hs->wt) free(hs->wt);
   memset(hs, 0, sizeof(*hs));
 }
 

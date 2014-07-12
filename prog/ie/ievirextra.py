@@ -213,11 +213,11 @@ def estimatevir3(ls):
 
 def estimatevir(ls):
   virlimit, err = estimatevir3(ls)
-  
+
   if len(ls) > 3 and ls[-2][1] > ls[-1][1] * .52: # drop the second largest item
     ls1 = ls[:-2] + ls[-1:]
     virlimit1, err1 = estimatevir3(ls1)
-    if err1 < err:
+    if err1 < 0.9*err:
       if verbose:
         print "remove 2nd %s, %s(%s) --> %s(%s), %s, %s, %s" % (
           ls[-2][-1], virlimit, err, virlimit1, err1,
@@ -227,15 +227,15 @@ def estimatevir(ls):
   if len(ls) > 3 and ls[-3][1] > ls[-2][1] * .52:
     ls1 = ls[:-3] + ls[-2:]
     virlimit1, err1 = estimatevir3(ls1)
-    if err1 < err:
+    if err1 < 0.9*err:
       if verbose:
         print "remove 3rd %s, %s(%s) --> %s(%s), %s, %s, %s" % (
           ls[-3][-1], virlimit, err, virlimit1, err1,
           ls1[-1][-1], ls1[-2][-1], ls1[-3][-1])
       virlimit, err, ls = virlimit1, err1, ls1
-  
+
   return virlimit, err, ls
-    
+
 
 
 
@@ -259,7 +259,7 @@ def extrapolate(dim, order, tag = "PYc", col = 3):
     for prec in precs:
       ls1 = sortdatalist([x for x in lsall if x[-2] == prec])
       virlimit1, err1, ls1 = estimatevir(ls1)
-      if err1 != 0 and err1 < err:
+      if err1 != 0 and err1 < 0.9*err:
         print "replace set [%s] by set [%s], %s(%s) -> %s(%s)" % (
             lsprec, prec, virlimit, err, virlimit1, err1)
         virlimit, err, ls, lsprec = virlimit1, err1, ls1, prec

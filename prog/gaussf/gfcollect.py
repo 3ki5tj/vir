@@ -58,7 +58,7 @@ def getprec(s):
 def doit(dim):
   # 1. adjust the input list
   fns = glob.glob("gaussfn*mpf.dat")
- 
+
   # 2. collect the available orders
   ls = []
   ns = []
@@ -73,7 +73,7 @@ def doit(dim):
     ns += [n,]
     ls += [(n, getprec(m.group(2)), fn),]
   ns = sorted(list(set(ns)))
-  
+
   # 3. handle orders
   output = "# %s\n" % (ns[-1])
   for n in ns:
@@ -88,12 +88,12 @@ def doit(dim):
         #print dim, n, float(svir)
         #raw_input()
         break
-  
+
   # 4. save the output file
   fn = "gaussfD%dmpf.dat" % dim
   print "D %4s: writing %s" % (dim, fn)
   open(fn, "w").write(output)
- 
+
 
 
 if __name__ == "__main__":

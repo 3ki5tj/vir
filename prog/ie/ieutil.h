@@ -113,6 +113,28 @@ __inline static xdouble contactv(xdouble *f, int dm, xdouble B2)
 
 
 
+__inline static xdouble get_Bv_hnc_hs(xdouble *yrl, xdouble *trl,
+    xdouble a0, xdouble q, int dm, xdouble B2)
+{
+  xdouble y = contactv(yrl, dm, B2);
+  if (yrl != trl) /* to avoid PY case */
+    y += (1 - a0*q) * contactv(trl, dm, B2);
+  return y;
+}
+
+
+
+__inline static xdouble get_Bv_hnc(int npt, xdouble *yrl, xdouble *trl,
+    xdouble a0, xdouble q, xdouble *rdfr, xdouble *rDm1, int dim)
+{
+  xdouble y = integr2(npt, yrl, rdfr, rDm1);
+  if (yrl != trl)
+    y += (1 - a0*q) * integr2(npt, trl, rdfr, rDm1);
+  return y / (dim * 2);
+}
+
+
+
 /* compute t(k) from c(k) from the Ornstein-Zernike relation */
 __inline static void get_tk_oz(int l, int npt, xdouble **ck, xdouble **tk)
 {
@@ -126,29 +148,34 @@ __inline static void get_tk_oz(int l, int npt, xdouble **ck, xdouble **tk)
 
 
 
+#define get_yr_hnc(l, nmax, npt, yr, trl) \
+  get_yr_hncx(l, nmax, npt, yr, trl, 1, NULL)
+
 /* update the cavity function y(r)
- * for the hypernetted chain (HNC) approximation */
-__inline static void get_yr_hnc(int l, int nmax, int npt,
-    xdouble **yr, xdouble *trl)
+ * for the generalized hypernetted chain (HNC) approximation */
+__inline static void get_yr_hncx(int l, int nmax, int npt,
+    xdouble **yr, xdouble *trl, xdouble q, xdouble *swr)
 {
   int i, j, k, jl;
   xdouble *yro, powtr;
 
   xnew(yro, nmax - 1);
-  /* y(r) = exp(t(r))
-   * c(r) = (1 + f(r)) y(r) - t(r) - 1 */
-  /* yr = yr0 * exp(rho^l t_l)
+  /* y(r) = a0 exp[q sw(r) t(r) ] / sw(r)
+   * where sw(r) = 1 - exp(-alpha r)
+   * c(r) = (1 + f(r)) (y(r) + (1-a0/sw(r)) + (1-a0*q)*t(r)) - t(r) - 1 */
+  /* yr = yr0 * exp(q sw rho^l t_l)
    *    = (yr0_0 + yr0_1 rho + yr0_2 rho^2 + ... )
-   *    * (1 + t_l rho^l + t_{2l} rho^(2l)/2! + ... )
+   *    * (1 + q sw t_l rho^l + q^2 sw^2 t_{2l} rho^(2l)/2! + ... )
    * y[l...n](r) are updated */
   for ( i = 0; i < npt; i++) {
     for (j = 0; j < nmax - 1; j++) yro[j] = yr[j][i];
     powtr = 1;
     for ( j = 1; j * l < nmax - 1; j++ ) {
-      /* powtr = tl(r)^j/j! */
-      powtr *= trl[i]/j;
+      /* powtr = q^j tl(r)^j/j! */
+      powtr *= q * trl[i] / j;
+      if ( swr != NULL ) powtr *= swr[i];
       for ( jl = j * l, k = 0; k + jl < nmax - 1; k++ )
-        /* yr_{k + jl} += yr0_k * tl^j/j! */
+        /* yr_{k + jl} += yr0_k * q^j tl^j/j! */
         yr[jl+k][i] += yro[k] * powtr;
     }
   }
@@ -177,30 +204,24 @@ __inline static void get_yr_py2(int l, int npt, xdouble *yrl, xdouble **tr)
 /* correct the hypernetted chain approximation
  * `vc' is the trial correction function to y(r)
  * The corresponding correction to c(r) is (f(r) + 1) vc(r)
- * which is only effective for r > 1 */
+ * which is only effective for r > 1
+ * i.e., vc(r < 1) is unused */
 __inline static xdouble get_corr1_hs(int l, int npt, int dm,
-    xdouble *yr, xdouble *cr, xdouble *fr, xdouble *rDm1,
+    xdouble *cr, xdouble *fr, xdouble *rDm1,
     xdouble B2, xdouble *vc, xdouble *Bc0, xdouble *Bv0, xdouble *eps)
 {
   int i;
   xdouble dBc, dBv;
 
-  *Bc0 = -integr(npt, cr, rDm1) / (l + 2);
+  //*Bc0 = -integr(npt, cr, rDm1) / (l + 2);
   dBc = -integre(npt, vc, fr, rDm1) / (l + 2);
-  *Bv0 = contactv(yr, dm, B2);
+  //*Bv0 = contactv(yr, dm, B2);
   dBv = contactv(vc, dm, B2);
   if ( l <= 1 ) {
     *eps = 0;
     return *Bv0;
   }
   *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
-  if ( dBv * dBc > 0 )
-    fprintf(stderr, "Danger: n %d, "
-        "Bc %+" XDBLPRNF "g/%+" XDBLPRNF "g, Bv %+" XDBLPRNF "g/%+" XDBLPRNF "g\n",
-        l + 2, *Bc0, dBc, *Bv0, dBv);
-  //if ( *eps < 0 ) *eps = 0;
-  //else if ( *eps > 1 ) *eps = 1;
-  //printf("l %d, eps %g, Bv0 %g, Bc0 %g, dBv %g, dBc %g, B2 %g\n", l, (double) *eps, (double) *Bv0, (double) *Bc0, (double) dBv, (double) dBc, (double) B2);
   for ( i = 0; i < npt; i++ ) {
     vc[i] *= *eps;
     cr[i] += (fr[i] + 1) * vc[i];
@@ -211,26 +232,26 @@ __inline static xdouble get_corr1_hs(int l, int npt, int dm,
 
 
 /* switch between the continuous and discontinuous case */
-#define get_corr1x(l, npt, dm, yr, cr, fr, rdfr, rDm1, dim, B2, vc, Bc0, Bv0, fcorr) \
+#define get_corr1x(l, npt, dm, cr, fr, rdfr, rDm1, dim, B2, vc, Bc0, Bv0, fcorr) \
   (rdfr == NULL \
-    ? get_corr1_hs(l, npt, dm, yr, cr, fr, rDm1, B2, vc, Bc0, Bv0, fcorr) \
-    : get_corr1(l, npt, yr, cr, fr, rdfr, rDm1, dim, vc, Bc0, Bv0, fcorr))
+    ? get_corr1_hs(l, npt, dm, cr, fr, rDm1, B2, vc, Bc0, Bv0, fcorr) \
+    : get_corr1(l, npt, cr, fr, rdfr, rDm1, dim, vc, Bc0, Bv0, fcorr))
 
 
 
 /* correct the hypernetted chain approximation
  *  `vc' is the trial correction function to y(r) */
 __inline static xdouble get_corr1(int l, int npt,
-    xdouble *yr, xdouble *cr, xdouble *fr, xdouble *rdfr,
+    xdouble *cr, xdouble *fr, xdouble *rdfr,
     xdouble *rDm1, int dim, xdouble *vc,
     xdouble *Bc0, xdouble *Bv0, xdouble *eps)
 {
   int i;
   xdouble dBc, dBv;
 
-  *Bc0 = -integr(npt, cr, rDm1) / (l + 2);
+  //*Bc0 = -integr(npt, cr, rDm1) / (l + 2);
   dBc = -integre(npt, vc, fr, rDm1) / (l + 2);
-  *Bv0 = integr2(npt, yr, rdfr, rDm1) / (dim * 2);
+  //*Bv0 = integr2(npt, yr, rdfr, rDm1) / (dim * 2);
   dBv = integr2(npt, vc, rdfr, rDm1) / (dim * 2);
   if ( l <= 1 ) {
     *eps = 0;
@@ -238,9 +259,6 @@ __inline static xdouble get_corr1(int l, int npt,
   }
 
   *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
-  //if ( *eps < 0 ) *eps = 0;
-  //else if ( *eps > 1 ) *eps = 1;
-  //printf("l %d, eps %g, Bv0 %g, Bc0 %g, dBv %g, dBc %g\n", l, (double) *eps, (double) *Bv0, (double) *Bc0, (double) dBv, (double) dBc);
   for ( i = 0; i < npt; i++ ) {
     vc[i] *= *eps;
     cr[i] += vc[i] * (1 + fr[i]);
@@ -365,7 +383,7 @@ __inline static xdouble get_ht(int l, int npt,
 
 /* save the header for the virial file */
 __inline static char *savevirhead(const char *fn, const char *title,
-    int dim, int l0, int nmax, int doHNC, int mkcorr, int npt,
+    int dim, int l0, int nmax, int dohnc, int mkcorr, int npt,
     xdouble rmax, clock_t inittime)
 {
   FILE *fp;
@@ -373,13 +391,13 @@ __inline static char *savevirhead(const char *fn, const char *title,
 
   if ( fn == NULL ) {
     sprintf(fndef, "%sBn%s%sD%dn%dR%.0fM%d%s.dat",
-        title ? title : "", doHNC ? "HNC" : "PY", mkcorr ? "c" : "",
+        title ? title : "", dohnc ? "HNC" : "PY", mkcorr ? "c" : "",
         dim, nmax, (double) rmax, npt, STRPREC);
     fn = fndef;
   }
   xfopen(fp, fn, (l0 == 1) ? "w" : "a", return NULL);
   fprintf(fp, "# %s %s %d %.14f %d %s | n Bc Bv Bm [Bh Br | corr] | %.3fs\n",
-      doHNC ? "HNC" : "PY", mkcorr ? "corr" : "",
+      dohnc ? "HNC" : "PY", mkcorr ? "corr" : "",
       nmax, (double) rmax, npt, STRPREC, (double) inittime / CLOCKS_PER_SEC);
   fclose(fp);
   return (char *) fn;
@@ -603,14 +621,14 @@ __inline static int snapshot_loadf(int *l, int *l0, int nmax,
 
 
 __inline static int snapshot_open(int dim, int nmax, xdouble rmax,
-    int doHNC, int mkcorr, int ring, int singer, int npt,
+    int dohnc, int mkcorr, int ring, int singer, int npt,
     xdouble **ck, xdouble **tk, xdouble **cr, xdouble **tr,
     xdouble *crl, xdouble *trl, xdouble **yr)
 {
 
 #define SNAPSHOT_MKSTEM(fn, arr) \
   sprintf(fn, "snapshotD%d%s%s%s%sR%.3fM%d%s_%s", \
-      dim, doHNC ? "HNC" : "PY", mkcorr ? "c" : "", \
+      dim, dohnc ? "HNC" : "PY", mkcorr ? "c" : "", \
       ring ? "r" : "", singer ? "s" : "", \
       (double) rmax, npt, STRPREC, #arr)
 

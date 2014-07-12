@@ -25,7 +25,7 @@ int nmax = 12;
 char *rmax = NULL;
 int numpt = 32768;
 int ffttype = 1;
-int doHNC = 0;
+int dohnc = 0;
 int ring = 0;
 int singer = 0;
 int mkcorr = 0;
@@ -46,7 +46,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-p", "%d", &prec, "float-point precision in bits");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type");
-  argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
+  argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted chain approximation");
   argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--corr", "%b", &mkcorr, "try to correct HNC");
@@ -156,7 +156,7 @@ static void sphr(int npt, mpfr_t *in, mpfr_t *out, mpfr_t fac,
 
 
 /* compute virial coefficients from integral equations */
-static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
+static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
 {
   mpfr_t dr, dk, pi2, facr2k, fack2r, surfr, surfk, B2, B2p, tmp1, tmp2;
   mpfr_t Bc, Bv, Bm, Bh, Br, Bc0, dBc, Bv0, dBv, fcorr;
@@ -314,7 +314,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
     MAKE2DARR(tr, nmax - 1, npt);
   }
 
-  if ( doHNC || mkcorr ) {
+  if ( dohnc || mkcorr ) {
     MAKE2DARR(yr, nmax - 1, npt);
     for ( i = 0; i < npt; i++ )
       SET_SI_(yr[0][i], 1);
@@ -324,7 +324,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
   }
 
   t1 = clock();
-  fnvir = savevirhead(fnvir, NULL, dim, nmax, doHNC, mkcorr, npt, rmax, t1 - t0);
+  fnvir = savevirhead(fnvir, NULL, dim, nmax, dohnc, mkcorr, npt, rmax, t1 - t0);
 
   SET_(B2p, B2);
   for ( l = 1; l < nmax - 1; l++ ) {
@@ -334,8 +334,8 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
     if ( ring ) {
       /* compute the ring sum based on ck */
       get_ksum(Bh, l, npt, ck, kDm1, Br);
-      /* Br = (doHNC ? -Br * (l+1) : -Br * 2) / l; */
-      MUL_SI_X_(Br, (doHNC ? -(l+1) : -2));
+      /* Br = (dohnc ? -Br * (l+1) : -Br * 2) / l; */
+      MUL_SI_X_(Br, (dohnc ? -(l+1) : -2));
       DIV_SI_X_(Br, l);
     }
 
@@ -358,7 +358,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
         SUB_(vc[i], yr[l][i], trl[i]);
     }
 
-    if ( doHNC ) {
+    if ( dohnc ) {
       /* hypernetted chain approximation:
        * c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
       for ( i = 0; i < npt; i++ ) {
@@ -382,7 +382,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
 
     if ( cr != NULL ) {
       COPY1DARR(cr[l], crl, npt); /* cr[l] = crl */
-      if ( doHNC ) {
+      if ( dohnc ) {
         get_Bm_singer(Bm, l, npt, cr, tr, rDm1);
         get_Bh_singer(tmp1, l, npt, cr, tr, rDm1);
         MUL_SI_(tmp2, Bh, l+1);
@@ -400,7 +400,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int doHNC)
     }
 
     if ( mkcorr ) {
-      get_corr1_hs(Bm, l, npt, dm, doHNC ? yr[l] : trl,
+      get_corr1_hs(Bm, l, npt, dm, dohnc ? yr[l] : trl,
           crl, fr, rDm1, B2, vc, Bc, Bv, fcorr);
     }
     MUL_X_(B2p, B2);
@@ -458,7 +458,7 @@ int main(int argc, char **argv)
   doargs(argc, argv);
   mpfr_set_default_prec(prec);
 
-  intgeq(nmax, numpt, rmax, ffttype, doHNC);
+  intgeq(nmax, numpt, rmax, ffttype, dohnc);
 
   MPFFT_ARR1D_FREE();
   mpfr_free_cache();

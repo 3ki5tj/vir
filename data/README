@@ -1,6 +1,8 @@
 Files
 =======
 
+pack.sh       pack data for Bossman
+
 Bring.dat     values of the Ring integral
               computed from the Mathematica script prog/ring.ma
 
@@ -13,7 +15,7 @@ mkeos.py      equation of state script (unfinished)
 fbtime.dat    time to compute fb
 
 pyhs          analytic PY solution (prog/pyhs)
-pydata        a duplicate of pyhs, for making copies
+pydata        a duplicate of pyhs, for making copies to Bossman
 
 ie            integral equation data (prog/ie)
 

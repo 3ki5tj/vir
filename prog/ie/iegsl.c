@@ -33,7 +33,7 @@ int nmax = 12;
 double rmax = 0;
 xdouble Rmax = 0;
 int numpt = 1024;
-int doHNC = 0;
+int dohnc = 0;
 int singer = 0;
 int ring = 0;
 int mkcorr = 0;
@@ -43,7 +43,13 @@ char *fncrtr = NULL;
 int dhtdisk = SLOWDHT_USEDISK;
 int snapshot = 0;
 
+int smoothpot = 0; /* smooth potential */
 int gaussf = 0; /* Gaussian model */
+int invexp = 0; /* inverse potential */
+char systitle[32];
+
+xdouble hncamp = 1, hncq = 1, hncalpha = -1;
+xdouble shift = 0;
 
 
 
@@ -57,7 +63,11 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-r", "%lf", &rmax, "rmax (flexible)");
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &Rmax, "rmax (fixed)");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
-  argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
+  argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted chain approximation");
+  argopt_add(ao, "-a", "%" XDBLSCNF "f", &hncamp, "a0 of the hypernetted chain approximation");
+  argopt_add(ao, "-q", "%" XDBLSCNF "f", &hncq,  "q  of the hypernetted chain approximation");
+  argopt_add(ao, "-A", "%" XDBLSCNF "f", &hncalpha, "alpha, in the Roger-Young switch function 1 - exp(-alpha*r)");
+  argopt_add(ao, "-c", "%" XDBLSCNF "f", &shift, "shift of t(r) in computing Bv");
   argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--corr", "%b", &mkcorr, "try to correct HNC");
@@ -69,12 +79,22 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--dhtquiet", "%b", &slowdht_quiet, "suppress DHT output");
   argopt_add(ao, "-s", "%b", &snapshot, "save intermediate snapshots");
   argopt_add(ao, "-G", "%b", &gaussf, "Gaussian model instead of hard spheres");
+  argopt_add(ao, "-I", "%d", &invexp, "exponent of the inverse potential r^(-n)");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
   if ( rmax <= 0 ) rmax = nmax + 2;
-  if ( mkcorr ) singer = ring = 0;
+  if ( mkcorr )
+    singer = ring = 0;
+  else if ( fabs(hncamp - 1) > 1e-6 || fabs(hncq - 1) > 1e-6 || hncalpha >= 0 )
+    dohnc = 1; /* turn on HNC, if necessary */
+  if ( fabs(hncq - 1) > 1e-6 && hncq > 0 && hncamp <= 0 )
+    hncamp = 1/hncq; /* set amp automatically = 1/q */
   if ( singer ) ring = 1;
+  if ( gaussf || invexp > 0 ) smoothpot = 1;
+  if ( gaussf ) strcpy(systitle, "hGF");
+  else if ( invexp ) sprintf(systitle, "hINV%d", invexp);
+  else strcpy(systitle, "h");
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }
@@ -97,11 +117,12 @@ static void sphr(xdouble *in, xdouble *out, xdouble fac,
 
 
 /* compute virial coefficients from integral equations */
-static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
+static int intgeq(int nmax, int npt, xdouble rmax, int dohnc)
 {
   xdouble facr2k, fack2r, surfr, surfk;
   xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, B2, tmp1, tmp2, fcorr = 0;
-  xdouble *fr, *rdfr = NULL, *crl, *trl, **cr = NULL, **tr = NULL, **ck, **tk;
+  xdouble *fr, *rdfr = NULL, *swr = NULL;
+  xdouble *crl, *trl, **cr = NULL, **tr = NULL, **ck, **tk;
   xdouble **yr = NULL, *arr, *vc = NULL, *yrl;
   xdouble *ri, *ki, *r2p, *k2p, *rDm1, *kDm1;
   int i, dm, l, l0 = 1;
@@ -130,6 +151,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   tmp2 = dht->kmax / dht->xmax;
   surfk = surfr * tmp2 * tmp2 / pow_si(PI*2, dim);
   if ( gaussf ) B2 = SQRT(pow_si(PI, dim))/2;
+  /* TODO: compute B2 for inverse potential */
+  if ( invexp > 0 ) B2 = 0;
   printf("D %d, B2 %g, r2k %g, k2r %g\n", dim, (double) B2, (double) facr2k, (double) fack2r);
 
   MAKE1DARR(ri,   npt);
@@ -160,6 +183,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
 
   MAKE1DARR(fr, npt);
   if ( gaussf ) MAKE1DARR(rdfr, npt);
+  MAKE1DARR(swr, npt);
   MAKE2DARR(ck, nmax - 1, npt)
   MAKE2DARR(tk, nmax - 1, npt)
   MAKE1DARR(crl, npt);
@@ -170,8 +194,12 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
     if ( gaussf ) {
       xdouble r2 = ri[i] * ri[i];
       fr[i] = -EXP(-r2);
-      rdfr[i] = 2*r2*EXP(-r2);
-    } else {
+      rdfr[i] = -2*r2*fr[i];
+    } else if ( invexp > 0 ) { /* inverse potential r^(-invexp) */
+      xdouble pot = POW(ri[i], -invexp);
+      fr[i] = EXP(-pot) - 1;
+      rdfr[i] = pot * invexp * (fr[i] + 1);
+    } else { /* hard-sphere */
       fr[i] = (i < dm) ? -1. : 0;
     }
     crl[i] = fr[i];
@@ -183,21 +211,26 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
     MAKE2DARR(tr, nmax - 1, npt);
   }
 
-  if ( doHNC || mkcorr ) {
+  if ( dohnc || mkcorr ) {
     MAKE2DARR(yr, nmax - 1, npt);
-    for ( i = 0; i < npt; i++ ) yr[0][i] = 1;
+    for ( i = 0; i < npt; i++ ) {
+      swr[i] = 1;
+      if ( hncalpha >= 0 )
+        swr[i] = 1 - exp( -hncalpha * ri[i] );
+    }
+    for ( i = 0; i < npt; i++ ) yr[0][i] = hncamp / swr[i];
     if ( mkcorr ) {
       MAKE1DARR(vc, npt);
     }
   }
 
   if ( snapshot )
-    l0 = snapshot_open(dim, nmax, rmax, doHNC, mkcorr, ring, singer,
+    l0 = snapshot_open(dim, nmax, rmax, dohnc, mkcorr, ring, singer,
         npt, ck, tk, cr, tr, crl, trl, yr);
 
   t1 = clock();
-  fnvir = savevirhead(fnvir, gaussf ? "hGF" : "h", dim, l0, nmax,
-      doHNC, mkcorr, npt, rmax, t1 - t0);
+  fnvir = savevirhead(fnvir, systitle, dim, l0, nmax,
+      dohnc, mkcorr, npt, rmax, t1 - t0);
 
   for ( l = l0; l < nmax - 1; l++ ) {
     /* c_l(r) --> c_l(k) for the previous l */
@@ -206,7 +239,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
     if ( ring ) {
       /* compute the ring sum based on ck */
       Bh = get_ksum(l, npt, ck, kDm1, &Br);
-      Br = (doHNC ? -Br * (l+1) : -Br * 2) / l;
+      Br = (dohnc ? -Br * (l+1) : -Br * 2) / l;
     }
 
     /* compute t_l(k) from c_0(k), ... c_{l-1}(k) */
@@ -218,29 +251,34 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
     if ( tr != NULL ) COPY1DARR(tr[l], trl, npt);
 
     if ( yr != NULL ) { /* compute the cavity function y(r) */
-      get_yr_hnc(l, nmax, npt, yr, trl);
+      //get_yr_hnc(l, nmax, npt, yr, trl);
+      get_yr_hncx(l, nmax, npt, yr, trl, hncq, swr);
     }
 
     if ( mkcorr ) { /* construct the correction function */
       for ( i = 0; i < npt; i++ )
-        vc[i] = yr[l][i] - trl[i];
+        //vc[i] = yr[l][i] - trl[i];
+        vc[i] = yr[l][i] - hncamp * hncq * trl[i];
     }
 
-    if ( doHNC ) {
-      /* HNC approximation: c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
+    if ( dohnc ) {
+      /* HNC approximation:
+       * c(r) = (f(r) + 1) (y(r) + (1-a0) + (1-a0*q)*t(r))
+       *      - (1 + t(r)) */
       for ( i = 0; i < npt; i++ )
-        crl[i] = (fr[i] + 1) * yr[l][i] - trl[i];
+        //crl[i] = (fr[i] + 1) * yr[l][i] - trl[i];
+        crl[i] = (fr[i] + 1) * (yr[l][i] + (1 - hncamp * hncq) * trl[i]) - trl[i];
     } else {
       /* PY approximation: c(r) = f(r) (1 + t(r)) */
       for ( i = 0; i < npt; i++ )
         crl[i] = fr[i] * trl[i];
     }
     /* in the PY case, y(r) = 1 + t(r) */
-    yrl = doHNC ? yr[l] : trl;
-    if ( gaussf ) {
-      Bv = integr2(npt, yrl, rdfr, rDm1) / (dim * 2);
+    yrl = dohnc ? yr[l] : trl;
+    if ( smoothpot ) {
+      Bv = get_Bv_hnc(npt, yrl, trl, hncamp, hncq, rdfr, rDm1, dim);
     } else {
-      Bv = contactv(yrl, dm, B2);
+      Bv = get_Bv_hnc_hs(yrl, trl, hncamp, hncq, dm, B2);
     }
 
     /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) S_D r^(D-1) dr */
@@ -248,7 +286,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
 
     if ( cr != NULL ) {
       COPY1DARR(cr[l], crl, npt); /* cr[l] = crl */
-      if ( doHNC ) {
+      if ( dohnc ) {
         Bm = get_Bm_singer(l, npt, cr, tr, rDm1);
         Bh = get_Bh_singer(l, npt, cr, tr, rDm1) - Bh*(l+1)/2;
       } else {
@@ -260,7 +298,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
     }
 
     if ( mkcorr ) {
-      Bm = get_corr1x(l, npt, dm, yrl, crl, fr, rdfr, rDm1,
+      if (l > 1 + gaussf) Bv *= 1 + shift;
+      Bm = get_corr1x(l, npt, dm, crl, fr, rdfr, rDm1,
                       dim, B2, vc, &Bc, &Bv, &fcorr);
     }
 
@@ -280,6 +319,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int doHNC)
   FREE1DARR(kDm1, npt);
   FREE1DARR(fr,   npt);
   FREE1DARR(rdfr, npt);
+  FREE1DARR(swr,  npt);
   FREE1DARR(crl,  npt);
   FREE1DARR(trl,  npt);
   FREE2DARR(ck, nmax - 1, npt);
@@ -325,6 +365,6 @@ int main(int argc, char **argv)
 {
   doargs(argc, argv);
   if ( Rmax <= 0 ) Rmax = jadjustrmax(rmax, numpt);
-  intgeq(nmax, numpt, Rmax, doHNC);
+  intgeq(nmax, numpt, Rmax, dohnc);
   return 0;
 }

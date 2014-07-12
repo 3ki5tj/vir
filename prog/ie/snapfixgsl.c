@@ -17,7 +17,7 @@ int nmax = 10;
 double rmax = 0;
 xdouble Rmax = 0;
 int numpt = 1024;
-int doHNC = 0;
+int dohnc = 0;
 int singer = 0;
 int ring = 0;
 int mkcorr = 0;
@@ -37,7 +37,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-r", "%lf", &rmax, "rmax (flexible)");
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &Rmax, "rmax (fixed)");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
-  argopt_add(ao, "--hnc", "%b", &doHNC, "use the hypernetted chain approximation");
+  argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted chain approximation");
   argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--corr", "%b", &mkcorr, "try to correct HNC");
@@ -98,7 +98,7 @@ static void fixit(int nmax, int npt, xdouble rmax)
   MAKE1DARR(tkl,  npt);
   MAKE1DARR(crl,  npt);
   MAKE1DARR(trl,  npt);
-  if ( doHNC || mkcorr) {
+  if ( dohnc || mkcorr ) {
     MAKE1DARR(yrl,  npt);
   }
 

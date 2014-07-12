@@ -47,6 +47,9 @@ $(exe_qmp): %_qmp: bcgen.c %.h $(dep)
 $(exe_mp): %_mp: bcgen.c %.h $(dep)
 	$(CC) -DMP -DHP_MP -DPLUGIN=\"$*.h\" $< -o $@ $(LM) $(LMP)
 
+gaussfmerge: gaussfmerge.c
+	$(CC) $< -o $@ $(LM) $(LMP)
+
 ipo:
 	rsync -avzL *.[ch] *.py Makefile cz1@129.109.88.204:lwork/vir/gaussf
 
