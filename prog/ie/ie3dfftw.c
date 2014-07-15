@@ -227,9 +227,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     }
 
     if ( mkcorr ) {
-      /* in the PY case, y(r) = 1 + t(r) */
-      Bm = get_corr1_hs(l, npt, dm, dohnc ? yr[l] : trl,
-          crl, fr, ri2, B2, vc, &Bc, &Bv, &fcorr);
+      Bm = get_corr1_hs(l, npt, dm, crl, fr, ri2,
+                        B2, vc, &Bc, &Bv, &fcorr);
     }
 
     savevir(fnvir, 3, l+2, Bc, Bv, Bm, Bh, Br, B2, mkcorr, fcorr);

@@ -86,9 +86,9 @@ static void doargs(int argc, char **argv)
   if ( rmax <= 0 ) rmax = nmax + 2;
   if ( mkcorr )
     singer = ring = 0;
-  else if ( fabs(hncamp - 1) > 1e-6 || fabs(hncq - 1) > 1e-6 || hncalpha >= 0 )
+  else if ( FABS(hncamp - 1) > 1e-6 || FABS(hncq - 1) > 1e-6 || hncalpha >= 0 )
     dohnc = 1; /* turn on HNC, if necessary */
-  if ( fabs(hncq - 1) > 1e-6 && hncq > 0 && hncamp <= 0 )
+  if ( FABS(hncq - 1) > 1e-6 && hncq > 0 && hncamp <= 0 )
     hncamp = 1/hncq; /* set amp automatically = 1/q */
   if ( singer ) ring = 1;
   if ( gaussf || invexp > 0 ) smoothpot = 1;
@@ -216,7 +216,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int dohnc)
     for ( i = 0; i < npt; i++ ) {
       swr[i] = 1;
       if ( hncalpha >= 0 )
-        swr[i] = 1 - exp( -hncalpha * ri[i] );
+        swr[i] = 1 - EXP( -hncalpha * ri[i] );
     }
     for ( i = 0; i < npt; i++ ) yr[0][i] = hncamp / swr[i];
     if ( mkcorr ) {
@@ -229,8 +229,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int dohnc)
         npt, ck, tk, cr, tr, crl, trl, yr);
 
   t1 = clock();
-  fnvir = savevirhead(fnvir, systitle, dim, l0, nmax,
-      dohnc, mkcorr, npt, rmax, t1 - t0);
+  fnvir = savevirheadx(fnvir, systitle, dim, l0, nmax,
+      dohnc, mkcorr, npt, rmax, t1 - t0,
+      hncamp, hncq, hncalpha, shift);
 
   for ( l = l0; l < nmax - 1; l++ ) {
     /* c_l(r) --> c_l(k) for the previous l */

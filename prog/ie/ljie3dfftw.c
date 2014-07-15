@@ -74,9 +74,9 @@ static void doargs(int argc, char **argv)
   if ( rmax <= 0 ) rmax = (nmax + 2)*2.0;
   beta = 1/T;
   if ( mkcorr ) singer = ring = 0;
-  else if ( fabs(hncamp - 1) > 1e-6 || fabs(hncq - 1) > 1e-6 || hncalpha >= 0 )
+  else if ( FABS(hncamp - 1) > 1e-6 || FABS(hncq - 1) > 1e-6 || hncalpha >= 0 )
     dohnc = 1; /* turn on HNC, if necessary */
-  if ( fabs(hncq - 1) > 1e-6 && hncq > 0 && hncamp <= 0 )
+  if ( FABS(hncq - 1) > 1e-6 && hncq > 0 && hncamp <= 0 )
     hncamp = 1/hncq; /* set amp automatically = 1/q */
   if ( singer ) ring = 1;
   printf("rmax = %f, T %lf, HNC %d\n", (double) rmax, (double) T, dohnc);
@@ -220,7 +220,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     fr[i] = EXP(-beta * phi) - 1;
     rdfr[i] = beta * nrdphi * (1 + fr[i]);
     if ( dohnc ) {
-      crl[i] = xp1 * exp(-beta * phi2[i]) - 1;
+      crl[i] = xp1 * EXP(-beta * phi2[i]) - 1;
     } else {
       crl[i] = fr1[i] - (fr1[i] + 1) * beta * phi2[i];
     }
@@ -251,7 +251,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     for ( i = 0; i < npt; i++ ) {
       swr[i] = 1;
       if ( hncalpha >= 0 )
-        swr[i] = 1 - exp( -hncalpha * ri[i] );
+        swr[i] = 1 - EXP( -hncalpha * ri[i] );
     }
     for ( i = 0; i < npt; i++ ) {
       yr[0][i] = hncamp / swr[i] * EXP( -beta * phi2[i] );

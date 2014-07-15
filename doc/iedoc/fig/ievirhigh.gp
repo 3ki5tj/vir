@@ -6,24 +6,22 @@ set encoding cp1250 # make minus sign longer
 set terminal postscript eps enhanced size 7, 9 font "Arial, 20"
 set output "ievirhigh.eps"
 
+
+
+
+set multiplot
+
+
+# the main plot
+set origin 0, 0
+set size 1, 1
+
+
 tcfont="Arial, 16"
 lbfont = "Arial, 20"
 thexlabel='Order {/Arial-Italic n}'
 theylabel='{/Arial-Italic B_n} /{/Arial-Italic B}_2^{{/Arial-Italic n}-1}'
 
-# height of the bottom panels
-bh = 0.55
-# height of the top panels
-th = 1 - bh
-
-# width of the central panel
-cw = 0.225
-# width of the left panel
-lw = 0.26
-
-rx = lw + cw
-# width of the right panel
-rw = 1 - lw - cw
 
 set xtics font tcfont offset 0, 0.3
 set logscale y
@@ -79,22 +77,22 @@ D14xmax = D14nmax - 10
 D14ymax = 5e13
 
 
-set label "{/Arial-Italic D} = 15"  at xlbl, 3e21   font lbfont textcolor rgb color1a
-set label "{/Arial-Italic D} = 16"  at xlbl, 1e21   font lbfont textcolor rgb color2a
-set label "{/Arial-Italic D} = 17"  at xlbl, 4e20   font lbfont textcolor rgb color1a
-set label "{/Arial-Italic D} = 18"  at xlbl, 1.5e20 font lbfont textcolor rgb color2a
-set label "{/Arial-Italic D} = 19"  at xlbl, 5e19   font lbfont textcolor rgb color1a
-set label "{/Arial-Italic D} = 20"  at xlbl, 1.5e19 font lbfont textcolor rgb color2a
-set label "{/Arial-Italic D} = 21"  at xlbl, 4e18   font lbfont textcolor rgb color1a
-set label "{/Arial-Italic D} = 22"  at xlbl, 1e18   font lbfont textcolor rgb color2a
-set label "{/Arial-Italic D} = 23"  at xlbl, 2e17   font lbfont textcolor rgb color1a
-set label "{/Arial-Italic D} = 24"  at xlbl, 3e16   font lbfont textcolor rgb color2a
-set label "{/Arial-Italic D} = 25"  at xlbl, 5e15   font lbfont textcolor rgb color1a
-set label "{/Arial-Italic D} = 26"  at xlbl, 1e15   font lbfont textcolor rgb color2a
-set label "{/Arial-Italic D} = 27"  at xlbl, 2e14   font lbfont textcolor rgb color1a
-set label "{/Arial-Italic D} = 28"  at xlbl, 3e13   font lbfont textcolor rgb color2a
-set label "{/Arial-Italic D} = 29"  at xlbl, 5e12   font lbfont textcolor rgb color1a
-set label "{/Arial-Italic D} = 30"  at xlbl, 1e12   font lbfont textcolor rgb color2a
+set label 15 "{/Arial-Italic D} = 15"  at xlbl, 2.5e21 font lbfont textcolor rgb color1a
+set label 16 "{/Arial-Italic D} = 16"  at xlbl, 1e21   font lbfont textcolor rgb color2a
+set label 17 "{/Arial-Italic D} = 17"  at xlbl, 4.5e20 font lbfont textcolor rgb color1a
+set label 18 "{/Arial-Italic D} = 18"  at xlbl, 1.8e20 font lbfont textcolor rgb color2a
+set label 19 "{/Arial-Italic D} = 19"  at xlbl, 5.5e19 font lbfont textcolor rgb color1a
+set label 20 "{/Arial-Italic D} = 20"  at xlbl, 1.5e19 font lbfont textcolor rgb color2a
+set label 21 "{/Arial-Italic D} = 21"  at xlbl, 4e18   font lbfont textcolor rgb color1a
+set label 22 "{/Arial-Italic D} = 22"  at xlbl, 9e17   font lbfont textcolor rgb color2a
+set label 23 "{/Arial-Italic D} = 23"  at xlbl, 1.8e17 font lbfont textcolor rgb color1a
+set label 24 "{/Arial-Italic D} = 24"  at xlbl, 3.6e16 font lbfont textcolor rgb color2a
+set label 25 "{/Arial-Italic D} = 25"  at xlbl, 5.9e15 font lbfont textcolor rgb color1a
+set label 26 "{/Arial-Italic D} = 26"  at xlbl, 1e15   font lbfont textcolor rgb color2a
+set label 27 "{/Arial-Italic D} = 27"  at xlbl, 2e14   font lbfont textcolor rgb color1a
+set label 28 "{/Arial-Italic D} = 28"  at xlbl, 3e13   font lbfont textcolor rgb color2a
+set label 29 "{/Arial-Italic D} = 29"  at xlbl, 5e12   font lbfont textcolor rgb color1a
+set label 30 "{/Arial-Italic D} = 30"  at xlbl, 1e12   font lbfont textcolor rgb color2a
 
 plot [2:128][1e-9:1e22] \
   "data/D15r1n128/BnD15n128.dat"              u ($1):(abs($2))                  w l ls 2 lw 0.3 notitle, \
@@ -195,6 +193,98 @@ plot [2:128][1e-9:1e22] \
   ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 9 notitle, \
   1e-100 lw 0 notitle
 
+
+
+# magnification of the top-right corner
+set origin 0.13, 0.53
+set size 0.37, 0.43
+
+# remove unnecessary decorations
+unset ylabel
+unset xlabel
+unset label 26
+unset label 27
+unset label 28
+unset label 29
+unset label 30
+set tmargin 0
+set lmargin 0
+set rmargin 0
+set bmargin 0
+
+
+plot [100:128][3e14:3e21] \
+  "data/D15r1n128/BnD15n128.dat"              u ($1):(abs($2))                  w l ls 2 lw 0.3 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 2        notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 3        notitle, \
+  "data/D16r1n128/BnD16n128.dat"              u ($1):(abs($2))                  w l ls 6 lw 0.3 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 6        notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 7        notitle, \
+  "data/D17r1n128/BnD17n128.dat"              u ($1):(abs($2))                  w l ls 2 lw 0.3 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 2        notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 3        notitle, \
+  "data/D18r1n128/BnD18n128.dat"              u ($1):(abs($2))                  w l ls 6 lw 0.3 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 6        notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 7        notitle, \
+  "data/D19r1n128/BnD19n128.dat"              u ($1):(abs($2))                  w l ls 2 lw 0.3 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 2        notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 3        notitle, \
+  "data/D20r1n128/BnD20n128.dat"              u ($1):(abs($2))                  w l ls 6 lw 0.3 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 6        notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 7        notitle, \
+  "data/D21r1n128/BnD21n128.dat"              u ($1):(abs($2))                  w l ls 2 lw 0.3 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 2        notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 3        notitle, \
+  "data/D22r1n128/BnD22n128.dat"              u ($1):(abs($2))                  w l ls 6 lw 0.3 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 6        notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 7        notitle, \
+  "data/D23r1n128/BnD23n128.dat"              u ($1):(abs($2))                  w l ls 2 lw 0.3 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 2        notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 3        notitle, \
+  "data/D24r1n128/BnD24n128.dat"              u ($1):(abs($2))                  w l ls 6 lw 0.3 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 6        notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 7        notitle, \
+  "data/D25r1n128/BnD25n128.dat"              u ($1):(abs($2))                  w l ls 2 lw 0.3 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 2        notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 3        notitle, \
+  "iedata/xBnPYcD15n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 4 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 5 notitle, \
+  "iedata/xBnPYcD16n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 8 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 9 notitle, \
+  "iedata/xBnPYcD17n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 4 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 5 notitle, \
+  "iedata/xBnPYcD18n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 8 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 9 notitle, \
+  "iedata/xBnPYcD19n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 4 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 5 notitle, \
+  "iedata/xBnPYcD20n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 8 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 9 notitle, \
+  "iedata/xBnPYcD21n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 4 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 5 notitle, \
+  "iedata/xBnPYcD22n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 8 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 9 notitle, \
+  "iedata/xBnPYcD23n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 4 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 5 notitle, \
+  "iedata/xBnPYcD24n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 8 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 9 notitle, \
+  "iedata/xBnPYcD25n128.dat"                  u ($1):(abs($2))                  w l ls 1 notitle, \
+  ""                                          u ($1):(($2 > 0) ? abs($2) : 1/0) w p ls 4 notitle, \
+  ""                                          u ($1):(($2 < 0) ? abs($2) : 1/0) w p ls 5 notitle, \
+  1e-100 lw 0 notitle
+
+
+
+unset multiplot
 
 unset output
 set terminal wxt

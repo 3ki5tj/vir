@@ -259,6 +259,7 @@ __inline static xdouble get_corr1(int l, int npt,
   }
 
   *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
+  *eps = 1;
   for ( i = 0; i < npt; i++ ) {
     vc[i] *= *eps;
     cr[i] += vc[i] * (1 + fr[i]);
@@ -381,24 +382,42 @@ __inline static xdouble get_ht(int l, int npt,
 
 
 
+#define savevirhead(fn, title, dim, l0, nmax, dohnc, mkcorr, npt, rmax, inittime) \
+  savevirheadx(fn, title, dim, l0, nmax, dohnc, mkcorr, npt, rmax, inittime, \
+      1, 1, -1, 0)
+
 /* save the header for the virial file */
-__inline static char *savevirhead(const char *fn, const char *title,
+__inline static char *savevirheadx(const char *fn, const char *title,
     int dim, int l0, int nmax, int dohnc, int mkcorr, int npt,
-    xdouble rmax, clock_t inittime)
+    xdouble rmax, clock_t inittime,
+    xdouble hncamp, xdouble hncq, xdouble hncalpha, xdouble shift)
 {
   FILE *fp;
-  static char fndef[256];
+  static char fndef[512];
 
   if ( fn == NULL ) {
-    sprintf(fndef, "%sBn%s%sD%dn%dR%.0fM%d%s.dat",
+    char shncamp[80] = "", shncq[80] = "", shncalpha[80] = "";
+    char sshift[80] = "";
+    if ( FABS(hncamp - 1) > 1e-6 )
+      sprintf(shncamp, "a%g", (double) hncamp);
+    if ( FABS(hncq - 1) > 1e-6 )
+      sprintf(shncq, "q%g", (double) hncq);
+    if ( hncalpha >= 0 )
+      sprintf(shncalpha, "A%g", (double) hncalpha);
+    if ( FABS(shift) > 1e-6 )
+      sprintf(sshift, "c%g", (double) shift);
+    sprintf(fndef, "%sBn%s%sD%dn%dR%.0fM%d%s%s%s%s%s.dat",
         title ? title : "", dohnc ? "HNC" : "PY", mkcorr ? "c" : "",
-        dim, nmax, (double) rmax, npt, STRPREC);
+        dim, nmax, (double) rmax, npt,
+        shncamp, shncq, shncalpha, sshift,
+        STRPREC);
     fn = fndef;
   }
   xfopen(fp, fn, (l0 == 1) ? "w" : "a", return NULL);
   fprintf(fp, "# %s %s %d %.14f %d %s | n Bc Bv Bm [Bh Br | corr] | %.3fs\n",
       dohnc ? "HNC" : "PY", mkcorr ? "corr" : "",
-      nmax, (double) rmax, npt, STRPREC, (double) inittime / CLOCKS_PER_SEC);
+      nmax, (double) rmax, npt, STRPREC,
+      (double) inittime / CLOCKS_PER_SEC);
   fclose(fp);
   return (char *) fn;
 }

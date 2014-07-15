@@ -56,7 +56,7 @@ int gaussf = 0; /* Gaussian model */
 int invexp = 0; /* inverse potential */
 char systitle[32];
 
-xdouble hncamp = 1, hncq = 1, hncalpha = -1, hncm = 1;
+xdouble hncamp = 1, hncq = 1, hncalpha = -1;
 xdouble shift = 0;
 
 
@@ -75,7 +75,6 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-a", "%" XDBLSCNF "f", &hncamp, "a0 of the hypernetted chain approximation");
   argopt_add(ao, "-q", "%" XDBLSCNF "f", &hncq,  "q  of the hypernetted chain approximation");
   argopt_add(ao, "-A", "%" XDBLSCNF "f", &hncalpha, "alpha, in the Roger-Young switch function [1 - exp(-alpha*r)]^m");
-  argopt_add(ao, "-m", "%" XDBLSCNF "f", &hncm, "m, in the Roger-Young switch function [1 - exp(-alpha*r)]^m");
   argopt_add(ao, "-c", "%" XDBLSCNF "f", &shift, "shift of t(r) in computing Bv");
   argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
@@ -93,9 +92,9 @@ static void doargs(int argc, char **argv)
   if ( rmax <= 0 ) rmax = nmax + 2;
   if ( mkcorr )
     singer = ring = 0;
-  else if ( fabs(hncamp - 1) > 1e-6 || fabs(hncq - 1) > 1e-6 || hncalpha >= 0 )
+  else if ( FABS(hncamp - 1) > 1e-6 || FABS(hncq - 1) > 1e-6 || hncalpha >= 0 )
     dohnc = 1; /* turn on HNC, if necessary */
-  if ( fabs(hncq - 1) > 1e-6 && hncq > 0 && hncamp <= 0 )
+  if ( FABS(hncq - 1) > 1e-6 && hncq > 0 && hncamp <= 0 )
     hncamp = 1/hncq; /* set amp automatically = 1/q */
   if ( singer ) ring = 1;
   if ( gaussf || invexp > 0 ) smoothpot = 1;
@@ -309,7 +308,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     for ( i = 0; i < npt; i++ ) {
       swr[i] = 1;
       if ( hncalpha >= 0 )
-        swr[i] = POW(1 - exp( -hncalpha * ri[i] ), hncm);
+        swr[i] = 1 - EXP( -hncalpha * ri[i] );
     }
     for ( i = 0; i < npt; i++ ) yr[0][i] = hncamp / swr[i];
     if ( mkcorr ) {
@@ -321,8 +320,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
   if ( snapshot )
     l0 = snapshot_open(dim, nmax, rmax, dohnc, mkcorr, ring, singer,
         npt, ck, tk, cr, tr, crl, trl, yr);
-  fnvir = savevirhead(fnvir, systitle, dim, l0, nmax,
-      dohnc, mkcorr, npt, rmax, t1 - t0);
+  fnvir = savevirheadx(fnvir, systitle, dim, l0, nmax,
+      dohnc, mkcorr, npt, rmax, t1 - t0,
+      hncamp, hncq, hncalpha, shift);
 
   for ( l = l0; l < nmax - 1; l++ ) {
     /* c_l(r) --> c_l(k) for the previous l */

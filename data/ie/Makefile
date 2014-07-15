@@ -1,6 +1,6 @@
 zipfile=iedata.zip
 
-zip: zipfile
+zip: $(zipfile)
 
-zipfile: *.dat
+$(zipfile): *.dat
 	zip -9 $@ *.dat
