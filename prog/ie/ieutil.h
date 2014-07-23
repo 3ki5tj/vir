@@ -106,6 +106,14 @@ __inline static xdouble integre(int n, xdouble *f, xdouble *fr, xdouble *w)
 
 
 
+/* B_{l+2}^c = -[1/(l+2)] Int c_l(r) surfr r^(D-1) dr */
+__inline static xdouble get_Bc(int l, int npt, xdouble *crl, xdouble *rDm1)
+{
+  return -integr(npt, crl, rDm1) / (l + 2);
+}
+
+
+
 __inline static xdouble contactv(xdouble *f, int dm, xdouble B2)
 {
   return B2 * (f[dm-1] + f[dm]) / 2;
@@ -113,6 +121,19 @@ __inline static xdouble contactv(xdouble *f, int dm, xdouble B2)
 
 
 
+__inline static xdouble get_Bv(int npt, xdouble *yrl, int smoothpot,
+    xdouble *rdfr, xdouble *rDm1, int dim, int dm, xdouble B2)
+{
+  if ( smoothpot ) { /* B^v = Int [r f'(r)] y_l(r) surfr r^(D-1) dr / (2 D) */
+    return integr2(npt, yrl, rdfr, rDm1) / (dim * 2);
+  } else { /* B^v = y_l(1) surfr/(2D) = y_l(1) B2 */
+    return contactv(yrl, dm, B2);
+  }
+}
+
+
+
+/* deprecated */
 __inline static xdouble get_Bv_hnc_hs(xdouble *yrl, xdouble *trl,
     xdouble a0, xdouble q, int dm, xdouble B2)
 {
@@ -124,6 +145,7 @@ __inline static xdouble get_Bv_hnc_hs(xdouble *yrl, xdouble *trl,
 
 
 
+/* deprecated */
 __inline static xdouble get_Bv_hnc(int npt, xdouble *yrl, xdouble *trl,
     xdouble a0, xdouble q, xdouble *rdfr, xdouble *rDm1, int dim)
 {
@@ -268,7 +290,45 @@ __inline static xdouble get_corr1(int l, int npt,
 
 
 
-/* Sum_{m = 3 to infinity} { rho^m [c(k)]^m }_{l+2} / m */
+/* compute y(r) = Sum_{m = 1 to l} a_m { t(r)^m }_l */
+__inline static xdouble get_yr_series(int l, int npt,
+    xdouble **tr, xdouble *a, xdouble *yr)
+{
+  int i, j, k, m;
+  xdouble *tp, y, s = 0;
+
+  MAKE1DARR(tp, l + 1);
+  for ( i = 0; i < npt; i++ ) { /* loop over r points */
+    tp[0] = 0;
+    for ( j = 1; j <= l; j++ )
+      tp[j] = tr[j][i]; /* tr = t1 rho + t2 rho^2 + ... + tl rho^l */
+    /* contribution from tp = t(r)^m */
+    y = tp[l] * a[1];
+    for ( m = 2; m <= l; m++ ) { /* tp'_j = [t(r)^m]_j */
+      /* update tp'[l], ..., tp'[m-1], tp'[m] */
+      for ( j = l; j >= m; j-- ) {
+        /* tp'[j] = Sum_{k = 1 to j - 1} tp[k] tr[j - k]
+         * the minimal j would be m
+         * we start from larger j to smaller j
+         * to preserve small-index data */
+        tp[j] = 0;
+        for ( k = j - 1; k >= m - 1; k-- )
+          tp[j] += tp[k] * tr[j - k][i];
+      }
+      tp[m - 1] = 0;
+      y += tp[l] * a[m];
+    }
+    if ( yr != NULL ) yr[i] = y;
+  }
+  FREE1DARR(tp, l + 1);
+  return s;
+}
+
+
+
+
+/* compute the cycle sum
+ * Sum_{m = 3 to infinity} { rho^m [c(k)]^m }_{l+2} / m */
 __inline static xdouble get_ksum(int l, int npt,
     xdouble **ck, xdouble *w, xdouble *s2)
 {
@@ -383,19 +443,298 @@ __inline static xdouble get_ht(int l, int npt,
 
 
 
+/* multiply the series y = Sum_{i = 0 to n-1} a_i x^i
+ * z = Sum_{j = 0 to n-1} b_j x_j
+ * as w = y z = Sum_{k = 0 to n-1} c_k x^k */
+__inline static void mul_series(int n, const xdouble *a, const xdouble *b,
+    xdouble *c)
+{
+  int i, j;
+
+  for ( i = 0; i < n; i++ )
+    for ( c[i] = 0, j = 0; j <= i; j++ )
+      c[i] += a[j] * b[i - j];
+}
+
+
+
+/* divide the series w = Sum_{k = 0 to n-1} c_k x^k
+ * y = Sum_{i = 0 to n-1} a_i x_i
+ * as z = w/y = Sum_{j = 0 to n-1} b_j x^j */
+__inline static void div_series(int n, const xdouble *c, const xdouble *a,
+    xdouble *b)
+{
+  int i, j;
+
+  for ( i = 0; i < n; i++ ) {
+    for ( b[i] = c[i], j = 1; j <= i; j++ )
+      b[i] -= a[j] * b[i - j];
+    b[i] /= a[0];
+  }
+}
+
+
+
+/* power the series y = Sum_{i = 0 to n-1} a_i x^i
+ * as y^p = Sum_{j = 0 to n-1} b_j x^j */
+__inline static void pow_series(xdouble p, int n, const xdouble *a, xdouble *b)
+{
+  int i, j;
+
+  b[0] = POW(a[0], p);
+  for ( i = 1; i < n; i++ ) {
+    b[i] = 0;
+    for ( j = 0; j < i; j++ )
+      b[i] += (p*i - (p+1)*j) * b[j] * a[i-j];
+    b[i] /= i * a[0];
+  }
+}
+/* test of the above function
+  xdouble a[7] = {1, 2, 1}, b[7]; int i = 0;
+  pow_series(3, 7, a, b); for ( i = 0; i < 7; i++ ) printf("%g ", b[i]); printf("\n");
+*/
+
+
+
+/* exponentiate the series y = Sum_{i = 0 to n-1} a_i x^i
+ * as exp(y) = Sum_{j = 0 to n-1} b_j y^j */
+__inline static void exp_series(int n, const xdouble *a, xdouble *b)
+{
+  int i, j;
+
+  /* first assume a[0] = 0, fix that later */
+  b[0] = 1;
+  for ( i = 1; i < n; i++ ) { /* compute b[i] */
+    b[i] = 0;
+    for ( j = 1; j <= i; j++ )
+      b[i] += j * a[j] * b[i - j];
+    b[i] /= i;
+  }
+  /* multiple the series by exp(a[0]) */
+  b[0] = EXP(a[0]);
+  for ( i = 1; i < n; i++ ) b[i] *= b[0];
+}
+
+
+
+/* log the series y = Sum_{i = 0 to n-1} b_i x^i
+ * as log(y) = Sum_{j = 0 to n-1} a_j y^j */
+__inline static void log_series(int n, const xdouble *b, xdouble *a)
+{
+  int i, j;
+
+  a[0] = LOG(b[0]);
+  for ( i = 1; i < n; i++ ) { /* compute a[i] */
+    a[i] = i * b[i];
+    for ( j = 1; j < i; j++ )
+      a[i] -= j * a[j] * b[i - j];
+    a[i] /= i * b[0];
+  }
+}
+/* test of the above two functions
+  xdouble a[7] = {log(2), 1, 0, 0, 0}, b[7]; int i = 0;
+  exp_series(7, a, b); for ( i = 0; i < 7; i++ ) printf("%g ", b[i]); printf("\n");
+  log_series(7, b, a); for ( i = 0; i < 7; i++ ) printf("%g ", a[i]); printf("\n");
+*/
+
+
+
+/* inverse the series y = Sum_{i = 1 to n-1} a_i x^i
+ * as x = Sum_{i = 1 to n-1} b_i y^i, with a[0] = b[0] = 0 */
+__inline static void inverse_series(int n, const xdouble *a, xdouble *b)
+{
+  int i, j, k, l;
+  xdouble *xp;
+
+  xnew(xp, n);
+  b[0] = 0;
+  b[1] = 1/a[1];
+  for ( i = 2; i < n; i++ ) { /* compute b[i] */
+    /* compute the coefficient before x^i
+     * in the expansion of y = Sum_{j = 2 to i} a_j x^j */
+    /* initialize xp = ( Sum_{k = 1 to i - 1} b_k y^k )^j, with j = 1 */
+    for ( k = 1; k < i; k++ ) xp[k] = b[k];
+    b[i] = 0;
+    for ( j = 2; j <= i; j++ ) { /* compute x^j as a series of y */
+      /* x^j = x^{j - 1} * Sum_{k = 1 to i - 1} b_k y^k
+       * Here xp = x^{j-1} --> x^j,
+       * xp[k] is the coefficient before y^j */
+      for ( k = i; k >= j; k-- ) {
+        /* update xp[k] in-place, do it from large k to small k */
+        xp[k] = 0;
+        for ( l = 1; l < k; l++ )
+          xp[k] += xp[k-l] * b[l];
+        //printf("x^%d has %g y^%d\n", j, xp[k], k);
+      }
+      xp[j - 1] = 0;
+      b[i] += a[j] * xp[i];
+    }
+    b[i] /= -a[1];
+    //printf("b%d = %g\n", i, b[i]);
+  }
+  free(xp);
+}
+/* test code, should output 1 -1 2 -5 14 -42
+  xdouble a[7] = {0, 1, 1}, b[7] = {0};
+  inverse_series(7, a, b);
+  printf("%g %g %g %g %g %g\n", (double) b[1], (double) b[2], (double) b[3], (double) b[4], (double) b[5], (double) b[6]);
+*/
+
+
+
+enum {
+  IETYPE_PY = 0,
+  IETYPE_HNC = 1,
+  IETYPE_ROWLINSON = 10, /* Rowlinson, 1965 */
+  IETYPE_INVROWLINSON = 11,
+  IETYPE_HC = 20, /* Hutchinson and Conkie, 1971, Molecular Physics, Vol. 21, No. 5, 881-890 */
+  IETYPE_BBPG = 30, /* Ballon, Pastore, Galli, and Gazzillo */
+  IETYPE_VERLET = 40, /* Verlet, 1980 */
+  IETYPE_LAST
+};
+
+
+
+/* initialize the coefficients of the Hutchinson-Conkie closure
+ * y(r) = (1 + s t(r))^1/s
+ *      = Sum_{l = 0 to lmax - 1} a_l t(r)^l */
+__inline static void init_hccoef(xdouble *a, int lmax, xdouble s)
+{
+  int l;
+
+  a[0] = a[1] = 1;
+  for ( l = 2; l < lmax; l++ )
+    a[l] = a[l-1] * ( 1 - (l - 1) * s ) / l;
+}
+
+
+
+/* initialize the coefficients of the Ballon-Pastore-Galli-Gazzillo (BBPG) closure
+ * y(r) = exp[ (1 + s t(r))^1/s - 1 ]
+ *      = Sum_{l = 0 to lmax - 1} a_l t(r)^l */
+__inline static void init_bbpgcoef(xdouble *a, int lmax, xdouble s)
+{
+  int l;
+  xdouble *b;
+
+  xnew(b, lmax);
+  b[0] = 0; b[1] = 1;
+  for ( l = 2; l < lmax; l++ )
+    b[l] = b[l-1] * ( 1 - (l - 1) * s ) / l;
+  exp_series(lmax, b, a);
+  free(b);
+}
+
+
+
+/* initialize the Rowlinson coefficients, here
+ *  t(r) = y(r) (1 - phi) + phi log(1 + y(r))
+ *       = y(r) + phi( -y(r)^2/2 + y(r)^3/3 - y(r)^4/4 + ...)
+ * we want
+ *  y(r) = 1 + t(r) + a[2] t(r)^2 + a[3] t(r)^3 + ... */
+__inline static void init_rowlinsoncoef(xdouble *a, int lmax, xdouble phi)
+{
+  int i;
+  xdouble *b;
+
+  xnew(b, lmax);
+  b[0] = 0;
+  b[1] = 1;
+  for ( i = 2; i < lmax; i++ )
+    b[i] = (i % 2 ? phi : -phi) / i;
+  inverse_series(lmax, b, a);
+  a[0] = 1;
+  free(b);
+}
+
+
+
+/* initialize the inverse Rowlinson coefficients, here
+ *  y(r) = exp(t(r)) phi + (1 - phi) (1 + t(r))
+ *       = 1 + t(r) + phi (t(r)^2/2! + t(r)^3/3! + ...)
+ */
+__inline static void init_invrowlinsoncoef(xdouble *a, int lmax, xdouble phi)
+{
+  int i;
+
+  a[0] = a[1] = 1;
+  a[2] = phi/2;
+  for ( i = 3; i < lmax; i++ )
+    a[i] = a[i-1]/i;
+}
+
+
+
+/* initialize the Verlet coefficients, here
+ *  y(r) = exp[ t(r) - A*t(r)^2/2/(1 + B t(r)/2) ]
+ *       = 1 + t(r) + a[2] t(r)^2 + a[3] t(r)^3 + ...
+ */
+__inline static void init_verletcoef(xdouble *a, int lmax, xdouble A, xdouble B)
+{
+  int i;
+  xdouble *b;
+
+  xnew(b, lmax);
+  A /= 2;
+  B /= 2;
+  b[0] = 0; b[1] = 1; b[2] = -A;
+  for ( i = 3; i < lmax; i++ )
+    b[i] = b[i-1] * (-B);
+  exp_series(lmax, b, a);
+  free(b);
+}
+
+
+
+__inline static void print_yrcoef(xdouble *a, int lmax)
+{
+  int i;
+  xdouble *b;
+
+  xnew(b, lmax);
+  fprintf(stderr, "y(r) =");
+  for ( i = 1; i < lmax; i++ )
+    if ( FABS(a[i]) > 1e-6 )
+      fprintf(stderr, " %+gt(r)^%d", (double) a[i], i);
+  fprintf(stderr, "+...\n");
+
+  log_series(lmax, a, b);
+  fprintf(stderr, "ln y(r) =");
+  for ( i = 1; i < lmax; i++ )
+    if ( FABS(b[i]) > 1e-6 )
+      fprintf(stderr, " %+gt(r)^%d", (double) b[i], i);
+  fprintf(stderr, "+...\n");
+  free(b);
+}
+
+
+
 #define savevirhead(fn, title, dim, l0, nmax, dohnc, mkcorr, npt, rmax, inittime) \
   savevirheadx(fn, title, dim, l0, nmax, dohnc, mkcorr, npt, rmax, inittime, \
       1, 1, -1, 0, 0, 0)
 
 /* save the header for the virial file */
 __inline static char *savevirheadx(const char *fn, const char *title,
-    int dim, int l0, int nmax, int dohnc, int mkcorr, int npt,
+    int dim, int l0, int nmax, int ietype, int mkcorr, int npt,
     xdouble rmax, clock_t inittime,
     xdouble hncamp, xdouble hncq, xdouble hncalpha,
     xdouble shift, xdouble shiftinc, int shiftl0)
 {
   FILE *fp;
   static char fndef[512];
+  char sietype[8] = "";
+
+  if ( mkcorr ) {
+    strcpy(sietype, "PYc");
+  } else {
+    if ( ietype == IETYPE_PY) strcpy(sietype, "PY");
+    else if ( ietype == IETYPE_HNC) strcpy(sietype, "HNC");
+    else if ( ietype == IETYPE_HC) strcpy(sietype, "HC");
+    else if ( ietype == IETYPE_ROWLINSON) strcpy(sietype, "R");
+    else if ( ietype == IETYPE_INVROWLINSON) strcpy(sietype, "IR");
+    else if ( ietype == IETYPE_VERLET) strcpy(sietype, "V");
+    else if ( ietype == IETYPE_BBPG) strcpy(sietype, "BBPG");
+  }
 
   if ( fn == NULL ) {
     char shncamp[80] = "", shncq[80] = "", shncalpha[80] = "";
@@ -415,8 +754,8 @@ __inline static char *savevirheadx(const char *fn, const char *title,
     if ( (FABS(shift) > 1e-6 || FABS(shiftinc) > 1e-6) && shiftl0 > 0 )
       sprintf(sshiftl0, "L%d", shiftl0);
 
-    sprintf(fndef, "%sBn%s%sD%dn%dR%.0fM%d%s%s%s%s%s%s%s.dat",
-        title ? title : "", dohnc ? "HNC" : "PY", mkcorr ? "c" : "",
+    sprintf(fndef, "%sBn%sD%dn%dR%.0fM%d%s%s%s%s%s%s%s.dat",
+        title ? title : "", sietype,
         dim, nmax, (double) rmax, npt,
         shncamp, shncq, shncalpha,
         sshift, sshiftinc, sshiftl0,
@@ -425,7 +764,7 @@ __inline static char *savevirheadx(const char *fn, const char *title,
   }
   xfopen(fp, fn, (l0 == 1) ? "w" : "a", return NULL);
   fprintf(fp, "# %s %s %d %.14f %d %s | n Bc Bv Bm [Bh Br | corr] | %.3fs\n",
-      dohnc ? "HNC" : "PY", mkcorr ? "corr" : "",
+      sietype, mkcorr ? "corr" : "",
       nmax, (double) rmax, npt, STRPREC,
       (double) inittime / CLOCKS_PER_SEC);
   fclose(fp);
@@ -530,6 +869,7 @@ __inline static int savevirtail(const char *fn, clock_t endtime)
   xfopen(fp, fn, "a", return -1);
   fprintf(fp, "# %.3fs\n", (double) endtime / CLOCKS_PER_SEC);
   fclose(fp);
+  fprintf(stderr, "virial coefficients saved to %s\n", fn);
   return 0;
 }
 

@@ -1,6 +1,11 @@
 Compute virial coefficients from integral equations
 
 
+Note:
+
+4D hard-sphere
+./iegsl --corr  -D4 -c-0.675 -d-0.038 -L2, (c' -0.599) error 54.1577541112% (n 5)
+
 
 Summary of programs
 ====================
@@ -17,10 +22,10 @@ C programs (native datatypes family)
                                 e.g., the snapshotXXX_ck.dat and snapshotXXX_tr.dat
                                 may be of a different frame.
 
- ~  ie3dfftw.c      FFTW3       3-dimensional case
-                    fft.h       -DNOFFTW
     ieodfftw.c      FFTW3       arbitrary odd-dimensional case
                     fft.h       -DNOFFTW
+ ~  ie3dfftw.c      FFTW3       3-dimensional case
+    (obsolete)      fft.h       -DNOFFTW
 
     ljie3dfftw.c    FFTW3       3-dimensional case for the LJ potential
 
@@ -37,8 +42,10 @@ C programs (native datatypes family)
 
 C programs (MPFR family)
 -------------------------
- ~  ie3dmpfr.c      MPFR        3-dimensional case
     ieodmpfr.c      MPFR        generalized odd-dimensional case
+
+~  ie3dmpfr.c      MPFR        3-dimensional case
+   (obsolete)
 
     ieutilmpfr.h    MPFR        common routines for the MPFR programs
                                 the counterpart of ieutil.h
@@ -75,18 +82,31 @@ iegsl
 Overview
 ---------
 
-  o Designed for even dimension calculations, for odd dimensions,
-    use ieodfftw or ieodmpfr instead.
+  o compute virial coefficients from a specific closure
 
-  o Uses the discrete Hankel transform (based on the routine in the GSL library,
+  o works for any dimensions, but best for even dimensions
+    for odd dimensions, use ieodfftw or ieodmpfr instead.
+
+  o supports the following closures
+     Percus-Yevick (PY)
+     hypernetted-chain (HNC)
+     Rowlinson, t(r) = (y(r) - 1) (1 - phi) + phi ln y(r)
+     inverse Rowlinson (IR), y(r) = exp(t(r)) phi + (1 - phi) (1 + t(r))
+     Hutchinson-Conkie (HC)
+     Verlet (VM)
+     Rogers-Young (RY)
+     Marucho-Pettitt (MP)
+     term-by-term self-consistent (based on inverse-Rowlinson)
+
+  o uses the discrete Hankel transform (based on the routine in the GSL library,
     but modified in slowdht.h)
 
-  o Supports double/long double/__float128 as the basic data type.
+  o supports double/long double/__float128 as the basic data type.
 
   o slowdht.h permits disk-based Hankel transformation
     of many evaluation points
 
-  o Supports check points, (with option "-s")
+  o supports check points, (with option "-s")
     which allows a restartable run.
 
 
@@ -239,6 +259,11 @@ For D = 30, n = 128, M = 3072 (sampling points)
 ieodfftw
 =========
 
+Overview
+---------
+Similar to iegsl, but specialized for odd dimensions.
+
+
 Compilation
 -----------
 
@@ -250,6 +275,12 @@ Compilation
 
 ieodmpfr
 =========
+
+Overview
+---------
+High precision version of ieodfftw,
+currently with limited features.
+
 
 Compilation
 ------------

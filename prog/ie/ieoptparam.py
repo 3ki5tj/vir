@@ -241,7 +241,11 @@ def testshift(dim, nmin, nmax, gaussf,
   os.system(cmd)
 
   # load the output
-  fnout = glob.glob(pat)[0]
+  try:
+    fnout = glob.glob(pat)[0]
+  except:
+    print "cannot find %s" % pat
+    raise Exception
   errmax = 0
   who = None
   for ln in open(fnout).readlines():
