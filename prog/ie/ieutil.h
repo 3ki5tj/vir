@@ -397,7 +397,9 @@ __inline static char *savevirheadx(const char *fn, const char *title,
 
   if ( fn == NULL ) {
     char shncamp[80] = "", shncq[80] = "", shncalpha[80] = "";
-    char sshift[80] = "";
+    char sshift[80] = "", sshiftinc[80] = "", sshiftl0[80] = "";
+
+    /* add special parameters */
     if ( FABS(hncamp - 1) > 1e-6 )
       sprintf(shncamp, "a%g", (double) hncamp);
     if ( FABS(hncq - 1) > 1e-6 )
@@ -406,7 +408,12 @@ __inline static char *savevirheadx(const char *fn, const char *title,
       sprintf(shncalpha, "A%g", (double) hncalpha);
     if ( FABS(shift) > 1e-6 )
       sprintf(sshift, "c%g", (double) shift);
-    sprintf(fndef, "%sBn%s%sD%dn%dR%.0fM%d%s%s%s%s%s.dat",
+    if ( FABS(shiftinc) > 1e-6 )
+      sprintf(sshiftinc, "d%g", (double) shiftinc);
+    if ( (FABS(shift) > 1e-6 || FABS(shiftinc) > 1e-6) && shiftl0 > 0 )
+      sprintf(sshiftl0, "L%d", shiftl0);
+
+    sprintf(fndef, "%sBn%s%sD%dn%dR%.0fM%d%s%s%s%s%s%s%s.dat",
         title ? title : "", dohnc ? "HNC" : "PY", mkcorr ? "c" : "",
         dim, nmax, (double) rmax, npt,
         shncamp, shncq, shncalpha, sshift,

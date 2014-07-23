@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 
-import os, sys, glob, re, getopt
-from math import *
-
 
 
 ''' extrapolate virial coefficients '''
+
+
+
+import os, sys, glob, re, getopt
+from math import *
+
 
 
 dim = 9

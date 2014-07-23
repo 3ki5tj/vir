@@ -391,7 +391,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     if ( mkcorr ) {
       /* for the Gaussian model, Bv is exact for l <= 2 (n <= 4)
        * otherwise, Bv is exact for l = 1 (n = 3) */
-      if (l > 1 + gaussf) Bv *= 1 + shift;
+      if ( l >= shiftl0 ) Bv *= 1 + shift + shiftinc * l;
       Bm = get_corr1x(l, npt, dm, crl, fr, rdfr, rDm1,
                       dim, B2, vc, &Bc, &Bv, &fcorr);
     }
