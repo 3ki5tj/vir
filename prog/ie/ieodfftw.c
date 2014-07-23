@@ -65,6 +65,7 @@ int shiftl0 = 0;
 static void doargs(int argc, char **argv)
 {
   argopt_t *ao = argopt_open(0);
+  xdouble shiftn = 0;
 
   ao->desc = "computing the virial coefficients from the PY/HNC closure for the 3D hard-sphere fluid";
   argopt_add(ao, "-D", "%d", &dim, "dimension (odd) integer");
@@ -77,6 +78,9 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-a", "%" XDBLSCNF "f", &hncamp, "a0 of the hypernetted chain approximation, 0: to be set by 1/q");
   argopt_add(ao, "-A", "%" XDBLSCNF "f", &hncalpha, "alpha, in the Roger-Young switch function [1 - exp(-alpha*r)]^m");
   argopt_add(ao, "-c", "%" XDBLSCNF "f", &shift, "shift of t(r) in computing Bv");
+  argopt_add(ao, "-C", "%" XDBLSCNF "f", &shiftn, "shift of t(r) in computing Bv, in terms of n");
+  argopt_add(ao, "-d", "%" XDBLSCNF "f", &shiftinc, "increment of the shift");
+  argopt_add(ao, "-L", "%d", &shiftl0, "minimal order l for the shift");
   argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--corr", "%b", &mkcorr, "correct the closure");
@@ -97,6 +101,7 @@ static void doargs(int argc, char **argv)
     singer = ring = 0;
   else if ( FABS(hncamp - 1) > 1e-6 || FABS(hncq - 1) > 1e-6 || hncalpha >= 0 )
     dohnc = 1; /* turn on HNC, if necessary */
+  if ( argopt_isset(ao, shiftn) ) shift = shiftn + shiftinc*2;
   if ( shiftl0 <= 0 ) shiftl0 = gaussf ? 3 : 2;
   if ( singer ) ring = 1;
   if ( gaussf || invexp > 0 ) smoothpot = 1;
@@ -325,7 +330,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
         npt, ck, tk, cr, tr, crl, trl, yr);
   fnvir = savevirheadx(fnvir, systitle, dim, l0, nmax,
       dohnc, mkcorr, npt, rmax, t1 - t0,
-      hncamp, hncq, hncalpha, shift);
+      hncamp, hncq, hncalpha, shift, shiftinc, shiftl0);
 
   for ( l = l0; l < nmax - 1; l++ ) {
     /* c_l(r) --> c_l(k) for the previous l */

@@ -15,6 +15,7 @@ dim = 6
 nmin, nmax = 4, 12 # target range
 gaussf = 0
 shift_min, shift_max, shift_del = None, None, None
+shiftn_min, shiftn_max, shiftn_del = None, None, None
 shiftinc_min, shiftinc_max, shiftinc_del = None, None, None
 shiftl0_min, shiftl0_max, shiftl0_del = None, None, None
 
@@ -64,6 +65,7 @@ def usage():
    -N:        maximal order
    -G:        Gaussian model
    -c:        shift, in min:del:max format
+   -C:        shift, in terms of n, instead of n - 2, in min:del:max format
    -d:        shift increment, in min:del:max format
    -L:        shift minimal order l0, in min:max format
    -P:        program to run, e.g., iegsl_l
@@ -79,10 +81,10 @@ def doargs():
   ''' Handle common parameters from command line options '''
   try:
     opts, args = getopt.gnu_getopt(sys.argv[1:],
-        "D:n:N:Gc:d:L:P:O:v",
+        "D:n:N:GC:c:d:L:P:O:v",
         [ "dim=", "nmin=", "nmax=",
           "ref=", "dir=",
-          "shift=", "shiftinc=", "shiftl0=",
+          "shift=", "shiftn=", "shiftinc=", "shiftl0=",
           "prog=", "program=", "options=", "option=", "opt=",
           "verbose=", "help", ])
   except getopt.GetoptError, err:
@@ -94,6 +96,7 @@ def doargs():
   global program, options
   global fnref, refdir
   global shift_min, shift_max, shift_del
+  global shiftn_min, shiftn_max, shiftn_del
   global shiftinc_min, shiftinc_max, shiftinc_del
   global shiftl0_min, shiftl0_max, shiftl0_del
 
@@ -112,6 +115,8 @@ def doargs():
       refdir = a
     elif o in ("-c", "--shift"):
       shift_min, shift_max, shift_del = getminmaxdel(a)
+    elif o in ("-C", "--shiftn"):
+      shiftn_min, shiftn_max, shiftn_del = getminmaxdel(a)
     elif o in ("-d", "--shiftinc"):
       shiftinc_min, shiftinc_max, shiftinc_del = getminmaxdel(a)
     elif o in ("-L", "--shiftl0"):
@@ -214,7 +219,7 @@ def loadref(dim, nmax, gaussf, fnref):
 
 
 def testshift(dim, nmin, nmax, gaussf,
-    shift, shiftinc, shiftl0, refs, verbose = False):
+    shifttype, shift, shiftinc, shiftl0, refs, verbose = False):
   # return the maximal relative error in the range
   #print shift, shiftinc, shiftl0
 
@@ -226,9 +231,9 @@ def testshift(dim, nmin, nmax, gaussf,
 
   # run the command
   sys = "-G" if gaussf else ""
-  cmd = "%s %s %s -D%s -n%s -c%s -d%s -L%s" % (
+  cmd = "%s %s %s -D%s -n%s -%s%s -d%s -L%s" % (
       program, options, sys, dim, nmax,
-      shift, shiftinc, shiftl0)
+      shifttype, shift, shiftinc, shiftl0)
   if not verbose:
     cmd += " 2>ieoptparamD%sn%s.err >ieoptparamD%sn%s.out" % (
         dim, nmax, dim, nmax)
@@ -276,33 +281,52 @@ def optshift(dim, nmin, nmax, gaussf, fnref):
 
   opt0 = program + " --corr" + (" -G" if gaussf else "") + (" -D%s" % dim)
 
+  if shiftn_min != None:
+    shifttype = "C"
+  else:
+    shifttype = "c"
+
   for shiftl0 in range(shiftl0_min, shiftl0_max + 1):
 
-    shift = shift_min
-    while shift < shift_max:
+    if shifttype == "C":
+      shift = shiftn_min
+    else:
+      shift = shift_min
+    strsh = ""
+
+    while 1:
 
       shiftinc = shiftinc_min
       while shiftinc < shiftinc_max:
         err, who = testshift(dim, nmin, nmax, gaussf,
-            shift, shiftinc, shiftl0, refs)
+            shifttype, shift, shiftinc, shiftl0, refs)
         if err < errmin:
           shift_best, shiftinc_best, shiftl0_best = shift, shiftinc, shiftl0
-          print "* best parameters: %s -c%s -d%s -L%s, (c' %s), error %s%% (n %s)" % (
-              opt0, shift, shiftinc, shiftl0, shift - shiftinc*2, err*100, who)
+          if shifttype == "C":
+            strsh = " (c %s)," % (shift + shiftinc*2)
+          else:
+            strsh = " (c' %s)," % (shift - shiftinc*2)
+          print "* best parameters: %s -%s%s -d%s -L%s,%s error %s%% (n %s)" % (
+              opt0, shifttype, shift, shiftinc, shiftl0, strsh, err*100, who)
           errmin, whomin = err, who
         elif verbose:
-          print "parameters: %s -c%s -d%s -L%s, error %s%% (n %s)" % (
-            opt0, shift, shiftinc, shiftl0, err*100, who)
+          print "parameters: %s -%s%s -d%s -L%s error %s%% (n %s)" % (
+            opt0, shifttype, shift, shiftinc, shiftl0, err*100, who)
         shiftinc += shiftinc_del
 
-      shift += shift_del
+      if shifttype == "C":
+        shift += shiftn_del
+        if shift > shiftn_max: break
+      else:
+        shift += shift_del
+        if shift > shift_max: break
 
   testshift(dim, nmin, nmax, gaussf,
-      shift_best, shiftinc_best, shiftl0_best, refs, True)
-  print "* best parameters: %s -c%s -d%s -L%s, (c' %s) error %s%% (n %s)" % (
+      shifttype, shift_best, shiftinc_best, shiftl0_best, refs, True)
+  print "* best parameters: %s -%s%s -d%s -L%s,%s error %s%% (n %s)" % (
       opt0,
-      shift_best, shiftinc_best, shiftl0_best,
-      shift_best - shiftinc_best * 2, errmin*100, whomin)
+      shifttype, shift_best, shiftinc_best, shiftl0_best, strsh,
+      errmin*100, whomin)
 
 
 if __name__ == "__main__":

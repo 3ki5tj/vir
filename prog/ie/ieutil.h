@@ -259,7 +259,6 @@ __inline static xdouble get_corr1(int l, int npt,
   }
 
   *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
-  *eps = 1;
   for ( i = 0; i < npt; i++ ) {
     vc[i] *= *eps;
     cr[i] += vc[i] * (1 + fr[i]);
@@ -286,11 +285,13 @@ __inline static xdouble get_ksum(int l, int npt,
       /* update a[l + 2 - m], ..., a[0] */
       for ( j = l + 2 - m; j >= 0; j-- ) {
         /* a'[j] = Sum_{k = 0 to j} a[k] ck[j - k]
-         * we start from large j to preserve small-index data */
+         * we start from larger j to smaller j
+         * to preserve small-index data */
         a[j] = a[j] * ck[0][i];
         for ( k = j - 1; k >= 0; k-- )
           a[j] += a[k] * ck[j - k][i];
       }
+      /* the m == 2 part can be handled in the real space */
       if ( m == 2 ) continue;
       y += a[l + 2 - m] / m;
       z += a[l + 2 - m] * (m - 2) / (2*m);
@@ -384,13 +385,14 @@ __inline static xdouble get_ht(int l, int npt,
 
 #define savevirhead(fn, title, dim, l0, nmax, dohnc, mkcorr, npt, rmax, inittime) \
   savevirheadx(fn, title, dim, l0, nmax, dohnc, mkcorr, npt, rmax, inittime, \
-      1, 1, -1, 0)
+      1, 1, -1, 0, 0, 0)
 
 /* save the header for the virial file */
 __inline static char *savevirheadx(const char *fn, const char *title,
     int dim, int l0, int nmax, int dohnc, int mkcorr, int npt,
     xdouble rmax, clock_t inittime,
-    xdouble hncamp, xdouble hncq, xdouble hncalpha, xdouble shift)
+    xdouble hncamp, xdouble hncq, xdouble hncalpha,
+    xdouble shift, xdouble shiftinc, int shiftl0)
 {
   FILE *fp;
   static char fndef[512];
@@ -416,7 +418,8 @@ __inline static char *savevirheadx(const char *fn, const char *title,
     sprintf(fndef, "%sBn%s%sD%dn%dR%.0fM%d%s%s%s%s%s%s%s.dat",
         title ? title : "", dohnc ? "HNC" : "PY", mkcorr ? "c" : "",
         dim, nmax, (double) rmax, npt,
-        shncamp, shncq, shncalpha, sshift,
+        shncamp, shncq, shncalpha,
+        sshift, sshiftinc, sshiftl0,
         STRPREC);
     fn = fndef;
   }

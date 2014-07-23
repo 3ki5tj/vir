@@ -112,6 +112,7 @@ clean:
 	rm -rf $(bins) $(bins_d) $(bins_l) $(bins_q) \
 	  *~ a.out gmon.out MTSEED bin obj DHT*.dat \
 	  *Bn*.dat snapshot* tmp*.dat *.pyc \
+	  ieoptparam*.err ieoptparam*.out \
 	  r[0-9][0-9][0-9][a-z]* vv*.dat
 
 usb:
