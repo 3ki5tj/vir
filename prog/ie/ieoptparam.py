@@ -147,6 +147,8 @@ def doargs():
   else:
     if not program.startswith("."): program = os.path.join(".", program)
 
+  options = (options.rstrip() + " --corr").strip()
+
   print "dim %d, n [%d, %d], Gaussian %s, program %s, options %s" % (
       dim, nmin, nmax, gaussf, program, options)
   print "shift %s:%s:%s" % (shift_min, shift_del, shift_max)
@@ -224,7 +226,7 @@ def testshift(dim, nmin, nmax, gaussf,
 
   # run the command
   sys = "-G" if gaussf else ""
-  cmd = "%s %s %s --corr -D%s -n%s -c%s -d%s -L%s" % (
+  cmd = "%s %s %s -D%s -n%s -c%s -d%s -L%s" % (
       program, options, sys, dim, nmax,
       shift, shiftinc, shiftl0)
   if not verbose:

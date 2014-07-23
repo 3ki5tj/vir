@@ -16,7 +16,7 @@ nstep = -1
 verbose = 0
 purepy = 0
 purehnc = 0
-errmax = 50  # error
+errmax = 10  # error
 wreport = 0 # write a report
 scanall = 0 # scan all dimensions
 
@@ -82,7 +82,7 @@ def doargs():
       usage()
 
   if nstep <= 0:
-    nstep = 1 if wreport else 16
+    nstep = 1 if wreport else 32
 
 
 

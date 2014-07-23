@@ -55,6 +55,8 @@ Python script
 --------------
     ievirextra.py               extrapolation script
 
+    ieoptparam.py               script to find optimal parameters
+
     scifmt.py                   format a number with error in parentheses
                                 used in ievirextra.py
 

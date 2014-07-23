@@ -212,16 +212,16 @@ set label 100 "{/Arial-Italic D} = 7" at 26, 8e-6 font tlfont
 # invert: first drawn shown last in the legend
 set key at 27, 9 Left reverse spacing 1.5 font lbfont
 
-plot [2:32][4e-6:10] \
-  "data/D7/BnD7n20.dat"                   u ($1):(abs($2))                              w l  ls 2  lw 0.5 notitle, \
+plot [2:16][4e-6:1] \
+  "data/D5/BnD5n12.dat"                   u ($1):(abs($2))                              w l  ls 2  lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3           w e  ls 2  lw 3.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3           w e  ls 3  lw 3.0 notitle, \
   ""                                      u ($1):-1                                     w lp ls 2  lw 3.0 t "Mayer sampling", \
-  "iedata/xBnPYcD7n128.dat"               u ($1):(abs($2))                              w l  ls 4  lw 0.5 notitle, \
+  "iedata/xBnPYcD5n16.dat"               u ($1):(abs($2))                              w l  ls 4  lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)             w p  ls 4  lw 3.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)             w p  ls 5  lw 3.0 notitle, \
   ""                                      u ($1):-1                                     w lp ls 4  lw 3.0 t "Self-consistent", \
-  "iedata/xBnPYD7n32.dat"                 u ($1):(abs($3))                              w l  ls 10 lw 0.5 notitle, \
+  "iedata/BnPYD5n16R18M65536f128.dat"     u ($1):(abs($3))                              w l  ls 10 lw 0.5 notitle, \
   ""                                      u ($1):(($3 > 0) ? abs($3) : 1/0)             w p  ls 10 lw 3.0 notitle, \
   ""                                      u ($1):(($3 < 0) ? abs($3) : 1/0)             w p  ls 11 lw 3.0 notitle, \
   ""                                      u ($1):-1                                     w lp ls 10 lw 3.0 t "PY, virial", \
@@ -233,7 +233,7 @@ plot [2:32][4e-6:10] \
   ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)             w p  ls 14 lw 3.0 notitle, \
   ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)             w p  ls 15 lw 3.0 notitle, \
   ""                                      u ($1):-1                                     w lp ls 14 lw 3.0 t "PY, {/Symbol-Oblique c}", \
-  "iedata/xBnHNCD7n32.dat"                u ($1):(abs($3))                              w l  ls 6  lw 0.5 notitle, \
+  "iedata/BnPYD5n16R18M65536f128.dat"     u ($1):(abs($3))                              w l  ls 6  lw 0.5 notitle, \
   ""                                      u ($1):(($3 > 0) ? abs($3) : 1/0)             w p  ls 6  lw 3.0 notitle, \
   ""                                      u ($1):(($3 < 0) ? abs($3) : 1/0)             w p  ls 7  lw 3.0 notitle, \
   ""                                      u ($1):-1                                     w lp ls 6  lw 3.0 t "HNC, virial", \

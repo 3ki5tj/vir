@@ -1,6 +1,6 @@
 prj=ievir
 
-figs=ievircmp.pdf ievirhigh.pdf ievirlow.pdf ljievir.pdf
+figs=ievircmp.pdf ievirhigh.pdf ievirlow.pdf ievirgf.pdf
 
 $(prj)doc.pdf: $(prj)doc.tex $(prj)text.pdf iegraph.pdf $(figs)
 	make -C fig

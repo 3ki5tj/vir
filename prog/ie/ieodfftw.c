@@ -56,8 +56,9 @@ int gaussf = 0; /* Gaussian model */
 int invexp = 0; /* inverse potential */
 char systitle[32];
 
-xdouble hncamp = 1, hncq = 1, hncalpha = -1;
-xdouble shift = 0;
+xdouble hncamp = 0, hncq = 1, hncalpha = -1;
+xdouble shift = 0, shiftinc = 0;
+int shiftl0 = 0;
 
 
 
@@ -72,8 +73,8 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type");
   argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted chain approximation");
-  argopt_add(ao, "-a", "%" XDBLSCNF "f", &hncamp, "a0 of the hypernetted chain approximation");
-  argopt_add(ao, "-q", "%" XDBLSCNF "f", &hncq,  "q  of the hypernetted chain approximation");
+  argopt_add(ao, "-q", "%" XDBLSCNF "f", &hncq,  "q of the hypernetted chain approximation, y(r) = a0 exp(q t(r))");
+  argopt_add(ao, "-a", "%" XDBLSCNF "f", &hncamp, "a0 of the hypernetted chain approximation, 0: to be set by 1/q");
   argopt_add(ao, "-A", "%" XDBLSCNF "f", &hncalpha, "alpha, in the Roger-Young switch function [1 - exp(-alpha*r)]^m");
   argopt_add(ao, "-c", "%" XDBLSCNF "f", &shift, "shift of t(r) in computing Bv");
   argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
@@ -90,18 +91,20 @@ static void doargs(int argc, char **argv)
   if ( dim < 3 || dim % 2 == 0 ) argopt_help(ao);
   K = (dim - 1)/2;
   if ( rmax <= 0 ) rmax = nmax + 2;
+  if ( hncq > 0 && hncamp <= 0 )
+    hncamp = 1/hncq; /* set amp automatically = 1/q */
   if ( mkcorr )
     singer = ring = 0;
   else if ( FABS(hncamp - 1) > 1e-6 || FABS(hncq - 1) > 1e-6 || hncalpha >= 0 )
     dohnc = 1; /* turn on HNC, if necessary */
-  if ( FABS(hncq - 1) > 1e-6 && hncq > 0 && hncamp <= 0 )
-    hncamp = 1/hncq; /* set amp automatically = 1/q */
+  if ( shiftl0 <= 0 ) shiftl0 = gaussf ? 3 : 2;
   if ( singer ) ring = 1;
   if ( gaussf || invexp > 0 ) smoothpot = 1;
   if ( gaussf ) strcpy(systitle, "GF");
   else if ( invexp ) sprintf(systitle, "INV%d", invexp);
-  printf("D %d, K %d, rmax %f, npt %d, HNC %d, %s\n",
-      dim, K, (double) rmax, numpt, dohnc, systitle);
+  printf("D %d, K %d, rmax %f, npt %d, HNC %d, a0 %g, q %g, %s\n",
+      dim, K, (double) rmax, numpt, dohnc,
+      (double) hncamp, (double) hncq, systitle);
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }

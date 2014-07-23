@@ -4,7 +4,7 @@ reset
 set encoding cp1250 # make the minus sign longer
 ##set encoding iso_8859_1
 set terminal postscript eps enhanced size 10, 7 font "Arial, 22"
-set output "gfievir.eps"
+set output "ievirgf.eps"
 
 tlfont="Arial, 24"
 

@@ -43,7 +43,7 @@ int verbose = 0;
 char *fnvir = NULL;
 char *fncrtr = NULL;
 
-xdouble hncamp = 1, hncq = 1, hncalpha = -1;
+xdouble hncamp = 0, hncq = 1, hncalpha = -1;
 xdouble shift = 0;
 
 
@@ -58,8 +58,8 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type");
   argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted chain approximation");
-  argopt_add(ao, "-a", "%" XDBLSCNF "f", &hncamp, "a0 of the hypernetted chain approximation");
-  argopt_add(ao, "-q", "%" XDBLSCNF "f", &hncq,  "q  of the hypernetted chain approximation");
+  argopt_add(ao, "-q", "%" XDBLSCNF "f", &hncq,  "q of the hypernetted chain approximation, y(r) = a0 exp(q t(r))");
+  argopt_add(ao, "-a", "%" XDBLSCNF "f", &hncamp, "a0 of the hypernetted chain approximation, 0: to be set as 1/q");
   argopt_add(ao, "-A", "%" XDBLSCNF "f", &hncalpha, "Roger-Young switch function 1 - exp(-alpha*r)");
   argopt_add(ao, "-c", "%" XDBLSCNF "f", &shift, "shift of t(r) in computing Bv");
   argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
@@ -73,11 +73,11 @@ static void doargs(int argc, char **argv)
   argopt_parse(ao, argc, argv);
   if ( rmax <= 0 ) rmax = (nmax + 2)*2.0;
   beta = 1/T;
+  if ( hncq > 0 && hncamp <= 0 )
+    hncamp = 1/hncq; /* set amp automatically = 1/q */
   if ( mkcorr ) singer = ring = 0;
   else if ( FABS(hncamp - 1) > 1e-6 || FABS(hncq - 1) > 1e-6 || hncalpha >= 0 )
     dohnc = 1; /* turn on HNC, if necessary */
-  if ( FABS(hncq - 1) > 1e-6 && hncq > 0 && hncamp <= 0 )
-    hncamp = 1/hncq; /* set amp automatically = 1/q */
   if ( singer ) ring = 1;
   printf("rmax = %f, T %lf, HNC %d\n", (double) rmax, (double) T, dohnc);
   if ( verbose ) argopt_dump(ao);
