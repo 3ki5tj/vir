@@ -99,7 +99,7 @@ static int rerun(int nmax, int npt, xdouble rmax, int dohnc)
 {
   xdouble facr2k, fack2r, surfr, surfk;
   xdouble Bc = 0, Bv = 0, Bm = 0, Bh = 0, Br = 0, B2, tmp1, tmp2, fcorr = 0;
-  xdouble *fr, **cr, **tr, **ck, **tk, **yr, *vc;
+  xdouble *fr, **cr, **tr, **ck, **tk, *yrl = NULL, *vc;
   xdouble *ri, *ki, *r2p, *k2p, *rDm1, *kDm1;
   int i, dm, l, l0 = 1;
   slowdht *dht;
@@ -153,13 +153,12 @@ static int rerun(int nmax, int npt, xdouble rmax, int dohnc)
   MAKE2DARR(tk, nmax - 1, npt)
   MAKE2DARR(cr, nmax - 1, npt)
   MAKE2DARR(tr, nmax - 1, npt)
-  MAKE2DARR(yr, nmax - 1, npt);
+  MAKE1DARR(yrl, npt);
   MAKE1DARR(vc, npt);
 
   /* construct f(r) and f(k) */
   for ( i = 0; i < npt; i++ ) /* compute f(r) = exp(-beta u(r)) - 1 */
     cr[0][i] = fr[i] = (i < dm) ? -1. : 0;
-  for ( i = 0; i < npt; i++ ) yr[0][i] = 1;
 
   l0 = snapshot_open(dim, nmax, rmax, dohnc, mkcorr, ring, singer,
       npt, ck, tk, cr, tr, NULL, NULL, NULL);
@@ -177,27 +176,27 @@ static int rerun(int nmax, int npt, xdouble rmax, int dohnc)
     }
 
     /* compute the cavity function y(r) */
-    get_yr_hnc(l, nmax, npt, yr, tr[l]);
+    get_yr_hnc(l, npt, yrl, tr);
 
     if ( mkcorr ) {
       /* vc(r) is unaffected */
       for ( i = 0; i < npt; i++ )
-        vc[i] = yr[l][i] - tr[l][i];
+        vc[i] = yrl[i] - tr[l][i];
 
       /* Bv is unaffected */
       if ( dohnc ) {
-        Bv = contactv(yr[l], dm, B2);
+        Bv = contactv(yrl, dm, B2);
       } else {
         Bv = contactv(tr[l], dm, B2);
       }
 
       /* in the PY case, y(r) = 1 + t(r) */
-      Bm = get_invcorr1_hs(l, npt, dm, dohnc ? yr[l] : tr[l],
+      Bm = get_invcorr1_hs(l, npt, dm, dohnc ? yrl : tr[l],
           cr[l], fr, rDm1, B2, vc, &Bc, &Bv, &fcorr);
     } else {
       /* without correction */
       if ( dohnc ) {
-        Bv = contactv(yr[l], dm, B2);
+        Bv = contactv(yrl, dm, B2);
       } else {
         Bv = contactv(tr[l], dm, B2);
       }
@@ -228,7 +227,7 @@ static int rerun(int nmax, int npt, xdouble rmax, int dohnc)
   FREE2DARR(tk, nmax - 1, npt);
   FREE2DARR(cr, nmax - 1, npt);
   FREE2DARR(tr, nmax - 1, npt);
-  FREE2DARR(yr, nmax - 1, npt);
+  FREE1DARR(yrl, npt);
   FREE1DARR(vc, npt);
   slowdht_free(dht);
   return 0;

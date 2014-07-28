@@ -206,7 +206,32 @@ __inline static void contactv(mpfr_t y, mpfr_t *f, int dm, mpfr_t B2)
 
 
 /* compute t(k) from c(k) from the Ornstein-Zernike relation */
-__inline static void get_tk_oz(int l, int npt, mpfr_t **ck, mpfr_t **tk)
+__inline static void get_tk_oz(int l, int npt, mpfr_t **ck, mpfr_t *tkl)
+{
+  int i, u, v;
+  mpfr_t x, *a;
+
+  INIT_(x);
+  MAKE1DARR(a, l + 1);
+  for ( i = 0; i < npt; i++ ) {
+    for (v = 1; v <= l; v++) {
+      SET_SI_(a[v], 0);
+      for ( u = 0; u < v; u++ ) {
+        /* a[v] += ck[v-1-u][i] * (ck[u][i] + a[u]) */
+        ADD_(x, ck[u][i], a[u]);
+        FMA_X_(a[v], ck[v-1-u][i], x);
+      }
+    }
+    SET_(tkl[i], a[l]);
+  }
+  FREE1DARR(a, l + 1);
+  CLEAR_(x);
+}
+
+
+
+/* compute t(k) from c(k) from the Ornstein-Zernike relation */
+__inline static void get_tk_oz_fast(int l, int npt, mpfr_t **ck, mpfr_t **tk)
 {
   int i, u;
   mpfr_t x;
@@ -227,38 +252,60 @@ __inline static void get_tk_oz(int l, int npt, mpfr_t **ck, mpfr_t **tk)
 
 /* compute the cavity function y(r)
  * from the hypernetted chain (HNC) approximation */
-static void get_yr_hnc(int l, int nmax, int npt,
-    mpfr_t **yr, mpfr_t *trl)
+static void get_yr_hnc(int l, int npt, mpfr_t *yrl, mpfr_t **tr)
 {
-  int i, j, k, jl;
-  mpfr_t x, powtr, *yro;
+  int i, u, v;
+  mpfr_t x, *y;
 
   INIT_(x);
-  INIT_(powtr);
-  MAKE1DARR(yro, nmax - 1);
+  MAKE1DARR(y, l + 1);
   /* y(r) = exp(t(r))
    * c(r) = (1 + f(r)) y(r) - t(r) - 1 */
-  /* yr = yr0 * exp(rho^l t_l)
-   *    = (yr0_0 + yr0_1 rho + yr0_2 rho^2 + ... )
-   *    * (1 + t_l rho^l + t_{2l} rho^(2l)/2! + ... )
-   * y[l...n](r) are updated */
   for ( i = 0; i < npt; i++) {
-    for ( j = 0; j < nmax - 1; j++ )
-      SET_(yro[j], yr[j][i]);
-    SET_SI_(powtr, 1);
-    for ( j = 1; j*l < nmax - 1; j++ ) {
-      /* powtr = tl^j/j!; powtr *= tl/j; */
-      DIV_SI_(x, trl[i], j);
-      MUL_X_(powtr, x);
-      for ( jl = j * l, k = 0; k + jl < nmax - 1; k++ ) {
-        /* yr_{k + jl} +=  yr0_k * tl^j/j! */
-        FMA_X_(yr[jl+k][i], yro[k], powtr);
+    SET_SI_(y[0], 1);
+    for ( v = 1; v <= l; v++ ) { /* compute y[v] */
+      SET_SI_(y[v], 0);
+      for ( u = 1; u <= v; u++ ) {
+        /* y[v] += u * tr[u][i] * y[v - u]; */
+        MUL_(x, tr[u][i], y[v - u]);
+        MUL_SI_X_(x, u);
+        ADD_X_(y[v], x);
       }
+      /* y[v] /= v; */
+      DIV_SI_X_(y[v], v);
     }
+    SET_(yrl[i], y[l]);
   }
   CLEAR_(x);
-  CLEAR_(powtr);
-  FREE1DARR(yro, nmax - 1);
+  FREE1DARR(y, l + 1);
+}
+
+
+
+/* compute the cavity function y(r)
+ * from the hypernetted chain (HNC) approximation */
+static void get_yr_hnc_fast(int l, int npt, mpfr_t *yrl,
+    mpfr_t **yr, mpfr_t **tr)
+{
+  int i, u;
+  mpfr_t x;
+
+  INIT_(x);
+  /* y(r) = exp(t(r))
+   * c(r) = (1 + f(r)) y(r) - t(r) - 1 */
+  for ( i = 0; i < npt; i++) {
+    SET_SI_(yr[l][i], 0);
+    for ( u = 1; u <= l; u++ ) {
+      /* yr[l][i] += u * tr[u][i] * yr[l - u][i]; */
+      MUL_(x, tr[u][i], yr[l - u][i]);
+      MUL_SI_X_(x, u);
+      ADD_X_(yr[l][i], x);
+    }
+    /* y[l] /= l; */
+    DIV_SI_X_(yr[l][i], l);
+    SET_(yrl[i], yr[l][i]);
+  }
+  CLEAR_(x);
 }
 
 
@@ -509,6 +556,7 @@ __inline static int savevirtail(const char *fn, clock_t endtime)
   xfopen(fp, fn, "a", return -1);
   fprintf(fp, "# %.3fs\n", (double) endtime / CLOCKS_PER_SEC);
   fclose(fp);
+  fprintf(stderr, "virial coefficients saved to %s\n", fn);
   return 0;
 }
 
@@ -516,10 +564,10 @@ __inline static int savevirtail(const char *fn, clock_t endtime)
 
 /* save c(r) or t(r) file */
 __inline static int savecrtr(const char *fn, int l, int npt,
-    mpfr_t *ri, mpfr_t *cr, mpfr_t *tr, mpfr_t *vc, mpfr_t **yr)
+    mpfr_t *ri, mpfr_t *cr, mpfr_t *tr, mpfr_t *vc, mpfr_t *yrl)
 {
   FILE *fp;
-  int i, j;
+  int i;
 
   if (fn == NULL) return -1;
   xfopen(fp, fn, (l == 1) ? "w" : "a", return -1);
@@ -528,9 +576,8 @@ __inline static int savecrtr(const char *fn, int l, int npt,
         ri[i], cr[i], tr[i], l);
     if ( vc != NULL )
       mpfr_fprintf(fp, " %20.12Rf", vc[i]);
-    if ( yr != NULL )
-      for ( j = 1; j <= l; j++ )
-        mpfr_fprintf(fp, " %20.12Rf", yr[j][i]);
+    if ( yrl != NULL )
+      mpfr_fprintf(fp, " %20.12Rf", yrl[i]);
     fprintf(fp, "\n");
   }
   fprintf(fp, "\n");

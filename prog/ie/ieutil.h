@@ -133,316 +133,6 @@ __inline static xdouble get_Bv(int npt, xdouble *yrl, int smoothpot,
 
 
 
-/* deprecated */
-__inline static xdouble get_Bv_hnc_hs(xdouble *yrl, xdouble *trl,
-    xdouble a0, xdouble q, int dm, xdouble B2)
-{
-  xdouble y = contactv(yrl, dm, B2);
-  if (yrl != trl) /* to avoid PY case */
-    y += (1 - a0*q) * contactv(trl, dm, B2);
-  return y;
-}
-
-
-
-/* deprecated */
-__inline static xdouble get_Bv_hnc(int npt, xdouble *yrl, xdouble *trl,
-    xdouble a0, xdouble q, xdouble *rdfr, xdouble *rDm1, int dim)
-{
-  xdouble y = integr2(npt, yrl, rdfr, rDm1);
-  if (yrl != trl)
-    y += (1 - a0*q) * integr2(npt, trl, rdfr, rDm1);
-  return y / (dim * 2);
-}
-
-
-
-/* compute t(k) from c(k) from the Ornstein-Zernike relation */
-__inline static void get_tk_oz(int l, int npt, xdouble **ck, xdouble **tk)
-{
-  int i, u;
-
-  for ( i = 0; i < npt; i++ ) tk[l][i] = 0;
-  for ( u = 0; u < l; u++ )
-    for ( i = 0; i < npt; i++ )
-      tk[l][i] += ck[l-1-u][i] * (ck[u][i] + tk[u][i]);
-}
-
-
-
-#define get_yr_hnc(l, nmax, npt, yr, trl) \
-  get_yr_hncx(l, nmax, npt, yr, trl, 1, NULL)
-
-/* update the cavity function y(r)
- * for the generalized hypernetted chain (HNC) approximation */
-__inline static void get_yr_hncx(int l, int nmax, int npt,
-    xdouble **yr, xdouble *trl, xdouble q, xdouble *swr)
-{
-  int i, j, k, jl;
-  xdouble *yro, powtr;
-
-  xnew(yro, nmax - 1);
-  /* y(r) = a0 exp[q sw(r) t(r) ] / sw(r)
-   * where sw(r) = 1 - exp(-alpha r)
-   * c(r) = (1 + f(r)) (y(r) + (1-a0/sw(r)) + (1-a0*q)*t(r)) - t(r) - 1 */
-  /* yr = yr0 * exp(q sw rho^l t_l)
-   *    = (yr0_0 + yr0_1 rho + yr0_2 rho^2 + ... )
-   *    * (1 + q sw t_l rho^l + q^2 sw^2 t_{2l} rho^(2l)/2! + ... )
-   * y[l...n](r) are updated */
-  for ( i = 0; i < npt; i++) {
-    for (j = 0; j < nmax - 1; j++) yro[j] = yr[j][i];
-    powtr = 1;
-    for ( j = 1; j * l < nmax - 1; j++ ) {
-      /* powtr = q^j tl(r)^j/j! */
-      powtr *= q * trl[i] / j;
-      if ( swr != NULL ) powtr *= swr[i];
-      for ( jl = j * l, k = 0; k + jl < nmax - 1; k++ )
-        /* yr_{k + jl} += yr0_k * q^j tl^j/j! */
-        yr[jl+k][i] += yro[k] * powtr;
-    }
-  }
-  free(yro);
-}
-
-
-
-/* update the cavity function y(r)
- * for the Percus-Yevick approximation */
-__inline static void get_yr_py2(int l, int npt, xdouble *yrl, xdouble **tr)
-{
-  int i, j;
-
-  /* y(r) = 1 + t(r) + t(r)^2/2
-   * c(r) = (1 + f(r)) y(r) - t(r) - 1 */
-  for ( i = 0; i < npt; i++) {
-    yrl[i] = tr[l][i]; /* t(r) */
-    for ( j = 1; j < l; j++ ) /* do t(r)^2 */
-      yrl[i] += tr[j][i] * tr[l-j][i] / 2;
-  }
-}
-
-
-
-/* correct the hypernetted chain approximation
- * `vc' is the trial correction function to y(r)
- * The corresponding correction to c(r) is (f(r) + 1) vc(r)
- * which is only effective for r > 1
- * i.e., vc(r < 1) is unused */
-__inline static xdouble get_corr1_hs(int l, int npt, int dm,
-    xdouble *cr, xdouble *fr, xdouble *rDm1,
-    xdouble B2, xdouble *vc, xdouble *Bc0, xdouble *Bv0, xdouble *eps)
-{
-  int i;
-  xdouble dBc, dBv;
-
-  //*Bc0 = -integr(npt, cr, rDm1) / (l + 2);
-  dBc = -integre(npt, vc, fr, rDm1) / (l + 2);
-  //*Bv0 = contactv(yr, dm, B2);
-  dBv = contactv(vc, dm, B2);
-  if ( l <= 1 ) {
-    *eps = 0;
-    return *Bv0;
-  }
-  *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
-  for ( i = 0; i < npt; i++ ) {
-    vc[i] *= *eps;
-    cr[i] += (fr[i] + 1) * vc[i];
-  }
-  return (*Bv0) + (*eps) * dBv;
-}
-
-
-
-/* switch between the continuous and discontinuous case */
-#define get_corr1x(l, npt, dm, cr, fr, rdfr, rDm1, dim, B2, vc, Bc0, Bv0, fcorr) \
-  (rdfr == NULL \
-    ? get_corr1_hs(l, npt, dm, cr, fr, rDm1, B2, vc, Bc0, Bv0, fcorr) \
-    : get_corr1(l, npt, cr, fr, rdfr, rDm1, dim, vc, Bc0, Bv0, fcorr))
-
-
-
-/* correct the hypernetted chain approximation
- *  `vc' is the trial correction function to y(r) */
-__inline static xdouble get_corr1(int l, int npt,
-    xdouble *cr, xdouble *fr, xdouble *rdfr,
-    xdouble *rDm1, int dim, xdouble *vc,
-    xdouble *Bc0, xdouble *Bv0, xdouble *eps)
-{
-  int i;
-  xdouble dBc, dBv;
-
-  //*Bc0 = -integr(npt, cr, rDm1) / (l + 2);
-  dBc = -integre(npt, vc, fr, rDm1) / (l + 2);
-  //*Bv0 = integr2(npt, yr, rdfr, rDm1) / (dim * 2);
-  dBv = integr2(npt, vc, rdfr, rDm1) / (dim * 2);
-  if ( l <= 1 ) {
-    *eps = 0;
-    return *Bc0;
-  }
-
-  *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
-  for ( i = 0; i < npt; i++ ) {
-    vc[i] *= *eps;
-    cr[i] += vc[i] * (1 + fr[i]);
-  }
-  return *Bv0 + (*eps) * dBv;
-}
-
-
-
-/* compute y(r) = Sum_{m = 1 to l} a_m { t(r)^m }_l */
-__inline static xdouble get_yr_series(int l, int npt,
-    xdouble **tr, xdouble *a, xdouble *yr)
-{
-  int i, j, k, m;
-  xdouble *tp, y, s = 0;
-
-  MAKE1DARR(tp, l + 1);
-  for ( i = 0; i < npt; i++ ) { /* loop over r points */
-    tp[0] = 0;
-    for ( j = 1; j <= l; j++ )
-      tp[j] = tr[j][i]; /* tr = t1 rho + t2 rho^2 + ... + tl rho^l */
-    /* contribution from tp = t(r)^m */
-    y = tp[l] * a[1];
-    for ( m = 2; m <= l; m++ ) { /* tp'_j = [t(r)^m]_j */
-      /* update tp'[l], ..., tp'[m-1], tp'[m] */
-      for ( j = l; j >= m; j-- ) {
-        /* tp'[j] = Sum_{k = 1 to j - 1} tp[k] tr[j - k]
-         * the minimal j would be m
-         * we start from larger j to smaller j
-         * to preserve small-index data */
-        tp[j] = 0;
-        for ( k = j - 1; k >= m - 1; k-- )
-          tp[j] += tp[k] * tr[j - k][i];
-      }
-      tp[m - 1] = 0;
-      y += tp[l] * a[m];
-    }
-    if ( yr != NULL ) yr[i] = y;
-  }
-  FREE1DARR(tp, l + 1);
-  return s;
-}
-
-
-
-
-/* compute the cycle sum
- * Sum_{m = 3 to infinity} { rho^m [c(k)]^m }_{l+2} / m */
-__inline static xdouble get_ksum(int l, int npt,
-    xdouble **ck, xdouble *w, xdouble *s2)
-{
-  int i, j, k, m;
-  xdouble *a, y, s = 0, z;
-
-  if ( s2 != NULL ) *s2 = 0;
-  MAKE1DARR(a, l + 1);
-  for ( i = 0; i < npt; i++ ) {
-    y = z = 0;
-    for ( j = 0; j <= l; j++ )
-      a[j] = ck[j][i];
-    for ( m = 2; m <= l + 2; m++ ) { /* rho^m [c(k)]^m */
-      /* update a[l + 2 - m], ..., a[0] */
-      for ( j = l + 2 - m; j >= 0; j-- ) {
-        /* a'[j] = Sum_{k = 0 to j} a[k] ck[j - k]
-         * we start from larger j to smaller j
-         * to preserve small-index data */
-        a[j] = a[j] * ck[0][i];
-        for ( k = j - 1; k >= 0; k-- )
-          a[j] += a[k] * ck[j - k][i];
-      }
-      /* the m == 2 part can be handled in the real space */
-      if ( m == 2 ) continue;
-      y += a[l + 2 - m] / m;
-      z += a[l + 2 - m] * (m - 2) / (2*m);
-    }
-    s += w[i] * y;
-    if ( s2 != NULL ) *s2 += w[i] * z;
-  }
-  FREE1DARR(a, l + 1);
-  return s;
-}
-
-
-
-/* compute mu = Int (c - h t / 2) dr */
-__inline static xdouble get_Bm_singer(int l, int npt,
-    xdouble **cr, xdouble **tr, xdouble *w)
-{
-  int i, u;
-  xdouble s = 0, x;
-
-  for ( i = 0; i < npt; s += x * w[i], i++ )
-    for ( x = cr[l][i], u = 0; u < l; u++ )
-      x -= tr[l-u][i] * (cr[u][i] + tr[u][i]) / 2;
-  return -s * (l+1)/(l+2);
-}
-
-
-
-/* compute -beta F = (1/2) Int (c - c t - t^2 / 2) dr (real part) */
-__inline static xdouble get_Bh_singer(int l, int npt,
-    xdouble **cr, xdouble **tr, xdouble *w)
-{
-  int i, u;
-  xdouble s = 0, x;
-
-  /* compute -2 beta F */
-  for ( i = 0; i < npt; s += x * w[i], i++ )
-    for ( x = cr[l][i], u = 0; u < l; u++ )
-      x -= tr[l-u][i] * (cr[u][i] + tr[u][i] / 2);
-  return -s * (l+1)/2;
-}
-
-
-
-/* d^2_rho beta P = Int (c + h t) dr */
-__inline static xdouble get_Bx_py(int l, int npt,
-    xdouble **cr, xdouble **tr, xdouble *w)
-{
-  int i, u;
-  xdouble s = 0, x;
-
-  for ( i = 0; i < npt; s += x * w[i], i++ )
-    for ( x = cr[l][i], u = 0; u < l; u++ )
-      x += tr[l-u][i] * (cr[u][i] + tr[u][i]);
-  return -s/((l+1)*(l+2));
-}
-
-
-
-/* d^2_rho beta P = (-1/2) Int (c - t c) dr (real part) */
-__inline static xdouble get_Bp_py(int l, int npt,
-    xdouble **cr, xdouble **tr, xdouble *w)
-{
-  int i, u;
-  xdouble s = 0, x;
-
-  for ( i = 0; i < npt; i++ ) {
-    for ( x = cr[l][i], u = 0; u < l; u++ )
-      x -= tr[l-u][i] * cr[u][i];
-    s += x * w[i];
-  }
-  return -s/2;
-}
-
-
-
-/* -Int h t dr / (l + 2) / l */
-__inline static xdouble get_ht(int l, int npt,
-    xdouble **cr, xdouble **tr, xdouble *w)
-{
-  int i, u;
-  xdouble s = 0, x;
-
-  for ( i = 0; i < npt; s += x * w[i], i++ )
-    for ( x = 0, u = 0; u < l; u++ )
-      x += tr[l-u][i] * (cr[u][i] + tr[u][i]);
-  return -s/l/(l+2);
-}
-
-
-
 /* multiply the series y = Sum_{i = 0 to n-1} a_i x^i
  * z = Sum_{j = 0 to n-1} b_j x_j
  * as w = y z = Sum_{k = 0 to n-1} c_k x^k */
@@ -579,6 +269,427 @@ __inline static void inverse_series(int n, const xdouble *a, xdouble *b)
   inverse_series(7, a, b);
   printf("%g %g %g %g %g %g\n", (double) b[1], (double) b[2], (double) b[3], (double) b[4], (double) b[5], (double) b[6]);
 */
+
+
+
+/* compute t(k) from c(k) from the Ornstein-Zernike relation
+ * economic version */
+__inline static void get_tk_oz(int l, int npt, xdouble **ck, xdouble *tkl)
+{
+  int i, u, v;
+  xdouble *a;
+
+  xnew(a, l + 1);
+  for ( i = 0; i < npt; i++ ) {
+    for ( v = 1; v <= l; v++ )
+      for ( a[v] = 0, u = 0; u < v; u++ )
+        a[v] += ck[v-1-u][i] * (ck[u][i] + a[u]);
+    tkl[i] = a[l];
+  }
+  free(a);
+}
+
+
+
+/* compute t(k) from c(k) from the Ornstein-Zernike relation
+ * large memory version */
+__inline static void get_tk_oz_fast(int l, int npt, xdouble **ck, xdouble **tk)
+{
+  int i, u;
+
+  for ( i = 0; i < npt; i++ ) tk[l][i] = 0;
+  for ( u = 0; u < l; u++ )
+    for ( i = 0; i < npt; i++ )
+      tk[l][i] += ck[l-1-u][i] * (ck[u][i] + tk[u][i]);
+}
+
+
+
+#define get_yr_hnc(l, npt, yrl, tr) \
+  get_yr_hncx(l, npt, yrl, tr, 1, 1, NULL)
+
+/* compute the cavity function y(r)
+ * for the generalized hypernetted chain (HNC) approximation */
+__inline static void get_yr_hncx(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble a0, xdouble q, xdouble *swr)
+{
+  int i, u;
+  xdouble *x, *y;
+
+  xnew(x, l + 1);
+  xnew(y, l + 1);
+  /* y(r) = a0 exp[q sw(r) t(r) ] / sw(r) + (1 - a0/sw(r)) + (1 - a0*q)*t(r)
+   * where sw(r) = 1 - exp(-alpha r) */
+  for ( i = 0; i < npt; i++) {
+    /* form the exponent */
+    for ( x[0] = 0, u = 1; u <= l; u++ )
+      x[u] = tr[u][i] * q * (swr ? swr[i] : 1);
+    exp_series(l+1, x, y);
+    yrl[i] = a0 * y[l] / (swr ? swr[i] : 1) + (1 - a0*q) * tr[l][i];
+  }
+  free(x);
+  free(y);
+}
+
+
+
+#define get_yr_hnc_fast(l, npt, yrl, yr, tr) \
+  get_yr_hncx_fast(l, npt, yrl, yr, tr, 1, 1, NULL)
+
+/* compute the cavity function y(r)
+ * for the generalized hypernetted chain (HNC) approximation
+ * yrl != yr[l], the latter only includes the exponential part */
+__inline static void get_yr_hncx_fast(int l, int npt, xdouble *yrl,
+    xdouble **yr, xdouble **tr, xdouble a0, xdouble q, xdouble *swr)
+{
+  int i, u;
+
+  /* y(r) = a0 exp[q sw(r) t(r) ] / sw(r) + (1 - a0/sw(r)) + (1 - a0*q)*t(r)
+   * where sw(r) = 1 - exp(-alpha r) */
+  for ( i = 0; i < npt; i++) {
+    yr[l][i] = 0;
+    for ( u = 1; u <= l; u++ )
+      yr[l][i] += u * (tr[u][i] * q * (swr ? swr[i] : 1)) * yr[l - u][i];
+    yr[l][i] /= l;
+    yrl[i] = a0 * yr[l][i] / (swr ? swr[i] : 1) + (1 - a0*q) * tr[l][i];
+  }
+}
+
+
+
+/* compute y(r) for the Percus-Yevick 2 approximation */
+__inline static void get_yr_py2(int l, int npt, xdouble *yrl, xdouble **tr)
+{
+  int i, j;
+
+  /* y(r) = 1 + t(r) + t(r)^2/2
+   * c(r) = (1 + f(r)) y(r) - t(r) - 1 */
+  for ( i = 0; i < npt; i++) {
+    yrl[i] = tr[l][i]; /* t(r) */
+    for ( j = 1; j < l; j++ ) /* do t(r)^2 */
+      yrl[i] += tr[j][i] * tr[l-j][i] / 2;
+  }
+}
+
+
+
+/* compute y(r) for the Hutchinson-Conkie closure */
+__inline static void get_yr_hc(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble s)
+{
+  int i, u;
+  xdouble *a, *b;
+
+  xnew(a, l + 1);
+  xnew(b, l + 1);
+  for ( i = 0; i < npt; i++ ) {
+    /* y(r) = (1 + s t(r))^(1/s) */
+    for ( a[0] = 1, u = 1; u <= l; u++ )
+      a[u] = s * tr[u][i];
+    pow_series(1/s, l+1, a, b);
+    yrl[i] = b[l];
+  }
+  free(a);
+  free(b);
+}
+
+
+
+/* compute y(r) for the BBPG closure */
+__inline static void get_yr_bbpg(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble s)
+{
+  int i, u;
+  xdouble *a, *b;
+
+  xnew(a, l + 1);
+  xnew(b, l + 1);
+  for ( i = 0; i < npt; i++ ) {
+    /* y(r) = exp[(1 + s t(r))^(1/s) - 1] */
+    for ( a[0] = 1, u = 1; u <= l; u++ )
+      a[u] = s * tr[u][i];
+    pow_series(1/s, l+1, a, b);
+    b[0] = 0;
+    exp_series(l+1, b, a);
+    yrl[i] = a[l];
+  }
+  free(a);
+  free(b);
+}
+
+
+
+/* compute y(r) for the inverse Rowlinson closure */
+__inline static void get_yr_invrowlinson(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble phi)
+{
+  int i, u;
+  xdouble *a, *b;
+
+  xnew(a, l+1);
+  xnew(b, l+1);
+  for ( i = 0; i < npt; i++ ) {
+    /*  y(r) = exp(t(r)) phi + (1 - phi) (1 + t(r))
+     *       = 1 + t(r) + phi (t(r)^2/2! + t(r)^3/3! + ...) */
+    for ( a[0] = 0, u = 1; u <= l; u++ ) a[u] = tr[u][i];
+    exp_series(l+1, a, b);
+    yrl[i] = phi*b[l] + (1 - phi)*a[l];
+  }
+  free(a);
+  free(b);
+}
+
+
+
+/* compute y(r) for the Verlet closure */
+__inline static void get_yr_verlet(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble A, xdouble B)
+{
+  int i, u;
+  xdouble *a, *b, *c;
+
+  xnew(a, l+1);
+  xnew(b, l+1);
+  xnew(c, l+1);
+  for ( i = 0; i < npt; i++ ) {
+    /*  y(r) = exp[ t(r) - A*t(r)^2/2/(1 + B*t(r)/2) ]
+     *       = exp[ t(r) * {1 - A*t(r)/2/(1 + B*t(r)/2)} ] */
+    a[0] = b[0] = 1;
+    for ( u = 1; u <= l; u++ ) {
+      a[u] = (B-A)/2*tr[u][i];
+      b[u] = B/2*tr[u][i];
+    }
+    div_series(l+1, a, b, c); /* c = a / b */
+    for ( a[0] = 0, u = 1; u <= l; u++ ) a[u] = tr[u][i];
+    mul_series(l+1, a, c, b); /* b = t * c */
+    exp_series(l+1, b, a);
+    yrl[i] = a[l];
+  }
+  free(a);
+  free(b);
+  free(c);
+}
+
+
+
+/* compute y(r) = Sum_{m = 1 to l} a_m { t(r)^m }_l
+ * slow, try to avoid */
+__inline static xdouble get_yr_series(int l, int npt, xdouble *yr,
+    xdouble **tr, xdouble *a)
+{
+  int i, j, k, m;
+  xdouble *tp, y, s = 0;
+
+  MAKE1DARR(tp, l + 1);
+  for ( i = 0; i < npt; i++ ) { /* loop over r points */
+    tp[0] = 0;
+    for ( j = 1; j <= l; j++ )
+      tp[j] = tr[j][i]; /* tr = t1 rho + t2 rho^2 + ... + tl rho^l */
+    /* contribution from tp = t(r)^m */
+    y = tp[l] * a[1];
+    for ( m = 2; m <= l; m++ ) { /* tp'_j = [t(r)^m]_j */
+      /* update tp'[l], ..., tp'[m-1], tp'[m] */
+      for ( j = l; j >= m; j-- ) {
+        /* tp'[j] = Sum_{k = 1 to j - 1} tp[k] tr[j - k]
+         * the minimal j would be m
+         * we start from larger j to smaller j
+         * to preserve small-index data */
+        tp[j] = 0;
+        for ( k = j - 1; k >= m - 1; k-- )
+          tp[j] += tp[k] * tr[j - k][i];
+      }
+      tp[m - 1] = 0;
+      y += tp[l] * a[m];
+    }
+    if ( yr != NULL ) yr[i] = y;
+  }
+  FREE1DARR(tp, l + 1);
+  return s;
+}
+
+
+
+
+/* correct the hypernetted chain approximation
+ * `vc' is the trial correction function to y(r)
+ * The corresponding correction to c(r) is (f(r) + 1) vc(r)
+ * which is only effective for r > 1
+ * i.e., vc(r < 1) is unused */
+__inline static xdouble get_corr1_hs(int l, int npt, int dm,
+    xdouble *cr, xdouble *fr, xdouble *rDm1,
+    xdouble B2, xdouble *vc, xdouble *Bc0, xdouble *Bv0, xdouble *eps)
+{
+  int i;
+  xdouble dBc, dBv;
+
+  //*Bc0 = -integr(npt, cr, rDm1) / (l + 2);
+  dBc = -integre(npt, vc, fr, rDm1) / (l + 2);
+  //*Bv0 = contactv(yr, dm, B2);
+  dBv = contactv(vc, dm, B2);
+  if ( l <= 1 ) {
+    *eps = 0;
+    return *Bv0;
+  }
+  *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
+  for ( i = 0; i < npt; i++ ) {
+    vc[i] *= *eps;
+    cr[i] += (fr[i] + 1) * vc[i];
+  }
+  return (*Bv0) + (*eps) * dBv;
+}
+
+
+
+/* switch between the continuous and discontinuous case */
+#define get_corr1x(l, npt, dm, cr, fr, rdfr, rDm1, dim, B2, vc, Bc0, Bv0, fcorr) \
+  (rdfr == NULL \
+    ? get_corr1_hs(l, npt, dm, cr, fr, rDm1, B2, vc, Bc0, Bv0, fcorr) \
+    : get_corr1(l, npt, cr, fr, rdfr, rDm1, dim, vc, Bc0, Bv0, fcorr))
+
+
+
+/* correct the hypernetted chain approximation
+ *  `vc' is the trial correction function to y(r) */
+__inline static xdouble get_corr1(int l, int npt,
+    xdouble *cr, xdouble *fr, xdouble *rdfr,
+    xdouble *rDm1, int dim, xdouble *vc,
+    xdouble *Bc0, xdouble *Bv0, xdouble *eps)
+{
+  int i;
+  xdouble dBc, dBv;
+
+  //*Bc0 = -integr(npt, cr, rDm1) / (l + 2);
+  dBc = -integre(npt, vc, fr, rDm1) / (l + 2);
+  //*Bv0 = integr2(npt, yr, rdfr, rDm1) / (dim * 2);
+  dBv = integr2(npt, vc, rdfr, rDm1) / (dim * 2);
+  if ( l <= 1 ) {
+    *eps = 0;
+    return *Bc0;
+  }
+
+  *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
+  for ( i = 0; i < npt; i++ ) {
+    vc[i] *= *eps;
+    cr[i] += vc[i] * (1 + fr[i]);
+  }
+  return *Bv0 + (*eps) * dBv;
+}
+
+
+
+/* compute the cycle sum
+ * Sum_{m = 3 to infinity} { rho^m [c(k)]^m }_{l+2} / m */
+__inline static xdouble get_ksum(int l, int npt,
+    xdouble **ck, xdouble *w, xdouble *s2)
+{
+  int i, j, k, m;
+  xdouble *a, y, s = 0, z;
+
+  if ( s2 != NULL ) *s2 = 0;
+  MAKE1DARR(a, l + 1);
+  for ( i = 0; i < npt; i++ ) {
+    y = z = 0;
+    for ( j = 0; j <= l; j++ )
+      a[j] = ck[j][i];
+    for ( m = 2; m <= l + 2; m++ ) { /* rho^m [c(k)]^m */
+      /* update a[l + 2 - m], ..., a[0] */
+      for ( j = l + 2 - m; j >= 0; j-- ) {
+        /* a'[j] = Sum_{k = 0 to j} a[k] ck[j - k]
+         * we start from larger j to smaller j
+         * to preserve small-index data */
+        a[j] = a[j] * ck[0][i];
+        for ( k = j - 1; k >= 0; k-- )
+          a[j] += a[k] * ck[j - k][i];
+      }
+      /* the m == 2 part can be handled in the real space */
+      if ( m == 2 ) continue;
+      y += a[l + 2 - m] / m;
+      z += a[l + 2 - m] * (m - 2) / (2*m);
+    }
+    s += w[i] * y;
+    if ( s2 != NULL ) *s2 += w[i] * z;
+  }
+  FREE1DARR(a, l + 1);
+  return s;
+}
+
+
+
+/* compute mu = Int (c - h t / 2) dr */
+__inline static xdouble get_Bm_singer(int l, int npt,
+    xdouble **cr, xdouble **tr, xdouble *w)
+{
+  int i, u;
+  xdouble s = 0, x;
+
+  for ( i = 0; i < npt; s += x * w[i], i++ )
+    for ( x = cr[l][i], u = 0; u < l; u++ )
+      x -= tr[l-u][i] * (cr[u][i] + tr[u][i]) / 2;
+  return -s * (l+1)/(l+2);
+}
+
+
+
+/* compute -beta F = (1/2) Int (c - c t - t^2 / 2) dr (real part) */
+__inline static xdouble get_Bh_singer(int l, int npt,
+    xdouble **cr, xdouble **tr, xdouble *w)
+{
+  int i, u;
+  xdouble s = 0, x;
+
+  /* compute -2 beta F */
+  for ( i = 0; i < npt; s += x * w[i], i++ )
+    for ( x = cr[l][i], u = 0; u < l; u++ )
+      x -= tr[l-u][i] * (cr[u][i] + tr[u][i] / 2);
+  return -s * (l+1)/2;
+}
+
+
+
+/* d^2_rho beta P = Int (c + h t) dr */
+__inline static xdouble get_Bx_py(int l, int npt,
+    xdouble **cr, xdouble **tr, xdouble *w)
+{
+  int i, u;
+  xdouble s = 0, x;
+
+  for ( i = 0; i < npt; s += x * w[i], i++ )
+    for ( x = cr[l][i], u = 0; u < l; u++ )
+      x += tr[l-u][i] * (cr[u][i] + tr[u][i]);
+  return -s/((l+1)*(l+2));
+}
+
+
+
+/* d^2_rho beta P = (-1/2) Int (c - t c) dr (real part) */
+__inline static xdouble get_Bp_py(int l, int npt,
+    xdouble **cr, xdouble **tr, xdouble *w)
+{
+  int i, u;
+  xdouble s = 0, x;
+
+  for ( i = 0; i < npt; i++ ) {
+    for ( x = cr[l][i], u = 0; u < l; u++ )
+      x -= tr[l-u][i] * cr[u][i];
+    s += x * w[i];
+  }
+  return -s/2;
+}
+
+
+
+/* -Int h t dr / (l + 2) / l */
+__inline static xdouble get_ht(int l, int npt,
+    xdouble **cr, xdouble **tr, xdouble *w)
+{
+  int i, u;
+  xdouble s = 0, x;
+
+  for ( i = 0; i < npt; s += x * w[i], i++ )
+    for ( x = 0, u = 0; u < l; u++ )
+      x += tr[l-u][i] * (cr[u][i] + tr[u][i]);
+  return -s/l/(l+2);
+}
 
 
 
@@ -877,21 +988,18 @@ __inline static int savevirtail(const char *fn, clock_t endtime)
 
 /* save c(r) or t(r) file */
 __inline static int savecrtr(const char *fn, int l, int npt,
-    xdouble *ri, xdouble *cr, xdouble *tr, xdouble *vc, xdouble **yr)
+    xdouble *ri, xdouble *cr, xdouble *tr, xdouble *vc, xdouble *yr)
 {
   FILE *fp;
-  int i, j;
+  int i;
 
   if (fn == NULL) return -1;
   xfopen(fp, fn, (l == 1) ? "w" : "a", return -1);
   for ( i = 0; i < npt; i++ ) {
     fprintf(fp, XDBLPRNE " " XDBLPRNE " " XDBLPRNE " %d",
         ri[i], cr[i], tr[i], l);
-    if ( vc != NULL )
-      fprintf(fp, " " XDBLPRNE, vc[i]);
-    if ( yr != NULL )
-      for ( j = 1; j <= l; j++ )
-        fprintf(fp, " " XDBLPRNE, yr[j][i]);
+    if ( vc != NULL ) fprintf(fp, " " XDBLPRNE, vc[i]);
+    if ( yr != NULL ) fprintf(fp, " " XDBLPRNE, yr[i]);
     fprintf(fp, "\n");
   }
   fprintf(fp, "\n");

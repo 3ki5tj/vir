@@ -39,6 +39,7 @@ int dohnc = 0;
 int ring = 0;
 int singer = 0;
 int mkcorr = 0;
+int fast = 0;
 int verbose = 0;
 char *fnvir = NULL;
 char *fncrtr = NULL;
@@ -64,6 +65,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-c", "%" XDBLSCNF "f", &shift, "shift of t(r) in computing Bv");
   argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
+  argopt_add(ao, "--fast", "%b", &fast, "save tk and yr to accelerate the calculation");
   argopt_add(ao, "--corr", "%b", &mkcorr, "correct the closure");
   argopt_add(ao, "-o", NULL, &fnvir, "output virial coefficient");
   argopt_add(ao, "--crtr", NULL, &fncrtr, "file name of c(r) and t(r)");
@@ -159,8 +161,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
   xdouble dr, dk, facr2k, fack2r, surfr, surfk;
   xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, B2, B2tail = 0, fcorr;
   xdouble *fr, *rdfr, *swr = NULL, *fr1 = NULL, *rdfr1 = NULL, *phi2 = NULL;
-  xdouble *crl, *trl, **ck, **tk, **cr = NULL, **tr = NULL;
-  xdouble **yr = NULL, *arr, *vc = NULL;
+  xdouble *crl, *trl, **ck, *tkl, **cr = NULL, **tr = NULL, **tk = NULL;
+  xdouble *yrl, **yr = NULL, *arr, *vc = NULL;
   xdouble *ri, *ki, *ri2, *ki2, rm;
   int i, dm, l;
   FFTWPFX(plan) plan = NULL;
@@ -200,8 +202,12 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
   MAKE1DARR(swr, npt);
   MAKE1DARR(crl, npt);
   MAKE1DARR(trl, npt);
+  MAKE1DARR(yrl, npt);
+  MAKE1DARR(tkl, npt)
   MAKE2DARR(ck, nmax - 1, npt)
-  MAKE2DARR(tk, nmax - 1, npt)
+  if ( fast ) {
+    MAKE2DARR(tk, nmax - 1, npt);
+  }
 
   for ( i = 0; i < npt; i++ ) { /* compute f(r) = exp(-beta u(r)) - 1 */
     xdouble nrdphi, phi1, xp1;
@@ -243,8 +249,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
   if ( singer ) {
     MAKE2DARR(cr, nmax - 1, npt);
     COPY1DARR(cr[0], fr, npt); /* TODO: fix this */
-    MAKE2DARR(tr, nmax - 1, npt);
   }
+    
+  MAKE2DARR(tr, nmax - 1, npt);
 
   if ( dohnc || mkcorr ) {
     MAKE2DARR(yr, nmax - 1, npt);
@@ -275,30 +282,38 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
       Br = (dohnc ? -Br * (l+1) : -Br * 2) / l;
     }
 
-    /* compute t_l(k) */
-    get_tk_oz(l, npt, ck, tk);
-
-    /* t_l(k) --> t_l(r) */
-    sphr(npt, tk[l], trl, fack2r, plan, arr, ki, ri, ffttype);
-
-    if ( tr != NULL ) {
-      COPY1DARR(tr[l], trl, npt);
+    /* compute t_l(k) from c_0(k), ... c_{l-1}(k) */
+    if ( tk != NULL ) { /* fast version requires tk[] */
+      get_tk_oz_fast(l, npt, ck, tk);
+      COPY1DARR(tkl, tk[l], npt); /* tkl = tk[l] */
+    } else { /* slow version requires ck[] only */
+      get_tk_oz(l, npt, ck, tkl);
     }
 
-    if ( yr != NULL ) { /* compute the cavity function y(r) */
-      get_yr_hncx(l, nmax, npt, yr, trl, hncq, swr);
+    /* t_l(k) --> t_l(r) */
+    sphr(npt, tkl, trl, fack2r, plan, arr, ki, ri, ffttype);
+
+    if ( tr != NULL ) {
+      COPY1DARR(tr[l], trl, npt); /* tr[l] = trl; */
+    }
+
+    /* compute the cavity function y(r) */
+    if ( yr != NULL ) {
+      get_yr_hnc_fast(l, npt, yrl, yr, tr);
+    } else {
+      get_yr_hnc(l, npt, yrl, tr);
     }
 
     if ( mkcorr ) { /* construct the correction function */
       for ( i = 0; i < npt; i++ )
-        vc[i] = yr[l][i] - trl[i]; // + beta * phi2[i];
+        vc[i] = yrl[i] - trl[i];
     }
 
     if ( dohnc ) {
       /* hypernetted-chain approximation: c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
       for ( i = 0; i < npt; i++ )
-        crl[i] = (fr1[i] + 1) * yr[l][i] - trl[i];
-      Bv = integr2(npt, rdfr1, yr[l], ri2) / 6;
+        crl[i] = (fr1[i] + 1) * yrl[i] - trl[i];
+      Bv = integr2(npt, rdfr1, yrl, ri2) / 6;
     } else {
       /* MSA approximation */
       for ( i = 0; i < npt; i++ )
@@ -329,7 +344,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     }
 
     savevir(fnvir, 3, l+2, Bc, Bv, Bm, Bh, Br, B2, mkcorr, fcorr);
-    savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yr);
+    savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yrl);
   }
   savevirtail(fnvir, clock() - t1);
 
@@ -349,6 +364,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
   FREE1DARR(swr, npt);
   FREE1DARR(crl, npt);
   FREE1DARR(trl, npt);
+  FREE1DARR(yrl, npt);
+  FREE1DARR(tkl, npt);
   FREE2DARR(ck, nmax - 1, npt);
   FREE2DARR(tk, nmax - 1, npt);
   FREE2DARR(cr, nmax - 1, npt);

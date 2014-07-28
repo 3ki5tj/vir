@@ -19,12 +19,10 @@
 
 
 
-#ifdef SLOWDHT
-
 #define xdht slowdht
 #define XDHT(f) slowdht_ ## f
 
-#else
+#ifdef NOSLOWDHT
 
 #include <gsl/gsl_dht.h>
 #define xdht gsl_dht

@@ -1,11 +1,6 @@
 Compute virial coefficients from integral equations
 
 
-Note:
-
-4D hard-sphere
-./iegsl --corr  -D4 -c-0.675 -d-0.038 -L2, (c' -0.599) error 54.1577541112% (n 5)
-
 
 Summary of programs
 ====================
@@ -24,8 +19,6 @@ C programs (native datatypes family)
 
     ieodfftw.c      FFTW3       arbitrary odd-dimensional case
                     fft.h       -DNOFFTW
- ~  ie3dfftw.c      FFTW3       3-dimensional case
-    (obsolete)      fft.h       -DNOFFTW
 
     ljie3dfftw.c    FFTW3       3-dimensional case for the LJ potential
 
@@ -43,9 +36,6 @@ C programs (native datatypes family)
 C programs (MPFR family)
 -------------------------
     ieodmpfr.c      MPFR        generalized odd-dimensional case
-
-~  ie3dmpfr.c      MPFR        3-dimensional case
-   (obsolete)
 
     ieutilmpfr.h    MPFR        common routines for the MPFR programs
                                 the counterpart of ieutil.h
