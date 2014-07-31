@@ -160,13 +160,13 @@ static void sphr(int npt, mpfr_t *in, mpfr_t *out, mpfr_t fac,
 /* compute virial coefficients from integral equations */
 static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
 {
-  mpfr_t dr, dk, pi2, facr2k, fack2r, surfr, surfk, B2, B2p, tmp1, tmp2;
-  mpfr_t Bc, Bv, Bm, Bh, Br, Bc0, dBc, Bv0, dBv, fcorr;
+  mpfr_t dr, dk, pi2, facr2k, fack2r, surfr, surfk, B2, tmp1, tmp2;
+  mpfr_t Bc, Bv, Bm, Bh, Br, By, Bc0, dBc, Bv0, dBv, fcorr;
   mpfr_t *fr, *crl, *trl, *yrl, *tkl;
   mpfr_t **ck, **tk = NULL, **cr = NULL, **tr = NULL, **yr = NULL;
   mpfr_t *vc = NULL, *arr;
   mpfr_t *ri, *ki, *rDm1, *kDm1, **r2p, **invr2p, **k2p, **invk2p;
-  mpfr_t *arr1, *arr2;
+  mpfr_t *yr0, *lnyr0;
   double rmax;
   int i, dm, l;
   long *coef;
@@ -180,7 +180,6 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
   INIT_(surfr);
   INIT_(surfk);
   INIT_(B2);
-  INIT_(B2p);
   INIT_(tmp1);
   INIT_(tmp2);
 
@@ -189,6 +188,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
   INIT_(Bm);
   INIT_(Bh);
   INIT_(Br);
+  INIT_(By);
   INIT_(Bc0);
   INIT_(dBc);
   INIT_(Bv0);
@@ -198,6 +198,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
   SET_SI_(Bm, 0);
   SET_SI_(Bh, 0);
   SET_SI_(Br, 0);
+  SET_SI_(By, 0);
 
   /* dm: number of bins in the hard core */
   rmax = adjustrmax(srmax, npt, dr, &dm, ffttype);
@@ -300,8 +301,10 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
    * needs npt + 1 elements for cosine type-0 */
   MAKE1DARR(arr, npt + 1);
 
-  MAKE1DARR(arr1, nmax - 1);
-  MAKE1DARR(arr2, nmax - 1);
+  MAKE1DARR(yr0,    nmax - 1);
+  MAKE1DARR(lnyr0,  nmax - 1);
+  SET_SI_(yr0[0],   1);
+  SET_SI_(lnyr0[0], 0);
 
   MAKE1DARR(fr, npt);
   MAKE1DARR(crl, npt);
@@ -340,7 +343,6 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
   t1 = clock();
   fnvir = savevirhead(fnvir, NULL, dim, nmax, dohnc, mkcorr, npt, rmax, t1 - t0);
 
-  SET_(B2p, B2);
   for ( l = 1; l < nmax - 1; l++ ) {
     /* c_l(r) --> c_l(k) for the previous l */
     sphr(npt, crl, ck[l-1], facr2k, arr, coef, r2p, invk2p, ffttype);
@@ -374,7 +376,10 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
         get_yr_hnc_fast(l, npt, yrl, yr, tr);
       } else {
         get_yr_hnc(l, npt, yrl, tr);
-      } 
+      }
+      get_zerosep(yr0[l], yrl, ri);
+    } else {
+      get_zerosep(yr0[l], trl, ri);
     }
 
     if ( mkcorr ) { /* construct the correction function */
@@ -424,9 +429,12 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
     if ( mkcorr ) {
       get_corr1_hs(Bm, l, npt, dm, dohnc ? yrl : trl,
           crl, fr, rDm1, B2, vc, Bc, Bv, fcorr);
+      get_zerosep(tmp1, vc, ri);
+      ADD_X_(yr0[l], tmp1);
     }
-    MUL_X_(B2p, B2);
-    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2p, mkcorr, fcorr);
+    update_lnyr0(By, l, yr0, lnyr0);
+
+    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, By, B2, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yrl);
   }
   savevirtail(fnvir, clock() - t1);
@@ -449,8 +457,8 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
   FREE2DARR(tr, nmax - 1, npt);
   FREE2DARR(yr, nmax - 1, npt);
   FREE1DARR(vc, npt);
-  FREE1DARR(arr1, nmax - 1);
-  FREE1DARR(arr2, nmax - 1);
+  FREE1DARR(yr0,  nmax - 1);
+  FREE1DARR(lnyr0, nmax - 1);
 
   CLEAR_(dr);
   CLEAR_(dk);
@@ -460,7 +468,6 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
   CLEAR_(surfr);
   CLEAR_(surfk);
   CLEAR_(B2);
-  CLEAR_(B2p);
   CLEAR_(tmp1);
   CLEAR_(tmp2);
   CLEAR_(Bc);
@@ -468,6 +475,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
   CLEAR_(Bm);
   CLEAR_(Bh);
   CLEAR_(Br);
+  CLEAR_(By);
   CLEAR_(Bc0);
   CLEAR_(dBc);
   CLEAR_(Bv0);

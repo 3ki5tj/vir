@@ -250,7 +250,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     MAKE2DARR(cr, nmax - 1, npt);
     COPY1DARR(cr[0], fr, npt); /* TODO: fix this */
   }
-    
+
   MAKE2DARR(tr, nmax - 1, npt);
 
   if ( dohnc || mkcorr ) {
@@ -276,10 +276,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     /* c(r) --> c(k) for the previous l */
     sphr(npt, crl, ck[l-1], facr2k, plan, arr, ri, ki, ffttype);
 
+    /* compute the ring sum based on ck */
     if ( ring ) {
-      /* compute the ring sum based on ck */
-      Bh = get_ksum(l, npt, ck, ki2, &Br);
-      Br = (dohnc ? -Br * (l+1) : -Br * 2) / l;
+      Bh = get_BhBrk(l, npt, dohnc, ck, ki2, ki, &Br);
     }
 
     /* compute t_l(k) from c_0(k), ... c_{l-1}(k) */
@@ -328,10 +327,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
       COPY1DARR(cr[l], crl, npt); /* cr[l] = crl */
       if ( dohnc ) {
         Bm = get_Bm_singer(l, npt, cr, tr, ri2);
-        Bh = get_Bh_singer(l, npt, cr, tr, ri2) - Bh*(l+1)/2;
+        Bh += get_Bh_singer(l, npt, cr, tr, ri2);
       } else {
         Bm = get_Bx_py(l, npt, cr, tr, ri2);
-        Bh = get_Bp_py(l, npt, cr, tr, ri2) - Bh;
       }
     } else {
       Bm = Bh = 0;

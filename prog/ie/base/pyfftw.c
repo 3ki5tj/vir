@@ -56,6 +56,14 @@ static void doargs(int argc, char **argv)
 
 
 
+/* get the value at zero separation */
+__inline static xdouble get_zerosep(xdouble *y, xdouble *x)
+{
+  return (y[0]*x[1] - y[1]*x[0])/(x[1] - x[0]);
+}
+
+
+
 /* compute
  *    out(k) = 2*fac/k Int {from 0 to infinity} in(r) r sin(k r) dr */
 static void sphr(int npt, xdouble *in, xdouble *out, xdouble fac,
@@ -136,35 +144,42 @@ static void output(int npt, xdouble *ri,
 
 static xdouble getpres_py(int npt, xdouble rho,
     xdouble *cr, xdouble *tr, xdouble *ri2,
-    xdouble *ck, xdouble *ki2, xdouble *compr,
-    xdouble *dcompr)
+    xdouble *ck, xdouble *ki2, xdouble *ri, xdouble *ki,
+    xdouble *compr, xdouble *dcompr)
 {
   int i;
   xdouble pres, x;
 
-  pres = 0;
+  //pres = rho;
+  /* beta P = - rho^2/2 c(k = 0) + rho (1 + c(r = 0))/2
+   *          + Int log(1 - rho c(k)) dk/(2pi)^3 } */
+  pres = (-1 + get_zerosep(cr, ri) - rho * get_zerosep(ck, ki) ) * rho/2;
   *compr = 0;
   *dcompr = 0;
   for ( i = 0; i < npt; i++ ) {
-    /* beta P = - rho^2/2 Int (h(r) - 1) c(r) dr
+    /* beta P = + rho^2/2 Int (h(r) - 1) c(r) dr
      *          + Int log(1 - rho c(k)) dk/(2pi)^3 } + rho c(r = 0)
-     *        = - rho^2/2 Int (t(r) - 1) c(r) dr
+     *        = + rho^2/2 Int (t(r) - 1) c(r) dr
      *          + Int {log(1 - rho c(k)) + rho c(k) + rho c(k)^2/2} dk/(2pi)^3 */
-    pres -= 0.5 * cr[i] * (1 - tr[i]) * ri2[i];
+    //pres += 0.5 * cr[i] * (tr[i] - 1) * ri2[i];
     /* compr = d(beta P) / drho = -rho Int c(r) dr */
     *compr -= cr[i] * ri2[i];
     /* dcompr = d^2(beta P) / d(rho)^2 = -Int [c(r) + t(r) h(r)] dr */
     *dcompr -= (cr[i] + tr[i] * (cr[i] + tr[i])) * ri2[i];
   }
-  pres *= rho * rho;
   *compr *= rho;
   /* the k-space part of the pressure formula */
   for ( i = 0; i < npt; i++ ) {
     x = rho * ck[i];
+    //if ( FABS(x) < 1e-8 ) {
+    //  pres += - x*x*x/3 * ki2[i];
+    //} else {
+    //  pres += (LOG(1 - x) + x - x*x/2)* ki2[i];
+    //}
     if ( FABS(x) < 1e-8 ) {
-      pres += -x*x*x/3 * ki2[i];
+      pres += (-x + x*x/2 - x*x*x/3) * ki2[i];
     } else {
-      pres += (LOG(1 - x) + x + .5*x*x) * ki2[i];
+      pres += LOG(1 - x) * ki2[i];
     }
   }
   return pres;
@@ -225,13 +240,13 @@ static void integ(int npt, xdouble rmax, xdouble rho)
   iter(npt, rho, ri, ki, cr, tr, ck, tk,
       fr, facr2k, fack2r, plan, arr, itermax);
   output(npt, ri, cr, tr, bphi, "vv1.dat");
-  pres1 = getpres_py(npt, rho, cr, tr, ri2, ck, ki2,
+  pres1 = getpres_py(npt, rho, cr, tr, ri2, ck, ki2, ri, ki,
       &compr1, &dcompr1);
 
   iter(npt, rho + delta, ri, ki, cr, tr, ck, tk,
       fr, facr2k, fack2r, plan, arr, itermax);
   output(npt, ri, cr, tr, bphi, "vv2.dat");
-  pres2 = getpres_py(npt, rho + delta, cr, tr, ri2, ck, ki2,
+  pres2 = getpres_py(npt, rho + delta, cr, tr, ri2, ck, ki2, ri, ki,
       &compr2, &dcompr2);
 
   printf("rho %5.3f, T %6.3f: P1 %9.6f, P2 %9.6f, "

@@ -133,6 +133,14 @@ __inline static xdouble get_Bv(int npt, xdouble *yrl, int smoothpot,
 
 
 
+/* get the value at zero separation */
+__inline static xdouble get_zerosep(const xdouble *y, const xdouble *x)
+{
+  return (y[0]*x[1] - y[1]*x[0])/(x[1] - x[0]);
+}
+
+
+
 /* multiply the series y = Sum_{i = 0 to n-1} a_i x^i
  * z = Sum_{j = 0 to n-1} b_j x_j
  * as w = y z = Sum_{k = 0 to n-1} c_k x^k */
@@ -209,7 +217,7 @@ __inline static void exp_series(int n, const xdouble *a, xdouble *b)
 
 /* log the series y = Sum_{i = 0 to n-1} b_i x^i
  * as log(y) = Sum_{j = 0 to n-1} a_j y^j */
-__inline static void log_series(int n, const xdouble *b, xdouble *a)
+__inline static xdouble log_series(int n, const xdouble *b, xdouble *a)
 {
   int i, j;
 
@@ -220,12 +228,27 @@ __inline static void log_series(int n, const xdouble *b, xdouble *a)
       a[i] -= j * a[j] * b[i - j];
     a[i] /= i * b[0];
   }
+  return a[n-1];
 }
 /* test of the above two functions
   xdouble a[7] = {log(2), 1, 0, 0, 0}, b[7]; int i = 0;
   exp_series(7, a, b); for ( i = 0; i < 7; i++ ) printf("%g ", b[i]); printf("\n");
   log_series(7, b, a); for ( i = 0; i < 7; i++ ) printf("%g ", a[i]); printf("\n");
 */
+
+
+
+/* return the virial coefficient of order l + 1 */
+__inline static xdouble update_lnyr0(int l, xdouble *yr0, xdouble *lnyr0)
+{
+  int j;
+
+  lnyr0[l] = l * yr0[l];
+  for ( j = 1; j < l; j++ )
+    lnyr0[l] -= j * lnyr0[j] * yr0[l - j];
+  lnyr0[l] /= l;
+  return lnyr0[l] * l / (l + 1);
+}
 
 
 
@@ -254,13 +277,11 @@ __inline static void inverse_series(int n, const xdouble *a, xdouble *b)
         xp[k] = 0;
         for ( l = 1; l < k; l++ )
           xp[k] += xp[k-l] * b[l];
-        //printf("x^%d has %g y^%d\n", j, xp[k], k);
       }
       xp[j - 1] = 0;
       b[i] += a[j] * xp[i];
     }
     b[i] /= -a[1];
-    //printf("b%d = %g\n", i, b[i]);
   }
   free(xp);
 }
@@ -358,17 +379,89 @@ __inline static void get_yr_hncx_fast(int l, int npt, xdouble *yrl,
 
 
 /* compute y(r) for the Percus-Yevick 2 approximation */
-__inline static void get_yr_py2(int l, int npt, xdouble *yrl, xdouble **tr)
+__inline static void get_yr_py2(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble s)
 {
   int i, j;
 
-  /* y(r) = 1 + t(r) + t(r)^2/2
-   * c(r) = (1 + f(r)) y(r) - t(r) - 1 */
+  s /= 2;
+  /* y(r) = 1 + t(r) + t(r)^2/2 */
   for ( i = 0; i < npt; i++) {
     yrl[i] = tr[l][i]; /* t(r) */
     for ( j = 1; j < l; j++ ) /* do t(r)^2 */
-      yrl[i] += tr[j][i] * tr[l-j][i] / 2;
+      yrl[i] += s * tr[j][i] * tr[l-j][i];
   }
+}
+
+
+
+/* compute y(r) for the HNC 2 approximation */
+__inline static void get_yr_hnc2(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble s)
+{
+  int i, u, v;
+  xdouble *a, *b;
+
+  xnew(a, l + 1);
+  xnew(b, l + 1);
+  /* y(r) = exp[ t(r) + t(r)^2/2 ] */
+  for ( i = 0; i < npt; i++) {
+    a[0] = 0;
+    for ( u = 1; u <= l; u++ ) a[u] = tr[u][i];
+    for ( u = 2; u <= l; u++ )
+      for (v = 1; v < u; v++ )
+        a[u] += s * tr[v][i] * tr[u-v][i];
+    exp_series(l+1, a, b);
+    yrl[i] = b[l];
+  }
+  free(a);
+  free(b);
+}
+
+
+
+/* compute y(r) for the geometric closure */
+__inline static void get_yr_geo(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble q)
+{
+  int i, u, v;
+  xdouble *a;
+
+  xnew(a, l + 1);
+  /* y(r) = 1 + t(r) + q t(r)^2 + q^2 t(r)^3 + ...
+   * y1 = y - 1 satisfies y1 = t + q t y1
+   * y1_l = t_l + q Sum_{ j = 1 to l - 1} t_j y1_{l - j} */
+  for ( i = 0; i < npt; i++) {
+    a[0] = 0;
+    for ( u = 1; u <= l; u++ )
+      for ( a[u] = tr[u][i], v = 1; v < u; v++ )
+        a[u] += q * tr[v][i] * a[u - v];
+    yrl[i] = a[l];
+  }
+  free(a);
+}
+
+
+
+/* compute y(r) for the logarithmic closure */
+__inline static void get_yr_log(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble s)
+{
+  int i, u;
+  xdouble *a, *b;
+
+  xnew(a, l + 1);
+  xnew(b, l + 1);
+  /* y(r) = 1 + t(r) + s t(r)^2 + s^2 t(r)^3 + ...
+   *      = 1 - log(1 - s t(r)) / s */
+  for ( i = 0; i < npt; i++) {
+    /* form 1 - s t(r) */
+    for ( a[0] = 1, u = 1; u <= l; u++ ) a[u] = -s * tr[u][i];
+    log_series(l + 1, a, b);
+    yrl[i] = -b[l]/s;
+  }
+  free(a);
+  free(b);
 }
 
 
@@ -437,6 +530,65 @@ __inline static void get_yr_invrowlinson(int l, int npt, xdouble *yrl,
   }
   free(a);
   free(b);
+}
+
+
+
+/* compute y(r) for the Rowlinson closure */
+__inline static void get_yr_rowlinson(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble phi)
+{
+  int i, u;
+  xdouble *a, *b;
+
+  xnew(a, l+1);
+  xnew(b, l+1);
+  for ( i = 0; i < npt; i++ ) {
+    /*  t(r) = phi log(y(r)) + (1 - phi) (y(r) - 1)
+     *       = [y(r)-1] - phi [y(r)-1]^2/2 + ...) */
+    a[0] = 1; a[1] = tr[1][i];
+    for ( u = 2; u <= l; u++ ) {
+      /* plug the u - 1 solution of y(r) into the r.h.s. */
+      a[u] = 0;
+      log_series(u+1, a, b);
+      a[u] = tr[u][i] - phi * b[u];
+    }
+    yrl[i] = a[l];
+  }
+  free(a);
+  free(b);
+}
+
+
+
+/* compute y(r) for the Hurst closure */
+__inline static void get_yr_hurst(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble m)
+{
+  int i, u;
+  xdouble *a, *b, *c, *d;
+
+  xnew(a, l+1);
+  xnew(b, l+1);
+  xnew(c, l+1);
+  xnew(d, l+1);
+  for ( i = 0; i < npt; i++ ) {
+    /*  t(r) = y(r)^m log(y(r)) */
+    a[0] = 1; a[1] = tr[1][i];
+    for ( u = 2; u <= l; u++ ) {
+      /* plug the u - 1 solution of y(r) into the r.h.s. */
+      a[u] = 0;
+      pow_series(m, u+1, a, b);
+      log_series(u+1, a, c);
+      mul_series(u+1, b, c, d);
+      a[u] = tr[u][i] - d[u];
+    }
+    yrl[i] = a[l];
+  }
+  free(a);
+  free(b);
+  free(c);
+  free(d);
 }
 
 
@@ -577,47 +729,92 @@ __inline static xdouble get_corr1(int l, int npt,
 
 
 
-/* compute the cycle sum
- * Sum_{m = 3 to infinity} { rho^m [c(k)]^m }_{l+2} / m */
-__inline static xdouble get_ksum(int l, int npt,
-    xdouble **ck, xdouble *w, xdouble *s2)
+/* compute Int { c(k)^2 dk/(2pi)^D }_l */
+__inline static xdouble get_c2(int l, int npt,
+    xdouble **ck, const xdouble *w)
 {
-  int i, j, k, m;
-  xdouble *a, y, s = 0, z;
+  int i, j;
+  xdouble s = 0;
 
-  if ( s2 != NULL ) *s2 = 0;
-  MAKE1DARR(a, l + 1);
-  for ( i = 0; i < npt; i++ ) {
-    y = z = 0;
+  for ( i = 0; i < npt; i++ )
     for ( j = 0; j <= l; j++ )
-      a[j] = ck[j][i];
-    for ( m = 2; m <= l + 2; m++ ) { /* rho^m [c(k)]^m */
-      /* update a[l + 2 - m], ..., a[0] */
-      for ( j = l + 2 - m; j >= 0; j-- ) {
-        /* a'[j] = Sum_{k = 0 to j} a[k] ck[j - k]
-         * we start from larger j to smaller j
-         * to preserve small-index data */
-        a[j] = a[j] * ck[0][i];
-        for ( k = j - 1; k >= 0; k-- )
-          a[j] += a[k] * ck[j - k][i];
-      }
-      /* the m == 2 part can be handled in the real space */
-      if ( m == 2 ) continue;
-      y += a[l + 2 - m] / m;
-      z += a[l + 2 - m] * (m - 2) / (2*m);
-    }
-    s += w[i] * y;
-    if ( s2 != NULL ) *s2 += w[i] * z;
-  }
-  FREE1DARR(a, l + 1);
+      s += w[i] * ck[j][i] * ck[l-j][i];
   return s;
+}
+
+
+
+/* compute Int { log[ 1 - rho c(k) ] dk/(2pi)^D }_{l+2} */
+__inline static xdouble get_log1mrc(int l, int npt,
+    xdouble **ck, const xdouble *w)
+{
+  int i, j;
+  xdouble *a, *b, s = 0;
+
+  MAKE1DARR(a, l + 3);
+  MAKE1DARR(b, l + 3);
+  for ( i = 0; i < npt; i++ ) {
+    /* form 1 - rho c(k) */
+    /* NOTE: when calling this function ck[l], hence a[l+1]
+     * may still be unavailable, so any term
+     * proportional to rho^2 ck[l] is not reliable */
+    for ( a[0] = 1, j = 0; j <= l; j++ ) a[j+1] = -ck[j][i];
+    a[l+2] = 0;
+    log_series(l+3, a, b);
+    s += w[i] * b[l+2];
+  }
+  FREE1DARR(a, l + 3);
+  FREE1DARR(b, l + 3);
+  return s;
+}
+
+
+
+/* compute Int 1/[ 1 - rho c(k) ] dk/(2pi)^D */
+__inline static xdouble get_inv1mrc(int l, int npt,
+    xdouble **ck, const xdouble *w)
+{
+  int i, j;
+  xdouble *a, *b, s = 0;
+
+  MAKE1DARR(a, l + 3);
+  MAKE1DARR(b, l + 3);
+  for ( i = 0; i < npt; i++ ) {
+    /* form 1 - rho c(k) */
+    for ( a[0] = 1, j = 0; j <= l; j++ ) a[j+1] = -ck[j][i];
+    a[l+2] = 0;
+    pow_series(-1, l+3, a, b);
+    s += w[i] * b[l+2];
+  }
+  FREE1DARR(a, l + 3);
+  FREE1DARR(b, l + 3);
+  return s;
+}
+
+
+
+__inline static xdouble get_BhBrk(int l, int npt, int dohnc,
+    xdouble **ck, const xdouble *w, const xdouble *ki, xdouble *Br)
+{
+  xdouble log1mrc = get_log1mrc(l, npt, ck, w);
+  xdouble ckl0h = get_zerosep(ck[l], ki)/2; /* c_l(k = 0) */
+  xdouble Bh;
+
+  if ( dohnc ) {
+    Bh = (log1mrc + get_c2(l, npt, ck, w)/2) * (l+1)/2;
+  } else {
+    Bh = log1mrc - ckl0h;
+  }
+  *Br = log1mrc + get_inv1mrc(l, npt, ck, w)/2 + ckl0h;
+  *Br *= (xdouble) (dohnc ? -(l+1) : -2) / l;
+  return Bh;
 }
 
 
 
 /* compute mu = Int (c - h t / 2) dr */
 __inline static xdouble get_Bm_singer(int l, int npt,
-    xdouble **cr, xdouble **tr, xdouble *w)
+    xdouble **cr, xdouble **tr, const xdouble *w)
 {
   int i, u;
   xdouble s = 0, x;
@@ -630,17 +827,17 @@ __inline static xdouble get_Bm_singer(int l, int npt,
 
 
 
-/* compute -beta F = (1/2) Int (c - c t - t^2 / 2) dr (real part) */
+/* compute -beta F = (rho^2/2) Int (c - h^2/2 + c^2/2) dr (real part) */
 __inline static xdouble get_Bh_singer(int l, int npt,
-    xdouble **cr, xdouble **tr, xdouble *w)
+    xdouble **cr, xdouble **tr, const xdouble *w)
 {
   int i, u;
   xdouble s = 0, x;
 
   /* compute -2 beta F */
-  for ( i = 0; i < npt; s += x * w[i], i++ )
-    for ( x = cr[l][i], u = 0; u < l; u++ )
-      x -= tr[l-u][i] * (cr[u][i] + tr[u][i] / 2);
+  for ( i = 0; i < npt; s += x * w[i++] )
+    for ( x = cr[l][i], u = 1; u <= l; u++ )
+      x -= tr[u][i] * (cr[l-u][i] + tr[l-u][i] / 2);
   return -s * (l+1)/2;
 }
 
@@ -648,7 +845,7 @@ __inline static xdouble get_Bh_singer(int l, int npt,
 
 /* d^2_rho beta P = Int (c + h t) dr */
 __inline static xdouble get_Bx_py(int l, int npt,
-    xdouble **cr, xdouble **tr, xdouble *w)
+    xdouble **cr, xdouble **tr, const xdouble *w)
 {
   int i, u;
   xdouble s = 0, x;
@@ -661,26 +858,9 @@ __inline static xdouble get_Bx_py(int l, int npt,
 
 
 
-/* d^2_rho beta P = (-1/2) Int (c - t c) dr (real part) */
-__inline static xdouble get_Bp_py(int l, int npt,
-    xdouble **cr, xdouble **tr, xdouble *w)
-{
-  int i, u;
-  xdouble s = 0, x;
-
-  for ( i = 0; i < npt; i++ ) {
-    for ( x = cr[l][i], u = 0; u < l; u++ )
-      x -= tr[l-u][i] * cr[u][i];
-    s += x * w[i];
-  }
-  return -s/2;
-}
-
-
-
 /* -Int h t dr / (l + 2) / l */
 __inline static xdouble get_ht(int l, int npt,
-    xdouble **cr, xdouble **tr, xdouble *w)
+    xdouble **cr, xdouble **tr, const xdouble *w)
 {
   int i, u;
   xdouble s = 0, x;
@@ -696,11 +876,16 @@ __inline static xdouble get_ht(int l, int npt,
 enum {
   IETYPE_PY = 0,
   IETYPE_HNC = 1,
+  IETYPE_PY2 = 2,
+  IETYPE_HNC2 = 3,
   IETYPE_ROWLINSON = 10, /* Rowlinson, 1965 */
-  IETYPE_INVROWLINSON = 11,
+  IETYPE_INVROWLINSON = 11, /* Rowlinson, 1966 */
+  IETYPE_HURST = 12, /* Hurst, 1965 */
   IETYPE_HC = 20, /* Hutchinson and Conkie, 1971, Molecular Physics, Vol. 21, No. 5, 881-890 */
   IETYPE_BBPG = 30, /* Ballon, Pastore, Galli, and Gazzillo */
   IETYPE_VERLET = 40, /* Verlet, 1980 */
+  IETYPE_GEO = 100,
+  IETYPE_LOG = 101,
   IETYPE_LAST
 };
 
@@ -760,6 +945,31 @@ __inline static void init_rowlinsoncoef(xdouble *a, int lmax, xdouble phi)
 
 
 
+/* initialize the Hurst coefficients, here
+ *  t(r) = y(r)^m log y(r)
+ * we want
+ *  y(r) = 1 + t(r) + a[2] t(r)^2 + a[3] t(r)^3 + ... */
+__inline static void init_hurstcoef(xdouble *a, int lmax, xdouble m)
+{
+  xdouble *b, *c, *d;
+
+  xnew(b, lmax);
+  xnew(c, lmax);
+  xnew(d, lmax);
+  b[0] = 1;
+  b[1] = 1;
+  pow_series(m, lmax, b, c);
+  log_series(lmax, b, d);
+  mul_series(lmax, c, d, b);
+  inverse_series(lmax, b, a);
+  a[0] = 1;
+  free(b);
+  free(c);
+  free(d);
+}
+
+
+
 /* initialize the inverse Rowlinson coefficients, here
  *  y(r) = exp(t(r)) phi + (1 - phi) (1 + t(r))
  *       = 1 + t(r) + phi (t(r)^2/2! + t(r)^3/3! + ...)
@@ -797,13 +1007,70 @@ __inline static void init_verletcoef(xdouble *a, int lmax, xdouble A, xdouble B)
 
 
 
+/* initialize the PY2 coefficients, here
+ *  y(r) = 1 + t(r) + s t(r)^2 ...
+ */
+__inline static void init_py2coef(xdouble *a, int lmax, xdouble s)
+{
+  int i;
+
+  a[0] = a[1] = 1; a[2] = s/2;
+  for ( i = 3; i < lmax; i++ ) a[i] = 0;
+}
+
+
+
+/* initialize the HNC2 coefficients, here
+ *  y(r) = exp[ t(r) + s t(r)^2 ... ]
+ */
+__inline static void init_hnc2coef(xdouble *a, int lmax, xdouble s)
+{
+  int i;
+  xdouble *b;
+
+  xnew(b, lmax);
+  b[0] = 0; b[1] = 1; b[2] = s;
+  for ( i = 3; i < lmax; i++ ) b[i] = 0;
+  exp_series(lmax, b, a);
+  free(b);
+}
+
+
+
+/* initialize the geometric coefficients, here
+ *  y(r) = 1 + t(r) + q t(r)^2 + q^2 t(r)^3 + ...
+ */
+__inline static void init_geocoef(xdouble *a, int lmax, xdouble q)
+{
+  int i;
+
+  a[0] = a[1] = 1;
+  for ( i = 2; i < lmax; i++ ) a[i] = a[i-1]*q;
+}
+
+
+
+/* initialize the logarithmic coefficients, here
+ *  y(r) = 1 + t(r) + q t(r)^2/2 + q^2 t(r)^3/3 + ...
+ */
+__inline static void init_logcoef(xdouble *a, int lmax, xdouble q)
+{
+  int i;
+  xdouble x;
+
+  a[0] = a[1] = x = 1;
+  for ( i = 2; i < lmax; i++ ) a[i] = (x *= q) / i;
+}
+
+
+
 __inline static void print_yrcoef(xdouble *a, int lmax)
 {
   int i;
   xdouble *b;
 
   xnew(b, lmax);
-  fprintf(stderr, "y(r) =");
+  fprintf(stderr, "y(r) = 1");
   for ( i = 1; i < lmax; i++ )
     if ( FABS(a[i]) > 1e-6 )
       fprintf(stderr, " %+gt(r)^%d", (double) a[i], i);
@@ -835,17 +1102,18 @@ __inline static char *savevirheadx(const char *fn, const char *title,
   static char fndef[512];
   char sietype[8] = "";
 
-  if ( mkcorr ) {
-    strcpy(sietype, "PYc");
-  } else {
-    if ( ietype == IETYPE_PY) strcpy(sietype, "PY");
-    else if ( ietype == IETYPE_HNC) strcpy(sietype, "HNC");
-    else if ( ietype == IETYPE_HC) strcpy(sietype, "HC");
-    else if ( ietype == IETYPE_ROWLINSON) strcpy(sietype, "R");
-    else if ( ietype == IETYPE_INVROWLINSON) strcpy(sietype, "IR");
-    else if ( ietype == IETYPE_VERLET) strcpy(sietype, "V");
-    else if ( ietype == IETYPE_BBPG) strcpy(sietype, "BBPG");
-  }
+  if ( ietype == IETYPE_PY) strcpy(sietype, "PY");
+  else if ( ietype == IETYPE_HNC) strcpy(sietype, "HNC");
+  else if ( ietype == IETYPE_HC) strcpy(sietype, "HC");
+  else if ( ietype == IETYPE_ROWLINSON) strcpy(sietype, "R");
+  else if ( ietype == IETYPE_INVROWLINSON) strcpy(sietype, "IR");
+  else if ( ietype == IETYPE_VERLET) strcpy(sietype, "V");
+  else if ( ietype == IETYPE_PY2) strcpy(sietype, "PY2");
+  else if ( ietype == IETYPE_HNC2) strcpy(sietype, "HNC2");
+  else if ( ietype == IETYPE_GEO) strcpy(sietype, "GEO");
+  else if ( ietype == IETYPE_LOG) strcpy(sietype, "LOG");
+  else if ( ietype == IETYPE_BBPG) strcpy(sietype, "BBPG");
+  if ( mkcorr ) strcat(sietype, "c");
 
   if ( fn == NULL ) {
     char shncamp[80] = "", shncq[80] = "", shncalpha[80] = "";
@@ -885,14 +1153,14 @@ __inline static char *savevirheadx(const char *fn, const char *title,
 
 
 /* print a virial coefficient */
-__inline static int printB(const char *name, int dim, int n,
+__inline static void printB(const char *name, int dim, int n,
     xdouble B, xdouble B2p, xdouble B2q,
     xdouble volp, xdouble volq, const char *ending)
 {
   xdouble x;
   int px = 0;
 
-  if ( B == 0 ) return px;
+  if ( B == 0 ) return;
   printf("%s(%3d) = %15.7" XDBLPRNF "e", name, n, B);
   if ( B2p != 0 ) {
     printf(" (%15.8" XDBLPRNF "e", B/B2p/B2q);
@@ -902,7 +1170,6 @@ __inline static int printB(const char *name, int dim, int n,
     else printf(",%+12.6" XDBLPRNF "f)", x);
   }
   printf("%s", ending);
-  return px;
 }
 
 
@@ -919,11 +1186,12 @@ __inline static void saveB(FILE *fp, xdouble B, xdouble B2p, xdouble B2q)
 /* save virial coefficients */
 __inline static int savevir(const char *fn, int dim, int n,
     xdouble Bc, xdouble Bv, xdouble Bm, xdouble Bh, xdouble Br,
+    xdouble By,
     xdouble B2, int mkcorr, xdouble fcorr)
 {
   FILE *fp;
   int np = n - 1, nq = 0;
-  xdouble vol, volp, volq = 1, B2p, B2q = 1;
+  xdouble vol, volp, volq = 1, volr, B2p, B2q = 1, B2y;
 
   /* print the result on screen */
   B2p = pow_si(B2, np);
@@ -933,22 +1201,24 @@ __inline static int savevir(const char *fn, int dim, int n,
     B2p = pow_si(B2, np);
     B2q = pow_si(B2, nq);
   }
+  B2y = B2q/B2;
   vol = B2/pow_si(2, dim-1);
   volp = pow_si(vol, np);
   volq = pow_si(vol, nq);
+  volr = volq/vol;
   printB("Bc", dim, n, Bc, B2p, B2q, volp, volq, ", ");
   printB("Bv", dim, n, Bv, B2p, B2q, volp, volq, ", ");
   /* when making corrections, Bm is the corrected value */
   printB("Bm", dim, n, Bm, B2p, B2q, volp, volq, "");
   if ( mkcorr ) {
-    printf(", %9.6f\n", (double) fcorr);
+    printf(", %9.6f", (double) fcorr);
   } else { /* the following are useless when making corrections */
-    printf("\n");
-    if ( Bh != 0 || Br != 0 ) {
-      printB("Bh", dim, n, Bh, B2p, B2q, volp, volq, ", ");
-      printB("Br", dim, n, Br, B2p, B2q, volp, volq, "\n");
-    }
+    if ( Bm != 0 ) printf("\n");
+    printB("Bh", dim, n, Bh, B2p, B2q, volp, volq, ", ");
+    printB("Br", dim, n, Br, B2p, B2q, volp, volq, "");
+    printB("By", dim, n-1, By, B2p, B2y, volp, volr, ", ");
   }
+  printf("\n");
 
   if (fn != NULL) {
     xfopen(fp, fn, "a", return -1);
@@ -957,12 +1227,14 @@ __inline static int savevir(const char *fn, int dim, int n,
     saveB(fp, Bv, B2p, B2q);
     saveB(fp, Bm, B2p, B2q);
     if ( mkcorr ) {
-      fprintf(fp, " " XDBLPRNE "\n", fcorr);
+      fprintf(fp, " " XDBLPRNE, fcorr);
     } else {
       saveB(fp, Bh, B2p, B2q);
       saveB(fp, Br, B2p, B2q);
-      fprintf(fp, "\n");
     }
+    fprintf(fp, " |");
+    saveB(fp, By, B2p, B2y);
+    fprintf(fp, "\n");
     fclose(fp);
   }
 

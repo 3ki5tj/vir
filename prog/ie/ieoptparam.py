@@ -289,6 +289,7 @@ def optshift(dim, nmin, nmax, gaussf, fnref):
     shifttype = "C"
   else:
     shifttype = "c"
+  strsh = ""
 
   for shiftl0 in range(shiftl0_min, shiftl0_max + 1):
 
@@ -296,7 +297,6 @@ def optshift(dim, nmin, nmax, gaussf, fnref):
       shift = shiftn_min
     else:
       shift = shift_min
-    strsh = ""
 
     while 1:
 

@@ -168,11 +168,8 @@ static int rerun(int nmax, int npt, xdouble rmax, int dohnc)
 
   for ( l = 1; l < l0; l++ ) {
     /* compute the ring sum based on ck */
-    if ( !mkcorr ) {
-      Bh = get_ksum(l, npt, ck, kDm1, &Br);
-      Br = (dohnc ? -Br * (l+1) : -Br * 2) / l;
-    } else {
-      Bh = Br = 0;
+    if ( ring ) {
+      Bh = get_BhBrk(l, npt, dohnc, ck, kDm1, ki, &Br);
     }
 
     /* compute the cavity function y(r) */
@@ -205,10 +202,9 @@ static int rerun(int nmax, int npt, xdouble rmax, int dohnc)
 
       if ( dohnc ) {
         Bm = get_Bm_singer(l, npt, cr, tr, rDm1);
-        Bh = get_Bh_singer(l, npt, cr, tr, rDm1) - Bh*(l+1)/2;
+        Bh += get_Bh_singer(l, npt, cr, tr, rDm1);
       } else {
         Bm = get_Bx_py(l, npt, cr, tr, rDm1);
-        Bh = get_Bp_py(l, npt, cr, tr, rDm1) - Bh;
       }
     }
 

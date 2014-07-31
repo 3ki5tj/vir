@@ -85,8 +85,13 @@ xdouble hncalpha = -1; /* Rogers-Young */
 xdouble hcs = 1; /* Hutchinson-Conkie s */
 xdouble rowphi = 0; /* Rowlinson's Phi */
 xdouble invphi = 0; /* inverse Rowlinson's Phi */
+xdouble hurstm = 0; /* Hurst's m */
 xdouble verleta = 0, verletb = 0; /* Verlet modified */
 xdouble bbpgs = 15./8; /* MS/BBPG s */
+xdouble py2s = 0.5;
+xdouble hnc2s = 0;
+xdouble geos = 1;
+xdouble logs = 1;
 
 xdouble shift = 0, shiftinc = 0;
 int shiftl0 = 0;
@@ -134,19 +139,24 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-r", "%lf", &rmax, "rmax (flexible)");
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &Rmax, "rmax (exact)");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
-  argopt_add(ao, "-t", "%d", &ffttype, "FFT type, 0 or 1");
+  argopt_add(ao, "-t", "%d", &ffttype, "FFT type, 0: integral grid points, 1: half-integer grid points");
   argopt_add(ao, "-T", "%d", &ietype, "type of closure, 0: PY, 1: HNC-like; set the respective parameters automatically sets the type");
-  argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted-chain (HNC) like approximation");
   argopt_add(ao, "-q", "%" XDBLSCNF "f", &hncq,  "q of the hypernetted-chain (Marucho-Pettitt) approximation, y(r) = a0 exp(q t(r))");
   argopt_add(ao, "-a", "%" XDBLSCNF "f", &hncamp, "a0 of the hypernetted-chain (Marucho-Pettitt) approximation, 0: to be set by 1/q");
   argopt_add(ao, "--rya", "%" XDBLSCNF "f", &hncalpha, "alpha, in the Roger-Young switch function [1 - exp(-alpha*r)]^m");
   argopt_add(ao, "--hcs", "%" XDBLSCNF "f", &hcs, "s, in the Hutchinson-Conkie closure, y(r) = (1 + s t(r))^(1/s)");
   argopt_add(ao, "--rphi", "%" XDBLSCNF "f", &rowphi, "phi of the Rowlinson approximation, t(r) = (1 - phi) (y(r) - 1) + phi ln y(r)");
   argopt_add(ao, "--iphi", "%" XDBLSCNF "f", &invphi, "phi of the inverse Rowlinson approximation, y(r) = exp(t(r)) phi + (1 - phi) (1 + t(r))");
+  argopt_add(ao, "--hm", "%" XDBLSCNF "f", &hurstm, "m of the Hurst approximation, t(r) = [y(r)]^m log y(r)");
   argopt_add(ao, "--va", "%" XDBLSCNF "f", &verleta, "A of the Verlet approximation, y(r) = exp[t(r) - A t(r)^2 /2 / (1 + B t(r) / 2) ]");
-  argopt_add(ao, "--vb", "%" XDBLSCNF "f", &verletb, "B of the Verlet approximation, y(r) = exp[t(r) - A t(r)^2 /2 / (1 + B t(r) / 2) ]");
+  argopt_add(ao, "--vb", "%" XDBLSCNF "f", &verletb, "B of the Verlet approximation");
   argopt_add(ao, "--bbpgs", "%" XDBLSCNF "f", &bbpgs, "s of the BBPG approximation, y(r) = exp[ (1 + s t(r))^(1/s) - 1 ]");
   argopt_add(ao, "--ms", "%b", &usems, "Martynov-Sarkisov approximation, y(r) = exp[ (1 + 2 t(r))^(1/2) - 1 ]");
+  argopt_add(ao, "--py2s", "%" XDBLSCNF "f", &py2s, "s of the PY2 approximation, y(r) = 1 + t(r) + s t(r)^2 / 2");
+  argopt_add(ao, "--hnc2s", "%" XDBLSCNF "f", &hnc2s, "s of the HNC2 approximation, y(r) = exp[ t(r) + s t(r)^2 ]");
+  argopt_add(ao, "--geos", "%" XDBLSCNF "f", &geos, "s of the geometric approximation, y(r) = 1 + t(r) + s t(r)^2 + s^2 t(r)^3 + ...");
+  argopt_add(ao, "--logs", "%" XDBLSCNF "f", &logs, "s of the logarithmic approximation, y(r) = 1 + t(r) + s t(r)^2/2 + s^2 t(r)^3/3 + ...");
+  argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted-chain (HNC) like approximation");
   argopt_add(ao, "--corr", "%b", &mkcorr, "correct the closure");
   argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
@@ -198,13 +208,21 @@ static void doargs(int argc, char **argv)
   if ( argopt_isset(ao, hcs) ) ietype = IETYPE_HC;
   if ( argopt_isset(ao, rowphi) ) ietype = IETYPE_ROWLINSON;
   if ( argopt_isset(ao, invphi) ) ietype = IETYPE_INVROWLINSON;
+  if ( argopt_isset(ao, hurstm) ) ietype = IETYPE_HURST;
   if ( argopt_isset(ao, verleta) || argopt_isset(ao, verletb) ) ietype = IETYPE_VERLET;
   if ( argopt_isset(ao, usems) ) { ietype = IETYPE_BBPG; bbpgs = 2; }
   if ( argopt_isset(ao, bbpgs) ) ietype = IETYPE_BBPG;
+  if ( argopt_isset(ao, py2s) ) ietype = IETYPE_PY2;
+  if ( argopt_isset(ao, hnc2s) ) ietype = IETYPE_HNC2;
+  if ( argopt_isset(ao, geos) ) ietype = IETYPE_GEO;
+  if ( argopt_isset(ao, logs) ) ietype = IETYPE_LOG;
 
   if ( ietype > IETYPE_HNC ) dohnc = 0;
 
   if ( dohnc ) ietype = IETYPE_HNC;
+
+  if ( argopt_isset(ao, shift) || argopt_isset(ao, shiftn) || argopt_isset(ao, shiftinc) )
+    mkcorr = 1;
 
   if ( mkcorr || ietype > IETYPE_HNC ) /* Singer and ring formulas are inapplicable to corrections */
     singer = ring = 0;
@@ -349,12 +367,13 @@ static void sphr_dht(xdouble *in, xdouble *out, xdouble fac,
 static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
 {
   xdouble facr2k, fack2r, surfr, surfk;
-  xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, B2, fcorr = 0;
+  xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, By = 0, B2, fcorr = 0;
   xdouble *fr, *rdfr = NULL, *swr = NULL;
   xdouble *crl, *trl, *yrl, *tkl;
   xdouble **ck, **tk = NULL, **cr = NULL, **tr = NULL, **yr = NULL;
   xdouble *arr, *vc = NULL, *yrcoef = NULL;
   xdouble *ri, *ki, *rDm1, *kDm1;
+  xdouble *yr0, *lnyr0;
   int i, dm, l, l0 = 1;
   clock_t t0 = clock(), t1;
 
@@ -522,9 +541,14 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     COPY1DARR(cr[0], fr, npt);
   }
 
-  if ( ietype != IETYPE_PY || mkcorr ) {
+  if ( ietype != IETYPE_PY || mkcorr || singer ) {
     MAKE2DARR(tr, nmax - 1, npt);
   }
+
+  MAKE1DARR(yr0, nmax - 1);
+  MAKE1DARR(lnyr0, nmax - 1);
+  yr0[0] = 1;
+  lnyr0[0] = 0;
 
   if ( ietype > IETYPE_HNC ) {
     /* compute the coefficients, they are not actually used
@@ -538,8 +562,18 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
       init_rowlinsoncoef(yrcoef, nmax - 1, rowphi);
     } else if ( ietype == IETYPE_INVROWLINSON ) {
       init_invrowlinsoncoef(yrcoef, nmax - 1, invphi);
+    } else if ( ietype == IETYPE_HURST ) {
+      init_hurstcoef(yrcoef, nmax - 1, hurstm);
     } else if ( ietype == IETYPE_VERLET ) {
       init_verletcoef(yrcoef, nmax - 1, verleta, verletb);
+    } else if ( ietype == IETYPE_PY2 ) {
+      init_py2coef(yrcoef, nmax - 1, py2s);
+    } else if ( ietype == IETYPE_HNC2 ) {
+      init_hnc2coef(yrcoef, nmax - 1, hnc2s);
+    } else if ( ietype == IETYPE_GEO ) {
+      init_geocoef(yrcoef, nmax - 1, geos);
+    } else if ( ietype == IETYPE_LOG ) {
+      init_logcoef(yrcoef, nmax - 1, logs);
     }
     print_yrcoef(yrcoef, 7);
   }
@@ -575,10 +609,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     /* c_l(r) --> c_l(k) for the previous l */
     sphr_r2k(crl, ck[l-1]);
 
+    /* compute the ring sum based on ck */
     if ( ring ) {
-      /* compute the ring sum based on ck */
-      Bh = get_ksum(l, npt, ck, kDm1, &Br);
-      Br = (dohnc ? -Br * (l+1) : -Br * 2) / l;
+      Bh = get_BhBrk(l, npt, dohnc, ck, kDm1, ki, &Br);
     }
 
     /* compute t_l(k) from c_0(k), ... c_{l-1}(k) */
@@ -615,9 +648,23 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
       get_yr_invrowlinson(l, npt, yrl, tr, invphi);
     } else if ( ietype == IETYPE_VERLET ) {
       get_yr_verlet(l, npt, yrl, tr, verleta, verletb);
-    } else { /* use it as the last resort */
+    } else if ( ietype == IETYPE_PY2 ) {
+      get_yr_py2(l, npt, yrl, tr, py2s);
+    } else if ( ietype == IETYPE_HNC2 ) {
+      get_yr_hnc2(l, npt, yrl, tr, hnc2s);
+    } else if ( ietype == IETYPE_GEO ) {
+      get_yr_geo(l, npt, yrl, tr, geos);
+    } else if ( ietype == IETYPE_LOG ) {
+      get_yr_log(l, npt, yrl, tr, logs);
+    } else if ( ietype == IETYPE_ROWLINSON ) {
+      get_yr_rowlinson(l, npt, yrl, tr, rowphi);
+    } else if ( ietype == IETYPE_HURST ) {
+      get_yr_hurst(l, npt, yrl, tr, hurstm);
+    } else { /* use it as the last resort or a check */
       get_yr_series(l, npt, yrl, tr, yrcoef);
     }
+
+    yr0[l] = get_zerosep(mkcorr ? trl : yrl, ri);
 
     for ( i = 0; i < npt; i++ ) {
       /* c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
@@ -634,10 +681,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
       COPY1DARR(cr[l], crl, npt); /* cr[l] = crl */
       if ( dohnc ) {
         Bm = get_Bm_singer(l, npt, cr, tr, rDm1);
-        Bh = get_Bh_singer(l, npt, cr, tr, rDm1) - Bh*(l+1)/2;
+        Bh += get_Bh_singer(l, npt, cr, tr, rDm1);
       } else {
         Bm = get_Bx_py(l, npt, cr, tr, rDm1);
-        Bh = get_Bp_py(l, npt, cr, tr, rDm1) - Bh;
       }
     } else {
       Bm = Bh = 0;
@@ -653,9 +699,12 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
 
       Bm = get_corr1x(l, npt, dm, crl, fr, rdfr, rDm1,
                       dim, B2, vc, &Bc, &Bv, &fcorr);
+      yr0[l] += get_zerosep(vc, ri);
     }
 
-    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2, mkcorr, fcorr);
+    //By = log_series(l+1, yr0, lnyr0)*l/(l+1);
+    By = update_lnyr0(l, yr0, lnyr0);
+    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, By, B2, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yrl);
     if ( snapshot )
       snapshot_take(l, npt, ck[l-1], tk[l], crl, trl, nmax, yr);
@@ -681,6 +730,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
   FREE2DARR(yr, nmax - 1, npt);
   FREE1DARR(vc, npt);
   FREE1DARR(yrcoef, nmax - 1);
+  FREE1DARR(yr0, nmax - 1);
+  FREE1DARR(lnyr0, nmax - 1);
 
 
 #ifdef FFT

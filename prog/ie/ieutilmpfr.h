@@ -205,6 +205,47 @@ __inline static void contactv(mpfr_t y, mpfr_t *f, int dm, mpfr_t B2)
 
 
 
+/* get the value at zero separation */
+__inline static void get_zerosep(mpfr_t z, mpfr_t *y, mpfr_t *x)
+{
+  mpfr_t a, b, c;
+  INIT_(a);
+  INIT_(b);
+  INIT_(c);
+  // return (y[0]*x[1] - y[1]*x[0])/(x[1] - x[0]);
+  MUL_(a, y[0], x[1]);
+  MUL_(b, y[1], x[0]);
+  SUB_(z, a, b);
+  SUB_(c, x[1], x[0]);
+  DIV_X_(z, c);
+  CLEAR_(a);
+  CLEAR_(b);
+  CLEAR_(c);
+}
+
+
+
+/* return the virial coefficient of order l + 1 */
+__inline static void update_lnyr0(mpfr_t B, int l, mpfr_t *yr0, mpfr_t *lnyr0)
+{
+  int j;
+  mpfr_t a;
+
+  INIT_(a);
+  MUL_SI_(lnyr0[l], yr0[l], l); /* lnyr0[l] = l * yr0[l]; */
+  for ( j = 1; j < l; j++ ) {
+    /* lnyr0[l] -= j * lnyr0[j] * yr0[l - j]; */
+    MUL_(a, lnyr0[j], yr0[l-j]);
+    MUL_SI_X_(a, j);
+    SUB_X_(lnyr0[l], a);
+  }
+  DIV_SI_(B, lnyr0[l], l + 1);
+  DIV_SI_X_(lnyr0[l], l);
+  CLEAR_(a);
+}
+
+
+
 /* compute t(k) from c(k) from the Ornstein-Zernike relation */
 __inline static void get_tk_oz(int l, int npt, mpfr_t **ck, mpfr_t *tkl)
 {
@@ -494,31 +535,38 @@ __inline static void saveB(FILE *fp, mpfr_t B, mpfr_t B2p)
 /* save virial coefficients */
 __inline static int savevir(const char *fn, int dim, int n,
     mpfr_t Bc, mpfr_t Bv, mpfr_t Bm, mpfr_t Bh, mpfr_t Br,
-    mpfr_t B2p, int mkcorr, mpfr_t fcorr)
+    mpfr_t By, mpfr_t B2, int mkcorr, mpfr_t fcorr)
 {
   FILE *fp;
-  mpfr_t volp, x;
+  mpfr_t B2p, B2y, volp, voly, x;
 
+  INIT_(B2p);
+  INIT_(B2y);
   INIT_(volp);
+  INIT_(voly);
   INIT_(x);
+  POW_SI_(B2p, B2, n - 1);
+  POW_SI_(B2y, B2, n - 2);
   /* print the result on screen */
   /* volp = B2p / pow(2, (n-1)*(dim-1)); */
   SET_SI_(x, 2);
-  POW_SI_(x, x, (n-1)*(dim-1));
-  DIV_(volp, B2p, x);
+  POW_SI_(volp, x, (n-1)*(dim-1));
+  DIV_(volp, B2p, volp);
+  POW_SI_(voly, x, (n-2)*(dim-1));
+  DIV_(voly, B2y, voly);
   printB("Bc", dim, n, Bc, B2p, volp, ", ");
   printB("Bv", dim, n, Bv, B2p, volp, ", ");
   /* when making corrections, Bm is the corrected value */
   printB("Bm", dim, n, Bm, B2p, volp, "");
   if ( mkcorr ) {
-    mpfr_printf(", %9.6Rf\n", fcorr);
+    mpfr_printf(", %9.6Rf", fcorr);
   } else { /* the following are useless when making corrections */
-    printf("\n");
-    if ( !mpfr_zero_p(Bh) || !mpfr_zero_p(Br) ) {
-      printB("Bh", dim, n, Bh, B2p, volp, ", ");
-      printB("Br", dim, n, Br, B2p, volp, "\n");
-    }
+    if ( CMP_SI_(Bm, 0) == 0 ) printf("\n");
+    printB("Bh", dim, n, Bh, B2p, volp, ", ");
+    printB("Br", dim, n, Br, B2p, volp, "");
+    printB("By", dim, n - 1, By, B2y, voly, ", ");
   }
+  printf("\n");
 
   if (fn != NULL) {
     xfopen(fp, fn, "a", return -1);
@@ -528,18 +576,23 @@ __inline static int savevir(const char *fn, int dim, int n,
       saveB(fp, Bc, B2p);
       saveB(fp, Bv, B2p);
       saveB(fp, Bm, B2p);
-      mpfr_fprintf(fp, " %+20.14Rf\n", fcorr);
+      mpfr_fprintf(fp, " %+20.14Rf", fcorr);
     } else {
       saveB(fp, Bc, B2p);
       saveB(fp, Bv, B2p);
       saveB(fp, Bm, B2p);
       saveB(fp, Bh, B2p);
       saveB(fp, Br, B2p);
-      fprintf(fp, "\n");
     }
+    fprintf(fp, " |");
+    saveB(fp, By, B2y);
+    fprintf(fp, "\n");
     fclose(fp);
   }
+  CLEAR_(B2p);
+  CLEAR_(B2y);
   CLEAR_(volp);
+  CLEAR_(voly);
   CLEAR_(x);
 
   return 0;

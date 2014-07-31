@@ -82,6 +82,7 @@ Overview
      hypernetted-chain (HNC)
      Rowlinson, t(r) = (y(r) - 1) (1 - phi) + phi ln y(r)
      inverse Rowlinson (IR), y(r) = exp(t(r)) phi + (1 - phi) (1 + t(r))
+     Hurst, t(r) = y(r)^m log y(r)
      Hutchinson-Conkie (HC)
      Verlet (VM)
      Rogers-Young (RY)
