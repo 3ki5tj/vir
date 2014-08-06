@@ -5,10 +5,13 @@
 
 \usepackage{amsmath}
 \usepackage{amsthm}
+\usepackage{mathrsfs}
 \usepackage{graphicx}
 \usepackage{dcolumn}
 \usepackage{bm}
 \usepackage{tikz}
+\usepackage{multirow}
+\usepackage{hyperref}
 %\usepackage{setspace}
 
 \newtheorem{defn}{Definition}
@@ -29,11 +32,17 @@
 \newcommand{\Fex}{\supex{F}}
 \newcommand{\muex}{\supex{\mu}}
 \newcommand{\kex}{\supex{\kappa}}
-
+\newcommand{\Chn}{\mathscr{C}}
+%\newcommand{\Chn}{\mathcal{C}}
+%\newcommand{\Chn}{\mathsf{C}}
 \newcommand{\secref}[1]{Sec. \ref{#1}}
 
 \newcommand{\llbra}{[\![}
 \newcommand{\llket}{]\!]}
+
+
+
+
 
 \begin{document}
 
@@ -91,7 +100,20 @@ where ``$*$'' denotes a convolution:
 \label{eq:convol}
 \end{equation}
 %
-The Percus-Yevick (PY) closure\cite{percusyevick} reads
+
+
+A general closure is given by the following form
+%
+\begin{equation}
+  c(\vr) = [1 + f(\vr)] \, y(\vr) - t(\vr) - 1,
+  \label{eq:closure}
+\end{equation}
+%
+where the cavity function $y(\vr) \equiv g(\vr) \, e^{ \beta \phi(\vr) }$
+  is to be approximated as some functional of $t(\vr)$.
+%
+The Percus-Yevick (PY) closure\cite{percusyevick}
+  approximates $y(\vr) \approx 1 + t(\vr)$, so
 %
 \begin{equation}
   c(\vr) = f(\vr) + f(\vr) \, t(\vr),
@@ -105,10 +127,11 @@ where
 with $\phi(\vr)$ being the pair potential.
 %
 Alternatively, the hypernetted-chain (HNC) closure\cite{
-morita1958, *morita1959, *morita1960} reads
+morita1958, *morita1959, *morita1960}
+  approximates $y(\vr) \approx e^{ t(\vr) }$, so
 %
 \begin{align}
-  c(\vr) &= f(\vr) \, e^{t(\vr)} - t(\vr) - 1 \notag \\
+  c(\vr) &= \big[ 1 + f(\vr) \big] \, e^{t(\vr)} - t(\vr) - 1 \notag \\
          &= \sum_{m=0}^\infty
                 \Big\{ \llbra m \ge 2 \llket + f(\vr) \Big\}
                 \frac{ t^m(\vr) }{ m! },
@@ -148,28 +171,29 @@ Table \ref{tab:thermodyn}
   \hline
   \hline
   \noalign{\smallskip}
-  \phantom
+  %\phantom
+  \multirow{2}{1.3cm}{ Graph sum$^\ast$ }
   &
   \multicolumn{3}{c}{PY}
   &
   \phantom &
   \multicolumn{3}{c}{HNC}
-  \\[-2mm]
+  \\
+  %[-2mm]
   \cline{2-4}
   \cline{6-8}
   \noalign{\smallskip}
-  Graph sum$^*$
+  %Graph sum$^\ast$
   &
-  Thermo. quantity$^\#$ &
-  Series &
+  Quantity$^\sharp$ &
+  Series$^\star$ &
   Integral &
   &
-  Thermo. quantity$^\#$ &
-  Series &
+  Quantity$^\sharp$ &
+  Series$^\star$ &
   Integral
-  \\
-  %[4pt]
-  \noalign{\smallskip}
+  \\[-1mm]
+  %\noalign{\smallskip}
   \hline
   \noalign{\smallskip}
   %
@@ -185,7 +209,7 @@ Table \ref{tab:thermodyn}
   &
   $\begin{aligned} -\sum_n B_n \rho^n \end{aligned}$
   &
-  $\begin{aligned} \rho^2 \int \frac{1}{2} c \, (1 - h) \, d\vr
+  $\begin{aligned} \frac{\rho^2}{2} \int c \, (1 - h) \, d\vr
     - {S}^\S \end{aligned}$
   &
   &
@@ -265,19 +289,31 @@ Table \ref{tab:thermodyn}
   %
   %
   \multicolumn{8}{p{\textwidth}}{
-    $^*$ $I$, $s$, $n$, $p$ are
+    $^\ast$
+    The sum is over the respective unrooted graphs $G$,
+    which are the polygon packs in the PY case
+    or the $c$-packs in the HNC case;
+    $I$, $s$, $n$, $p$ are
     the integral,
     the symmetry number,
     the number of vertices,
     the number of ordered intra-face pairs (or pivots)
-    of graph $G$, respectively.
+    of $G$, respectively.
   }
   \\
   \noalign{\smallskip}
   %
   \multicolumn{8}{l}{
-    $^\#$
+    $^\sharp$
     The superscript ``ex'' means that the excess (non-ideal-gas) part.
+  }
+  \\
+  \noalign{\smallskip}
+  \multicolumn{8}{p{\textwidth}}{
+    $^\star$
+    The virial coefficient $B_n$ can be found by equating this and the next columns,
+    e.g., the second row of the PY equation gives
+    $B_n = -(1/n) \int c_{n-2} \, d\vr$.
   }
   \\
   \noalign{\smallskip}
@@ -351,11 +387,11 @@ Table \ref{tab:thermodyn}
 
 
 
-Here we briefly review the graphic representation in liquid theory\cite{hansen}.
+Here we briefly review the graphic representation in liquid theory\cite{hansen, mayer, uhlenbeck1962}.
 %
 We first list a few basic terms in the graph theory.
 %
-A \emph{graph} $G$ consists of
+A \emph{graph}, or a \emph{diagram}, $G$ consists of
   a set of \emph{vertices} $V = \{v_1, \dots, v_n\}$
     (drawn as dots)
   and
@@ -366,33 +402,42 @@ Two vertices are \emph{adjacent} if they are joined by an edge;
 %
 two edges are \emph{adjacent} if they share a vertex.
 %
+An \emph{induced subgraph} $G(V')$ is obtained
+  from keeping only a subset of vertices $V'$ of $V$
+  and the edges between the vertices in $V'$.
+
 A \emph{path} is formed by
-  a sequence of consecutively adjacent edges.
+  a sequence of adjacent edges
+  joined in a head-to-tail fashion.
 %
 If the first and last vertices on the path coincide,
   the path is a \emph{cycle}.
 %
 A graph is \emph{connected}
-  if it is in one piece.
-  That is,
-  if any two vertices are connected
-  by a sequence of adjacent edges.
+  %if it is in one piece; that is,
+  if any two vertices are connected by a path.
 %
-An \emph{induced subgraph} $G(V')$ is obtained
-  from keeping only a subset $V'$ of $V$
-  and the edges between the vertices in $V'$.
-
-
+Further, a connected graph is \emph{biconnected}
+  if removing any vertex and the adjacent edges
+  leaves the graph connected.
+%
+In other words, a biconnected graph
+  is free of any \emph{articulation point},
+  whose removal disconnects the graph.
+%
+Similarly, removing a \emph{separation pair} of vertices
+  and the adjacent edges disconnects the graph.
 
 In liquid theory,
   each graph represents an integral.
 %
 A vertex $i$ is associated to a spatial point
-  and its coordinates $\vr_i$.
+  of coordinates $\vr_i$.
 %
-The coordinates of a \emph{root} vertex,
+A \emph{root} vertex,
   or simply a \emph{root} (drawn as a white dot),
-  are given and fixed.
+  is specially designated
+and the coordinates of are given and fixed.
 %
 The coordinates of a non-root vertex
   (drawn as a black dot)
@@ -403,7 +448,7 @@ In our case, a non-root vertex
   to the integrand.
 %
 An edge between vertices $i$ and $j$
-  contributes a factor $f(\vr_{ij})$
+  contributes a factor $f_{ij} \equiv f(\vr_{ij})$
   [defined in \eqref{eq:fbond}],
   with
   $\vr_{ij} \equiv \vr_i - \vr_j$.
@@ -423,7 +468,7 @@ For example,
   =
   \rho^2 \int
     d\vr_3 \, d\vr_4 \,
-    f(\vr_{12}) f(\vr_{23}) f(\vr_{34}) f(\vr_{41}) f(\vr_{13}).
+    f_{12} f_{23} f_{34} f_{41} f_{13}.
 \]
 
 
@@ -459,15 +504,88 @@ For a graph of no root,
   =
   \rho^3 \int
     d\vr_2 \, d\vr_3 \,
-    f(\vr_{12}) f(\vr_{23}) f(\vr_{31}).
+    f_{12} f_{23} f_{31}.
 \]
 %
 The choice of the last vertex is arbitrary
   for it alters only the origin of the integration,
   but not the value. % of the integral.
+
+
+
+Since the black dots are identical,
+  the above labeled graphs can be reduced to the following unlabeled graphs.
 %
-Graphs in the virial expansion \eqref{eq:virial}
-  are of this type.
+Note that the white dots (roots) are always (implicitly) labeled.
+%
+For an unlabeled graph $G$, we define the \emph{symmetry number} $s(G)$,
+  after assuming an arbitrary labeling of the black dots of $G$,
+  as the number of ways of relabeling the
+  black dots that keep the connections of $G$ unchanged.
+%
+For example,
+  $s\left({
+  \begin{tikzpicture}[baseline=0.0mm]
+    \newcommand{\sz}{1.7mm}
+    \node (r1) at (-\sz, 0) [blackdot]{};
+    \node (r2) at ( \sz, 0) [blackdot]{};
+    \node (r3) at ( 0, 1.8*\sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r1);
+  \end{tikzpicture}
+  }\right) = 3! = 6$,
+  since the three black dots can be labeled arbitrarily;
+but
+  $s\left({
+  \begin{tikzpicture}[baseline=0.8mm]
+    \newcommand{\sz}{1.7mm}
+    \node (r1) at (-\sz, 0) [whitedot]{};
+    \node (r2) at ( \sz, 0) [whitedot]{};
+    \node (r3) at ( \sz, 2*\sz) [blackdot]{};
+    \node (r4) at (-\sz, 2*\sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1);
+  \end{tikzpicture}
+  }\right) = 1$,
+  because the two white dots are distinguished,
+  and thus exchanging the two black dots alters the connection.
+
+
+
+We state without proving the following results\cite{hansen, mayer, uhlenbeck1962}.
+%
+The virial expansion \eqref{eq:virial} contains
+  all unrooted labeled biconnected graphs,
+  each weighted by $(1-n)/n!$ with $n$ being the number of vertices;
+%
+equivalently, it is the sum of
+  all unrooted \emph{unlabeled} biconnected graphs $G$
+  weighted by $(1-n)/s(G)$.
+%
+The expansion of $-\beta \Fex/V$
+  for the excess (non-ideal-gas) Helmholtz free energy
+  is the sum of all unrooted unlabeled biconnected graphs $G$
+  weighted by $1/s(G)$.
+%
+The expansion of $-\beta \muex$ for the excess chemical potential
+  is the sum of all one-root unlabeled biconnected graphs $G$
+  weighted by $1/s(G)$.
+%
+The expansion of $c(\vr)$ is the sum of
+  all two-root unlabeled biconnected graphs $G$
+  weighted by $1/s(G)$.
+%
+
+
+
+Not all biconnected graphs can be produced by integral equations.
+%
+In either integral equation,
+  $c(\vr)$, for example, contains only a subset of the biconnected graphs $G$,
+  and the weight may not be $1/s(G)$.
+%
+The hope, however, is that the missing graphs either are negligible (HNC),
+  or somehow cancel among themselves (PY).
+
+
 
 
 
@@ -714,7 +832,8 @@ Applying \eqref{eq:cyclesp} to \eqref{eq:oz} gives
 \label{eq:zerosep}
 \end{align}
 %
-where the second step follows from the assumption that $g(\vct{0}) = 0$.
+where the second step follows from
+  $g(\vct{0}) = 0$ [assuming $\phi(\vct{0}) = \infty$].
 
 
 
@@ -1123,15 +1242,16 @@ Using \eqref{eq:countvertices} in \eqref{eq:pykappasum} yields
 \begin{equation}
     \rho^2 \int c(\vr) \, d\vr
   = \sum_G \frac{ 4 \, I(G) }{ s(G) }
-  + \sum_{l = 3}^\infty 2 (l - 2) \, C_l,
+  + \sum_{l = 3}^\infty 2 (l - 2) \, \Chn_l,
 \label{eq:pyintgcr2sums}
 \end{equation}
 %
-where $C_l$ is the cycle sum:
+where $\Chn_l$ is the cycle sum:
 %
 \begin{align}
-      C_l
-  =  \sum_G \frac{ m_l(G) \, I(G) } { s(G) }
+      \Chn_l
+  \equiv
+      \sum_G \frac{ m_l(G) \, I(G) } { s(G) }
 %      \notag \\
   &=  \frac{1}{2 \, l}
       \int \rho^l (\underbrace{c*\cdots *c}_{l-1 \mbox{ times}})(\vr)
@@ -1139,17 +1259,41 @@ where $C_l$ is the cycle sum:
       \notag \\
   &=  \frac{1}{2 \, l}
       \int \rho^l \tilde{c}^l(\vk) \dvk,
-\label{eq:ccyclintg}
+\label{eq:ccycling}
 \end{align}
 %
 where the factor $2 \, l$ corresponds to the number of ways
   of cycling and reversing the elements in the $l$ cycle
   [also cf. \eqref{eq:cyclesp}].
 %
-Summing \eqref{eq:ccyclintg} over $l$ yields
+The reader can readily verify that
+  if the longest non-repeating segment of an $l$-cycle
+  is of length $d$ (and $d$ divides $l$),
+  the cycle along with its isomorphic counterparts
+  contribute $d/(p\cdot l)$ to both sides of \eqref{eq:ccycling},
+%
+where $p = 2$ if the cycle is symmetric in both directions,
+  or $p = 1$ otherwise.
+%
+For example,
+\newcommand{\hi}{0.05}
+$G = {\begin{tikzpicture}[baseline=-1mm]
+      \node (r1) at (-4*\hi, -4*\hi) [blackdot]{};
+      \node (r2) at ( 4*\hi, -4*\hi) [blackdot]{};
+      \node (r3) at ( 4*\hi,  4*\hi) [blackdot]{};
+      \node (r4) at (-4*\hi,  4*\hi) [blackdot]{};
+      \draw (r1) -- (r2) -- (r3) -- (r1) -- (r4) -- (r3);
+\end{tikzpicture} }$
+has $m=2$ isomorphic cycles of length $l = 3$ with $d = 3$ and $p = 2$.
+The symmetry number $s = 4$, for either diagonal allows
+the exchange of the two vertices.
+So the contribution to both sides is $m/s = d/(p\cdot l) = 1/2$.
+
+
+Summing \eqref{eq:ccycling} over $l$ yields
 %
 \begin{align}
-     \sum_{l=3}^{\infty} 2 \, C_l
+     \sum_{l=3}^{\infty} 2 \, \Chn_l
   &= -\int \Big\{
               \log[ 1 - \rho \tilde{c}(\vk) ]
             + \rho \tilde{c}(\vk)
@@ -1158,12 +1302,12 @@ Summing \eqref{eq:ccyclintg} over $l$ yields
      - \frac{\rho^2}{2} \int c^2(\vr) \, d\vr,
      \label{eq:Clsum} \\
   %
-      \sum_{l=3}^{\infty} \, l \, C_l
+      \sum_{l=3}^{\infty} \, l \, \Chn_l
   &=
       \frac{ \rho^2 }{2} \int t(\vr) \, c(\vr) \, d\vr,
       \label{eq:Clsuml} \\
   %
-      \sum_{l=3}^{\infty} \, l \, (l - 3) \, C_l
+      \sum_{l=3}^{\infty} \, l \, (l - 3) \, \Chn_l
   &=  \frac{ \rho^2 }{ 2 }
       \int t^2(\vr) \, d\vr,
 \label{eq:Clsumll}
@@ -1175,7 +1319,7 @@ Note that \eqref{eq:Clsum}, \eqref{eq:Clsuml}, and \eqref{eq:Clsumll}
 
 
 
-\subsection*{Thermodynamic quantities}
+\subsection*{Baxter's pressure formula}
 
 
 %We now derive Baxter's pressure formula
@@ -1186,11 +1330,11 @@ To obtain an expression of pressure,
 %
 \begin{equation}
   -\partial (\beta P^{\mathrm{ex}}) / \partial \rho
-  = \rho \int c(\vr) \, d\vr,
+  = \rho \int c(\vr) \, d\vr.
 \label{eq:crcompr}
 \end{equation}
 %
-where the superscript ``ex'' means to the excess, or non-ideal-gas, part of the contribution.
+%where the superscript ``ex'' means to the excess, or non-ideal-gas, part of the contribution.
 %
 Note that
   the integral $I(G)$ of a polygon pack $G$ of $n$ vertices
@@ -1205,14 +1349,19 @@ Thus, an integration over $\rho$ yields\cite{baxterpressure}
   =   \frac{ \rho^2 }{ 2 }
       \int [c(\vr) - h(\vr) c(\vr)] \, d\vr \notag \\
   &
-      -\int \{ \log[1 - \rho \tilde{c}(\vk)] + \rho \tilde{c}(\vk) \} \dvk.
+      -\int \big\{
+        \log[1 - \rho \tilde{c}(\vk)] + \rho \tilde{c}(\vk)
+        \big\} \dvk.
 \label{eq:baxterpressure}
 \end{align}
 %
 where we have used
 \eqref{eq:pyintgcr2sums}, \eqref{eq:Clsum} and \eqref{eq:Clsuml}.
 %
-By using \eqref{eq:zerosep} and adding the ideal-gas part, 
+Note that the weight $-2/s(G)$ is rather different
+  from that $(1-n)/s(G)$ given in Sec. \ref{sec:graph}.
+%
+By using \eqref{eq:zerosep} and adding the ideal-gas part,
   we can rewrite the above result in $\tilde{c}(\vk)$ only:
 %
 \begin{align*}
@@ -1224,7 +1373,88 @@ By using \eqref{eq:zerosep} and adding the ideal-gas part,
            \right\} \dvk
      +\frac{ \rho - \rho^2 \tilde{c}(\vct0) }{2}.
 \end{align*}
-  
+%
+
+
+
+We can show that
+  \eqref{eq:baxterpressure} is equivalent to \eqref{eq:crcompr}
+  algebraically.
+%
+We first define
+%
+\begin{align}
+  \tilde{T}(\vk)
+\equiv
+  - \log[1 - \rho \tilde{c}(\vk)]
+  - \rho \tilde{c}(\vk)
+  - \left[ \rho \tilde{c}(\vk) \right]^2 / 2.
+  \label{eq:logrhoc}
+\end{align}
+%
+Then, differentiating \eqref{eq:logrhoc} and using \eqref{eq:oz} yields
+%
+\begin{align*}
+  \partial_\rho \tilde T
+=
+  \sum_{l = 2}^{\infty}
+    ( \rho \, \tilde{c} )^l
+    \, \partial_\rho ( \rho \, \tilde{c} )
+=
+  \rho \, \tilde{t}
+  \, \partial_\rho ( \rho \, \tilde{c} ),
+\end{align*}
+%
+where ``$(\vk)$'' is dropped.
+%
+Integrating over $\vk$ and using \eqref{eq:cyclesp} yields
+%
+\begin{align}
+  \int \partial_\rho \tilde T \dvk
+&=
+  \int
+    \big(
+      \rho \, \tilde{t} \, \tilde{c}
+      +
+      \rho^2 \, \tilde{t} \, \partial_\rho \tilde{c}
+    \big) \dvk
+\notag \\
+&=
+  \rho \int t \, c \, d\vr
+      +
+  \rho^2 \int t \, \partial_\rho c \, d\vr.
+\label{eq:intdlogrhoc}
+\end{align}
+
+
+
+We now rewrite \eqref{eq:baxterpressure} as %in terms of $\tilde{T}$,
+\[
+  -\beta \Pex
+=
+  (\rho^2/2) \int (c - t \, c) d\vr
+  + \int \tilde{T} d\vk/(2\pi)^D.
+\]
+%
+Differentiating with respect to $\rho$ and using \eqref{eq:intdlogrhoc} yields
+%
+\[
+  -\partial_\rho ( \beta \Pex )
+=
+  \rho \int c \, d\vr
+  + \frac{\rho^2}{2} \int (
+    \partial_\rho c - c \, \partial_\rho t + t \, \partial_\rho c
+    ) \, d\vr,
+\]
+The second term vanishes because of the PY closure \eqref{eq:py}:
+$c \, \partial_\rho t = (1 + \, t) \, f \, \partial_\rho t = (1 + t) \, \partial_\rho c$.
+%
+We then recover \eqref{eq:crcompr}.
+
+
+
+
+\subsection*{Second density derivative of pressure}
 
 Similarly,
   by differentiating \eqref{eq:pykappasum} with respect to $\rho$,
@@ -1239,7 +1469,7 @@ Similarly,
     \notag \\
   &=
             \sum_G \frac{2 I(G) }{s(G)}
-            + \sum_{l = 3}^\infty [l(l-1) - 2] \, C_l
+            + \sum_{l = 3}^\infty [l(l-1) - 2] \, \Chn_l
     \notag \\
   &=         \frac{\rho^2}{2} \int [c(\vr) + t(\vr) \, h(\vr) ] \, d\vr,
 \label{eq:pyddpressure}
@@ -1835,7 +2065,7 @@ Now since the vertices in $V_L$ are connected,
     \node (u2)    at ( 2.0*\sz, 8.0*\sz) [blue, blackdot,blue,label=135:$u_2$]{}
       edge[blue,dotted,thick, bend right=60] (uim1)
       edge[blue,thick, bend left=10] (u1);
-    
+
     % beginning of the L circle
     \draw[black, thick] plot [smooth cycle]
       coordinates{ ( 0.8*\sz, 0.6*\sz)
@@ -1846,7 +2076,7 @@ Now since the vertices in $V_L$ are connected,
 
     \node (L) at (5.3*\sz, 2.0*\sz) {$L^{(s)}$};
     % end of the L circle
-    
+
     % beginning of the J circle
     \draw[blue, thick] plot [smooth cycle]
       coordinates{
@@ -1876,7 +2106,7 @@ This means that the two cycles share the same joints
 
 
 
-\subsection*{Thermodynamic quantities}
+\subsection*{Free energy and chemical potential}
 
 
 Given a $c$-pack $G$,
@@ -1918,7 +2148,7 @@ The free energy can be computed
       \notag \\
   &=
       \rho^2 \int c(\vr) \, d\vr
-    - \sum_{l = 3}^\infty \left[ l(l-1) - 2 \right] \, C_l
+    - \sum_{l = 3}^\infty \left[ l(l-1) - 2 \right] \, \Chn_l
       \notag \\
   &=
       \rho^2 \int \left[ c(\vr) - \tfrac{1}{2} h^2(\vr) \right] \, d\vr
@@ -1941,27 +2171,119 @@ Similarly, the chemical potential
   is given by\cite{morita1958, *morita1959, *morita1960, singer1985}
 %
 \begin{align}
-    - \beta \muex
+    - \beta \rho \muex
   &=
       \sum_G \frac{ n(G) \, I(G) } { s(G) }
   =
       \sum_G \frac{ 2 \, I(G) } { s(G) }
-    + \sum_{l = 3}^\infty (l-2) \, C_l
+    + \sum_{l = 3}^\infty (l-2) \, \Chn_l
       \notag \\
   &=
       \rho^2 \int c(\vr) \, d\vr
-    - \sum_{l = 3}^\infty l \, (l-2) \, C_l
+    - \sum_{l = 3}^\infty l \, (l-2) \, \Chn_l
       \notag \\
   &=
       \rho^2 \int \left[ c(\vr) - \tfrac{1}{2} h(\vr) \, t(\vr) \right] \, d\vr.
 \label{eq:hncmu}
 \end{align}
 %
+Although \eqref{eq:hncmu} assigns the correct weight to each $G$,
+  the sum goes over only a subset (that of $c$-packs) of the biconnected graphs.
+%
+So it is still an approximate relation.
+%
+
+
+
+We can algebraically derive \eqref{eq:hncmu} from \eqref{eq:hncF}.
+%
+First, rewrite \eqref{eq:hncF} [dropping ``$(\vk)$''] as
+%
+\[
+  -2 \beta \Fex/V = \rho^2 \int (c - t^2/2 - t\,c) \, d\vr + \int \tilde{T} d\vk/(2\pi)^D.
+\]
+%
+Using $\partial_\rho (\Fex/V) = \muex$ and \eqref{eq:intdlogrhoc}, we get
+\[
+  -2 \beta \muex = \rho \int (2\,c - h \, t) \, d\vr
+  + \rho^2 \int (\partial_\rho c - h \, \partial_\rho t) \, d\vr.
+\]
+The second term vanishes because of the HNC closure
+  \eqref{eq:hnc}, or $1+h = (1+f) \, e^t$,
+%
+  which implies $\partial_\rho h = (1+ h) \, \partial_\rho t$.
+%
+We then recover \eqref{eq:hncmu}.
+
+
+
+
+The pressure can be obtained from
+  $\frac{1}{2} \times \eqref{eq:hncF} - \eqref{eq:hncmu}$
+  because $P = \rho \mu - F/V$.
+%
 Table \ref{tab:thermodyn} gives
   a comparison of the results from the PY and HNC closures.
 
 
 
-\bibliography{ievir}
+
+
+
+\section{Zero separation theorem}
+
+Finally, for the hard-sphere fluid, we have an additional
+  formula to compute the virial coefficients
+  from the cavity function $y(\vr)$\cite{hoover1962}:
+%
+\begin{equation}
+  \log y(\vct0) = \beta \muex
+  \label{eq:zerosephoover}
+\end{equation}
+%
+We now show this graphically.
+%
+Every graph included in $y(\vr)$
+  has two nonadjacent roots\cite{hansen},
+%
+  and joining the roots
+  yields a biconnected graph in $c(\vr)$
+  [which can be seen from comparing graphs
+  with adjacent roots in \eqref{eq:closure}].
+%
+Taking the logarithm further
+  removes any graph in $y(\vr)$
+  whose roots form
+  a separation pair\cite{hansen}.
+%
+Thus, when the roots of a graph $H$ in $\log y(\vr)$
+  are merged as $\vr \rightarrow \vct0$,
+  the resulting graph $G$ is biconnected,
+  for the merged root in $G$ is not an articulation point.
+%
+Consider a particular $G$,
+  which has $K$ vertices $v_1, \dots, v_K$ adjacent to the root.
+%
+We collect all graphs $H$ that can be reduced to $G$
+  by the above root merging.
+%
+In $H$, each $v_k$ ($1 \le k \le K$) is adjacent to
+  either root 1 only,
+  or root 2 only,
+  or both roots,
+  except the two cases in which all $v_1, \dots, v_K$ are adjacent to the same root.
+%
+Since for the hard-sphere potential $f^2 = -f$,
+%
+the sum of all the above graphs $H$
+  is equal to $G$ times $(1 + 1 - 1)^K - 2 = -1$.
+%
+Thus, $\log y(\vct0)$ is the sum of all
+  one-root unlabeled graph $G$ weighted by $-1/s(G)$,
+  which is equal to $\beta \muex$.
+
+
+
+\bibliography{liquid}
 \end{document}
 

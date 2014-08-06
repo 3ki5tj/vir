@@ -25,11 +25,10 @@ xdouble rmax = (xdouble) 20.48L;
 xdouble T = (xdouble) 10;
 xdouble beta;
 xdouble rho = (xdouble) 0.8L;
-int itermax = 10000;
+int itmax = 10000;
 xdouble tol = (xdouble) 1e-12L;
 xdouble delta = (xdouble) 0.001L;
-xdouble sigvv = 1;
-xdouble siguv = 2;
+int savecr = 0;
 int verbose = 0;
 
 
@@ -43,13 +42,14 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &rmax, "maximal r");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-d", "%" XDBLSCNF "f", &delta, "delta lambda");
+  argopt_add(ao, "-O", "%b", &savecr, "save cr and tr");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "-h");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
   beta = 1/T;
-  printf("rmax %f, rho %g, T %f\n",
-      (double) rmax, (double) rho, (double) T);
+  printf("rmax %f, rho %g (%g), T %f\n",
+      (double) rmax, (double) rho, (double) delta, (double) T);
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }
@@ -102,13 +102,13 @@ static xdouble pot(xdouble r, xdouble sig, xdouble eps, xdouble *ndphir)
 static void iter(int npt, xdouble rho, xdouble *ri, xdouble *ki,
     xdouble *cr, xdouble *tr, xdouble *ck, xdouble *tk,
     xdouble *fr, xdouble facr2k, xdouble fack2r,
-    FFTWPFX(plan) plan, xdouble *arr, int itermax)
+    FFTWPFX(plan) plan, xdouble *arr, int itmax)
 {
-  int i, iter;
+  int i, it;
   xdouble x, err, errmax;
 
   for ( i = 0; i < npt; i++ ) cr[i] = fr[i];
-  for ( iter = 0; iter < itermax; iter++ ) {
+  for ( it = 0; it < itmax; it++ ) {
     sphr(npt, cr, ck, facr2k, plan, arr, ri, ki);
     for ( i = 0; i < npt; i++ ) {
       tk[i] = rho * ck[i] * ck[i] / (1 - rho * ck[i]);
@@ -119,33 +119,71 @@ static void iter(int npt, xdouble rho, xdouble *ri, xdouble *ki,
       if ((err = FABS(cr[i] - x)) > errmax) errmax = err;
       cr[i] = x;
     }
+    if ( errmax < 1e-8 ) break;
+  }
+  //printf("iter %d errmax %g\n", it, (double) errmax);
+}
+
+
+
+/* solve d/d(rho) functions */
+static void iterd(int npt, xdouble rho, xdouble *ri, xdouble *ki,
+    xdouble *dcr, xdouble *dtr, xdouble *dck, xdouble *dtk,
+    const xdouble *cr, const xdouble *tr, const xdouble *ck, const xdouble *tk,
+    xdouble *fr, xdouble facr2k, xdouble fack2r,
+    FFTWPFX(plan) plan, xdouble *arr, int itmax)
+{
+  int i, it;
+  xdouble x, hk, err, errmax;
+
+  for ( i = 0; i < npt; i++ ) dcr[i] = fr[i];
+  for ( it = 0; it < itmax; it++ ) {
+    sphr(npt, dcr, dck, facr2k, plan, arr, ri, ki);
+    for ( i = 0; i < npt; i++ ) {
+      hk = ck[i] + tk[i];
+      dtk[i] = hk*hk + rho*hk*(2 + rho*hk)*dck[i];
+    }
+    sphr(npt, dtk, dtr, fack2r, plan, arr, ki, ri);
+    for ( errmax = 0, i = 0; i < npt; i++ ) {
+      x = fr[i] * dtr[i];
+      if ((err = FABS(dcr[i] - x)) > errmax) errmax = err;
+      dcr[i] = x;
+    }
+    //printf("round %d, errmax %g\n", it, errmax); getchar();
     if ( errmax < 1e-7 ) break;
   }
-  //printf("iter %d errmax %g\n", iter, (double) errmax);
+  //printf("it %d errmax %g\n", it, (double) errmax);
 }
 
 
 
 static void output(int npt, xdouble *ri,
-    xdouble *cr, xdouble *tr, xdouble *bphi, char *fn)
+    xdouble *cr, xdouble *tr, xdouble *dcr, xdouble *dtr,
+    xdouble *fr, xdouble *bphi, char *fn)
 {
   int i;
   FILE *fp;
 
   xfopen(fp, fn, "w", return);
   for ( i = 0; i < npt; i++ ) {
-    fprintf(fp, "%8.6f %14.8f %14.8f %g\n", (double) ri[i],
-        (double) cr[i], (double) tr[i], (double) bphi[i]);
+    fprintf(fp, "%8.6f %14.8f %14.8f %14.8f %14.8f %14.8f %g\n",
+        (double) ri[i],
+        (double) cr[i], (double) tr[i],
+        (double) dcr[i], (double) dtr[i],
+        (double) fr[i], (double) bphi[i]);
   }
   fclose(fp);
 }
 
 
 
+/* compute the excess pressure */
 static xdouble getpres_py(int npt, xdouble rho,
-    xdouble *cr, xdouble *tr, xdouble *ri2,
+    xdouble *cr, xdouble *tr,
+    xdouble *dcr, xdouble *dtr, xdouble *rdfr, xdouble *ri2,
     xdouble *ck, xdouble *ki2, xdouble *ri, xdouble *ki,
-    xdouble *compr, xdouble *dcompr)
+    xdouble *compr, xdouble *dcompr,
+    xdouble *presb, xdouble *comprb, xdouble *dcomprb)
 {
   int i;
   xdouble pres, x;
@@ -156,6 +194,7 @@ static xdouble getpres_py(int npt, xdouble rho,
   pres = (-1 + get_zerosep(cr, ri) - rho * get_zerosep(ck, ki) ) * rho/2;
   *compr = 0;
   *dcompr = 0;
+  *dcomprb = 0;
   for ( i = 0; i < npt; i++ ) {
     /* beta P = + rho^2/2 Int (h(r) - 1) c(r) dr
      *          + Int log(1 - rho c(k)) dk/(2pi)^3 } + rho c(r = 0)
@@ -164,8 +203,11 @@ static xdouble getpres_py(int npt, xdouble rho,
     //pres += 0.5 * cr[i] * (tr[i] - 1) * ri2[i];
     /* compr = d(beta P) / drho = -rho Int c(r) dr */
     *compr -= cr[i] * ri2[i];
-    /* dcompr = d^2(beta P) / d(rho)^2 = -Int [c(r) + t(r) h(r)] dr */
-    *dcompr -= (cr[i] + tr[i] * (cr[i] + tr[i])) * ri2[i];
+    /* exact value */
+    *dcompr -= (cr[i] + rho * dcr[i]) * ri2[i];
+    /* dcompr = d^2(beta P) / d(rho)^2 = -Int [c(r) + t(r) h(r)] dr
+     * approximate result */
+    *dcomprb -= (cr[i] + tr[i] * (cr[i] + tr[i])) * ri2[i];
   }
   *compr *= rho;
   /* the k-space part of the pressure formula */
@@ -182,6 +224,14 @@ static xdouble getpres_py(int npt, xdouble rho,
       pres += LOG(1 - x) * ki2[i];
     }
   }
+
+  /* below are from the pressure route */
+  *presb = 0;
+  *comprb = 0;
+  for ( i = 0; i < npt; i++ ) {
+    *presb += rdfr[i] * (rho*rho/6) * (1 + tr[i]) * ri2[i];
+    *comprb += rdfr[i] * (rho/3 * (1 + tr[i]) + (rho*rho/6) * dtr[i]) * ri2[i];
+  }
   return pres;
 }
 
@@ -191,7 +241,9 @@ static void integ(int npt, xdouble rmax, xdouble rho)
 {
   xdouble dr, dk, facr2k, fack2r, surfr, surfk, *bphi, x;
   xdouble pres1, pres2, compr1, compr2, dcompr1, dcompr2;
-  xdouble *fr, *dfr, *cr, *tr, *ck, *tk;
+  xdouble pres1b, pres2b, compr1b, compr2b, dcompr1b, dcompr2b;
+  xdouble *fr, *rdfr, *cr, *tr, *ck, *tk;
+  xdouble *dcr, *dtr, *dck, *dtk;
   xdouble *arr, *ri, *ki, *ri2, *ki2;
   int i;
   FFTWPFX(plan) plan = NULL;
@@ -223,31 +275,42 @@ static void integ(int npt, xdouble rmax, xdouble rho)
 
   xnew(bphi, npt);
   xnew(fr, npt);
-  xnew(dfr, npt);
+  xnew(rdfr, npt);
   xnew(cr, npt);
   xnew(tr, npt);
   xnew(ck, npt);
   xnew(tk, npt);
+  xnew(dcr, npt);
+  xnew(dtr, npt);
+  xnew(dck, npt);
+  xnew(dtk, npt);
 
   /* solvent-solvent interaction */
   for ( i = 0; i < npt; i++ ) {
-    bphi[i] = beta * pot(ri[i], sigvv, 1, &dfr[i]);
+    bphi[i] = beta * pot(ri[i], 1, 1, &rdfr[i]);
     x = EXP(-bphi[i]);
     fr[i] = x - 1;
-    dfr[i] *= beta * x;
+    rdfr[i] *= beta * x;
   }
 
-  iter(npt, rho, ri, ki, cr, tr, ck, tk,
-      fr, facr2k, fack2r, plan, arr, itermax);
-  output(npt, ri, cr, tr, bphi, "vv1.dat");
-  pres1 = getpres_py(npt, rho, cr, tr, ri2, ck, ki2, ri, ki,
-      &compr1, &dcompr1);
+  iter(npt, rho - delta, ri, ki, cr, tr, ck, tk,
+      fr, facr2k, fack2r, plan, arr, itmax);
+  iterd(npt, rho, ri, ki, dcr, dtr, dck, dtk, cr, tr, ck, tk,
+      fr, facr2k, fack2r, plan, arr, itmax);
+  if ( savecr )
+    output(npt, ri, cr, tr, dcr, dtr, fr, bphi, "vv1.dat");
+  pres1 = getpres_py(npt, rho - delta, cr, tr, dcr, dtr, rdfr, ri2, ck, ki2, ri, ki,
+      &compr1, &dcompr1, &pres1b, &compr1b, &dcompr1b);
 
-  iter(npt, rho + delta, ri, ki, cr, tr, ck, tk,
-      fr, facr2k, fack2r, plan, arr, itermax);
-  output(npt, ri, cr, tr, bphi, "vv2.dat");
-  pres2 = getpres_py(npt, rho + delta, cr, tr, ri2, ck, ki2, ri, ki,
-      &compr2, &dcompr2);
+  iter(npt, rho, ri, ki, cr, tr, ck, tk,
+      fr, facr2k, fack2r, plan, arr, itmax);
+  iterd(npt, rho, ri, ki, dcr, dtr, dck, dtk, cr, tr, ck, tk,
+      fr, facr2k, fack2r, plan, arr, itmax);
+  if ( savecr )
+    output(npt, ri, cr, tr, dcr, dtr, fr, bphi, "vv2.dat");
+  pres2 = getpres_py(npt, rho, cr, tr, dcr, dtr, rdfr, ri2, ck, ki2, ri, ki,
+      &compr2, &dcompr2, &pres2b, &compr2b, &dcompr2b);
+
 
   printf("rho %5.3f, T %6.3f: P1 %9.6f, P2 %9.6f, "
          "dP1 %9.6f, dP2 %9.6f, dP %9.6f; "
@@ -258,13 +321,26 @@ static void integ(int npt, xdouble rmax, xdouble rho)
       (double) dcompr1, (double) dcompr2,
       (double) ((compr2 - compr1)/delta) );
 
+  printf("rho %5.3f, T %6.3f: P1 %9.6f, P2 %9.6f, "
+         "dP1 %9.6f, dP2 %9.6f, dP %9.6f; "
+         "ddP1 %9.6f, ddP2 %9.6f, ddP(diff) %9.6f\n\n",
+      (double) rho, (double) (1/beta),
+      (double) pres1b, (double) pres2b, (double) compr1b, (double) compr2b,
+      (double) ((pres2b - pres1b)/delta),
+      (double) dcompr1b, (double) dcompr2b,
+      (double) ((compr2b - compr1b)/delta) );
+
   free(bphi);
   free(fr);
-  free(dfr);
+  free(rdfr);
   free(cr);
   free(tr);
   free(ck);
   free(tk);
+  free(dcr);
+  free(dtr);
+  free(dck);
+  free(dtk);
 
   free(arr);
   free(ri);

@@ -135,6 +135,34 @@ def virextrapolate3(vir1, resol1, vir2, resol2, vir3, resol3):
 
 
 
+def regression2(ls):
+  ''' extrapolate the virial coefficient by regression '''
+  s = sx = sy = sxx = sxy = syy = 0
+  n = len(ls)
+  for a in ls:
+    x = a[1]**(-2) # a[1] is the resolution
+    y = a[0] # 
+    wt = a[1]**2
+    #wt = 1
+    s += wt
+    sx += x * wt
+    sy += y * wt
+    sxx += x * x * wt
+    sxy += x * y * wt
+    syy += y * y * wt
+    print x, y
+  var = sxx/s - sx * sx / (s*s)
+  cov = sxy/s - sx * sy / (s*s)
+  vary = syy/s - sy * sy / (s*s)
+  a = cov/var
+  b = (sy - sx * a) / s
+  res = vary - cov*cov/var
+  print b, sqrt(res), a
+  raw_input()
+  return b, sqrt(res)
+
+
+
 def searchdatalist(dim, order, tag, col):
   template = "*Bn%sD%dn*.dat" % (tag, dim)
   fns = glob.glob(template)
@@ -194,10 +222,12 @@ def estimatevir3(ls):
     vir2, resol2 = ls[-2][0], ls[-2][1]
     virlimit, err = virextrapolate2(vir1, resol1, vir2, resol2)
   else: # three or more files
+    #virlimit, err = regression2(ls[-4:])
     vir1, resol1 = ls[-1][0], ls[-1][1] # the most accurate
     vir2, resol2 = ls[-2][0], ls[-2][1]
     vir3, resol3 = ls[-3][0], ls[-3][1]
     virlimit, err = virextrapolate3(vir1, resol1, vir2, resol2, vir3, resol3)
+
 
   if verbose and len(ls):
     print "first order:"

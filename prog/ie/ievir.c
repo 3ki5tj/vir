@@ -57,7 +57,7 @@ int dhtdisk = SLOWDHT_USEDISK;
 #endif
 
 int dim = D;
-int K;
+int K; /* (dim - 1) / 2 for an odd dimension */
 int nmax = 12;
 double rmax = 0;
 xdouble Rmax = 0;
@@ -180,7 +180,7 @@ static void doargs(int argc, char **argv)
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
 
-  if ( dim < 2 ) argopt_help(ao);
+  if ( dim < 1 ) argopt_help(ao);
   K = (dim - 1)/2;
   if ( dim % 2 == 0 ) {
 #ifndef DHT
@@ -265,6 +265,7 @@ static void getjn(long *c, int n)
   const char *fs[2] = {"sin(x)", "cos(x)"};
 
   c[0] = 1; /* j0 = sin(x)/x; */
+  if ( n == -1 ) c[0] = 2; /* if n == -1 (dim == 1), 2 cos(x) */
   /* j_n(x)/x^n = (-1/x d/dx)^n j_0(x) */
   for ( k = 1; k <= n; k++ ) { /* k'th round */
     c[k] = 0;
@@ -275,14 +276,14 @@ static void getjn(long *c, int n)
   }
   printf("j%d(x) =", n);
   for ( i = 0; i <= n; i++ )
-    printf(" %+ld*%s/x^%d", c[i], fs[(i+n)%2], n + i + 1);
+    printf(" %+ld*%s/x^%d", c[i], fs[(i+n+2)%2], n + i + 1);
   printf("\n");
 }
 
 
 
 /* compute
- *    out(k) = 2 fac0 Int {from 0 to infinity} dr
+ *    out(k) = 2 fac Int {from 0 to infinity} dr
  *             r^(2K) in(r) j_{D-1}(k r)/(k r)^{D - 1}
  * `arr' are used in the intermediate steps by the FFTW plans `p'
  * */
@@ -298,14 +299,16 @@ static void sphr_fft(int npt, xdouble *in, xdouble *out, xdouble fac,
   for ( i = 0; i < npt; i++ ) out[i] = 0;
 
   /* several rounds of transforms */
-  for ( l = 0; l < K; l++ ) {
+  for ( l = 0; l < K || l == 0; l++ ) {
     /* decide if we want to do a sine or cosine transform */
     iscos = (K + l + 1) % 2;
+
     for ( i = 0; i < npt; i++ ) {
       /* arr[i] = in[i] * pow(dx*(2*i + 1)/2, K - l) * coef[l]; */
-      arr[i] = in[i] * coef[l] * r2p[l][i];
+      arr[i] = in[i] * ( K > 0 ? coef[l] * r2p[l][i] : 1);
     }
 
+    /* NOTE: a factor of two is included in the cosine/sine transform */
 #ifdef FFTW /* use FFTW */
     FFTWPFX(execute)(p[iscos]);
 #else /* use the home-made FFT */
@@ -327,7 +330,7 @@ static void sphr_fft(int npt, xdouble *in, xdouble *out, xdouble fac,
     if ( iscos && ffttype == 0 ) arr[npt] = 0;
     for ( i = 0; i < npt; i++ ) {
       /* out[i] += arr[i] * fac / pow(dk*(2*i + 1)/2, K + l); */
-      out[i] += arr[i] * fac * k2q[l][i];
+      out[i] += arr[i] * fac * (K > 0 ? k2q[l][i] : 1);
     }
   }
 }
@@ -380,8 +383,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
 
 #ifdef FFT /* for odd dimensions */
   xdouble dr,dk, rl, invrl, kl, invkl;
-  xdouble **r2pow, **invr2pow, **k2pow, **invk2pow;
-  long *coef;
+  xdouble **r2pow = NULL, **invr2pow = NULL, **k2pow = NULL, **invk2pow = NULL;
+  long *coef = NULL;
   FFTWPFX(plan) plans[2] = {NULL, NULL};
 
   rmax = adjustrmax(rmax, npt, &dr, &dm, ffttype);
@@ -434,10 +437,12 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
 
 
 #ifdef FFT
-  MAKE2DARR(r2pow, K, npt) /* r^{K - l} for l = 0, ..., K */
-  MAKE2DARR(k2pow, K, npt) /* k^{K - l} for l = 0, ..., K */
-  MAKE2DARR(invr2pow, K, npt) /* r^{-K-l} for l = 0, ..., K */
-  MAKE2DARR(invk2pow, K, npt) /* k^{-K-l} for l = 0, ..., K */
+  if ( K > 0 ) {
+    MAKE2DARR(r2pow, K, npt) /* r^{K - l} for l = 0, ..., K */
+    MAKE2DARR(k2pow, K, npt) /* k^{K - l} for l = 0, ..., K */
+    MAKE2DARR(invr2pow, K, npt) /* r^{-K-l} for l = 0, ..., K */
+    MAKE2DARR(invk2pow, K, npt) /* k^{-K-l} for l = 0, ..., K */
+  }
   for ( i = 0; i < npt; i++ ) {
     ri[i]  = dr * (i*2 + (ffttype ? 1 : 0))/2;
     ki[i]  = dk * (i*2 + (ffttype ? 1 : 0))/2;
@@ -493,8 +498,10 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
 
 #ifdef FFT
   /* compute the coefficients of the spherical Bessel function */
-  MAKE1DARR(coef, K);
-  getjn(coef, K - 1);
+  if ( K > 0 ) {
+    MAKE1DARR(coef, K);
+    getjn(coef, K - 1);
+  }
 #endif
 
 #ifdef FFTW
