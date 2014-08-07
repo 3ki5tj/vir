@@ -67,6 +67,7 @@ int dohnc = 0;
 int singer = 0;
 int ring = 0;
 int mkcorr = 0;
+int expcorr = 0; /* exponential correction */
 int fast = 0;
 int verbose = 0;
 char *fnvir = NULL;
@@ -88,8 +89,10 @@ xdouble invphi = 0; /* inverse Rowlinson's Phi */
 xdouble hurstm = 0; /* Hurst's m */
 xdouble verleta = 0, verletb = 0; /* Verlet modified */
 xdouble bbpgs = 15./8; /* MS/BBPG s */
-xdouble py2s = 0.5;
-xdouble hnc2s = 0;
+xdouble sqrs = 0.5;
+xdouble xsqrs = 0;
+xdouble cubs = 0.5;
+xdouble cubt = 0.0;
 xdouble geos = 1;
 xdouble logs = 1;
 
@@ -152,12 +155,15 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--vb", "%" XDBLSCNF "f", &verletb, "B of the Verlet approximation");
   argopt_add(ao, "--bbpgs", "%" XDBLSCNF "f", &bbpgs, "s of the BBPG approximation, y(r) = exp[ (1 + s t(r))^(1/s) - 1 ]");
   argopt_add(ao, "--ms", "%b", &usems, "Martynov-Sarkisov approximation, y(r) = exp[ (1 + 2 t(r))^(1/2) - 1 ]");
-  argopt_add(ao, "--py2s", "%" XDBLSCNF "f", &py2s, "s of the PY2 approximation, y(r) = 1 + t(r) + s t(r)^2 / 2");
-  argopt_add(ao, "--hnc2s", "%" XDBLSCNF "f", &hnc2s, "s of the HNC2 approximation, y(r) = exp[ t(r) + s t(r)^2 ]");
+  argopt_add(ao, "--sqrs", "%" XDBLSCNF "f", &sqrs, "s of the quadratic approximation, y(r) = 1 + t(r) + s t(r)^2 / 2");
+  argopt_add(ao, "--xsqrs", "%" XDBLSCNF "f", &xsqrs, "s of the exponential quadratic approximation, y(r) = exp[ t(r) + s t(r)^2 ]");
+  argopt_add(ao, "--cubs", "%" XDBLSCNF "f", &cubs, "s of the cubic approximation, y(r) = 1 + t(r) + s t(r)^2 / 2 + t t(r)^3/6");
+  argopt_add(ao, "--cubt", "%" XDBLSCNF "f", &cubt, "t of the cubic approximation");
   argopt_add(ao, "--geos", "%" XDBLSCNF "f", &geos, "s of the geometric approximation, y(r) = 1 + t(r) + s t(r)^2 + s^2 t(r)^3 + ...");
   argopt_add(ao, "--logs", "%" XDBLSCNF "f", &logs, "s of the logarithmic approximation, y(r) = 1 + t(r) + s t(r)^2/2 + s^2 t(r)^3/3 + ...");
   argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted-chain (HNC) like approximation");
-  argopt_add(ao, "--corr", "%b", &mkcorr, "correct the closure");
+  argopt_add(ao, "--corr", "%b", &mkcorr, "linearly correct the closure");
+  argopt_add(ao, "--expc", "%b", &expcorr, "exponentially correct the closure");
   argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--fast", "%b", &fast, "save tk and yr to accelerate the calculation");
@@ -192,6 +198,9 @@ static void doargs(int argc, char **argv)
   }
 
   if ( rmax <= 0 ) rmax = nmax + 2;
+#ifdef FFT
+  if ( Rmax <= 0) Rmax = rmax; /* we will adjust it later */
+#endif
 #ifdef DHT
   if ( Rmax <= 0 ) Rmax = jadjustrmax(rmax, numpt);
 #endif
@@ -212,8 +221,9 @@ static void doargs(int argc, char **argv)
   if ( argopt_isset(ao, verleta) || argopt_isset(ao, verletb) ) ietype = IETYPE_VERLET;
   if ( argopt_isset(ao, usems) ) { ietype = IETYPE_BBPG; bbpgs = 2; }
   if ( argopt_isset(ao, bbpgs) ) ietype = IETYPE_BBPG;
-  if ( argopt_isset(ao, py2s) ) ietype = IETYPE_PY2;
-  if ( argopt_isset(ao, hnc2s) ) ietype = IETYPE_HNC2;
+  if ( argopt_isset(ao, sqrs) ) ietype = IETYPE_SQR;
+  if ( argopt_isset(ao, xsqrs) ) ietype = IETYPE_XSQR;
+  if ( argopt_isset(ao, cubs) || argopt_isset(ao, cubt) ) ietype = IETYPE_CUB;
   if ( argopt_isset(ao, geos) ) ietype = IETYPE_GEO;
   if ( argopt_isset(ao, logs) ) ietype = IETYPE_LOG;
 
@@ -245,8 +255,8 @@ static void doargs(int argc, char **argv)
     sprintf(systitle, "%s%s", (dim % 2 ? "" : "h"), syst);
   }
 
-  printf("D %d, rmax %f, npt %d, ietype %d, HNC %d, a0 %g, q %g, %s\n",
-      dim, (double) rmax, numpt, ietype, dohnc,
+  printf("D %d, Rmax %f, npt %d, ietype %d, HNC %d, a0 %g, q %g, %s\n",
+      dim, (double) Rmax, numpt, ietype, dohnc,
       (double) hncamp, (double) hncq, systitle);
 
   if ( verbose ) argopt_dump(ao);
@@ -374,7 +384,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
   xdouble *fr, *rdfr = NULL, *swr = NULL;
   xdouble *crl, *trl, *yrl, *tkl;
   xdouble **ck, **tk = NULL, **cr = NULL, **tr = NULL, **yr = NULL;
-  xdouble *arr, *vc = NULL, *yrcoef = NULL;
+  xdouble *arr, *yrcoef = NULL;
+  xdouble *vc = NULL, *brl, **br = NULL; /* correction functions */
   xdouble *ri, *ki, *rDm1, *kDm1;
   xdouble *yr0, *lnyr0;
   int i, dm, l, l0 = 1;
@@ -387,7 +398,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
   long *coef = NULL;
   FFTWPFX(plan) plans[2] = {NULL, NULL};
 
-  rmax = adjustrmax(rmax, npt, &dr, &dm, ffttype);
+  rmax = adjustrmax(rmax, numpt, &dr, &dm, ffttype);
   dk = PI/dr/npt;
   facr2k = pow_si(PI*2, K) *  dr;
   fack2r = pow_si(PI*2, -K-1) * dk;
@@ -548,7 +559,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     COPY1DARR(cr[0], fr, npt);
   }
 
-  if ( ietype != IETYPE_PY || mkcorr || singer ) {
+  if ( ietype != IETYPE_PY || mkcorr || expcorr || singer ) {
     MAKE2DARR(tr, nmax - 1, npt);
   }
 
@@ -573,10 +584,12 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
       init_hurstcoef(yrcoef, nmax - 1, hurstm);
     } else if ( ietype == IETYPE_VERLET ) {
       init_verletcoef(yrcoef, nmax - 1, verleta, verletb);
-    } else if ( ietype == IETYPE_PY2 ) {
-      init_py2coef(yrcoef, nmax - 1, py2s);
-    } else if ( ietype == IETYPE_HNC2 ) {
-      init_hnc2coef(yrcoef, nmax - 1, hnc2s);
+    } else if ( ietype == IETYPE_SQR ) {
+      init_sqrcoef(yrcoef, nmax - 1, sqrs);
+    } else if ( ietype == IETYPE_XSQR ) {
+      init_xsqrcoef(yrcoef, nmax - 1, xsqrs);
+    } else if ( ietype == IETYPE_CUB ) {
+      init_cubcoef(yrcoef, nmax - 1, cubs, cubt);
     } else if ( ietype == IETYPE_GEO ) {
       init_geocoef(yrcoef, nmax - 1, geos);
     } else if ( ietype == IETYPE_LOG ) {
@@ -599,17 +612,21 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
   }
 
   if ( mkcorr ) {
-    MAKE1DARR(vc, npt);
+    MAKE1DARR(brl, npt);
+  }
+
+  if ( expcorr ) { /* allocate space for the bridge function */
+    MAKE2DARR(br, nmax - 1, npt);
   }
 
   t1 = clock();
 
-  if ( snapshot )
+  if ( snapshot ) /* TODO: snapshot code is obsolete */
     l0 = snapshot_open(dim, nmax, rmax, dohnc, mkcorr, ring, singer,
         npt, ck, tk, cr, tr, crl, trl, yr);
 
   fnvir = savevirheadx(fnvir, systitle, dim, l0, nmax,
-      ietype, mkcorr, npt, rmax, t1 - t0,
+      ietype, mkcorr, expcorr, npt, rmax, t1 - t0,
       hncamp, hncq, hncalpha, shift, shiftinc, shiftl0);
 
   for ( l = l0; l < nmax - 1; l++ ) {
@@ -637,6 +654,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     }
 
     /* compute the cavity function y(r) */
+    if ( expcorr ) {
+      get_yr_hnc_br(l, npt, yrl, tr, br);
+    } else
     if ( ietype == IETYPE_PY && !mkcorr ) { /* PY closure */
       for ( i = 0; i < npt; i++ )
         yrl[i] = trl[i];
@@ -655,10 +675,12 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
       get_yr_invrowlinson(l, npt, yrl, tr, invphi);
     } else if ( ietype == IETYPE_VERLET ) {
       get_yr_verlet(l, npt, yrl, tr, verleta, verletb);
-    } else if ( ietype == IETYPE_PY2 ) {
-      get_yr_py2(l, npt, yrl, tr, py2s);
-    } else if ( ietype == IETYPE_HNC2 ) {
-      get_yr_hnc2(l, npt, yrl, tr, hnc2s);
+    } else if ( ietype == IETYPE_SQR ) {
+      get_yr_sqr(l, npt, yrl, tr, sqrs);
+    } else if ( ietype == IETYPE_XSQR ) {
+      get_yr_xsqr(l, npt, yrl, tr, xsqrs);
+    } else if ( ietype == IETYPE_CUB ) {
+      get_yr_cub(l, npt, yrl, tr, cubs, cubt);
     } else if ( ietype == IETYPE_GEO ) {
       get_yr_geo(l, npt, yrl, tr, geos);
     } else if ( ietype == IETYPE_LOG ) {
@@ -696,10 +718,17 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
       Bm = Bh = 0;
     }
 
-    if ( mkcorr ) {
-      /* construct the correction function */
-      for ( i = 0; i < npt; i++ )
-        vc[i] = yrl[i] - trl[i];
+    if ( mkcorr || expcorr ) {
+      vc = mkcorr ? brl : br[l];
+
+      if ( mkcorr ) {
+        /* construct the linear correction function */
+        for ( i = 0; i < npt; i++ )
+          vc[i] = yrl[i] - trl[i];
+      } else {
+        /* construct the exponential correction function */
+        get_exp_corr(l, npt, vc, tr);
+      }
 
       /* apply the shift */
       if ( l >= shiftl0 ) Bv *= 1 + shift + shiftinc * l;
@@ -711,7 +740,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
 
     //By = log_series(l+1, yr0, lnyr0)*l/(l+1);
     By = update_lnyr0(l, yr0, lnyr0);
-    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, By, B2, mkcorr, fcorr);
+    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, By, B2, mkcorr|expcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yrl);
     if ( snapshot )
       snapshot_take(l, npt, ck[l-1], tk[l], crl, trl, nmax, yr);
@@ -735,7 +764,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
   FREE2DARR(cr, nmax - 1, npt);
   FREE2DARR(tr, nmax - 1, npt);
   FREE2DARR(yr, nmax - 1, npt);
-  FREE1DARR(vc, npt);
+  FREE2DARR(br, nmax - 1, npt);
+  FREE1DARR(brl, npt);
   FREE1DARR(yrcoef, nmax - 1);
   FREE1DARR(yr0, nmax - 1);
   FREE1DARR(lnyr0, nmax - 1);
@@ -768,7 +798,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
 int main(int argc, char **argv)
 {
   doargs(argc, argv);
-  intgeq(nmax, numpt, rmax, ffttype, dohnc);
+  intgeq(nmax, numpt, Rmax, ffttype, dohnc);
 #ifdef FFTW
   FFTWPFX(cleanup)();
 #endif

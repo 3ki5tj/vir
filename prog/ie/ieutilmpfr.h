@@ -561,7 +561,7 @@ __inline static int savevir(const char *fn, int dim, int n,
   if ( mkcorr ) {
     mpfr_printf(", %9.6Rf", fcorr);
   } else { /* the following are useless when making corrections */
-    if ( CMP_SI_(Bm, 0) == 0 ) printf("\n");
+    if ( CMP_SI_(Bm, 0) != 0 ) printf("\n");
     printB("Bh", dim, n, Bh, B2p, volp, ", ");
     printB("Br", dim, n, Br, B2p, volp, "");
     printB("By", dim, n - 1, By, B2y, voly, ", ");

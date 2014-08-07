@@ -378,14 +378,63 @@ __inline static void get_yr_hncx_fast(int l, int npt, xdouble *yrl,
 
 
 
-/* compute y(r) for the Percus-Yevick 2 approximation */
-__inline static void get_yr_py2(int l, int npt, xdouble *yrl,
+/* compute the cavity function y(r)
+ * from the HNC approximation with the bridge function */
+__inline static void get_yr_hnc_br(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble **br)
+{
+  int i, u;
+  xdouble *x, *y;
+
+  xnew(x, l + 1);
+  xnew(y, l + 1);
+  /* y(r) = exp[t(r) + d(r)] */
+  for ( i = 0; i < npt; i++) {
+    /* form the exponent */
+    for ( x[0] = 0, u = 1; u <= l; u++ )
+      x[u] = tr[u][i];
+    for ( u = 2; u < l; u++ )
+      x[u] += br[u][i];
+    exp_series(l+1, x, y);
+    yrl[i] = y[l];
+  }
+  free(x);
+  free(y);
+}
+
+
+
+/* compute the expential correction function ln(1 + t(r)) - t(r) */
+__inline static void get_exp_corr(int l, int npt, xdouble *br,
+    xdouble **tr)
+{
+  int i, u;
+  xdouble *x, *y;
+
+  xnew(x, l + 1);
+  xnew(y, l + 1);
+  /* br(r) = log(1+t(r)) - t(r) */
+  for ( i = 0; i < npt; i++) {
+    /* form the exponent */
+    for ( x[0] = 1, u = 1; u <= l; u++ )
+      x[u] = tr[u][i];
+    log_series(l+1, x, y); /* y = log(x) */
+    br[i] = y[l] - tr[l][i];
+  }
+  free(x);
+  free(y);
+}
+
+
+
+/* compute y(r) for the quadratic Percus-Yevick approximation */
+__inline static void get_yr_sqr(int l, int npt, xdouble *yrl,
     xdouble **tr, xdouble s)
 {
   int i, j;
 
   s /= 2;
-  /* y(r) = 1 + t(r) + t(r)^2/2 */
+  /* y(r) = 1 + t(r) + (s/2) t(r)^2 */
   for ( i = 0; i < npt; i++) {
     yrl[i] = tr[l][i]; /* t(r) */
     for ( j = 1; j < l; j++ ) /* do t(r)^2 */
@@ -395,8 +444,8 @@ __inline static void get_yr_py2(int l, int npt, xdouble *yrl,
 
 
 
-/* compute y(r) for the HNC 2 approximation */
-__inline static void get_yr_hnc2(int l, int npt, xdouble *yrl,
+/* compute y(r) for the exponential quadratic approximation */
+__inline static void get_yr_xsqr(int l, int npt, xdouble *yrl,
     xdouble **tr, xdouble s)
 {
   int i, u, v;
@@ -416,6 +465,27 @@ __inline static void get_yr_hnc2(int l, int npt, xdouble *yrl,
   }
   free(a);
   free(b);
+}
+
+
+
+/* compute y(r) for the cubic Percus-Yevick approximation */
+__inline static void get_yr_cub(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble s, xdouble t)
+{
+  int i, j, k;
+
+  s /= 2;
+  t /= 6;
+  /* y(r) = 1 + t(r) + (s/2) t(r)^2 + (t/6) t(r)^3 */
+  for ( i = 0; i < npt; i++) {
+    yrl[i] = tr[l][i]; /* t(r) */
+    for ( j = 1; j < l; j++ ) /* do t(r)^2 */
+      yrl[i] += s * tr[j][i] * tr[l-j][i];
+    for ( j = 1; j < l; j++ )
+      for ( k = 1; k < l - j; k++ )
+        yrl[i] += t * tr[j][i] * tr[k][i] * tr[l-k-j][i];
+  }
 }
 
 
@@ -876,8 +946,9 @@ __inline static xdouble get_ht(int l, int npt,
 enum {
   IETYPE_PY = 0,
   IETYPE_HNC = 1,
-  IETYPE_PY2 = 2,
-  IETYPE_HNC2 = 3,
+  IETYPE_SQR = 2,
+  IETYPE_XSQR = 3,
+  IETYPE_CUB = 4,
   IETYPE_ROWLINSON = 10, /* Rowlinson, 1965 */
   IETYPE_INVROWLINSON = 11, /* Rowlinson, 1966 */
   IETYPE_HURST = 12, /* Hurst, 1965 */
@@ -1007,10 +1078,10 @@ __inline static void init_verletcoef(xdouble *a, int lmax, xdouble A, xdouble B)
 
 
 
-/* initialize the PY2 coefficients, here
- *  y(r) = 1 + t(r) + s t(r)^2 ...
+/* initialize the coefficients for the quadratic closure, here
+ *  y(r) = 1 + t(r) + (s/2) t(r)^2
  */
-__inline static void init_py2coef(xdouble *a, int lmax, xdouble s)
+__inline static void init_sqrcoef(xdouble *a, int lmax, xdouble s)
 {
   int i;
 
@@ -1020,10 +1091,10 @@ __inline static void init_py2coef(xdouble *a, int lmax, xdouble s)
 
 
 
-/* initialize the HNC2 coefficients, here
- *  y(r) = exp[ t(r) + s t(r)^2 ... ]
+/* initialize the coefficients of the exponential square closure, here
+ *  y(r) = exp[ t(r) + s t(r)^2 ]
  */
-__inline static void init_hnc2coef(xdouble *a, int lmax, xdouble s)
+__inline static void init_xsqrcoef(xdouble *a, int lmax, xdouble s)
 {
   int i;
   xdouble *b;
@@ -1033,6 +1104,19 @@ __inline static void init_hnc2coef(xdouble *a, int lmax, xdouble s)
   for ( i = 3; i < lmax; i++ ) b[i] = 0;
   exp_series(lmax, b, a);
   free(b);
+}
+
+
+
+/* initialize the cubic coefficients, here
+ *  y(r) = 1 + t(r) + (s/2) t(r)^2 + (t/6) t(r)^3
+ */
+__inline static void init_cubcoef(xdouble *a, int lmax, xdouble s, xdouble t)
+{
+  int i;
+
+  a[0] = a[1] = 1; a[2] = s/2; a[3] = t/6;
+  for ( i = 4; i < lmax; i++ ) a[i] = 0;
 }
 
 
@@ -1088,13 +1172,13 @@ __inline static void print_yrcoef(xdouble *a, int lmax)
 
 
 #define savevirhead(fn, title, dim, l0, nmax, dohnc, mkcorr, npt, rmax, inittime) \
-  savevirheadx(fn, title, dim, l0, nmax, dohnc, mkcorr, npt, rmax, inittime, \
+  savevirheadx(fn, title, dim, l0, nmax, dohnc, mkcorr, 0, npt, rmax, inittime, \
       1, 1, -1, 0, 0, 0)
 
 /* save the header for the virial file */
 __inline static char *savevirheadx(const char *fn, const char *title,
-    int dim, int l0, int nmax, int ietype, int mkcorr, int npt,
-    xdouble rmax, clock_t inittime,
+    int dim, int l0, int nmax, int ietype, int mkcorr, int expcorr,
+    int npt, xdouble rmax, clock_t inittime,
     xdouble hncamp, xdouble hncq, xdouble hncalpha,
     xdouble shift, xdouble shiftinc, int shiftl0)
 {
@@ -1108,12 +1192,14 @@ __inline static char *savevirheadx(const char *fn, const char *title,
   else if ( ietype == IETYPE_ROWLINSON) strcpy(sietype, "R");
   else if ( ietype == IETYPE_INVROWLINSON) strcpy(sietype, "IR");
   else if ( ietype == IETYPE_VERLET) strcpy(sietype, "V");
-  else if ( ietype == IETYPE_PY2) strcpy(sietype, "PY2");
-  else if ( ietype == IETYPE_HNC2) strcpy(sietype, "HNC2");
+  else if ( ietype == IETYPE_SQR) strcpy(sietype, "SQR");
+  else if ( ietype == IETYPE_XSQR) strcpy(sietype, "XSQR");
+  else if ( ietype == IETYPE_CUB) strcpy(sietype, "CUB");
   else if ( ietype == IETYPE_GEO) strcpy(sietype, "GEO");
   else if ( ietype == IETYPE_LOG) strcpy(sietype, "LOG");
   else if ( ietype == IETYPE_BBPG) strcpy(sietype, "BBPG");
   if ( mkcorr ) strcat(sietype, "c");
+  else if ( expcorr ) strcat(sietype, "x");
 
   if ( fn == NULL ) {
     char shncamp[80] = "", shncq[80] = "", shncalpha[80] = "";

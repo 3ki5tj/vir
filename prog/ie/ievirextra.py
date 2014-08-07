@@ -19,6 +19,7 @@ purehnc = 0
 errmax = 10  # error
 wreport = 0 # write a report
 scanall = 0 # scan all dimensions
+fitorder = 3
 
 refval = 0 # reference value, for debugging
 
@@ -35,6 +36,8 @@ def usage():
    -e:     maximal number in parentheses in the error estimate
    -w:     write a report
    -a:     scan all dimensions (use -aw for a report)
+   -v:     be verbose
+   -vv:    be more verbose
   """
   exit(1)
 
@@ -122,44 +125,81 @@ def virextrapolate2(vir1, resol1, vir2, resol2):
 
 
 
-def virextrapolate3(vir1, resol1, vir2, resol2, vir3, resol3):
-  vir12, err12 = virextrapolate2(vir1, resol1, vir2, resol2)
-  vir13, err13 = virextrapolate2(vir1, resol1, vir3, resol3)
-  if refval != 0: # print the difference from the reference value
-    print vir12, vir12 - refval, resol1, resol2
-    print vir13, vir13 - refval, resol1, resol3
-  qq = (1.*resol2/resol3)**2
-  vir123 = (vir12*qq - vir13)/(qq - 1)
-  err123 = min(fabs(vir12 - vir123), fabs(vir13 - vir123))
-  return vir123, err123
+def linsolve(mat, b):
+  ''' solve the linear equation:
+            mat a = b 
+      by Gaussian elimination '''
+  m = len(mat)
+  a = b[:]
+  for i in range(m):
+    # choose the pivot
+    im = i
+    xm = fabs(mat[i][i])
+    for j in range(i+1, m):
+      x = fabs(mat[j][i])
+      if x > xm:
+        im = j
+        xm = x
+    
+    # swap the row i and im
+    if im != i:
+      for j in range(i, m):
+        mat[i][j], mat[im][j] = mat[im][j], mat[i][j]
+      a[i], a[im] = a[im], a[i]
+    #print mat[i], a[i]
+
+    # normalize the ith row
+    x = 1./mat[i][i]
+    for j in range(i, m):
+      mat[i][j] *= x
+    a[i] *= x
+    #print mat[i], a[i]
+    #raw_input()
+
+    # use the ith row to eliminate the kth row
+    for k in range(m):
+      if k == i: continue
+      for j in range(i+1, m):
+        mat[k][j] -= mat[k][i] * mat[i][j]
+      a[k] -= mat[k][i] * a[i] 
+      mat[k][i] = 0;
+  return a
 
 
 
-def regression2(ls):
-  ''' extrapolate the virial coefficient by regression '''
-  s = sx = sy = sxx = sxy = syy = 0
-  n = len(ls)
-  for a in ls:
-    x = a[1]**(-2) # a[1] is the resolution
-    y = a[0] # 
-    wt = a[1]**2
-    #wt = 1
+def calcres(a, ls):
+  M = len(a)
+  s = res = 0
+  for yx in ls:
+    resol = yx[1]
+    x = resol**(-2)
+    y = yx[0]
+    wt = resol*2
+    yy = sum(x**j * a[j] for j in range(M))
+    res += (yy - y)**2 * wt
     s += wt
-    sx += x * wt
-    sy += y * wt
-    sxx += x * x * wt
-    sxy += x * y * wt
-    syy += y * y * wt
-    print x, y
-  var = sxx/s - sx * sx / (s*s)
-  cov = sxy/s - sx * sy / (s*s)
-  vary = syy/s - sy * sy / (s*s)
-  a = cov/var
-  b = (sy - sx * a) / s
-  res = vary - cov*cov/var
-  print b, sqrt(res), a
-  raw_input()
-  return b, sqrt(res)
+  return res / s
+
+
+
+def regression(ls, M = 3):
+  ''' extrapolate the virial coefficient by regression '''
+  n = len(ls)
+  mat = [[0 for j in range(M)] for i in range(M)]
+  b = [0 for i in range(M)]
+  for a in ls:
+    resol = a[1]
+    x = resol**(-2) # a[1] is the resolution
+    y = a[0] # the virial coefficient
+    #wt = 1
+    wt = resol**2
+    for i in range(M):
+      for j in range(M):
+        mat[i][j] += x**(i+j) * wt
+      b[i] += y * x**i * wt 
+  a = linsolve(mat, b)
+  res = calcres(a, ls)
+  return a[0], sqrt(res)
 
 
 
@@ -190,25 +230,48 @@ def searchdatalist(dim, order, tag, col):
 
 
 def sortdatalist(ls):
+  ''' sort the list by resolution '''
+
+  # 1. sort the list by resolution, which is x[1]
   ls = sorted(ls, key = lambda x: x[1])
   nls = len(ls)
-  resol0, fn0, prec0, rmax0 = 0, "", "", 0
-  newls = []
-  for ils in range(nls):
-    Bn, resol, rmax, npt, prec, fn = ls[ils]
-    if fabs(resol - resol0) < resol0*0.24:
-      pdiff = precdiff(prec, prec0)
-      if fn == "_" + fn0 or pdiff > 0 or (pdiff == 0 and rmax > rmax0):
-        newls[-1] = (Bn, resol, rmax, npt, prec, fn)
-      elif fn0 == "_" + fn or pdiff < 0 or (pdiff == 0 and rmax < rmax0):
-        pass
-      else:
-        print "don't know how to compare %s and %s" % (fn, fn0)
-        raw_input()
-    else:
-      newls += [(Bn, resol, rmax, npt, prec, fn),]
-    resol0, prec0, fn0, rmax0 = resol, prec, fn, rmax
-  return newls
+
+  # 2. detect bad data points that violate the monotonicity
+  if nls >= 3:
+    # 2.A comput the sign
+    sgn = ls[-1][0] - ls[-2][0]
+    if sgn > 0: sgn = 1
+    else: sgn = -1
+
+    # 2.B search the list for bad ordering
+    bad = []
+    for i in range(nls - 1):
+      if ( (ls[i+1][0] - ls[i][0]) * sgn < 0 and
+           fabs(ls[i+1][1] - ls[i][1]) > 0.01*ls[i][1] ):
+        bad += [(i, i+1),]
+    if bad:
+      print "Warning: the list has violations: %s" % bad
+      for i in range(nls): print "%4d: %s" % (i, ls[i])
+      raw_input()
+
+  return ls
+  #resol0, fn0, prec0, rmax0 = 0, "", "", 0
+  #newls = []
+  #for ils in range(nls):
+  #  Bn, resol, rmax, npt, prec, fn = ls[ils]
+  #  if fabs(resol - resol0) < resol0*0.24:
+  #    pdiff = precdiff(prec, prec0)
+  #    if fn == "_" + fn0 or pdiff > 0 or (pdiff == 0 and rmax > rmax0):
+  #      newls[-1] = (Bn, resol, rmax, npt, prec, fn)
+  #    elif fn0 == "_" + fn or pdiff < 0 or (pdiff == 0 and rmax < rmax0):
+  #      pass
+  #    else:
+  #      print "don't know how to compare %s and %s" % (fn, fn0)
+  #      raw_input()
+  #  else:
+  #    newls += [(Bn, resol, rmax, npt, prec, fn),]
+  #  resol0, prec0, fn0, rmax0 = resol, prec, fn, rmax
+  #return newls
 
 
 
@@ -222,53 +285,29 @@ def estimatevir3(ls):
     vir2, resol2 = ls[-2][0], ls[-2][1]
     virlimit, err = virextrapolate2(vir1, resol1, vir2, resol2)
   else: # three or more files
-    #virlimit, err = regression2(ls[-4:])
-    vir1, resol1 = ls[-1][0], ls[-1][1] # the most accurate
-    vir2, resol2 = ls[-2][0], ls[-2][1]
-    vir3, resol3 = ls[-3][0], ls[-3][1]
-    virlimit, err = virextrapolate3(vir1, resol1, vir2, resol2, vir3, resol3)
+    # 1. deterministic result from the most accurate data set
+    virlimit, err0 = regression(ls[-fitorder:], fitorder)
+    # 2. compute the error by fitting against all data sets
+    forder = min(len(ls)-1, fitorder)
+    vir, err = regression(ls, forder)
+    #print forder, vir, err
+    if verbose:
+      print "%s %s %.10e %.10e %e %e" % (len(ls), fitorder, vir, virlimit, err, vir - virlimit)
+      # print the result
+      if verbose >= 2:
+        # print out the results
+        for x in ls:
+          print x
+        # print out the fitting result from different orders
+        for ford in range(2, forder + 1):
+          vir1, err1 = regression(ls, ford)
+          print " order %4d: %.10e %.10e" % (ford, vir1, err1)
 
-
-  if verbose and len(ls):
-    print "first order:"
-    print "     vir             error           detail"
-    for x in ls:
-      print x[0], x[0]-virlimit, x[1:]
-    if len(ls) >= 2:
-      print "second order:"
-      print "     vir             error            detail"
-      for x in ls[:-1]:
-        y, yerr = virextrapolate2(ls[-1][0], ls[-1][1], x[0], x[1])
-        print y, y - virlimit, x[1:]
+    err = max(err, fabs(virlimit - vir))
+    # NOTE: here, we are using the regression result
+    # but is it more reliable than those?
+    virlimit = vir
   return virlimit, err
-
-
-
-def estimatevir(ls):
-  virlimit, err = estimatevir3(ls)
-
-  if len(ls) > 3 and ls[-2][1] > ls[-1][1] * .52: # drop the second largest item
-    ls1 = ls[:-2] + ls[-1:]
-    virlimit1, err1 = estimatevir3(ls1)
-    if err1 < 0.9*err:
-      if verbose:
-        print "remove 2nd %s, %s(%s) --> %s(%s), %s, %s, %s" % (
-          ls[-2][-1], virlimit, err, virlimit1, err1,
-          ls1[-1][-1], ls1[-2][-1], ls1[-3][-1])
-      virlimit, err, ls = virlimit1, err1, ls1
-
-  if len(ls) > 3 and ls[-3][1] > ls[-2][1] * .52:
-    ls1 = ls[:-3] + ls[-2:]
-    virlimit1, err1 = estimatevir3(ls1)
-    if err1 < 0.9*err:
-      if verbose:
-        print "remove 3rd %s, %s(%s) --> %s(%s), %s, %s, %s" % (
-          ls[-3][-1], virlimit, err, virlimit1, err1,
-          ls1[-1][-1], ls1[-2][-1], ls1[-3][-1])
-      virlimit, err, ls = virlimit1, err1, ls1
-
-  return virlimit, err, ls
-
 
 
 
@@ -282,16 +321,20 @@ def extrapolate(dim, order, tag = "PYc", col = 3):
   ls0 = sortdatalist(lsall)
 
   # 3. compute the virial coefficient
-  virlimit0, err0, ls0 = estimatevir(ls0)
+  virlimit0, err0 = estimatevir3(ls0)
   virlimit, err, ls, lsprec = virlimit0, err0, ls0, "all"
 
   # 4. classify the list by precision
   #    do the list with a particular precision
+  #    x[-2] is the approximate precision
   precs = list(set(x[-2] for x in lsall))
   if len(precs) > 1:
     for prec in precs:
+      if prec == "": # skip the default double precision set
+        continue
       ls1 = sortdatalist([x for x in lsall if x[-2] == prec])
-      virlimit1, err1, ls1 = estimatevir(ls1)
+      if len(ls1) <= fitorder: continue
+      virlimit1, err1 = estimatevir3(ls1)
       if err1 != 0 and err1 < 0.9*err:
         print "replace set [%s] by set [%s], %s(%s) -> %s(%s)" % (
             lsprec, prec, virlimit, err, virlimit1, err1)
