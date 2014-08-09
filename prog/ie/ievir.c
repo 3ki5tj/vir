@@ -1,5 +1,5 @@
-/* Computing the virial coefficients of an odd-dimensional hard-sphere fluid
- * by the PY or HNC integral equations
+/* Computing the virial coefficients of an hard-sphere fluid
+ * from the PY, HNC and other integral equations
  * Test compile (no external library)
  *  gcc ievir.c -lm
  * For the normal double precision
@@ -101,42 +101,13 @@ int shiftl0 = 0;
 
 
 
-#ifdef DHT
-/* adjust rmax such that r = 1 lies at the middle of the dm'th and dm+1'th bins */
-static xdouble jadjustrmax(double rmax0, int npt)
-{
-  xdouble dr, km, kp, kM, rmax;
-  double nu = dim*.5 - 1;
-  int dm;
-
-  dr = rmax0 / npt;
-  dm = (int)(1/dr + .5);
-  kM = gsl_sf_bessel_zero_Jnu(nu, npt + 1);
-  while ( 1 ) {
-    km = gsl_sf_bessel_zero_Jnu(nu, dm);
-    kp = gsl_sf_bessel_zero_Jnu(nu, dm + 1);
-    /* adjust rmax such that rmax (j_{nu,k} * .5 + j_{nu,k+1} * .5) / j_{nu,M} = 1 */
-    rmax = kM*2/(km + kp);
-    //printf("dm %d, rmax %g, k %g, %g, %g\n", dm, (double) rmax, (double) km, (double) kp, (double) kM);
-    if ( rmax >= rmax0 - 1e-8 || dm == 1 ) break;
-    dm--;
-  }
-  dr = rmax / npt;
-  printf("D %d, %d bins, %d within the hard core (dr %g), rmax %g, k %g - %g\n",
-      dim, npt, dm, (double) dr, (double) rmax, (double) km, (double) kp);
-  return rmax;
-}
-#endif /* defined(DHT) */
-
-
-
 static void doargs(int argc, char **argv)
 {
   argopt_t *ao = argopt_open(0);
   xdouble shiftn = 0;
   int usems = 0;
 
-  ao->desc = "computing the virial coefficients from the PY/HNC closure for the 3D hard-sphere fluid";
+  ao->desc = "computing the virial coefficients from the PY/HNC closure for hard-sphere fluids";
   argopt_add(ao, "-D", "%d", &dim, "dimension integer");
   argopt_add(ao, "-n", "%d", &nmax, "maximal order");
   argopt_add(ao, "-r", "%lf", &rmax, "rmax (flexible)");
@@ -144,7 +115,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type, 0: integral grid points, 1: half-integer grid points");
   argopt_add(ao, "-T", "%d", &ietype, "type of closure, 0: PY, 1: HNC-like; set the respective parameters automatically sets the type");
-  argopt_add(ao, "-q", "%" XDBLSCNF "f", &hncq,  "q of the hypernetted-chain (Marucho-Pettitt) approximation, y(r) = a0 exp(q t(r))");
+  argopt_add(ao, "-q", "%" XDBLSCNF "f", &hncq,  "q of the hypernetted-chain (Marucho-Pettitt) approximation, y(r) = a0 exp(q t(r)) + (1-a0) + (1-a0 q) t(r)");
   argopt_add(ao, "-a", "%" XDBLSCNF "f", &hncamp, "a0 of the hypernetted-chain (Marucho-Pettitt) approximation, 0: to be set by 1/q");
   argopt_add(ao, "--rya", "%" XDBLSCNF "f", &hncalpha, "alpha, in the Roger-Young switch function [1 - exp(-alpha*r)]^m");
   argopt_add(ao, "--hcs", "%" XDBLSCNF "f", &hcs, "s, in the Hutchinson-Conkie closure, y(r) = (1 + s t(r))^(1/s)");
@@ -159,7 +130,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--xsqrs", "%" XDBLSCNF "f", &xsqrs, "s of the exponential quadratic approximation, y(r) = exp[ t(r) + s t(r)^2 ]");
   argopt_add(ao, "--cubs", "%" XDBLSCNF "f", &cubs, "s of the cubic approximation, y(r) = 1 + t(r) + s t(r)^2 / 2 + t t(r)^3/6");
   argopt_add(ao, "--cubt", "%" XDBLSCNF "f", &cubt, "t of the cubic approximation");
-  argopt_add(ao, "--geos", "%" XDBLSCNF "f", &geos, "s of the geometric approximation, y(r) = 1 + t(r) + s t(r)^2 + s^2 t(r)^3 + ...");
+  argopt_add(ao, "--geos", "%" XDBLSCNF "f", &geos, "s of the geometric approximation, y(r) = 1 + t(r) + (s/2) t(r)^2 + (s/2)^2 t(r)^3 + ...");
   argopt_add(ao, "--logs", "%" XDBLSCNF "f", &logs, "s of the logarithmic approximation, y(r) = 1 + t(r) + s t(r)^2/2 + s^2 t(r)^3/3 + ...");
   argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted-chain (HNC) like approximation");
   argopt_add(ao, "--corr", "%b", &mkcorr, "linearly correct the closure");
@@ -265,119 +236,8 @@ static void doargs(int argc, char **argv)
 
 
 
-#ifdef FFT
-/* get the coefficient c_l of spherical Bessel function jn(x)
- *  jn(x) = Sum_{l = 0 to n} c_l [sin(x) or cos(x)] / x^{n + l + 1},
- * where the l'th term is sin(x) if n + l is even, or cos(x) otherwise */
-static void getjn(long *c, int n)
-{
-  int i, k;
-  const char *fs[2] = {"sin(x)", "cos(x)"};
-
-  c[0] = 1; /* j0 = sin(x)/x; */
-  if ( n == -1 ) c[0] = 2; /* if n == -1 (dim == 1), 2 cos(x) */
-  /* j_n(x)/x^n = (-1/x d/dx)^n j_0(x) */
-  for ( k = 1; k <= n; k++ ) { /* k'th round */
-    c[k] = 0;
-    for ( i = k - 1; i >= 0; i-- ) {
-      c[i + 1] += c[i] * (k + i);
-      c[i] *= 1 - (k + i) % 2 * 2;
-    }
-  }
-  printf("j%d(x) =", n);
-  for ( i = 0; i <= n; i++ )
-    printf(" %+ld*%s/x^%d", c[i], fs[(i+n+2)%2], n + i + 1);
-  printf("\n");
-}
-
-
-
-/* compute
- *    out(k) = 2 fac Int {from 0 to infinity} dr
- *             r^(2K) in(r) j_{D-1}(k r)/(k r)^{D - 1}
- * `arr' are used in the intermediate steps by the FFTW plans `p'
- * */
-static void sphr_fft(int npt, xdouble *in, xdouble *out, xdouble fac,
-    FFTWPFX(plan) p[2], xdouble *arr, long *coef,
-    xdouble **r2p, xdouble **k2q, int ffttype)
-{
-  int i, l, iscos;
-
-  if ( ffttype != 0 && ffttype != 1 ) return;
-
-  /* clear the output */
-  for ( i = 0; i < npt; i++ ) out[i] = 0;
-
-  /* several rounds of transforms */
-  for ( l = 0; l < K || l == 0; l++ ) {
-    /* decide if we want to do a sine or cosine transform */
-    iscos = (K + l + 1) % 2;
-
-    for ( i = 0; i < npt; i++ ) {
-      /* arr[i] = in[i] * pow(dx*(2*i + 1)/2, K - l) * coef[l]; */
-      arr[i] = in[i] * ( K > 0 ? coef[l] * r2p[l][i] : 1);
-    }
-
-    /* NOTE: a factor of two is included in the cosine/sine transform */
-#ifdef FFTW /* use FFTW */
-    FFTWPFX(execute)(p[iscos]);
-#else /* use the home-made FFT */
-    if ( iscos ) {
-      if ( ffttype == 1 ) {
-        cost11(arr, npt);
-      } else {
-        cost00(arr, npt);
-      }
-    } else {
-      if ( ffttype == 1 ) {
-        sint11(arr, npt);
-      } else {
-        sint00(arr, npt);
-      }
-    }
-#endif /* !defined(FFTW) */
-
-    if ( iscos && ffttype == 0 ) arr[npt] = 0;
-    for ( i = 0; i < npt; i++ ) {
-      /* out[i] += arr[i] * fac / pow(dk*(2*i + 1)/2, K + l); */
-      out[i] += arr[i] * fac * (K > 0 ? k2q[l][i] : 1);
-    }
-  }
-}
-
-/* convenience macros */
-#define sphr_r2k(in, out) sphr_fft(npt, in, out, facr2k, plans, arr, coef, r2pow, invk2pow, ffttype);
-#define sphr_k2r(in, out) sphr_fft(npt, in, out, fack2r, plans, arr, coef, k2pow, invr2pow, ffttype);
-
-#endif /* defined(FFT) */
-
-
-
-#ifdef DHT
-/* compute
- *  out(k) = fac Int {from 0 to infinity} dr
- *           r^(D/2) in(r) J_{D/2-1}(k r) */
-static void sphr_dht(xdouble *in, xdouble *out, xdouble fac,
-    xdht *dht, xdouble *arr, xdouble *r2p, xdouble *k2p)
-{
-  int i, npt = dht->size;
-
-  for ( i = 0; i < npt; i++ ) arr[i] = in[i] * r2p[i];
-  XDHT(apply)(dht, arr, out);
-  for ( i = 0; i < npt; i++ ) out[i] *= fac / k2p[i];
-}
-
-
-/* convenience macros */
-#define sphr_r2k(in, out) sphr_dht(in, out, facr2k, dht, arr, r2p, k2p)
-#define sphr_k2r(in, out) sphr_dht(in, out, fack2r, dht, arr, k2p, r2p)
-
-#endif /* defined(DHT) */
-
-
-
 /* compute virial coefficients from integral equations */
-static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
+static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
 {
   xdouble facr2k, fack2r, surfr, surfk;
   xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, By = 0, B2, fcorr = 0;
@@ -385,7 +245,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
   xdouble *crl, *trl, *yrl, *tkl;
   xdouble **ck, **tk = NULL, **cr = NULL, **tr = NULL, **yr = NULL;
   xdouble *arr, *yrcoef = NULL;
-  xdouble *vc = NULL, *brl, **br = NULL; /* correction functions */
+  xdouble *vc = NULL, *brl = NULL, **br = NULL; /* correction functions */
   xdouble *ri, *ki, *rDm1, *kDm1;
   xdouble *yr0, *lnyr0;
   int i, dm, l, l0 = 1;
@@ -738,7 +598,6 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
       yr0[l] += get_zerosep(vc, ri);
     }
 
-    //By = log_series(l+1, yr0, lnyr0)*l/(l+1);
     By = update_lnyr0(l, yr0, lnyr0);
     savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, By, B2, mkcorr|expcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yrl);
@@ -798,7 +657,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
 int main(int argc, char **argv)
 {
   doargs(argc, argv);
-  intgeq(nmax, numpt, Rmax, ffttype, dohnc);
+  intgeq(nmax, numpt, Rmax, ffttype);
 #ifdef FFTW
   FFTWPFX(cleanup)();
 #endif

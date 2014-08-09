@@ -127,7 +127,7 @@ def virextrapolate2(vir1, resol1, vir2, resol2):
 
 def linsolve(mat, b):
   ''' solve the linear equation:
-            mat a = b 
+            mat a = b
       by Gaussian elimination '''
   m = len(mat)
   a = b[:]
@@ -140,7 +140,7 @@ def linsolve(mat, b):
       if x > xm:
         im = j
         xm = x
-    
+
     # swap the row i and im
     if im != i:
       for j in range(i, m):
@@ -161,7 +161,7 @@ def linsolve(mat, b):
       if k == i: continue
       for j in range(i+1, m):
         mat[k][j] -= mat[k][i] * mat[i][j]
-      a[k] -= mat[k][i] * a[i] 
+      a[k] -= mat[k][i] * a[i]
       mat[k][i] = 0;
   return a
 
@@ -196,7 +196,7 @@ def regression(ls, M = 3):
     for i in range(M):
       for j in range(M):
         mat[i][j] += x**(i+j) * wt
-      b[i] += y * x**i * wt 
+      b[i] += y * x**i * wt
   a = linsolve(mat, b)
   res = calcres(a, ls)
   return a[0], sqrt(res)

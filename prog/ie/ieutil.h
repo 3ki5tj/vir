@@ -41,6 +41,21 @@
   FREE1DARR((arr)[0], (n1) * (n2)); \
   free(arr); }
 
+#define MAKE3DARR(arr, n1, n2, n3) { int k_, j_; \
+  xnew(arr, n1); \
+  MAKE1DARR(arr[0], (n1) * (n2)); \
+  MAKE1DARR(arr[0][0], (n1) * (n2) * (n3)); \
+  for ( k_ = 1; k_ < (n1); k_++ ) \
+    arr[k_] = arr[0] + k_ * (n2); \
+  for ( k_ = 0; k_ < (n1); k_++ ) \
+    for ( j_ = 0; j_ < (n2); j_++) \
+      arr[k_][j_] = arr[0][0] + (k_*(n2)+j_) * (n3); }
+
+#define FREE3DARR(arr, n1, n2, n3) if ( (arr) != NULL ) { \
+  FREE1DARR((arr)[0][0], (n1) * (n2) * (n3)); \
+  FREE1DARR((arr)[0], (n1) * (n2)); \
+  free(arr); }
+
 
 
 __inline static xdouble adjustrmax(xdouble rmax, int npt,
@@ -497,6 +512,7 @@ __inline static void get_yr_geo(int l, int npt, xdouble *yrl,
   int i, u, v;
   xdouble *a;
 
+  q /= 2;
   xnew(a, l + 1);
   /* y(r) = 1 + t(r) + q t(r)^2 + q^2 t(r)^3 + ...
    * y1 = y - 1 satisfies y1 = t + q t y1
@@ -863,6 +879,27 @@ __inline static xdouble get_inv1mrc(int l, int npt,
 
 
 
+/* B_{l+2}^c = [1/(1 + rho Int h(r) surfr r^(D-1) dr) ]_{l + 2} */
+__inline static xdouble get_Bc_hr(int l, int npt, xdouble *hrl,
+    xdouble *hk0, xdouble *rDm1)
+{
+  int i;
+  xdouble *a, *b, x;
+
+  hk0[l] = integr(npt, hrl, rDm1);
+  xnew(a, l + 2);
+  xnew(b, l + 2);
+  a[0] = 1;
+  for ( i = 0; i <= l; i++ ) a[i+1] = hk0[i];
+  pow_series(-1, l+2, a, b); /* b = 1/a */
+  x = b[l+1]/(l+2);
+  free(a);
+  free(b);
+  return x;
+}
+
+
+
 __inline static xdouble get_BhBrk(int l, int npt, int dohnc,
     xdouble **ck, const xdouble *w, const xdouble *ki, xdouble *Br)
 {
@@ -957,6 +994,8 @@ enum {
   IETYPE_VERLET = 40, /* Verlet, 1980 */
   IETYPE_GEO = 100,
   IETYPE_LOG = 101,
+  IETYPE_YBG = 1000, /* Yvon-Green-Born */
+  IETYPE_KIRKWOOD = 1100,
   IETYPE_LAST
 };
 
@@ -1128,6 +1167,7 @@ __inline static void init_geocoef(xdouble *a, int lmax, xdouble q)
 {
   int i;
 
+  q /= 2;
   a[0] = a[1] = 1;
   for ( i = 2; i < lmax; i++ ) a[i] = a[i-1]*q;
 }
@@ -1198,6 +1238,8 @@ __inline static char *savevirheadx(const char *fn, const char *title,
   else if ( ietype == IETYPE_GEO) strcpy(sietype, "GEO");
   else if ( ietype == IETYPE_LOG) strcpy(sietype, "LOG");
   else if ( ietype == IETYPE_BBPG) strcpy(sietype, "BBPG");
+  else if ( ietype == IETYPE_YBG) strcpy(sietype, "YBG");
+  else if ( ietype == IETYPE_KIRKWOOD) strcpy(sietype, "K");
   if ( mkcorr ) strcat(sietype, "c");
   else if ( expcorr ) strcat(sietype, "x");
 
@@ -1542,6 +1584,149 @@ __inline static void snapshot_take(int l, int npt,
     fclose(fp);
   }
 }
+
+
+
+
+
+#ifdef FFT
+/* get the coefficient c_l of spherical Bessel function jn(x)
+ *  jn(x) = Sum_{l = 0 to n} c_l [sin(x) or cos(x)] / x^{n + l + 1},
+ * where the l'th term is sin(x) if n + l is even, or cos(x) otherwise */
+static void getjn(long *c, int n)
+{
+  int i, k;
+  const char *fs[2] = {"sin(x)", "cos(x)"};
+
+  c[0] = 1; /* j0 = sin(x)/x; */
+  if ( n == -1 ) c[0] = 2; /* if n == -1 (dim == 1), 2 cos(x) */
+  /* j_n(x)/x^n = (-1/x d/dx)^n j_0(x) */
+  for ( k = 1; k <= n; k++ ) { /* k'th round */
+    c[k] = 0;
+    for ( i = k - 1; i >= 0; i-- ) {
+      c[i + 1] += c[i] * (k + i);
+      c[i] *= 1 - (k + i) % 2 * 2;
+    }
+  }
+  printf("j%d(x) =", n);
+  for ( i = 0; i <= n; i++ )
+    printf(" %+ld*%s/x^%d", c[i], fs[(i+n+2)%2], n + i + 1);
+  printf("\n");
+}
+
+
+
+/* compute
+ *    out(k) = 2 fac Int {from 0 to infinity} dr
+ *             r^(2K) in(r) j_{D-1}(k r)/(k r)^{D - 1}
+ * `arr' are used in the intermediate steps by the FFTW plans `p'
+ * */
+static void sphr_fft(int K, int npt, xdouble *in, xdouble *out, xdouble fac,
+    FFTWPFX(plan) p[2], xdouble *arr, long *coef,
+    xdouble **r2p, xdouble **k2q, int ffttype)
+{
+  int i, l, iscos;
+
+  if ( ffttype != 0 && ffttype != 1 ) return;
+
+  /* clear the output */
+  for ( i = 0; i < npt; i++ ) out[i] = 0;
+
+  /* several rounds of transforms */
+  for ( l = 0; l < K || l == 0; l++ ) {
+    /* decide if we want to do a sine or cosine transform */
+    iscos = (K + l + 1) % 2;
+
+    for ( i = 0; i < npt; i++ ) {
+      /* arr[i] = in[i] * pow(dx*(2*i + 1)/2, K - l) * coef[l]; */
+      arr[i] = in[i] * ( K > 0 ? coef[l] * r2p[l][i] : 1);
+    }
+
+    /* NOTE: a factor of two is included in the cosine/sine transform */
+#ifdef FFTW /* use FFTW */
+    FFTWPFX(execute)(p[iscos]);
+#else /* use the home-made FFT */
+    if ( iscos ) {
+      if ( ffttype == 1 ) {
+        cost11(arr, npt);
+      } else {
+        cost00(arr, npt);
+      }
+    } else {
+      if ( ffttype == 1 ) {
+        sint11(arr, npt);
+      } else {
+        sint00(arr, npt);
+      }
+    }
+#endif /* !defined(FFTW) */
+
+    if ( iscos && ffttype == 0 ) arr[npt] = 0;
+    for ( i = 0; i < npt; i++ ) {
+      /* out[i] += arr[i] * fac / pow(dk*(2*i + 1)/2, K + l); */
+      out[i] += arr[i] * fac * (K > 0 ? k2q[l][i] : 1);
+    }
+  }
+}
+
+/* convenience macros */
+#define sphr_r2k(in, out) sphr_fft(K, npt, in, out, facr2k, plans, arr, coef, r2pow, invk2pow, ffttype)
+#define sphr_k2r(in, out) sphr_fft(K, npt, in, out, fack2r, plans, arr, coef, k2pow, invr2pow, ffttype)
+
+#endif /* defined(FFT) */
+
+
+
+#ifdef DHT
+/* compute
+ *  out(k) = fac Int {from 0 to infinity} dr
+ *           r^(D/2) in(r) J_{D/2-1}(k r) */
+static void sphr_dht(xdouble *in, xdouble *out, xdouble fac,
+    xdht *dht, xdouble *arr, xdouble *r2p, xdouble *k2p)
+{
+  int i, npt = dht->size;
+
+  for ( i = 0; i < npt; i++ ) arr[i] = in[i] * r2p[i];
+  XDHT(apply)(dht, arr, out);
+  for ( i = 0; i < npt; i++ ) out[i] *= fac / k2p[i];
+}
+
+
+/* convenience macros */
+#define sphr_r2k(in, out) sphr_dht(in, out, facr2k, dht, arr, r2p, k2p)
+#define sphr_k2r(in, out) sphr_dht(in, out, fack2r, dht, arr, k2p, r2p)
+
+
+
+/* adjust rmax such that r = 1 lies at the middle of the dm'th and dm+1'th bins */
+static xdouble jadjustrmax(double rmax0, int npt)
+{
+  xdouble dr, km, kp, kM, rmax;
+  double nu = dim*.5 - 1;
+  int dm;
+
+  dr = rmax0 / npt;
+  dm = (int)(1/dr + .5);
+  kM = gsl_sf_bessel_zero_Jnu(nu, npt + 1);
+  while ( 1 ) {
+    km = gsl_sf_bessel_zero_Jnu(nu, dm);
+    kp = gsl_sf_bessel_zero_Jnu(nu, dm + 1);
+    /* adjust rmax such that rmax (j_{nu,k} * .5 + j_{nu,k+1} * .5) / j_{nu,M} = 1 */
+    rmax = kM*2/(km + kp);
+    //printf("dm %d, rmax %g, k %g, %g, %g\n", dm, (double) rmax, (double) km, (double) kp, (double) kM);
+    if ( rmax >= rmax0 - 1e-8 || dm == 1 ) break;
+    dm--;
+  }
+  dr = rmax / npt;
+  printf("D %d, %d bins, %d within the hard core (dr %g), rmax %g, k %g - %g\n",
+      dim, npt, dm, (double) dr, (double) rmax, (double) km, (double) kp);
+  return rmax;
+}
+
+
+
+#endif /* defined(DHT) */
+
 
 
 
