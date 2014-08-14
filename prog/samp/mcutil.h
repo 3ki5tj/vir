@@ -770,7 +770,8 @@ typedef struct {
   int dim;
   int order;
   int npt; /* number of points along r */
-  int nsamp;
+  unsigned long nsampi;
+  double nsampd;
 } hscr_t;
 
 
@@ -787,10 +788,11 @@ INLINE hscr_t *hscr_open(real xmax, real dx, int dim, int order)
   hs->dim = dim;
   hs->order = order;
   hs->npt = (int)(xmax/dx + 0.99999999);
-  hs->nsamp = 0;
+  hs->nsampi = 0;
+  hs->nsampd = 0;
   hs->sphr = (dim % 2 + 1) * dim;
   for (i = 2 + dim % 2; i <= dim; i += 2 )
-    hs->sphr *= M_PI*2/i;
+    hs->sphr *= M_PI * 2 / i;
   hs->vol = hs->sphr / dim;
   xnew(hs->arr, hs->npt);
   return hs;
@@ -802,7 +804,10 @@ INLINE int hscr_add(hscr_t *hs, double x, double fb)
 {
   int ix = (int)((x - hs->xmin)/hs->dx);
   if (ix < hs->npt) hs->arr[ix] += fb;
-  hs->nsamp += 1;
+  if ( ++(hs->nsampi) > 1000000000 ) {
+    hs->nsampd += (double) hs->nsampi;
+    hs->nsampi = 0;
+  }
   return 0;
 }
 
@@ -820,10 +825,15 @@ INLINE int hscr_save(hscr_t *hs, const char *fn, double norm)
   for ( i = 2; i <= hs->order - 2; i++ ) norm /= i;
   for ( imax = hs->npt - 1; imax > 0; imax-- )
     if ( fabs(hs->arr[imax]) > 0 ) break;
-  fprintf(fp, "# %d %d %d\n", hs->dim, hs->order, imax + 1);
+  /* flush the counter */
+  hs->nsampd += (double) hs->nsampi;
+  hs->nsampi = 0;
+  fprintf(fp, "# %d %d %d %.0f %g %g %g %g\n",
+      hs->dim, hs->order, imax + 1,
+      hs->nsampd, hs->dx, norm, hs->sphr, hs->vol);
   for ( i = 0; i <= imax; i++ ) {
-    r = (i+.5)*hs->dx;
-    y = hs->arr[i]/(hs->nsamp*hs->sphr*pow(r, hs->dim - 1)*hs->dx);
+    r = (i + .5) * hs->dx;
+    y = hs->arr[i]/(hs->nsampd * hs->sphr * pow(r, hs->dim - 1) * hs->dx);
     if (norm > 0) y *= norm;
     fprintf(fp, "%12.7f %22.14e\n", r, y);
   }

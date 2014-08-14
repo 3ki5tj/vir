@@ -173,7 +173,7 @@ static void doargs(int argc, char **argv)
   if ( Rmax <= 0) Rmax = rmax; /* we will adjust it later */
 #endif
 #ifdef DHT
-  if ( Rmax <= 0 ) Rmax = jadjustrmax(rmax, numpt);
+  if ( Rmax <= 0 ) Rmax = jadjustrmax(rmax, numpt, dim);
 #endif
 
   /* closure type */

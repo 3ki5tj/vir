@@ -20,6 +20,7 @@ errmax = 10  # error
 wreport = 0 # write a report
 scanall = 0 # scan all dimensions
 fitorder = 3
+resolmin = 200
 
 refval = 0 # reference value, for debugging
 
@@ -36,6 +37,9 @@ def usage():
    -e:     maximal number in parentheses in the error estimate
    -w:     write a report
    -a:     scan all dimensions (use -aw for a report)
+   -Q:     minimal resolution
+   --py:   PY closure (default is the self-consistent closure)
+   --hnc:  HNC closure
    -v:     be verbose
    -vv:    be more verbose
   """
@@ -46,9 +50,9 @@ def usage():
 def doargs():
   ''' Handle common parameters from command line options '''
   try:
-    opts, args = getopt.gnu_getopt(sys.argv[1:], "D:n:M:e:wav",
+    opts, args = getopt.gnu_getopt(sys.argv[1:], "D:n:M:e:wQ:av",
         [ "dim=", "order=", "errmax=", "py", "hnc", "report", "all",
-          "ref=",
+          "ref=", "resmin=",
           "verbose=", "help", ])
   except getopt.GetoptError, err:
     # print help information and exit:
@@ -56,7 +60,7 @@ def doargs():
     usage()
 
   global dim, nstep, nmax, wreport, purepy, purehnc, scanall, verbose, errmax
-  global refval
+  global refval, resolmin
 
   for o, a in opts:
     if o in ("-D", "--dim"):
@@ -71,6 +75,8 @@ def doargs():
       wreport = 1
     elif o in ("-a", "--all"):
       scanall = 1
+    elif o in ("-Q", "--resmin"):
+      resolmin = float(a)
     elif o in ("--ref"):
       refval = float(a)
     elif o in ("--py",):
@@ -90,11 +96,15 @@ def doargs():
 
 
 def getvir(fn, order, col):
+  ''' the virial coefficient of `order'th order from `col'th column '''
   for s in open(fn).readlines():
     if s.strip() == "" or s[0] == '#':
       continue
     arr = s.strip().split()
-    if int(arr[0]) == order:
+    iord = int(arr[0])
+    if col == -1:
+      iord -= 1
+    if iord == order:
       return float(arr[col])
   return 0
 
@@ -229,21 +239,44 @@ def searchdatalist(dim, order, tag, col):
 
 
 
-def sortdatalist(ls):
+def sortdatalist(ls, resolmin = 200):
   ''' sort the list by resolution '''
 
   # 1. sort the list by resolution, which is x[1]
   ls = sorted(ls, key = lambda x: x[1])
-  nls = len(ls)
 
-  # 2. detect bad data points that violate the monotonicity
+  # 2. remove low resolution data
+  ls1 = [x for x in ls if x[1] > resolmin]
+  if len(ls1) >= 4: ls = ls1
+
+  # 3. prune data set with the same resolution
+  resol0, fn0, prec0, rmax0 = 0, "", "", 0
+  newls = []
+  for ils in range(len(ls)):
+    Bn, resol, rmax, npt, prec, fn = ls[ils]
+    if fabs(resol - resol0) < resol0*0.01:
+      pdiff = precdiff(prec, prec0)
+      if fn == "_" + fn0 or pdiff > 0 or (pdiff == 0 and rmax > rmax0):
+        newls[-1] = (Bn, resol, rmax, npt, prec, fn)
+      elif fn0 == "_" + fn or pdiff < 0 or (pdiff == 0 and rmax < rmax0):
+        pass
+      else:
+        print "don't know how to compare %s and %s" % (fn, fn0)
+        raw_input()
+    else:
+      newls += [(Bn, resol, rmax, npt, prec, fn),]
+    resol0, prec0, fn0, rmax0 = resol, prec, fn, rmax
+
+  ls = newls
+  nls = len(ls)
+  # 4. detect bad data points that violate the monotonicity
   if nls >= 3:
-    # 2.A comput the sign
+    # 4.A comput the sign
     sgn = ls[-1][0] - ls[-2][0]
     if sgn > 0: sgn = 1
     else: sgn = -1
 
-    # 2.B search the list for bad ordering
+    # 4.B search the list for bad ordering
     bad = []
     for i in range(nls - 1):
       if ( (ls[i+1][0] - ls[i][0]) * sgn < 0 and
@@ -252,26 +285,9 @@ def sortdatalist(ls):
     if bad:
       print "Warning: the list has violations: %s" % bad
       for i in range(nls): print "%4d: %s" % (i, ls[i])
-      raw_input()
+      #raw_input()
 
-  return ls
-  #resol0, fn0, prec0, rmax0 = 0, "", "", 0
-  #newls = []
-  #for ils in range(nls):
-  #  Bn, resol, rmax, npt, prec, fn = ls[ils]
-  #  if fabs(resol - resol0) < resol0*0.24:
-  #    pdiff = precdiff(prec, prec0)
-  #    if fn == "_" + fn0 or pdiff > 0 or (pdiff == 0 and rmax > rmax0):
-  #      newls[-1] = (Bn, resol, rmax, npt, prec, fn)
-  #    elif fn0 == "_" + fn or pdiff < 0 or (pdiff == 0 and rmax < rmax0):
-  #      pass
-  #    else:
-  #      print "don't know how to compare %s and %s" % (fn, fn0)
-  #      raw_input()
-  #  else:
-  #    newls += [(Bn, resol, rmax, npt, prec, fn),]
-  #  resol0, prec0, fn0, rmax0 = resol, prec, fn, rmax
-  #return newls
+  return newls
 
 
 
@@ -305,7 +321,8 @@ def estimatevir3(ls):
 
     err = max(err, fabs(virlimit - vir))
     # NOTE: here, we are using the regression result
-    # but is it more reliable than those?
+    # but is it more reliable than the one obtained from
+    # the highest-resolution data set
     virlimit = vir
   return virlimit, err
 
@@ -318,7 +335,7 @@ def extrapolate(dim, order, tag = "PYc", col = 3):
   lsall = searchdatalist(dim, order, tag, col)
 
   # 2. sort the list by resolution, remove similar results
-  ls0 = sortdatalist(lsall)
+  ls0 = sortdatalist(lsall, resolmin)
 
   # 3. compute the virial coefficient
   virlimit0, err0 = estimatevir3(ls0)
@@ -364,9 +381,9 @@ def doit(dim):
   fns = ""
   tag, cols = "PYc", ((3, "self-consistent"),)
   if purepy:
-    tag, cols = "PY", ((1, "compressibility"), (2, "virial"), (3, "ddP"),)
+    tag, cols = "PY", ((1, "compressibility"), (2, "virial"), (3, "ddP"), (-1, "cavity"))
   elif purehnc:
-    tag, cols = "HNC", ((1, "compressibility"), (2, "virial"),)
+    tag, cols = "HNC", ((1, "compressibility"), (2, "virial"), (-1, "cavity"))
 
   nmin = nstep
   if nmin < 3: nmin = int((3 + nstep - 1)/nstep) * nstep
@@ -399,16 +416,20 @@ def doit(dim):
   if wreport:
     nmax = max(x[0] for x in datarr)
     src = ""
-    for n in range(nmin, nmax + 1, nstep):
+    for n in range(1, nmax + 1, nstep):
       svir = ""
       serr = ""
       for col, colname in cols:
-        for x in datarr:
-          if x[0] == n and x[1] == col:
-            break
+        if n < nmin:
+          x = [0, 0, 1.0, 0.0]
         else:
-          print "n %s, col %s is missing" % (n, col)
-          raw_input()
+          for x in datarr:
+            if x[0] == n and x[1] == col:
+              break
+          else:
+            print "Warning: n %s, col %s is missing" % (n, col)
+            x = [0, 0, 0.0, 0.0]
+            #raw_input()
         svir += " %+22.14e" % x[2]
         serr += " %22.14e" % x[3]
       src += "%4d%s%s\n" % (n, svir, serr)

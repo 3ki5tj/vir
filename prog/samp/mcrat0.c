@@ -77,7 +77,7 @@ int dbbinary = -1; /* binary database */
 int dbnobak = 0; /* do not backup the database */
 
 int nstcr = 0; /* frequency of writing */
-int nstcrrep = 100000; /* frequency of reporting cr */
+int nstcrrep = 1000000; /* frequency of reporting cr */
 double crxmax = 0;
 double crdx = 0.01; /* interval of dx */
 char fncr[80];
@@ -274,7 +274,8 @@ static void doargs(int argc, char **argv)
     sscat(dbfnbak, ".bak");
   }
 
-  if (fabs(crxmax) < 1e-6) crxmax = n + 4;
+  if ( argopt_isset(ao, crxmax) || crxmax < 1e-6 )
+    crxmax = n + 4;
   sprintf(fncr, "crD%dn%d.dat", D, n);
 
   if (inode == MASTER) {
@@ -594,7 +595,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
     if (it % nstcom == 0) rvn_rmcom(x, DG_N_);
 
-    if (it % nstcr == 0) {
+    if (inode == MASTER && nstcr > 0 && it % nstcr == 0) {
       savecr(hscr, x, DG_N_, fb);
     }
 
@@ -831,7 +832,7 @@ static void mcrat_direct(int n, double nequil, double nsteps,
       writepos(fnpos, x, DG_N_, posfr++);
     }
 
-    if (it % nstcr == 0) {
+    if (inode == MASTER && nstcr > 0 && it % nstcr == 0) {
       savecr(hscr, x, DG_N_, fb);
     }
 

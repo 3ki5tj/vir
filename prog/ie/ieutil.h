@@ -1343,8 +1343,8 @@ __inline static int savevir(const char *fn, int dim, int n,
   } else { /* the following are useless when making corrections */
     if ( Bm != 0 ) printf("\n");
     printB("Bh", dim, n, Bh, B2p, B2q, volp, volq, ", ");
-    printB("Br", dim, n, Br, B2p, B2q, volp, volq, "");
-    printB("By", dim, n-1, By, B2p, B2y, volp, volr, ", ");
+    printB("Br", dim, n, Br, B2p, B2q, volp, volq, ", ");
+    printB("By", dim, n-1, By, B2p, B2y, volp, volr, "");
   }
   printf("\n");
 
@@ -1699,7 +1699,7 @@ static void sphr_dht(xdouble *in, xdouble *out, xdouble fac,
 
 
 /* adjust rmax such that r = 1 lies at the middle of the dm'th and dm+1'th bins */
-static xdouble jadjustrmax(double rmax0, int npt)
+static xdouble jadjustrmax(double rmax0, int npt, int dim)
 {
   xdouble dr, km, kp, kM, rmax;
   double nu = dim*.5 - 1;

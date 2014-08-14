@@ -354,7 +354,7 @@ static void get_yr_hnc_fast(int l, int npt, mpfr_t *yrl,
 /* correct the hypernetted chain approximation
  *  `vc' is the trial correction function to y(r) */
 __inline static void get_corr1_hs(mpfr_t B, int l, int npt, int dm,
-    mpfr_t *ylr, mpfr_t *crl, mpfr_t *fr, mpfr_t *rDm1,
+    mpfr_t *crl, mpfr_t *fr, mpfr_t *rDm1,
     mpfr_t B2, mpfr_t *vc, mpfr_t Bc0, mpfr_t Bv0, mpfr_t eps)
 {
   int i;
@@ -364,22 +364,22 @@ __inline static void get_corr1_hs(mpfr_t B, int l, int npt, int dm,
   INIT_(dBv);
   INIT_(x);
 
-  SET_SI_(Bc0, 0);
+  //SET_SI_(Bc0, 0);
   SET_SI_(dBc, 0);
   for ( i = 0; i < npt; i++ ) {
     /* Bc0 += crl[i] * rDm1[i]; */
-    FMA_X_(Bc0, crl[i], rDm1[i]);
+    //FMA_X_(Bc0, crl[i], rDm1[i]);
 
     /* dBc += vc[i] * (1 + fr[i]) * rDm1[i]; */
     ADD_SI_(x, fr[i], 1);
     MUL3_X_(x, vc[i], rDm1[i]);
     ADD_X_(dBc, x);
   }
-  DIV_SI_X_(Bc0, -(l+2)); /* Bc0 /= -(l+2); */
+  //DIV_SI_X_(Bc0, -(l+2)); /* Bc0 /= -(l+2); */
   DIV_SI_X_(dBc, -(l+2)); /* dBc /= -(l+2); */
 
   /* Bv0 = B2 * (ylr[dm] + ylr[dm-1])/2; */
-  contactv(Bv0, ylr, dm, B2);
+  //contactv(Bv0, ylr, dm, B2);
   /* dBv = B2 * (vc[dm] + vc[dm-1])/2; */
   contactv(dBv, vc, dm, B2);
   if ( l <= 1 ) {
@@ -563,8 +563,8 @@ __inline static int savevir(const char *fn, int dim, int n,
   } else { /* the following are useless when making corrections */
     if ( CMP_SI_(Bm, 0) != 0 ) printf("\n");
     printB("Bh", dim, n, Bh, B2p, volp, ", ");
-    printB("Br", dim, n, Br, B2p, volp, "");
-    printB("By", dim, n - 1, By, B2y, voly, ", ");
+    printB("Br", dim, n, Br, B2p, volp, ", ");
+    printB("By", dim, n - 1, By, B2y, voly, "");
   }
   printf("\n");
 

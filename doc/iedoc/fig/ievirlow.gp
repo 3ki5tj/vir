@@ -11,7 +11,7 @@ thexlabel='Order {/Arial-Italic n}'
 theylabel='{/Arial-Italic B_n} /{/Arial-Italic B}_2^{{/Arial-Italic n}-1}'
 
 # height of the bottom panels
-bh = 0.55
+bh = 0.45
 # height of the top panels
 th = 1 - bh
 
@@ -28,15 +28,19 @@ set format y '10^{%T}'
 lbfont  = "Arial, 20"
 
 color1a = "#dd0000"
-color1b = "#002280"
+color1b = "#002255"
+color1b1 = "#3355cc"
+color1b2 = "#0099dd"
 
 color2a = "#000000"
 color2b = "#804000"
+color2b1 = "#c07030"
+color2b2 = "#dd9900"
 
 color3a = "#600080"
 color3b = "#006000"
 
-color4a = "#606060"
+color4a = "#a0a0a0"
 color4b = "#008080"
 
 # line styles for the small panels
@@ -48,11 +52,23 @@ set style line 3  lc rgb color1a lt 1 pt 5  ps 2.0 # full  square
 set style line 4  lc rgb color1b lt 1 pt 12 ps 2.6 # empty diamond
 set style line 5  lc rgb color1b lt 1 pt 13 ps 2.6 # full  diamond
 
+set style line 24 lc rgb color1b1 lt 2 pt 12 ps 2.6 # empty diamond
+set style line 25 lc rgb color1b1 lt 2 pt 13 ps 2.6 # full  diamond
+
+set style line 34 lc rgb color1b2 lt 3 pt 12 ps 2.6 # empty diamond
+set style line 35 lc rgb color1b2 lt 3 pt 13 ps 2.6 # full  diamond
+
 set style line 6  lc rgb color2a lt 1 pt 10 ps 2.4 # empty inverted triangle
 set style line 7  lc rgb color2a lt 1 pt 11 ps 2.4 # full  inverted triangle
 
 set style line 8  lc rgb color2b lt 1 pt 8  ps 2.4 # empty triangle
 set style line 9  lc rgb color2b lt 1 pt 9  ps 2.4 # full  triangle
+
+set style line 28 lc rgb color2b1 lt 2 pt 8  ps 2.4 # empty triangle
+set style line 29 lc rgb color2b1 lt 2 pt 9  ps 2.4 # full  triangle
+
+set style line 38 lc rgb color2b2 lt 3 pt 8  ps 2.4 # empty triangle
+set style line 39 lc rgb color2b2 lt 3 pt 9  ps 2.4 # full  triangle
 
 set style line 10 lc rgb color3a lt 1 pt 6  ps 2.0 # empty circle
 set style line 11 lc rgb color3a lt 1 pt 7  ps 2.0 # full  circle
@@ -60,11 +76,11 @@ set style line 11 lc rgb color3a lt 1 pt 7  ps 2.0 # full  circle
 set style line 12 lc rgb color3b lt 1 pt 14 ps 2.2 # empty pentagon
 set style line 13 lc rgb color3b lt 1 pt 15 ps 2.2 # full  pentagon
 
-set style line 14 lc rgb color4a lt 1 pt 4  ps 2.0
-set style line 15 lc rgb color4a lt 1 pt 5  ps 2.0
+set style line 14 lc rgb color4a lt 1 lw 1.0 pt 1  ps 2.2   # thin
+set style line 15 lc rgb color4a lt 1 lw 5.0 pt 1  ps 2.2   # thick
 
-set style line 16 lc rgb color4b lt 1 pt 12 ps 2.4
-set style line 17 lc rgb color4b lt 1 pt 13 ps 2.4
+set style line 16 lc rgb color4b lt 1 lw 1.0 pt 2  ps 1.7   # thin
+set style line 17 lc rgb color4b lt 1 lw 9.0 pt 2  ps 1.7   # thick
 
 
 
@@ -73,10 +89,10 @@ tagdx2 = 0.010
 tagdy1 = 0.020
 tagdy2 = 0.005
 tagfont = "Arial, 24"
-set label 300 "(a)" at screen       tagdx1,  1 - tagdy1 font tagfont
-set label 301 "(b)" at screen  lw + tagdx2,  1 - tagdy1 font tagfont
-set label 302 "(c)" at screen       tagdx1, bh - tagdy2 font tagfont
-set label 303 "(d)" at screen  lw + tagdx2, bh - tagdy2 font tagfont
+set label 1000 "(a)" at screen       tagdx1,  1 - tagdy1 font tagfont
+set label 1001 "(b)" at screen  lw + tagdx2,  1 - tagdy1 font tagfont
+set label 1002 "(c)" at screen       tagdx1, bh - tagdy2 font tagfont
+set label 1003 "(d)" at screen  lw + tagdx2, bh - tagdy2 font tagfont
 
 
 
@@ -101,8 +117,18 @@ set bmargin 1.5
 set rmargin 0.
 set lmargin 6.0
 
-set label 101 "{/Arial-Italic D} = 2" at 18.0, 3.0e-4 rotate by -55  textcolor rgb color1b font lbfont
-set label 102 "{/Arial-Italic D} = 3" at 12.0, 1.5e-4 rotate by -72  textcolor rgb color2b font lbfont
+set label 101 "{/Arial-Italic D} = 2, {/Symbol-Oblique k} = 0" \
+  at 17.0, 0.8e-4 rotate by -63  textcolor rgb color1b font lbfont
+
+set label 301 "{/Arial-Italic D} = 2, {/Symbol-Oblique k} = (0.205)_{{/Arial-Italic n} > 5}" \
+  at 15.0, 3.0e-3 rotate by -60  textcolor rgb color1b2 font lbfont
+
+set label 102 "{/Arial-Italic D} = 3, {/Symbol-Oblique k} = 0" \
+   at 10.0, 1.0e-4 rotate by -75  textcolor rgb color2b font lbfont
+
+set label 302 "{/Arial-Italic D} = 3, {/Symbol-Oblique k} = (0.506)_{{/Arial-Italic n} > 4}" \
+   at 11.0, 4.0e-4 rotate by -70  textcolor rgb color2b2 font lbfont
+
 set label 103 "{/Arial-Italic D} = 4" at  5.0, 5.5e-3 rotate by -78  textcolor rgb color3b font lbfont
 
 plot [2:22][8e-6:1] \
@@ -112,14 +138,20 @@ plot [2:22][8e-6:1] \
   ""                                      u ($1):(abs($2)):3                            w e  ls 6       lw 3.0 notitle, \
   "data/D4/BnD4n11.dat"                   u ($1):(abs($2)):3                            w l  ls 10 lt 4 lw 0.5 notitle, \
   ""                                      u ($1):(abs($2)):3                            w e  ls 10      lw 3.0 notitle, \
-  "iedata/xBnPYcD2n64.dat"                u ($1):(abs($2))                              w l  ls 4  lt 1 lw 0.5 notitle, \
+  "iedata/xBnPYcD2n32.dat"                u ($1):(abs($2))                              w l  ls 4  lt 1 lw 0.5 notitle, \
   ""                                      u ($1):(abs($2))                              w p  ls 4       lw 3.0 notitle, \
+  "iedata/kappa/hBnPYcD2n32R34M32768c0.205L4.dat"  u ($1):(abs($4))              w l  ls 34  lt 1 lw 0.5 notitle, \
+  ""                                      u ($1):(abs($4))                              w p  ls 34       lw 3.0 notitle, \
   "iedata/xBnPYcD3n16.dat"                u ($1):(($1 <= 12) ? abs($2) : 1/0)           w l  ls 8  lt 2 lw 0.5 notitle, \
   ""                                      u ($1):(($1 <= 12) ? abs($2) : 1/0)           w p  ls 8       lw 3.0 notitle, \
+  "iedata/kappa/BnPYcD3n32R34M32768c0.506L3f128.dat"  u ($1):(($1 <= 12) ? abs($2) : 1/0)     w l  ls 38  lt 2 lw 0.5 notitle, \
+  ""                                      u ($1):(($1 <= 12) ? abs($2) : 1/0)           w p  ls 38       lw 3.0 notitle, \
   "iedata/xBnPYcD4n16.dat"                u ($1):(($1 <= 8)  ? abs($2) : 1/0)           w l  ls 12 lt 4 lw 0.5 notitle, \
   ""                                      u ($1):(($1 <= 8 && $2 > 0) ? abs($2) : 1/0)  w p  ls 12      lw 3.0 notitle, \
   ""                                      u ($1):(($1 <= 8 && $2 < 0) ? abs($2) : 1/0)  w p  ls 13      lw 3.0 notitle, \
   1e-100 lw 0 notitle
+
+unset label
 
 
 
@@ -135,9 +167,17 @@ set lmargin 7.0
 unset ylabel
 
 set label 101 "{/Arial-Italic D} = 5" at  13, 2e-5   rotate by 0  textcolor rgb color1a font lbfont
-set label 102 "{/Arial-Italic D} = 6" at  19, 2.5e-4 rotate by 0  textcolor rgb color2b font lbfont
+
+set label 102 "{/Arial-Italic D} = 6, {/Symbol-Oblique k} = 0" \
+    at  16, 5.5e-4 rotate by 0  textcolor rgb color2b font lbfont
+
+set label 202 "{/Arial-Italic D} = 6, {/Symbol-Oblique k} = (0.675)_{{/Arial-Italic n} > 3}" \
+    at  14.5, 1.5e-4 rotate by 0  textcolor rgb color2b2 font lbfont
+
 set label 103 "{/Arial-Italic D} = 7" at  22, 5e-3   rotate by 38 textcolor rgb color3b font lbfont
 set label 104 "{/Arial-Italic D} = 8" at  23, 3e-2   rotate by 45 textcolor rgb color4b font lbfont
+
+
 
 plot [2:28][1e-5:1] \
   "data/D5/BnD5n12.dat"                   u ($1):(abs($2))                                  w l ls 2  lt 1 lw 0.5 notitle, \
@@ -150,22 +190,25 @@ plot [2:28][1e-5:1] \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3               w e ls 10      lw 1.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3               w e ls 11      lw 1.0 notitle, \
   "data/D8/BnD8n24.dat"                   u ($1):(abs($2))                                  w l ls 14 lt 5 lw 0.5 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3               w e ls 14      lw 1.0 notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3               w e ls 15      lw 1.0 notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3               w e ls 14             notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3               w e ls 15             notitle, \
   "iedata/xBnPYcD5n16.dat"                u ($1):(($1 <= 5) ? abs($2) : 1/0)                w l ls 4  lt 1 lw 0.5 notitle, \
   ""                                      u ($1):(($1 <= 5 && $2 > 0) ? abs($2) : 1/0)      w p ls 4       lw 1.0 notitle, \
   "iedata/xBnPYcD6n128.dat"               u ($1):(abs($2))                                  w l ls 8  lt 2 lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)                 w p ls 8       lw 1.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)                 w p ls 9       lw 1.0 notitle, \
+  "iedata/kappa/hBnPYcD6n32R34M32768c0.675L2.dat"  u ($1):(abs($4))                         w l ls 38 lt 2 lw 0.5 notitle, \
+  ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)                 w p ls 38      lw 1.0 notitle, \
+  ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)                 w p ls 39      lw 1.0 notitle, \
   "iedata/xBnPYcD7n128.dat"               u ($1):(abs($2))                                  w l ls 12 lt 4 lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)                 w p ls 12      lw 1.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)                 w p ls 13      lw 1.0 notitle, \
   "iedata/xBnPYcD8n128.dat"               u ($1):(abs($2))                                  w l ls 16 lt 5 lw 0.5 notitle, \
-  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)                   w p ls 16      lw 2.0 notitle, \
-  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)                   w p ls 17      lw 2.0 notitle, \
+  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)                   w p ls 16             notitle, \
+  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)                   w p ls 17             notitle, \
   1e-100 lw 0 notitle
 
-unset label 104
+unset label
 
 
 
@@ -214,6 +257,7 @@ plot [2:28][2e-3:4e-1] \
   ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)       w p ls 13 ps 1.6 lw 1.0 notitle, \
   1e-100 lw 0 notitle
 
+unset label
 unset arrow
 
 
@@ -262,6 +306,7 @@ plot [2:64][1e-4:1e7] \
   1e-100 lw 0 notitle
 
 unset arrow
+unset label
 
 
 

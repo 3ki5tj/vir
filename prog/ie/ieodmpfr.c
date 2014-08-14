@@ -327,7 +327,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
     COPY1DARR(cr[0], fr, npt);
   }
 
-  if ( dohnc ) {
+  if ( dohnc || mkcorr || singer ) {
     MAKE2DARR(tr, nmax - 1, npt);
   }
 
@@ -371,7 +371,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
     }
 
     /* compute the cavity function y(r) */
-    if ( dohnc ) {
+    if ( dohnc || mkcorr ) {
       if ( yr != NULL ) {
         get_yr_hnc_fast(l, npt, yrl, yr, tr);
       } else {
@@ -383,13 +383,15 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
     }
 
     if ( mkcorr ) { /* construct the correction function */
-      for ( i = 0; i < npt; i++ )
+      for ( i = 0; i < npt; i++ ) {
         SUB_(vc[i], yrl[i], trl[i]);
+      }
     }
 
     if ( dohnc ) {
       /* hypernetted chain approximation:
-       * c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
+       * c(r) = (f(r) + 1) y(r) - (1 + t(r))
+       * cl(r) = (f(r) + 1) yl(r) - tl(r) */
       for ( i = 0; i < npt; i++ ) {
         ADD_SI_(tmp1, fr[i], 1);
         FMS_(crl[i], tmp1, yrl[i], trl[i]);
@@ -427,7 +429,7 @@ static int intgeq(int nmax, int npt, const char *srmax, int ffttype, int dohnc)
     }
 
     if ( mkcorr ) {
-      get_corr1_hs(Bm, l, npt, dm, dohnc ? yrl : trl,
+      get_corr1_hs(Bm, l, npt, dm,
           crl, fr, rDm1, B2, vc, Bc, Bv, fcorr);
       get_zerosep(tmp1, vc, ri);
       ADD_X_(yr0[l], tmp1);
