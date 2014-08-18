@@ -202,7 +202,7 @@ def loadref(dim, nmax, gaussf, fnref):
         if not fnref or n1 < nn: # choose a file with smaller nmax
           nn, fnref = n1, fn
       if not fnref:
-        print "no suitable reference file for the Gaussian model, only %s" % fns
+        print "no suitable reference file for the hard-sphere model, only %s" % fns
         raise Exception
 
   refs = [0] * (nmax + 1)
@@ -246,7 +246,7 @@ def testshift(dim, nmin, nmax, gaussf,
   except:
     print "cannot find %s" % pat
     raise Exception
-  errmax = 0
+  errmax = errsum = cnt = 0
   who = None
   for ln in open(fnout).readlines():
     if ln.strip() == "" or ln.startswith("#"): continue
@@ -257,11 +257,13 @@ def testshift(dim, nmin, nmax, gaussf,
     ref = refs[n1]
     # compute the relative error
     err = fabs(x / ref - 1)
-    if x * ref < 0:
+    if x * ref <= 0:
       # penalize wrong signs
       err = fabs(x / ref - 1) * 100
     else:
       err = max(fabs(log(x / ref)), fabs(x/ref - 1))
+    errsum += err
+    cnt += 1
     if err > errmax:
       errmax = err
       who = n1
@@ -270,7 +272,7 @@ def testshift(dim, nmin, nmax, gaussf,
     print "bad result:", cmd, "\n", open(fnout).read()
     raise Exception
   #raw_input()
-  return errmax, who
+  return errmax, errsum/cnt, who
 
 
 
@@ -280,6 +282,7 @@ def optshift(dim, nmin, nmax, gaussf, fnref):
   refs = loadref(dim, nmax, gaussf, fnref)
   print "reference values", refs
   errmin, who = 1e10, None
+  erravmin = 1e10
 
   shift_best, shiftinc_best, shiftl0_best = None, None, None
 
@@ -302,20 +305,21 @@ def optshift(dim, nmin, nmax, gaussf, fnref):
 
       shiftinc = shiftinc_min
       while shiftinc < shiftinc_max:
-        err, who = testshift(dim, nmin, nmax, gaussf,
+        err, errav, who = testshift(dim, nmin, nmax, gaussf,
             shifttype, shift, shiftinc, shiftl0, refs)
-        if err < errmin:
+        # if the minimal error are the same, compare the average error
+        if err < errmin or fabs(err/errmin - 1) < 0.001 and errav < erravmin:
           shift_best, shiftinc_best, shiftl0_best = shift, shiftinc, shiftl0
           if shifttype == "C":
             strsh = " (c %s)," % (shift + shiftinc*2)
           else:
             strsh = " (c' %s)," % (shift - shiftinc*2)
-          print "* best parameters: %s -%s%s -d%s -L%s,%s error %s%% (n %s)" % (
-              opt0, shifttype, shift, shiftinc, shiftl0, strsh, err*100, who)
-          errmin, whomin = err, who
+          print "* best parameters: %s -%s%s -d%s -L%s,%s error %s%% (n %s, %s%%)" % (
+              opt0, shifttype, shift, shiftinc, shiftl0, strsh, err*100, who, errav*100)
+          errmin, erravmin, whomin = err, errav, who
         elif verbose:
-          print "parameters: %s -%s%s -d%s -L%s error %s%% (n %s)" % (
-            opt0, shifttype, shift, shiftinc, shiftl0, err*100, who)
+          print "parameters: %s -%s%s -d%s -L%s error %s%% (n %s, %s%%)" % (
+            opt0, shifttype, shift, shiftinc, shiftl0, err*100, who, errav*100)
         shiftinc += shiftinc_del
 
       if shifttype == "C":
@@ -327,10 +331,10 @@ def optshift(dim, nmin, nmax, gaussf, fnref):
 
   testshift(dim, nmin, nmax, gaussf,
       shifttype, shift_best, shiftinc_best, shiftl0_best, refs, True)
-  print "* best parameters: %s -%s%s -d%s -L%s,%s error %s%% (n %s)" % (
+  print "* best parameters: %s -%s%s -d%s -L%s,%s error %s%% (n %s, %s%%)" % (
       opt0,
       shifttype, shift_best, shiftinc_best, shiftl0_best, strsh,
-      errmin*100, whomin)
+      errmin*100, whomin, erravmin*100)
 
 
 if __name__ == "__main__":

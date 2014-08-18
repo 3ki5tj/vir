@@ -140,11 +140,13 @@ plot [2:22][8e-6:1] \
   ""                                      u ($1):(abs($2)):3                            w e  ls 10      lw 3.0 notitle, \
   "iedata/xBnPYcD2n32.dat"                u ($1):(abs($2))                              w l  ls 4  lt 1 lw 0.5 notitle, \
   ""                                      u ($1):(abs($2))                              w p  ls 4       lw 3.0 notitle, \
-  "iedata/kappa/hBnPYcD2n32R34M32768c0.205L4.dat"  u ($1):(abs($4))              w l  ls 34  lt 1 lw 0.5 notitle, \
+  "iedata/kappa/hBnPYcD2n32R34M32768c0.194L4.dat"  \
+                                          u ($1):(abs($4))              w l  ls 34  lt 1 lw 0.5 notitle, \
   ""                                      u ($1):(abs($4))                              w p  ls 34       lw 3.0 notitle, \
   "iedata/xBnPYcD3n16.dat"                u ($1):(($1 <= 12) ? abs($2) : 1/0)           w l  ls 8  lt 2 lw 0.5 notitle, \
   ""                                      u ($1):(($1 <= 12) ? abs($2) : 1/0)           w p  ls 8       lw 3.0 notitle, \
-  "iedata/kappa/BnPYcD3n32R34M32768c0.506L3f128.dat"  u ($1):(($1 <= 12) ? abs($2) : 1/0)     w l  ls 38  lt 2 lw 0.5 notitle, \
+  "iedata/kappa/BnPYcD3n32R34M32768c0.335L3f128.dat"  \
+                                          u ($1):(($1 <= 12) ? abs($2) : 1/0)     w l  ls 38  lt 2 lw 0.5 notitle, \
   ""                                      u ($1):(($1 <= 12) ? abs($2) : 1/0)           w p  ls 38       lw 3.0 notitle, \
   "iedata/xBnPYcD4n16.dat"                u ($1):(($1 <= 8)  ? abs($2) : 1/0)           w l  ls 12 lt 4 lw 0.5 notitle, \
   ""                                      u ($1):(($1 <= 8 && $2 > 0) ? abs($2) : 1/0)  w p  ls 12      lw 3.0 notitle, \
@@ -197,7 +199,8 @@ plot [2:28][1e-5:1] \
   "iedata/xBnPYcD6n128.dat"               u ($1):(abs($2))                                  w l ls 8  lt 2 lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)                 w p ls 8       lw 1.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)                 w p ls 9       lw 1.0 notitle, \
-  "iedata/kappa/hBnPYcD6n32R34M32768c0.675L2.dat"  u ($1):(abs($4))                         w l ls 38 lt 2 lw 0.5 notitle, \
+  "iedata/kappa/hBnPYcD6n32R34M32768c0.352L2.dat"  \
+                                          u ($1):(abs($4))                         w l ls 38 lt 2 lw 0.5 notitle, \
   ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)                 w p ls 38      lw 1.0 notitle, \
   ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)                 w p ls 39      lw 1.0 notitle, \
   "iedata/xBnPYcD7n128.dat"               u ($1):(abs($2))                                  w l ls 12 lt 4 lw 0.5 notitle, \

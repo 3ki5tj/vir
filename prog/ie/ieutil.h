@@ -755,7 +755,8 @@ __inline static xdouble get_yr_series(int l, int npt, xdouble *yr,
  * i.e., vc(r < 1) is unused */
 __inline static xdouble get_corr1_hs(int l, int npt, int dm,
     xdouble *cr, xdouble *fr, xdouble *rDm1,
-    xdouble B2, xdouble *vc, xdouble *Bc0, xdouble *Bv0, xdouble *eps)
+    xdouble B2, xdouble *vc, xdouble shift1,
+    xdouble *Bc0, xdouble *Bv0, xdouble *eps)
 {
   int i;
   xdouble dBc, dBv;
@@ -768,21 +769,21 @@ __inline static xdouble get_corr1_hs(int l, int npt, int dm,
     *eps = 0;
     return *Bv0;
   }
-  *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
+  *eps = -(*Bv0 * shift1 - *Bc0) / (dBv * shift1 - dBc);
   for ( i = 0; i < npt; i++ ) {
     vc[i] *= *eps;
     cr[i] += (fr[i] + 1) * vc[i];
   }
-  return (*Bv0) + (*eps) * dBv;
+  return ((*Bv0) + (*eps) * dBv) * shift1;
 }
 
 
 
 /* switch between the continuous and discontinuous case */
-#define get_corr1x(l, npt, dm, cr, fr, rdfr, rDm1, dim, B2, vc, Bc0, Bv0, fcorr) \
+#define get_corr1x(l, npt, dm, cr, fr, rdfr, rDm1, dim, B2, vc, shift1, Bc0, Bv0, fcorr) \
   (rdfr == NULL \
-    ? get_corr1_hs(l, npt, dm, cr, fr, rDm1, B2, vc, Bc0, Bv0, fcorr) \
-    : get_corr1(l, npt, cr, fr, rdfr, rDm1, dim, vc, Bc0, Bv0, fcorr))
+    ? get_corr1_hs(l, npt, dm, cr, fr, rDm1, B2, vc, shift1, Bc0, Bv0, fcorr) \
+    : get_corr1(l, npt, cr, fr, rdfr, rDm1, dim, vc, shift1, Bc0, Bv0, fcorr))
 
 
 
@@ -790,7 +791,7 @@ __inline static xdouble get_corr1_hs(int l, int npt, int dm,
  *  `vc' is the trial correction function to y(r) */
 __inline static xdouble get_corr1(int l, int npt,
     xdouble *cr, xdouble *fr, xdouble *rdfr,
-    xdouble *rDm1, int dim, xdouble *vc,
+    xdouble *rDm1, int dim, xdouble *vc, xdouble shift1,
     xdouble *Bc0, xdouble *Bv0, xdouble *eps)
 {
   int i;
@@ -805,12 +806,12 @@ __inline static xdouble get_corr1(int l, int npt,
     return *Bc0;
   }
 
-  *eps = -(*Bv0 - *Bc0) / (dBv - dBc);
+  *eps = -(*Bv0 * shift1 - *Bc0) / (dBv * shift1 - dBc);
   for ( i = 0; i < npt; i++ ) {
     vc[i] *= *eps;
     cr[i] += vc[i] * (1 + fr[i]);
   }
-  return *Bv0 + (*eps) * dBv;
+  return (*Bv0 + (*eps) * dBv) * shift1;
 }
 
 

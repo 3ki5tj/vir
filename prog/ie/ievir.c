@@ -579,6 +579,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
     }
 
     if ( mkcorr || expcorr ) {
+      xdouble shift1 = 1;
+
       vc = mkcorr ? brl : br[l];
 
       if ( mkcorr ) {
@@ -590,11 +592,11 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
         get_exp_corr(l, npt, vc, tr);
       }
 
-      /* apply the shift */
-      if ( l >= shiftl0 ) Bv *= 1 + shift + shiftinc * l;
+      /* compute the shift */
+      if ( l >= shiftl0 ) shift1 = 1 + shift + shiftinc * l;
 
       Bm = get_corr1x(l, npt, dm, crl, fr, rdfr, rDm1,
-                      dim, B2, vc, &Bc, &Bv, &fcorr);
+                      dim, B2, vc, shift1, &Bc, &Bv, &fcorr);
       yr0[l] += get_zerosep(vc, ri);
     }
 
