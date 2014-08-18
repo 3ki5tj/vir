@@ -8,7 +8,9 @@ $(prj)doc.pdf: $(prj)doc.tex $(prj)text.pdf $(prj)supp.pdf Makefile $(figs)
 clean:
 	rm -rf $(prj).log $(prj)doc.pdf *.aux *~
 
-$(prj)doc.zip: $(prj)doc.pdf $(prj)text.doc $(prj)supp.doc $(prj).enl $(prj).Data $(figs) README
+$(prj)doc.zip: $(prj)doc.tex $(prj)doc.pdf $(prj)text.doc \
+  	       $(prj)supp.doc \
+	       $(prj).enl $(prj).Data $(figs) README Makefile \
 	zip -r $@ $^
 
 zip: $(prj)doc.zip

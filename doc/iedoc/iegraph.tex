@@ -82,9 +82,9 @@ The virial expansion is
 %
 where $\beta = 1/(k_B T)$ is the inverse temperature.
 
-The theory of integral equations involves
-  the direct correlation function $c(\vr)$
-  and the indirect correlation function $t(\vr)$.
+The direct, indirect, and total correlation functions
+  are denoted by $c(\vr)$, $t(\vr)$,
+  and $h(\vr) \equiv c(\vr) + t(\vr)$.
 %
 The Ornstein-Zernike (OZ) relation\cite{hansen} reads
 %
@@ -311,8 +311,9 @@ Table \ref{tab:thermodyn}
   \noalign{\smallskip}
   \multicolumn{8}{p{\textwidth}}{
     $^\star$
-    The virial coefficient $B_n$ can be found by equating this and the next columns,
-    e.g., the second row of the PY equation gives
+    The virial coefficient $B_n$ can be found by equating
+    the density expansions of this and the next columns,
+    e.g., the second row for the PY equation gives
     $B_n = -(1/n) \int c_{n-2} \, d\vr$.
   }
   \\
@@ -431,13 +432,12 @@ Similarly, removing a \emph{separation pair} of vertices
 In liquid theory,
   each graph represents an integral.
 %
-A vertex $i$ is associated to a spatial point
-  of coordinates $\vr_i$.
+A vertex $i$ is associated to a spatial point at $\vr_i$.
 %
 A \emph{root} vertex,
   or simply a \emph{root} (drawn as a white dot),
-  is specially designated
-and the coordinates of are given and fixed.
+  is specially designated,
+  with given and fixed coordinates.
 %
 The coordinates of a non-root vertex
   (drawn as a black dot)
@@ -1035,45 +1035,45 @@ Conversely,
   (some $H'$, however, may be different from $H$).
 %
 To satisfy Lemma \ref{thm:pycrsum},
-  a nonequivalent polygon pack $G$ must appear $2 \, n/s$ times
+  a nonequivalent polygon pack $G$ must appear $2 \, n/s(G)$ times
   in $\rho^2 \int c(\vr) \, d\vr$,
-  where $s$ is the symmetry number, or
-  the number of ways of relabelling the vertices
-  that keep $G$ unchanged.
-%
-For example,
-%
-%
-% Examples of the symmetry numbers
-%
-%
-\newcommand{\hh}{0.07}
-\begin{equation*}
-  s \left( {
-    \begin{tikzpicture}[baseline=-1mm]
-      \node (r1) at (-4*\hh, -4*\hh) [blackdot]{};
-      \node (r2) at ( 4*\hh, -4*\hh) [blackdot]{};
-      \node (r3) at ( 4*\hh,  4*\hh) [blackdot]{};
-      \node (r4) at (-4*\hh,  4*\hh) [blackdot]{};
-      \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1);
-    \end{tikzpicture}
-    } \right)
-  = 8,
-  \;\;
-  s \left( {
-    \begin{tikzpicture}[baseline=-1mm]
-      \node (r1) at (-2.3*\hh, -4*\hh) [blackdot]{};
-      \node (r2) at (-4.6*\hh,  0.0) [blackdot]{};
-      \node (r3) at (-2.3*\hh,  4*\hh) [blackdot]{};
-      \node (r4) at ( 2.3*\hh,  4*\hh) [blackdot]{};
-      \node (r5) at ( 4.6*\hh,  0.0) [blackdot]{};
-      \node (r6) at ( 2.3*\hh, -4*\hh) [blackdot]{};
-      \draw (r1) -- (r2) -- (r3) -- (r4) -- (r5) -- (r6) -- (r1)
-            (r1) -- (r5) (r1) -- (r4);
-    \end{tikzpicture}
-    } \right)
-  = 1.
-\end{equation*}
+  where $s(G)$ is the symmetry number.
+%  or the number of ways of relabelling the vertices
+%  that keep $G$ unchanged.
+%%
+%For example,
+%%
+%%
+%% Examples of the symmetry numbers
+%%
+%%
+%\begin{equation*}
+% \newcommand{\hh}{0.07}
+%  s \left( {
+%    \begin{tikzpicture}[baseline=-1mm]
+%      \node (r1) at (-4*\hh, -4*\hh) [blackdot]{};
+%      \node (r2) at ( 4*\hh, -4*\hh) [blackdot]{};
+%      \node (r3) at ( 4*\hh,  4*\hh) [blackdot]{};
+%      \node (r4) at (-4*\hh,  4*\hh) [blackdot]{};
+%      \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1);
+%    \end{tikzpicture}
+%    } \right)
+%  = 8,
+%  \;\;
+%  s \left( {
+%    \begin{tikzpicture}[baseline=-1mm]
+%      \node (r1) at (-2.3*\hh, -4*\hh) [blackdot]{};
+%      \node (r2) at (-4.6*\hh,  0.0) [blackdot]{};
+%      \node (r3) at (-2.3*\hh,  4*\hh) [blackdot]{};
+%      \node (r4) at ( 2.3*\hh,  4*\hh) [blackdot]{};
+%      \node (r5) at ( 4.6*\hh,  0.0) [blackdot]{};
+%      \node (r6) at ( 2.3*\hh, -4*\hh) [blackdot]{};
+%      \draw (r1) -- (r2) -- (r3) -- (r4) -- (r5) -- (r6) -- (r1)
+%            (r1) -- (r5) (r1) -- (r4);
+%    \end{tikzpicture}
+%    } \right)
+%  = 1.
+%\end{equation*}
 %
 For a polygon graph $G$, $s(G)$ always divides $2n$,
   i.e.,
@@ -1247,7 +1247,7 @@ Using \eqref{eq:countvertices} in \eqref{eq:pykappasum} yields
 \label{eq:pyintgcr2sums}
 \end{equation}
 %
-where $\Chn_l$ is the cycle sum:
+where $\Chn_l$ is the sum of all cycles of length $l$ in all $G$:
 %
 \begin{align}
       \Chn_l
@@ -1294,13 +1294,15 @@ So the contribution to both sides is $m/s = d/(p\cdot l) = 1/2$.
 Summing \eqref{eq:ccycling} over $l$ yields
 %
 \begin{align}
-     \sum_{l=3}^{\infty} 2 \, \Chn_l
+     \sum_{l=2}^{\infty} 2 \, \Chn_l
+     %\sum_{l=3}^{\infty} 2 \, \Chn_l
   &= -\int \Big\{
               \log[ 1 - \rho \tilde{c}(\vk) ]
             + \rho \tilde{c}(\vk)
-           \Big\}\, \dvk \notag \\
-  & \hphantom{=}
-     - \frac{\rho^2}{2} \int c^2(\vr) \, d\vr,
+           \Big\}\, \dvk,
+  %\notag \\
+  %& \hphantom{=}
+  %   - \frac{\rho^2}{2} \int c^2(\vr) \, d\vr,
      \label{eq:Clsum} \\
   %
       \sum_{l=3}^{\infty} \, l \, \Chn_l
@@ -1361,6 +1363,9 @@ where we have used
 %
 Note that the weight $-2/s(G)$ is rather different
   from that $(1-n)/s(G)$ given in Sec. \ref{sec:graph}.
+%
+This means that the PY closure not only drops the non-polygon graphs,
+  but also reduces the weights of the polygon graphs.
 %
 By using \eqref{eq:zerosep} and adding the ideal-gas part,
   we can rewrite the above result in $\tilde{c}(\vk)$ only:
@@ -1496,7 +1501,7 @@ The HNC closure includes
 For example, $c(\vr)$ contains
 %
 \begin{equation}
-  \renewcommand{\hh}{0.22cm}
+  \newcommand{\hh}{0.22cm}
   \begin{tikzpicture}[baseline=1.2mm]
     \node (r1) at (-2.0*\hh,  2*\hh) [whitedot]{};
     \node (r2) at (   0,      4*\hh) [blackdot]{};
@@ -1563,7 +1568,7 @@ but not
 %
 %
 \begin{equation}
-  \renewcommand{\hh}{0.22cm}
+  \newcommand{\hh}{0.22cm}
   \begin{tikzpicture}[baseline=1.2mm]
     \node (r1) at (-2*\hh,  2*\hh) [whitedot]{};
     \node (r2) at (0*\hh,   0*\hh) [blackdot]{};
@@ -1613,9 +1618,11 @@ Under the HNC closure,
 %
 $c(\vr)$
   is the sum of all nonequivalent $c$-graphs $G$
-  each weighted by $1/s(G)$,
-  where $s(G)$ is the number of ways of relabelling
-  \emph{black} vertices that keep the connections of $G$ unchanged;
+  each weighted by
+  the inverse symmetry number
+  $1/s(G)$,
+  %where $s(G)$ is the number of ways of relabelling
+  %\emph{black} vertices that keep the connections of $G$ unchanged;
 %
 and $t(\vr)$ is the corresponding sum of all
   $c$-chains $H$, each weighted by $1/s(H)$.
@@ -1656,7 +1663,7 @@ Under the HNC closure \eqref{eq:hnc},
   and possibly also an $f$-graph,
   i.e., $G = H_1 \cdots H_m (\cdot f)$,
   if it is generated by the term
-  $\big\{\llbra m \ge 2 \llket + f(\vr)\big\} \, t^m(\vr) / m!$
+  $\big\{\llbra m \ge 2 \llket + f(\vr)\big\} \, t^m(\vr) / m!$.
 %
 Let us first show that $G$ is a $c$-graph.
 %
@@ -1664,11 +1671,11 @@ If $m \le 2$,
   $G$ is a cycle of $c$-graphs,
   hence a $c$-graph.
 %
-For $m > 2$, we carry an induction on $m$.
+For $m \ge 3$, we carry an induction on $m$.
 %
 Since $G$ is a parallel composition of the $c$-chain $H_m$
   and the graph
-  $G' = H_1 \cdots H_{m-1} (\cdot f)$ (which is a $c$-chain by the induction hypothesis),
+  $G' = H_1 \cdots H_{m-1} (\cdot f)$ (which is a $c$-graph by the induction hypothesis),
   $G$ is a cycle of $c$-graphs, hence a $c$-graph,
   by \eqref{eq:cyclesp}.
 %
@@ -1699,7 +1706,7 @@ or, equivalently, $G = G_l \cdot H_m$,
 By the induction hypotheses,
   $G_l$ can be generated by the term
   $\big\{ \llbra m \ge 3 \llket +f(\vr) \big\} t^{m - 1}(\vr) / (m - 1)!$
-  of some $m$,
+  of some $m$ (for $G_l$ has fewer vertices than $G$),
 whereas
   the $H_m$ can be generated by $t(\vr)$.
 %
@@ -1812,7 +1819,7 @@ We now generalize the face decomposition in the PY case
 
 First, a cycle of $l$ ($l \ge 3$) $c$-graphs
   is \emph{simple}
-  in which at least $(l-1)$ of the $c$-graphs are $f$-graphs.
+  in which at least $(l-1)$ of the member $c$-graphs are $f$-graphs.
 %
 We now show that
 %
@@ -1943,6 +1950,7 @@ If $K'$ is simple, we are done.
 %
 Otherwise,
   we replace the $c$-graph between $v'_1$ and $v'_{k'}$ in $K'$
+  (of cycle $J$)
   by an $f$-graph.
 %
 On the simplified graph $G'$,
@@ -2004,8 +2012,9 @@ Let $J = u_1 - u_2 - \dots - u_j - u_1 (\equiv u_{j+1})$
   be a cycle that decomposes the original $c$-pack $G$,
 %
 and $L^{(s)} = v_1 - v_2 - \dots - v_l - v_1$
-  be the simple cycle discovered
-  in the $s$th round of Algorithm D.
+  be the simple cycle
+  (with $\{v_1, v_2\}$, ..., $\{v_{l-1}, v_l\}$ being $f$-bonds)
+  discovered in the $s$th round of Algorithm D.
 %
 We will show below that
   either
@@ -2013,7 +2022,7 @@ We will show below that
     are entirely contained in
     some $c$-graph between $u_i$ and $u_{i+1}$,
   or
-  (b) $L^{(s)}$ and $J$ share the same joints.
+  (b) $L^{(s)}$ and $J$ share the same joints (i.e., the two are the same).
 %
 Since case (a) leaves $J$ intact,
   every cycle $J$ is discovered (and then eliminated)
@@ -2022,6 +2031,10 @@ Since case (a) leaves $J$ intact,
 %
 
 If (a) is not true,
+  it means that the vertices in $L^{(s)}$
+  are located in multiple member $c$-graphs $u_i - u_{i+1}$ in cycle $J$.
+%
+Then,
   there is at least one joint $u_i$ of $J$
   that belongs to $V_L$
   [for the vertices in $V_L$ are connected in $G^{(s)}$].

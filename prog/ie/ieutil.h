@@ -1628,6 +1628,8 @@ static void sphr_fft(int K, int npt, xdouble *in, xdouble *out, xdouble fac,
 {
   int i, l, iscos;
 
+  (void) p;
+
   if ( ffttype != 0 && ffttype != 1 ) return;
 
   /* clear the output */

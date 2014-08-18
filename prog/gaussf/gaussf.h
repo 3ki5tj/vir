@@ -141,6 +141,7 @@ static void gaussf_vir(FILE *fp, graph *g, int n)
   int d;
   hp_t invsqrtdet, symf, x;
 
+  if (nooutput) return;
   gcomplx_dograph(NULL, g, n);
   HP_INIT(x);
   HP_INIT(symf);
@@ -219,7 +220,8 @@ static int gaussf_save(void)
 
 static int gaussf_done(void)
 {
-  gaussf_save();
+  if (!nooutput)
+    gaussf_save();
   gcomplx_done();
   if (virsum != NULL) free(virsum);
   return 0;

@@ -1,3 +1,5 @@
+prj = ievir
+
 LQ = -lquadmath
 LFFTW = -lfftw3
 LFFTWL = -lfftw3l
@@ -121,6 +123,18 @@ usb:
 pack:
 	$(MAKE) -C ../.. $@
 
-zip:
-	$(MAKE) -C ../.. $@
+$(prj)prog.zip: fft.h fftmpfr.h xdouble.h slowdht.h zcom.h \
+  		ievir.c iegsl.c ieodfftw.c ieutil.h \
+		ieodmpfr.c ieutilmpfr.h \
+		ybgvir.c kirkvir.c \
+		base/pyfftw.c base/hncfftw.c \
+		scifmt.py ieoptparam.py ievirextra.py \
+		iebenchmark.sh \
+		README Makefile
+	zip -r $@ $^
 
+zip: $(prj)prog.zip
+
+Bossman: zip
+	rsync -avL $(prj)prog.zip \
+	  cz1@129.109.88.204:/Bossman/cz1/vir/ieprog

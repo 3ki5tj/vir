@@ -262,8 +262,12 @@ def testshift(dim, nmin, nmax, gaussf,
       err = fabs(x / ref - 1) * 100
     else:
       err = max(fabs(log(x / ref)), fabs(x/ref - 1))
-    errsum += err
-    cnt += 1
+    ## we let higher-order coefficients carry larger weight
+    ## in computing the average error
+    #wt = n1 * n1
+    wt = 1
+    errsum += err * wt
+    cnt += wt
     if err > errmax:
       errmax = err
       who = n1
@@ -272,7 +276,11 @@ def testshift(dim, nmin, nmax, gaussf,
     print "bad result:", cmd, "\n", open(fnout).read()
     raise Exception
   #raw_input()
-  return errmax, errsum/cnt, who
+  errav = errsum/cnt
+  # based on the maximal error
+  return errmax, errav, who
+  # based on the average error
+  #return errav, errmax, who
 
 
 

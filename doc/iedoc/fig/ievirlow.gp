@@ -120,13 +120,13 @@ set lmargin 6.0
 set label 101 "{/Arial-Italic D} = 2, {/Symbol-Oblique k} = 0" \
   at 17.0, 0.8e-4 rotate by -63  textcolor rgb color1b font lbfont
 
-set label 301 "{/Arial-Italic D} = 2, {/Symbol-Oblique k} = (0.205)_{{/Arial-Italic n} > 5}" \
+set label 301 "{/Arial-Italic D} = 2, {/Symbol-Oblique k} = (0.194)_{{/Arial-Italic n} {/Symbol \263} 6}" \
   at 15.0, 3.0e-3 rotate by -60  textcolor rgb color1b2 font lbfont
 
 set label 102 "{/Arial-Italic D} = 3, {/Symbol-Oblique k} = 0" \
    at 10.0, 1.0e-4 rotate by -75  textcolor rgb color2b font lbfont
 
-set label 302 "{/Arial-Italic D} = 3, {/Symbol-Oblique k} = (0.506)_{{/Arial-Italic n} > 4}" \
+set label 302 "{/Arial-Italic D} = 3, {/Symbol-Oblique k} = (0.335)_{{/Arial-Italic n} {/Symbol \263} 5}" \
    at 11.0, 4.0e-4 rotate by -70  textcolor rgb color2b2 font lbfont
 
 set label 103 "{/Arial-Italic D} = 4" at  5.0, 5.5e-3 rotate by -78  textcolor rgb color3b font lbfont
@@ -140,13 +140,13 @@ plot [2:22][8e-6:1] \
   ""                                      u ($1):(abs($2)):3                            w e  ls 10      lw 3.0 notitle, \
   "iedata/xBnPYcD2n32.dat"                u ($1):(abs($2))                              w l  ls 4  lt 1 lw 0.5 notitle, \
   ""                                      u ($1):(abs($2))                              w p  ls 4       lw 3.0 notitle, \
-  "iedata/kappa/hBnPYcD2n32R34M32768c0.194L4.dat"  \
-                                          u ($1):(abs($4))              w l  ls 34  lt 1 lw 0.5 notitle, \
+  "iedata/kappa/hBnPYcD2n36R38M32768c0.194L4.dat"  \
+                                          u ($1):(abs($4))                              w l  ls 34  lt 1 lw 0.5 notitle, \
   ""                                      u ($1):(abs($4))                              w p  ls 34       lw 3.0 notitle, \
   "iedata/xBnPYcD3n16.dat"                u ($1):(($1 <= 12) ? abs($2) : 1/0)           w l  ls 8  lt 2 lw 0.5 notitle, \
   ""                                      u ($1):(($1 <= 12) ? abs($2) : 1/0)           w p  ls 8       lw 3.0 notitle, \
-  "iedata/kappa/BnPYcD3n32R34M32768c0.335L3f128.dat"  \
-                                          u ($1):(($1 <= 12) ? abs($2) : 1/0)     w l  ls 38  lt 2 lw 0.5 notitle, \
+  "iedata/kappa/BnPYcD3n36R38M32768c0.335L3f128.dat"  \
+                                          u ($1):(($1 <= 12) ? abs($2) : 1/0)           w l  ls 38  lt 2 lw 0.5 notitle, \
   ""                                      u ($1):(($1 <= 12) ? abs($2) : 1/0)           w p  ls 38       lw 3.0 notitle, \
   "iedata/xBnPYcD4n16.dat"                u ($1):(($1 <= 8)  ? abs($2) : 1/0)           w l  ls 12 lt 4 lw 0.5 notitle, \
   ""                                      u ($1):(($1 <= 8 && $2 > 0) ? abs($2) : 1/0)  w p  ls 12      lw 3.0 notitle, \
@@ -173,7 +173,7 @@ set label 101 "{/Arial-Italic D} = 5" at  13, 2e-5   rotate by 0  textcolor rgb 
 set label 102 "{/Arial-Italic D} = 6, {/Symbol-Oblique k} = 0" \
     at  16, 5.5e-4 rotate by 0  textcolor rgb color2b font lbfont
 
-set label 202 "{/Arial-Italic D} = 6, {/Symbol-Oblique k} = (0.675)_{{/Arial-Italic n} > 3}" \
+set label 202 "{/Arial-Italic D} = 6, {/Symbol-Oblique k} = (0.352)_{{/Arial-Italic n} {/Symbol \263} 4}" \
     at  14.5, 1.5e-4 rotate by 0  textcolor rgb color2b2 font lbfont
 
 set label 103 "{/Arial-Italic D} = 7" at  22, 5e-3   rotate by 38 textcolor rgb color3b font lbfont
@@ -199,8 +199,8 @@ plot [2:28][1e-5:1] \
   "iedata/xBnPYcD6n128.dat"               u ($1):(abs($2))                                  w l ls 8  lt 2 lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)                 w p ls 8       lw 1.0 notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)                 w p ls 9       lw 1.0 notitle, \
-  "iedata/kappa/hBnPYcD6n32R34M32768c0.352L2.dat"  \
-                                          u ($1):(abs($4))                         w l ls 38 lt 2 lw 0.5 notitle, \
+  "iedata/kappa/hBnPYcD6n36R38M32768c0.352L2.dat"  \
+                                          u ($1):(abs($4))                                  w l ls 38 lt 2 lw 0.5 notitle, \
   ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)                 w p ls 38      lw 1.0 notitle, \
   ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)                 w p ls 39      lw 1.0 notitle, \
   "iedata/xBnPYcD7n128.dat"               u ($1):(abs($2))                                  w l ls 12 lt 4 lw 0.5 notitle, \
