@@ -16,6 +16,7 @@
  * dgring.h directly, which in turn includes dgsc.h, dgrjw.h, etc. */
 #include "dgring.h"
 #include "mcutil.h"
+#include "dgcryr.h"
 
 
 
@@ -76,11 +77,17 @@ char *dbfnbak = NULL; /* backup output database */
 int dbbinary = -1; /* binary database */
 int dbnobak = 0; /* do not backup the database */
 
-int nstcr = 0; /* frequency of writing */
-int nstcrrep = 1000000; /* frequency of reporting cr */
 double crxmax = 0;
 double crdx = 0.01; /* interval of dx */
+
+int nstcr = 0; /* frequency of computing cr */
+int nstcrrep = 1000000; /* frequency of reporting cr */
 char fncr[80];
+
+int nstyr = 0; /* frequency of computing yr */
+int nstyrrep = 1000000; /* frequency of reporting yr */
+char fnyr[80];
+
 
 
 /* handle arguments */
@@ -137,10 +144,14 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--dbbin",       "%d",   &dbbinary,    "if the output database is binary, 1: binary, 0: text, -1: default");
   argopt_add(ao, "--dbnobak",     "%b",   &dbnobak,     "do not backup database");
 
-  argopt_add(ao, "--nstcr",       "%d",   &nstcr,       "frequency of computing cr");
-  argopt_add(ao, "--nstcrrep",    "%d",   &nstcrrep,    "frequency of reporting cr");
   argopt_add(ao, "--crxmax",      "%lf",  &crxmax,      "maximal r");
-  argopt_add(ao, "--crdx",        "%lf",  &crdx,        "grid spacing of cr");
+  argopt_add(ao, "--crdx",        "%lf",  &crdx,        "grid spacing of c(r)");
+
+  argopt_add(ao, "--nstcr",       "%d",   &nstcr,       "frequency of computing c(r)");
+  argopt_add(ao, "--nstcrrep",    "%d",   &nstcrrep,    "frequency of reporting c(r)");
+
+  argopt_add(ao, "--nstyr",       "%d",   &nstyr,       "frequency of computing y(r)");
+  argopt_add(ao, "--nstyrrep",    "%d",   &nstyrrep,    "frequency of reporting y(r)");
 
   argopt_parse(ao, argc, argv);
 
@@ -277,6 +288,7 @@ static void doargs(int argc, char **argv)
   if ( argopt_isset(ao, crxmax) || crxmax < 1e-6 )
     crxmax = n + 4;
   sprintf(fncr, "crD%dn%d.dat", D, n);
+  sprintf(fnyr, "yrD%dn%d.dat", D, n);
 
   if (inode == MASTER) {
     argopt_dump(ao);
@@ -431,17 +443,37 @@ static void report(const av0_t *fbsm, const av0_t *nrsm,
 static void savecr(hscr_t *hs, rvn_t *x, int n, double fb)
 {
   int i, j;
-  static int cnt;
-  real r;
+  static unsigned long cnt = 0;
 
-  for (i = 0; i < n; i++) {
-    for (j = i+1; j < n; j++) {
-      r = rvn_dist(x[i], x[j]);
-      hscr_add(hs, r, fb);
+  for (i = 0; i < n; i++)
+    for (j = i + 1; j < n; j++) {
+      real r = rvn_dist(x[i], x[j]);
+      hscr_add0(hs, r, fb);
     }
-  }
-  if (++cnt % nstcrrep == 0)
+  hscr_inc(hs, n*(n-1)/2);
+  if ((cnt = (cnt+1) % nstcrrep) == 0)
     hscr_save(hs, fncr, Zn);
+}
+
+
+
+static void saveyr(hscr_t *hs, rvn_t *x, dg_t *g)
+{
+  int i, j;
+  static unsigned long cnt = 0;
+  double fb;
+  DG_DEFN_(g)
+
+  for (i = 0; i < DG_N_; i++)
+    for (j = i + 1; j < DG_N_; j++)
+      if ( dg_linked(g, i, j) ) { /* only interested in r < 1 */
+        real r = rvn_dist(x[i], x[j]);
+        fb = dgsc_yiter(g, NULL, i, j);
+        hscr_add0(hs, r, fb);
+      }
+  hscr_inc(hs, DG_N_ * (DG_N_ - 1) / 2);
+  if ((cnt = (cnt+1) % nstyrrep) == 0)
+    hscr_save(hs, fnyr, Zn);
 }
 
 
@@ -470,7 +502,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 #endif
   av0_t fbsm, nrsm, cacc, racc;
   unqid_t gmapid;
-  hscr_t *hscr = NULL;
+  hscr_t *hscr = NULL, *hsyr = NULL;
 
   die_if (DG_N_ > DGMAP_NMAX, "no diagram map for n %d\n", DG_N_);
 
@@ -503,7 +535,8 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   nr = dgmap_nr0(DG_N_, gmapid);
 #endif /* !defined(DG_NORING) */
 
-  hscr = hscr_open(crxmax, crdx, D, DG_N_);
+  if (nstcr > 0) hscr = hscr_open(crxmax, crdx, D, DG_N_);
+  if (nstyr > 0) hsyr = hscr_open(1,      crdx, D, DG_N_);
 
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
@@ -595,8 +628,12 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
     if (it % nstcom == 0) rvn_rmcom(x, DG_N_);
 
-    if (inode == MASTER && nstcr > 0 && it % nstcr == 0) {
-      savecr(hscr, x, DG_N_, fb);
+    if (inode == MASTER) {
+      if (nstcr > 0 && it % nstcr == 0) savecr(hscr, x, DG_N_, fb);
+      if (nstyr > 0 && it % nstyr == 0) {
+        dg_decode(g, &code);
+        saveyr(hsyr, x, g);
+      }
     }
 
     if (it % nstrep == 0 || t > nsteps - .5) {
@@ -606,8 +643,14 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   }
   dg_close(g);
   dg_close(ng);
-  hscr_save(hscr, fncr, Zn);
-  hscr_close(hscr);
+  if (nstcr > 0) {
+    hscr_save(hscr, fncr, Zn);
+    hscr_close(hscr);
+  }
+  if (nstyr > 0) {
+    hscr_save(hsyr, fnyr, Zn);
+    hscr_close(hsyr);
+  }
 }
 #endif /* defined(DGMAP_EXISTS) */
 
@@ -653,7 +696,7 @@ static void mcrat_direct(int n, double nequil, double nsteps,
   double t, fb, nr = 0;
   dg_t *g, *ng;
   av0_t fbsm, nrsm, cacc, racc;
-  hscr_t *hscr;
+  hscr_t *hscr = NULL, *hsyr = NULL;
 
   /* both the large map and hash table are shared among threads */
 #ifdef DGMAPL_EXISTS
@@ -717,7 +760,8 @@ static void mcrat_direct(int n, double nequil, double nsteps,
   fb = dg_fbnr(g, &nr);
   hasfb = 1;
 
-  hscr = hscr_open(crxmax, crdx, D, DG_N_);
+  if (nstcr > 0) hscr = hscr_open(crxmax, crdx, D, DG_N_);
+  if (nstyr > 0) hsyr = hscr_open(1,      crdx, D, DG_N_);
 
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
@@ -832,8 +876,9 @@ static void mcrat_direct(int n, double nequil, double nsteps,
       writepos(fnpos, x, DG_N_, posfr++);
     }
 
-    if (inode == MASTER && nstcr > 0 && it % nstcr == 0) {
-      savecr(hscr, x, DG_N_, fb);
+    if (inode == MASTER) {
+      if (nstcr > 0 && it % nstcr == 0) savecr(hscr, x, DG_N_, fb);
+      if (nstyr > 0 && it % nstyr == 0) saveyr(hsyr, x, g);
     }
 
     if (it % nstrep == 0 || t > nsteps - .5) {
@@ -859,8 +904,14 @@ static void mcrat_direct(int n, double nequil, double nsteps,
   }
   dg_close(g);
   dg_close(ng);
-  hscr_save(hscr, fncr, Zn);
-  hscr_close(hscr);
+  if (nstcr > 0) {
+    hscr_save(hscr, fncr, Zn);
+    hscr_close(hscr);
+  }
+  if (nstyr > 0) {
+    hscr_save(hsyr, fnyr, Zn);
+    hscr_close(hsyr);
+  }
 
 #pragma omp barrier
 #ifdef DGMAPL_EXISTS

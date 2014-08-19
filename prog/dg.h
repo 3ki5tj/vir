@@ -504,6 +504,20 @@ INLINE dg_t *dg_copy(dg_t *a, const dg_t *b)
 
 
 
+/* compare diagrams */
+INLINE int dg_cmp(const dg_t *a, const dg_t *b)
+{
+  int i;
+  DG_DEFN_(b)
+
+  for (i = 0; i < DG_N_; i++) {
+    if (a->c[i] != b->c[i]) return a->c[i] > b->c[i] ? 1 : -1;
+  }
+  return 0;
+}
+
+
+
 /* remove all edges */
 INLINE void dg_empty(dg_t *g)
 {

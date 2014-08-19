@@ -123,7 +123,7 @@ plot [2:16][5e-5:1] \
   "iedata/xBnPYcD2n32.dat"                u ($1):(abs($2))                              w l  ls 4  lw 0.5 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)             w p  ls 4         notitle, \
   ""                                      u ($1):-1                                     w lp ls 4         t "Self-consistent", \
-  "iedata/xBnPYD2n32.dat"                 u ($1):(abs($3))                              w l  ls 10 lw 0.5 notitle, \
+  "iedata/py/xBnPYD2n32.dat"              u ($1):(abs($3))                              w l  ls 10 lw 0.5 notitle, \
   ""                                      u ($1):(($3 > 0) ? abs($3) : 1/0)             w p  ls 10        notitle, \
   ""                                      u ($1):-1                                     w lp ls 10        t "PY, virial", \
   ""                                      u ($1):(abs($2))                              w l  ls 12 lw 0.5 notitle, \
@@ -132,7 +132,7 @@ plot [2:16][5e-5:1] \
   ""                                      u ($1):(abs($4))                              w l  ls 18 lw 0.5 notitle, \
   ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)             w p  ls 18        notitle, \
   ""                                      u ($1):-1                                     w lp ls 18        t "PY, {/Symbol-Oblique c}", \
-  "iedata/xBnHNCD2n32.dat"                u ($1):(abs($3))                              w l  ls 6  lw 0.5 notitle, \
+  "iedata/hnc/xBnHNCD2n32.dat"            u ($1):(abs($3))                              w l  ls 6  lw 0.5 notitle, \
   ""                                      u ($1):(($3 > 0) ? abs($3) : 1/0)             w p  ls 6         notitle, \
   ""                                      u ($1):(($3 < 0) ? abs($3) : 1/0)             w p  ls 7         notitle, \
   ""                                      u ($1):-1                                     w lp ls 6         t "HNC, virial", \
@@ -174,7 +174,7 @@ plot [2:32][4e-6:4] \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)             w p  ls 4         notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)             w p  ls 5         notitle, \
   ""                                      u ($1):-1                                     w lp ls 4         t "Self-consistent", \
-  "iedata/BnPYD7n32R34M65536f128.dat"     u ($1):(abs($3))                              w l  ls 10 lw 0.5 notitle, \
+  "iedata/py/BnPYD7n32R34M65536f128.dat"  u ($1):(abs($3))                              w l  ls 10 lw 0.5 notitle, \
   ""                                      u ($1):(($3 > 0) ? abs($3) : 1/0)             w p  ls 10        notitle, \
   ""                                      u ($1):(($3 < 0) ? abs($3) : 1/0)             w p  ls 11        notitle, \
   ""                                      u ($1):-1                                     w lp ls 10        t "PY, virial", \
@@ -234,7 +234,7 @@ plot [2:32][5e-4:4] \
   ""                                        u ($1):(($2 > 0) ? abs($2) : 1/0)             w p  ls 4         notitle, \
   ""                                        u ($1):(($2 < 0) ? abs($2) : 1/0)             w p  ls 5         notitle, \
   ""                                        u ($1):-1                                     w lp ls 4         t "Self-consistent", \
-  "iedata/xBnPYD10n64.dat"                  u ($1):(abs($3))                              w l  ls 10 lw 0.5 notitle, \
+  "iedata/py/xBnPYD10n64.dat"               u ($1):(abs($3))                              w l  ls 10 lw 0.5 notitle, \
   ""                                        u ($1):(($3 > 0) ? abs($3) : 1/0)             w p  ls 10        notitle, \
   ""                                        u ($1):(($3 < 0) ? abs($3) : 1/0)             w p  ls 11        notitle, \
   ""                                        u ($1):-1                                     w lp ls 10        t "PY, virial", \

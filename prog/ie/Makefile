@@ -123,7 +123,7 @@ usb:
 pack:
 	$(MAKE) -C ../.. $@
 
-$(prj)prog.zip: fft.h fftmpfr.h xdouble.h slowdht.h zcom.h \
+$(prj)code.zip: fft.h fftmpfr.h xdouble.h slowdht.h zcom.h \
   		ievir.c iegsl.c ieodfftw.c ieutil.h \
 		ieodmpfr.c ieutilmpfr.h \
 		ybgvir.c kirkvir.c \
@@ -133,8 +133,8 @@ $(prj)prog.zip: fft.h fftmpfr.h xdouble.h slowdht.h zcom.h \
 		README Makefile
 	zip -r $@ $^
 
-zip: $(prj)prog.zip
+zip: $(prj)code.zip
 
 Bossman: zip
 	rsync -avL $(prj)prog.zip \
-	  cz1@129.109.88.204:/Bossman/cz1/vir/ieprog
+	  cz1@129.109.88.204:/Bossman/cz1/vir/prog
