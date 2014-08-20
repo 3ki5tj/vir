@@ -138,7 +138,7 @@ static void testaccuracy(int n, int nsamp, int nedmin)
   dg_t *g;
   clock_t t0;
   double fb0, fb, sum = 0, tsum = 0;
-  double rnm = 0.1; /* rate for moves increasing edges */
+  double rnm = 0.1; /* rate for moves that increase edges */
   char fn[64] = "fbrjwdbl.dat";
   FILE *fp;
 
