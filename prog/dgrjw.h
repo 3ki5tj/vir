@@ -159,7 +159,7 @@ static dgrjw_fb_t dgrjw_iter(const dg_t *g,
   int v, iold, inew;
   size_t idold, idnew, jdold, jdnew;
   dgrjw_fb_t fa;
-  dgword_t vs, vsnew, ms, ms1, ms2, b1, bv, b1v, id, vsmax;
+  dgword_t vs, vsnew, ms, ms1, ms2, b1, bv, id, vsmax;
   DG_DEFN_(g)
 
   vsmax = 1u << DG_N_; /* 2^n */
@@ -193,10 +193,9 @@ static dgrjw_fb_t dgrjw_iter(const dg_t *g,
         if ( (bv & vs) != 0 ) {
           ms = vs ^ bv;
           b1 = ms & (-ms); /* lowest vertex */
-          b1v = b1 ^ bv;
           ms ^= b1; /* remove the fixed vertices `b1' and `bv' from `vs' */
 
-          jdnew = idnew | b1v;
+          jdnew = idnew | b1 | bv;
           jdold = idold | bv;
           for ( ms1 = 0; (ms2 = ms1 ^ ms) != 0; ) {
             fa += fbarr[jdnew | ms1] * fbarr[jdold | ms2];

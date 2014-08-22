@@ -27,60 +27,78 @@ set format y '10^{%T}'
 
 lbfont  = "Arial, 20"
 
-color1a = "#dd0000"
-color1b = "#002255"
-color1b1 = "#3355cc"
-color1b2 = "#0099dd"
+color1a   = "#cc2222"
+color1b   = "#222222"
+color1b1  = "#444444"
+color1b2  = "#001166"
 
-color2a = "#000000"
-color2b = "#804000"
-color2b1 = "#c07030"
-color2b2 = "#dd9900"
+color2a   = color1a   # "#000000"
+color2b   = color1b   # "#804000"
+color2b1  = color1b1  # "#c07030"
+color2b2  = color1b2  # "#dd9900"
 
-color3a = "#600080"
-color3b = "#006000"
+color3a   = color1a   # "#600080"
+color3b   = color1b   # "#006000"
 
-color4a = "#a0a0a0"
-color4b = "#008080"
+color4a   = color1a   # "#a0a0a0"
+color4b   = color1b   # "#008080"
 
 # line styles for the small panels
 set style line 1  lc rgb "#aaaaaa" lt 1 lw 1
 
-set style line 2  lc rgb color1a lt 1 pt 4  ps 2.0 # empty square
-set style line 3  lc rgb color1a lt 1 pt 5  ps 2.0 # full  square
+# Mayer sampling
+set style line 2  lc rgb color1a  lt 1 lw 2.0 pt 4  ps 2.0 # empty square
+set style line 3  lc rgb color1a  lt 1 lw 2.0 pt 5  ps 2.0 # full  square
 
-set style line 4  lc rgb color1b lt 1 pt 12 ps 2.6 # empty diamond
-set style line 5  lc rgb color1b lt 1 pt 13 ps 2.6 # full  diamond
+# Detailed self-consistent (DSC)
+set style line 4  lc rgb color1b  lt 2 lw 2.0 pt 12 ps 2.8 # empty diamond
+set style line 5  lc rgb color1b  lt 2 lw 2.0 pt 13 ps 2.8 # full  diamond
 
-set style line 24 lc rgb color1b1 lt 2 pt 12 ps 2.6 # empty diamond
-set style line 25 lc rgb color1b1 lt 2 pt 13 ps 2.6 # full  diamond
+# modified DSC
+set style line 24 lc rgb color1b1 lt 3 lw 2.0 pt 12 ps 2.8 # empty diamond
+set style line 25 lc rgb color1b1 lt 3 lw 2.0 pt 13 ps 2.8 # full  diamond
 
-set style line 34 lc rgb color1b2 lt 3 pt 12 ps 2.6 # empty diamond
-set style line 35 lc rgb color1b2 lt 3 pt 13 ps 2.6 # full  diamond
+# modified DSC
+set style line 34 lc rgb color1b2 lt 4 lw 2.0 pt 12 ps 2.8 # empty diamond
+set style line 35 lc rgb color1b2 lt 4 lw 2.0 pt 13 ps 2.8 # full  diamond
 
-set style line 6  lc rgb color2a lt 1 pt 10 ps 2.4 # empty inverted triangle
-set style line 7  lc rgb color2a lt 1 pt 11 ps 2.4 # full  inverted triangle
 
-set style line 8  lc rgb color2b lt 1 pt 8  ps 2.4 # empty triangle
-set style line 9  lc rgb color2b lt 1 pt 9  ps 2.4 # full  triangle
 
-set style line 28 lc rgb color2b1 lt 2 pt 8  ps 2.4 # empty triangle
-set style line 29 lc rgb color2b1 lt 2 pt 9  ps 2.4 # full  triangle
+# Mayer sampling
+set style line 6  lc rgb color2a  lt 1 lw 2.0 pt 10 ps 2.4 # empty inverted triangle
+set style line 7  lc rgb color2a  lt 1 lw 2.0 pt 11 ps 2.4 # full  inverted triangle
 
-set style line 38 lc rgb color2b2 lt 3 pt 8  ps 2.4 # empty triangle
-set style line 39 lc rgb color2b2 lt 3 pt 9  ps 2.4 # full  triangle
+# DSC
+set style line 8  lc rgb color2b  lt 2 lw 2.0 pt 8  ps 2.4 # empty triangle
+set style line 9  lc rgb color2b  lt 2 lw 2.0 pt 9  ps 2.4 # full  triangle
 
-set style line 10 lc rgb color3a lt 1 pt 6  ps 2.0 # empty circle
-set style line 11 lc rgb color3a lt 1 pt 7  ps 2.0 # full  circle
+# modified DSC
+set style line 28 lc rgb color2b1 lt 3 lw 2.0 pt 8  ps 2.4 # empty triangle
+set style line 29 lc rgb color2b1 lt 3 lw 2.0 pt 9  ps 2.4 # full  triangle
 
-set style line 12 lc rgb color3b lt 1 pt 14 ps 2.2 # empty pentagon
-set style line 13 lc rgb color3b lt 1 pt 15 ps 2.2 # full  pentagon
+# modified DSC
+set style line 38 lc rgb color2b2 lt 4 lw 2.0 pt 8  ps 2.4 # empty triangle
+set style line 39 lc rgb color2b2 lt 4 lw 2.0 pt 9  ps 2.4 # full  triangle
 
-set style line 14 lc rgb color4a lt 1 lw 1.0 pt 1  ps 2.2   # thin
-set style line 15 lc rgb color4a lt 1 lw 5.0 pt 1  ps 2.2   # thick
 
-set style line 16 lc rgb color4b lt 1 lw 1.0 pt 2  ps 1.7   # thin
-set style line 17 lc rgb color4b lt 1 lw 9.0 pt 2  ps 1.7   # thick
+
+# Mayer sampling
+set style line 10 lc rgb color3a  lt 1 lw 2.0 pt 6  ps 2.0 # empty circle
+set style line 11 lc rgb color3a  lt 1 lw 2.0 pt 7  ps 2.0 # full  circle
+
+# DSC
+set style line 12 lc rgb color3b  lt 2 lw 2.0 pt 14 ps 2.2 # empty pentagon
+set style line 13 lc rgb color3b  lt 2 lw 2.0 pt 15 ps 2.2 # full  pentagon
+
+
+
+# Mayer sampling
+set style line 14 lc rgb color4a  lt 1 lw 2.0 pt 1  ps 2.2 # add +, thin
+set style line 15 lc rgb color4a  lt 1 lw 5.0 pt 1  ps 2.2 # add +, thick
+
+# DSC
+set style line 16 lc rgb color4b  lt 2 lw 2.0 pt 2  ps 1.7 # cross X, thin
+set style line 17 lc rgb color4b  lt 2 lw 9.0 pt 2  ps 1.7 # cross X, thick
 
 
 
@@ -132,25 +150,25 @@ set label 302 "{/Arial-Italic D} = 3, {/Symbol-Oblique k} = (0.335)_{{/Arial-Ita
 set label 103 "{/Arial-Italic D} = 4" at  5.0, 5.5e-3 rotate by -78  textcolor rgb color3b font lbfont
 
 plot [2:22][8e-6:1] \
-  "data/D2/BnD2n14.dat"                   u ($1):(abs($2)):3                            w l  ls 2  lt 1 lw 0.5 notitle, \
-  ""                                      u ($1):(abs($2)):3                            w e  ls 2       lw 3.0 notitle, \
-  "data/D3/BnD3n12.dat"                   u ($1):(abs($2)):3                            w l  ls 6  lt 2 lw 0.5 notitle, \
-  ""                                      u ($1):(abs($2)):3                            w e  ls 6       lw 3.0 notitle, \
-  "data/D4/BnD4n11.dat"                   u ($1):(abs($2)):3                            w l  ls 10 lt 4 lw 0.5 notitle, \
-  ""                                      u ($1):(abs($2)):3                            w e  ls 10      lw 3.0 notitle, \
-  "iedata/xBnPYcD2n32.dat"                u ($1):(abs($2))                              w l  ls 4  lt 1 lw 0.5 notitle, \
-  ""                                      u ($1):(abs($2))                              w p  ls 4       lw 3.0 notitle, \
+  "data/D2/BnD2n14.dat"                   u ($1):(abs($2)):3                            w l  ls 2              notitle, \
+  ""                                      u ($1):(abs($2)):3                            w p  ls 2              notitle, \
+  "data/D3/BnD3n12.dat"                   u ($1):(abs($2)):3                            w l  ls 6              notitle, \
+  ""                                      u ($1):(abs($2)):3                            w p  ls 6              notitle, \
+  "data/D4/BnD4n11.dat"                   u ($1):(abs($2)):3                            w l  ls 10             notitle, \
+  ""                                      u ($1):(abs($2)):3                            w p  ls 10             notitle, \
+  "iedata/xBnPYcD2n32.dat"                u ($1):(abs($2))                              w l  ls 4              notitle, \
+  ""                                      u ($1):(abs($2))                              w p  ls 4              notitle, \
   "iedata/kappa/hBnPYcD2n36R38M32768c0.194L4.dat"  \
-                                          u ($1):(abs($4))                              w l  ls 34  lt 1 lw 0.5 notitle, \
-  ""                                      u ($1):(abs($4))                              w p  ls 34       lw 3.0 notitle, \
-  "iedata/xBnPYcD3n16.dat"                u ($1):(($1 <= 12) ? abs($2) : 1/0)           w l  ls 8  lt 2 lw 0.5 notitle, \
-  ""                                      u ($1):(($1 <= 12) ? abs($2) : 1/0)           w p  ls 8       lw 3.0 notitle, \
+                                          u ($1):(abs($4))                              w l  ls 34             notitle, \
+  ""                                      u ($1):(abs($4))                              w p  ls 34             notitle, \
+  "iedata/xBnPYcD3n16.dat"                u ($1):(($1 <= 12) ? abs($2) : 1/0)           w l  ls 8              notitle, \
+  ""                                      u ($1):(($1 <= 12) ? abs($2) : 1/0)           w p  ls 8              notitle, \
   "iedata/kappa/BnPYcD3n36R38M32768c0.335L3f128.dat"  \
-                                          u ($1):(($1 <= 12) ? abs($2) : 1/0)           w l  ls 38  lt 2 lw 0.5 notitle, \
-  ""                                      u ($1):(($1 <= 12) ? abs($2) : 1/0)           w p  ls 38       lw 3.0 notitle, \
-  "iedata/xBnPYcD4n16.dat"                u ($1):(($1 <= 8)  ? abs($2) : 1/0)           w l  ls 12 lt 4 lw 0.5 notitle, \
-  ""                                      u ($1):(($1 <= 8 && $2 > 0) ? abs($2) : 1/0)  w p  ls 12      lw 3.0 notitle, \
-  ""                                      u ($1):(($1 <= 8 && $2 < 0) ? abs($2) : 1/0)  w p  ls 13      lw 3.0 notitle, \
+                                          u ($1):(($1 <= 12) ? abs($2) : 1/0)           w l  ls 38             notitle, \
+  ""                                      u ($1):(($1 <= 12) ? abs($2) : 1/0)           w p  ls 38             notitle, \
+  "iedata/xBnPYcD4n16.dat"                u ($1):(($1 <= 8)  ? abs($2) : 1/0)           w l  ls 12             notitle, \
+  ""                                      u ($1):(($1 <= 8 && $2 > 0) ? abs($2) : 1/0)  w p  ls 12             notitle, \
+  ""                                      u ($1):(($1 <= 8 && $2 < 0) ? abs($2) : 1/0)  w p  ls 13             notitle, \
   1e-100 lw 0 notitle
 
 unset label
@@ -182,31 +200,31 @@ set label 104 "{/Arial-Italic D} = 8" at  23, 3e-2   rotate by 45 textcolor rgb 
 
 
 plot [2:28][1e-5:1] \
-  "data/D5/BnD5n12.dat"                   u ($1):(abs($2))                                  w l ls 2  lt 1 lw 0.5 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3               w e ls 2       lw 1.0 notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3               w e ls 3       lw 1.0 notitle, \
-  "data/D6/BnD6n16.dat"                   u ($1):(abs($2))                                  w l ls 6  lt 2 lw 0.5 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3               w e ls 6       lw 1.0 notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3               w e ls 7       lw 1.0 notitle, \
-  "data/D7/BnD7n20.dat"                   u ($1):(abs($2))                                  w l ls 10 lt 4 lw 0.5 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3               w e ls 10      lw 1.0 notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3               w e ls 11      lw 1.0 notitle, \
-  "data/D8/BnD8n24.dat"                   u ($1):(abs($2))                                  w l ls 14 lt 5 lw 0.5 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3               w e ls 14             notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3               w e ls 15             notitle, \
-  "iedata/xBnPYcD5n16.dat"                u ($1):(($1 <= 5) ? abs($2) : 1/0)                w l ls 4  lt 1 lw 0.5 notitle, \
-  ""                                      u ($1):(($1 <= 5 && $2 > 0) ? abs($2) : 1/0)      w p ls 4       lw 1.0 notitle, \
-  "iedata/xBnPYcD6n128.dat"               u ($1):(abs($2))                                  w l ls 8  lt 2 lw 0.5 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)                 w p ls 8       lw 1.0 notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)                 w p ls 9       lw 1.0 notitle, \
+  "data/D5/BnD5n12.dat"                   u ($1):(abs($2))                                  w l ls 2              notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3               w p ls 2              notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3               w p ls 3              notitle, \
+  "data/D6/BnD6n16.dat"                   u ($1):(abs($2))                                  w l ls 6              notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3               w p ls 6              notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3               w p ls 7              notitle, \
+  "data/D7/BnD7n20.dat"                   u ($1):(abs($2))                                  w l ls 10             notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3               w p ls 10             notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3               w p ls 11             notitle, \
+  "data/D8/BnD8n24.dat"                   u ($1):(abs($2))                                  w l ls 14             notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3               w p ls 14             notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3               w p ls 15             notitle, \
+  "iedata/xBnPYcD5n16.dat"                u ($1):(($1 <= 5) ? abs($2) : 1/0)                w l ls 4              notitle, \
+  ""                                      u ($1):(($1 <= 5 && $2 > 0) ? abs($2) : 1/0)      w p ls 4              notitle, \
+  "iedata/xBnPYcD6n128.dat"               u ($1):(abs($2))                                  w l ls 8              notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)                 w p ls 8              notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)                 w p ls 9              notitle, \
   "iedata/kappa/hBnPYcD6n36R38M32768c0.352L2.dat"  \
-                                          u ($1):(abs($4))                                  w l ls 38 lt 2 lw 0.5 notitle, \
-  ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)                 w p ls 38      lw 1.0 notitle, \
-  ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)                 w p ls 39      lw 1.0 notitle, \
-  "iedata/xBnPYcD7n128.dat"               u ($1):(abs($2))                                  w l ls 12 lt 4 lw 0.5 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)                 w p ls 12      lw 1.0 notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)                 w p ls 13      lw 1.0 notitle, \
-  "iedata/xBnPYcD8n128.dat"               u ($1):(abs($2))                                  w l ls 16 lt 5 lw 0.5 notitle, \
+                                          u ($1):(abs($4))                                  w l ls 38             notitle, \
+  ""                                      u ($1):(($4 > 0) ? abs($4) : 1/0)                 w p ls 38             notitle, \
+  ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)                 w p ls 39             notitle, \
+  "iedata/xBnPYcD7n128.dat"               u ($1):(abs($2))                                  w l ls 12             notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)                 w p ls 12             notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)                 w p ls 13             notitle, \
+  "iedata/xBnPYcD8n128.dat"               u ($1):(abs($2))                                  w l ls 16             notitle, \
   ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)                   w p ls 16             notitle, \
   ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)                   w p ls 17             notitle, \
   1e-100 lw 0 notitle
@@ -231,33 +249,33 @@ set ylabel theylabel font lbfont offset 1.5, 0.0
 
 set rmargin 0.
 
-set label 101 "{/Arial-Italic D} = 9"   at  23.5, 2.4e-2  rotate by 0  textcolor rgb color1b font lbfont
-set label 102 "{/Arial-Italic D} = 10"  at  10.0, 1.0e-2  rotate by 0  textcolor rgb color2b font lbfont
+set label 101 "{/Arial-Italic D} = 9"   at  19.5, 6.0e-3  rotate by 0  textcolor rgb color1b font lbfont
+set label 102 "{/Arial-Italic D} = 10"  at  11.0, 1.5e-2  rotate by 0  textcolor rgb color2b font lbfont
 set label 103 "{/Arial-Italic D} = 11"  at  14.0, 2.6e-3  rotate by 0  textcolor rgb color3b font lbfont
 
-set arrow from 25.0, 2.6e-2 to 23.2, 3.6e-2 ls 4  lt 1 nohead
-set arrow from 13.0, 9.0e-3 to 16.0, 7.5e-3 ls 8  lt 2 nohead
-set arrow from 14.0, 2.8e-3 to 12.1, 3.1e-3 ls 12 lt 4 nohead
+set arrow from 20.5, 6.8e-3 to 19.0, 1.2e-2 ls 4  lt 1 nohead
+set arrow from 13.0, 1.3e-2 to 16.0, 7.7e-3 ls 8  lt 1 nohead
+set arrow from 14.0, 2.8e-3 to 12.1, 3.2e-3 ls 12 lt 1 nohead
 
-plot [2:28][2e-3:4e-1] \
-  "data/D9r1n20/BnD9n20.dat"              u ($1):(abs($2))                      w l ls 2  lt 1   lw 0.3 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3   w e ls 2  ps 1.5 lw 1.0 notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3   w e ls 3  ps 1.5 lw 1.0 notitle, \
-  "data/D10r1n32/BnD10n32.dat"            u ($1):(abs($2))                      w l ls 6  lt 2   lw 0.3 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3   w e ls 6  ps 1.8 lw 1.0 notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3   w e ls 7  ps 1.8 lw 1.0 notitle, \
-  "data/D11r1n32/BnD11n32.dat"            u ($1):(abs($2))                      w l ls 10 lt 4   lw 0.3 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3   w e ls 10 ps 1.5 lw 1.0 notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3   w e ls 11 ps 1.5 lw 1.0 notitle, \
-  "iedata/xBnPYcD9n128.dat"               u ($1):(abs($2))                      w l ls 4  lt 1   lw 0.3 notitle, \
-  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)       w p ls 4  ps 1.8 lw 1.0 notitle, \
-  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)       w p ls 5  ps 1.8 lw 1.0 notitle, \
-  "iedata/xBnPYcD10n128.dat"              u ($1):(abs($2))                      w l ls 8  lt 2   lw 0.3 notitle, \
-  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)       w p ls 8  ps 1.5 lw 1.0 notitle, \
-  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)       w p ls 9  ps 1.5 lw 1.0 notitle, \
-  "iedata/xBnPYcD11n128.dat"              u ($1):(abs($2))                      w l ls 12 lt 4   lw 0.3 notitle, \
-  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)       w p ls 12 ps 1.6 lw 1.0 notitle, \
-  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)       w p ls 13 ps 1.6 lw 1.0 notitle, \
+plot [2:24][2e-3:3e-1] \
+  "data/D9r1n20/BnD9n20.dat"              u ($1):(abs($2))                      w l ls 2         lw 0.3 notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3   w p ls 2  ps 1.5        notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3   w p ls 3  ps 1.5        notitle, \
+  "data/D10r1n32/BnD10n32.dat"            u ($1):(abs($2))                      w l ls 6         lw 0.3 notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3   w p ls 6  ps 1.8        notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3   w p ls 7  ps 1.8        notitle, \
+  "data/D11r1n32/BnD11n32.dat"            u ($1):(abs($2))                      w l ls 10        lw 0.3 notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3   w p ls 10 ps 1.5        notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3   w p ls 11 ps 1.5        notitle, \
+  "iedata/xBnPYcD9n128.dat"               u ($1):(abs($2))                      w l ls 4         lw 0.3 notitle, \
+  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)       w p ls 4  ps 1.9        notitle, \
+  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)       w p ls 5  ps 1.9        notitle, \
+  "iedata/xBnPYcD10n128.dat"              u ($1):(abs($2))                      w l ls 8         lw 0.3 notitle, \
+  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)       w p ls 8  ps 1.8        notitle, \
+  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)       w p ls 9  ps 1.8        notitle, \
+  "iedata/xBnPYcD11n128.dat"              u ($1):(abs($2))                      w l ls 12        lw 0.3 notitle, \
+  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)       w p ls 12 ps 1.6        notitle, \
+  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)       w p ls 13 ps 1.6        notitle, \
   1e-100 lw 0 notitle
 
 unset label
@@ -279,33 +297,33 @@ set mxtics 10
 unset ylabel
 set ytics 1e-4, 10
 
-set label 101 "{/Arial-Italic D} = 12"  at  20.0, 3.0e0   rotate by 0  textcolor rgb color1b font lbfont
+set label 101 "{/Arial-Italic D} = 12"  at  23.0, 3.0e0   rotate by 0  textcolor rgb color1b font lbfont
 set label 102 "{/Arial-Italic D} = 13"  at   6.0, 2.0e-2  rotate by 0  textcolor rgb color2b font lbfont
 set label 103 "{/Arial-Italic D} = 14"  at  30.0, 1.0e-2  rotate by 0  textcolor rgb color3b font lbfont
 
-set arrow from 26.0, 2.2e0  to 28.7, 3.8e-1 ls 4  lt 1 nohead
-set arrow from 10.0, 1.5e-2 to 11.0, 1.5e-3 ls 8  lt 2 nohead
-set arrow from 30.0, 1.2e-2 to 25.3, 3.0e-2 ls 12 lt 4 nohead
+set arrow from 26.0, 2.2e0  to 29.0, 3.9e-1 ls 4  lt 1 nohead  # D = 12
+set arrow from  8.0, 1.5e-2 to 11.0, 1.7e-3 ls 8  lt 1 nohead  # D = 13
+set arrow from 30.0, 1.2e-2 to 25.4, 3.0e-2 ls 12 lt 1 nohead  # D = 14
 
-plot [2:64][1e-4:1e7] \
-  "data/D12r1n64/BnD12n64.dat"            u ($1):(abs($2))                    w l ls 2  lt 1   lw 0.3 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)   w p ls 2  ps 1.0 lw 1.0 notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)   w p ls 3  ps 1.0 lw 1.0 notitle, \
-  "data/D13r1n64/BnD13n64.dat"            u ($1):(abs($2))                    w l ls 6  lt 2   lw 0.3 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)   w p ls 6  ps 1.2 lw 1.0 notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)   w p ls 7  ps 1.2 lw 1.0 notitle, \
-  "data/D14r1n64/BnD14n64.dat"            u ($1):(abs($2))                    w l ls 10 lt 4   lw 0.3 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)   w p ls 10 ps 1.0 lw 1.0 notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)   w p ls 11 ps 1.0 lw 1.0 notitle, \
-  "iedata/xBnPYcD12n128.dat"              u ($1):(abs($2))                    w l ls 4  lt 1   lw 0.3 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)   w p ls 4  ps 1.2 lw 1.0 notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)   w p ls 5  ps 1.2 lw 1.0 notitle, \
-  "iedata/xBnPYcD13n128.dat"              u ($1):(abs($2))                    w l ls 8  lt 2   lw 0.3 notitle, \
-  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)     w p ls 8  ps 1.2 lw 1.0 notitle, \
-  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)     w p ls 9  ps 1.2 lw 1.0 notitle, \
-  "iedata/xBnPYcD14n128.dat"              u ($1):(abs($2))                    w l ls 12 lt 4   lw 0.3 notitle, \
-  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)   w p ls 12 ps 1.1 lw 1.0 notitle, \
-  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)   w p ls 13 ps 1.1 lw 1.0 notitle, \
+plot [2:40][5e-4:1e2] \
+  "data/D12r1n64/BnD12n64.dat"            u ($1):(abs($2))                    w l ls 2         lw 0.3 notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)   w p ls 2  ps 1.5        notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)   w p ls 3  ps 1.5        notitle, \
+  "data/D13r1n64/BnD13n64.dat"            u ($1):(abs($2))                    w l ls 6         lw 0.3 notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)   w p ls 6  ps 1.8        notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)   w p ls 7  ps 1.8        notitle, \
+  "data/D14r1n64/BnD14n64.dat"            u ($1):(abs($2))                    w l ls 10        lw 0.3 notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)   w p ls 10 ps 1.5        notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)   w p ls 11 ps 1.5        notitle, \
+  "iedata/xBnPYcD12n128.dat"              u ($1):(abs($2))                    w l ls 4         lw 0.3 notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)   w p ls 4  ps 1.9        notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)   w p ls 5  ps 1.9        notitle, \
+  "iedata/xBnPYcD13n128.dat"              u ($1):(abs($2))                    w l ls 8         lw 0.3 notitle, \
+  ""                                      u ($1):($2 > 0 ? abs($2) : 1/0)     w p ls 8  ps 1.8        notitle, \
+  ""                                      u ($1):($2 < 0 ? abs($2) : 1/0)     w p ls 9  ps 1.8        notitle, \
+  "iedata/xBnPYcD14n128.dat"              u ($1):(abs($2))                    w l ls 12        lw 0.3 notitle, \
+  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)   w p ls 12 ps 1.6        notitle, \
+  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)   w p ls 13 ps 1.6        notitle, \
   1e-100 lw 0 notitle
 
 unset arrow

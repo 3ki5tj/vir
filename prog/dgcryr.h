@@ -7,23 +7,30 @@
 
 
 
-/* iteratively compute the signed star content for y(r)
- * which is computed as follows
+/* iteratively compute the signed star content for
+ * y(r) [type = 0] or y(r) - t(r) [type = 1] or ln y(r) [type = 2]
+ *
+ * 1. y(r) is computed as follows
  * First, join the root vertices a-b, if they are not adjacent in g
  * Then, the signed star content of a-b is equal to
  * the number of biconnected subgraphs of g
  * with even number of missing edges (except a-b)
  * less the number of biconnected subgraphs of g
  * with odd number of missing edges (except a-b)
+ *
+ * 2. y(r) - t(r) = c(r) - f(r) y(r) is computed as follows
+ * First, disjoin the root vertices a and b, if they are adjacent in g
+ *
  * On return g should be the same
  * This function is adapted from dgsc_iter0.h from dgsc.h
  * */
-__inline double dgsc_yriter(dg_t *g, int a, int b)
+__inline double dgsc_yriter(dg_t *g, int a, int b, int type)
 {
   static int ed[DG_NMAX * (DG_NMAX - 1)/2][2]; /* edges */
   static int st[DG_NMAX * (DG_NMAX - 1)/2 + 2]; /* state */
 #pragma omp threadprivate(ed, st)
   int n = g->n, top, ied, med, vi, vj, degi, degj, eab;
+  dgword_t vsnab = MKBITSMASK(n) ^ MKBIT(a) ^ MKBIT(b);
   double fb;
   int ned = -1, degs[DG_NMAX];
 
@@ -32,12 +39,26 @@ __inline double dgsc_yriter(dg_t *g, int a, int b)
 
   die_if (b < 0, "(%d-%d) is not a valid edge\n", a, b);
 
-  /* join a and b, if they are not adjacent */
-  if ( !dg_linked(g, a, b) ) {
-    dg_link(g, a, b);
-    eab = 1;
-  } else {
-    eab = 0;
+  if ( type == 0 ) { /* compute y(r) */
+    /* join a and b, if they are not adjacent */
+    if ( !dg_linked(g, a, b) ) {
+      dg_link(g, a, b);
+      eab = 1;
+    } else {
+      eab = 0;
+    }
+  } else { /* compute y(r) - t(r) */
+    if ( dg_linked(g, a, b) ) {
+      dg_unlink(g, a, b);
+      if ( !dg_biconnected(g)
+        || (type < 0 && !dg_connectedvs(g, vsnab)) ) { /* already disqualified */
+        dg_link(g, a, b);
+        return 0;
+      }
+      eab = 1;
+    } else {
+      eab = 0;
+    }
   }
 
   /* collect edges to be switched on or off */
@@ -55,7 +76,7 @@ __inline double dgsc_yriter(dg_t *g, int a, int b)
   st[ top = 0 ] = -1;
   fb = 1 - ned % 2 * 2;
   while (top >= 0) {
-    /* search over remaining edges */
+    /* search over the remaining edges */
     for (ied = st[top] + 1; ied < med; ied++) {
       /* removing an edge adjacent to a degree-2 vertex
        * makes a graph not biconnected */
@@ -63,7 +84,9 @@ __inline double dgsc_yriter(dg_t *g, int a, int b)
         || (degj = degs[ vj = ed[ied][1] ]) < 3 )
         continue;
       dg_unlink(g, vi, vj);
-      if ( dg_biconnected(g) ) { /* push */
+      if ( dg_biconnected(g) 
+          && (type >= 0 || dg_connectedvs(g, vsnab)) ) {
+        /* if we want the bridge diagrams, va and vb cannot be a separation pair */
         degs[vi] = degi - 1, degs[vj] = degj - 1;
         st[top] = ied;
         --ned;
@@ -89,8 +112,12 @@ __inline double dgsc_yriter(dg_t *g, int a, int b)
     }
   }
 
-  if ( eab ) dg_unlink(g, a, b); /* disconnect a-b */
-  fb *= -1; /* remove the bond between a and b */
+  if ( type == 0 ) { /* y(r) */
+    if ( eab ) dg_unlink(g, a, b); /* disconnect a-b */
+    fb *= -1; /* remove the bond between a and b */
+  } else { /* y(r) - t(r) */
+    if ( eab ) dg_link(g, a, b);
+  }
   return fb;
 }
 
@@ -223,7 +250,7 @@ static dgrjw_fb_t dgrjw_yriter(const dg_t *g, int a, int b,
   int v, iold, inew;
   size_t idold, idnew, jdold, jdnew;
   dgrjw_fb_t fa;
-  dgword_t vs, vsab, vsa, vsb, vsnew, ms, ms1, ms2, b1, bv, b1v, id, vsmax;
+  dgword_t vs, vsab, vsa, vsb, vsnew, ms, ms1, ms2, b1, bv, id, vsmax;
   DG_DEFN_(g)
 
   vsmax = 1u << DG_N_; /* 2^n */
@@ -259,21 +286,20 @@ static dgrjw_fb_t dgrjw_yriter(const dg_t *g, int a, int b,
         fa = 0;
         /* skip if the vertex set does not contain v */
         if ( (bv & vs) != 0 ) {
-          ms = vs ^ bv;
-          b1 = ms & (-ms); /* lowest vertex */
-          b1v = b1 ^ bv;
-          ms ^= b1; /* remove the fixed vertices `b1' and `bv' from `vs' */
-
-          jdnew = idnew | b1v;
+          if ( (vs & vsab) == vsab ) {
+            /* in this case, vs1 must contain both a and b */
+            ms = vs & ~vsab & ~bv; /* the looper set excludes a, b, v */
+            jdnew = idnew | vsab | bv;
+          } else {
+            /* in this case, vs1 must contain the lowest vertex v1 except v */
+            ms = vs & ~bv;
+            b1 = ms & (-ms); /* lowest vertex */
+            ms &= ~b1; /* remove the fixed vertices `b1' and `bv' from `vs' */
+            jdnew = idnew | b1 | bv;
+          }
           jdold = idold | bv;
           for ( ms1 = 0; (ms2 = ms1 ^ ms) != 0; ) {
-            dgword_t vs1ab = (ms1 | b1 | bv) & vsab;
-            dgword_t vs2ab = (ms2 | bv) & vsab;
-            /* make sure that vs1 and vs2 do not split the two vertices */
-            if (   !(vs1ab == vsa && vs2ab == vsb)
-                && !(vs1ab == vsb && vs2ab == vsa) ) {
-              fa += fbarr[jdnew | ms1] * fbarr[jdold | ms2];
-            }
+            fa += fbarr[jdnew | ms1] * fbarr[jdold | ms2];
             /* update the subset `ms1' */
             DGVS_INCa(ms1, ms2);
           }

@@ -3,6 +3,7 @@ prj=ievir
 figs=ievircmp ievirhigh ievirlow cmpcorl
 pdffigs=$(patsubst %,fig/%.pdf, $(figs))
 epsfigs=$(patsubst %,fig/%.eps, $(figs))
+figgps=$(patsubst %,fig/%.gp,  $(figs))
 
 $(prj)doc.pdf: $(prj)doc.tex $(prj)text.pdf \
   		iegraph.pdf $(pdffigs) Makefile
@@ -22,7 +23,7 @@ clean:
 $(prj)doc.zip: $(prj)doc.tex $(prj)doc.pdf $(prj)text.doc \
   	       iegraph.tex iegraph.pdf liquid.bib \
                $(prj).enl $(prj).Data \
-	       $(epsfigs) $(pdffigs) \
+	       $(epsfigs) $(pdffigs) $(figgps) \
 	       README Makefile
 	zip -r $@ $^
 
