@@ -8,6 +8,7 @@
 #define dg_rndswitchedge(g, ned, nedmax, rnp) \
   dg_rndswitchedge0(g, ned, 0, 1, nedmax, rnp)
 
+/* sample biconnected graphs by randomly adding/removing edges */
 INLINE int dg_rndswitchedge0(dg_t *g, int *ned,
     int nedmin, double rnm, int nedmax, double rnp)
 {

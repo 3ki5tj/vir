@@ -56,7 +56,7 @@ static double dg_fbnr_spec0(const dg_t *g, double *nr,
   double fb, ring;
 
   *err = 0;
-  DG_CALC_DEGS(ned, degs, dg_nedges_, dg_degs_); /* prepare degrees */
+  DG_CALC_DEGS(g, ned, degs, dg_nedges_, dg_degs_); /* prepare degrees */
   if (nr == NULL) nr = &ring;
 
   /* loosely connected diagrams */
@@ -237,7 +237,7 @@ static double dgsc_iter0(dg_t *g, double *nr, int *ned, int *degs)
   double fb, ring;
 
   /* collect edges */
-  DG_CALC_DEGS(ned, degs, dg_nedges_, dg_degs_)
+  DG_CALC_DEGS(g, ned, degs, dg_nedges_, dg_degs_)
   for (med = 0, vi = 0; vi < n - 1; vi++)
     if ( degs[vi] > 2 )
       for (vj = vi + 1; vj < n; vj++)
@@ -334,7 +334,7 @@ static double dgsc_fbnr0(const dg_t *g, double *nr, int method,
   if ( (method & DGSC_MASKBASICMETHODS) == DGSC_ITER ) {
     fb = dgsc_iter0(g0, nr, ned, degs);
   } else if ( (method & DGSC_MASKBASICMETHODS) == DGSC_RECUR) {
-    DG_CALC_DEGS(ned, degs, dg_nedges_, dg_degs_)
+    DG_CALC_DEGS(g, ned, degs, dg_nedges_, dg_degs_)
     fb = dgsc_recur(g0, nr, *ned, 0, 0);
   }
 

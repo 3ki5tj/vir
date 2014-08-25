@@ -468,7 +468,7 @@ static void saveyr(hscr_t *hs, rvn_t *x, dg_t *g)
     for (j = i + 1; j < DG_N_; j++)
       if ( dg_linked(g, i, j) ) { /* only interested in r < 1 */
         real r = rvn_dist(x[i], x[j]);
-        fb = dgsc_yriter(g, i, j);
+        fb = dgsc_yriter(g, i, j, 1);
         hscr_add0(hs, r, fb);
       }
   hscr_inc(hs, DG_N_ * (DG_N_ - 1) / 2);

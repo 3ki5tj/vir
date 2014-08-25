@@ -354,7 +354,7 @@ static double dgring_nr0(const dg_t *g, int *ned, int *degs)
   int method = 0;
   DG_DEFN_(g)
 
-  DG_CALC_DEGS(ned, degs, dg_nedges_, dg_degs_)
+  DG_CALC_DEGS(g, ned, degs, dg_nedges_, dg_degs_)
 
 #ifndef DGNR_NEDA
 #define DGNR_NEDA 2.5

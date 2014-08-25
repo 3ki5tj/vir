@@ -285,7 +285,7 @@ static dgrjw_fb_t dgrjw_fb(const dg_t *g)
  *    0 means not to detect clique separators
  * *ned: number of edges; degs: degree sequence
  * if ned != NULL and *ned <= 0, both *ned and degs[] are computed on return */
-static double dg_fbnr0(const dg_t *g, double *nr, int method,
+INLINE double dg_fbnr0(const dg_t *g, double *nr, int method,
     int csepmethod, int *ned, int *degs)
 {
   int err, nedges = -1;

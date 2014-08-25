@@ -610,9 +610,9 @@ static int dg_degs_[DG_NMAX];
  * otherwise, we assume that the values in `*ned' and `degs' are valid
  * and the two local variables are unused.
  * An example call:
- *  DG_CALC_DEGS(ned, degs, dg_nedges_, dg_degs_)
+ *  DG_CALC_DEGS(g, ned, degs, dg_nedges_, dg_degs_)
  * */
-#define DG_CALC_DEGS(ned, degs, ned_local, degs_local) { \
+#define DG_CALC_DEGS(g, ned, degs, ned_local, degs_local) { \
   if ( ned == NULL ) { ned = &ned_local, ned_local = -1; } \
   if ( degs == NULL ) degs = degs_local; \
   if ( *ned <= 0 ) *ned = dg_degs(g, degs); \
