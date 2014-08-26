@@ -30,11 +30,11 @@ set format y '10^{%T}'
 
 lbfont2 = "Arial, 12"
 
-color1a = "#ee0000"
+color1a = "#ee2222"
 color1b = "#000000"
 
 color2a = "#cc3333"
-color2b = "#404040"
+color2b = "#444444"
 
 
 

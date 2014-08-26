@@ -59,26 +59,26 @@ set style line 3  lc rgb color1a lt 1 lw 4.0 pt 5  ps 1.4 # full  square
 set style line 4  lc rgb color1b lt 2 lw 4.0 pt 12 ps 2.0 # empty diamond
 set style line 5  lc rgb color1b lt 2 lw 4.0 pt 13 ps 2.0 # full  diamond
 
-set style line 6  lc rgb color2a lt 3 lw 2.0 pt 10 ps 1.7 # empty inverted triangle
-set style line 7  lc rgb color2a lt 3 lw 2.0 pt 11 ps 1.7 # full  inverted triangle
+set style line 6  lc rgb color2a lt 4 lw 2.0 pt 10 ps 1.7 # empty inverted triangle
+set style line 7  lc rgb color2a lt 4 lw 2.0 pt 11 ps 1.7 # full  inverted triangle
 
 set style line 8  lc rgb color2b lt 4 lw 2.0 pt 8  ps 1.7 # empty triangle
 set style line 9  lc rgb color2b lt 4 lw 2.0 pt 9  ps 1.7 # full  triangle
 
-set style line 10 lc rgb color3a lt 5 lw 2.0 pt 6  ps 1.4 # empty circle
-set style line 11 lc rgb color3a lt 5 lw 2.0 pt 7  ps 1.4 # full  circle
+set style line 10 lc rgb color3a lt 4 lw 2.0 pt 6  ps 1.4 # empty circle
+set style line 11 lc rgb color3a lt 4 lw 2.0 pt 7  ps 1.4 # full  circle
 
-set style line 12 lc rgb color3b lt 6 lw 2.0 pt 14 ps 1.6 # empty pentagon
-set style line 13 lc rgb color3b lt 6 lw 2.0 pt 15 ps 1.6 # full  pentagon
+set style line 12 lc rgb color3b lt 4 lw 2.0 pt 14 ps 1.6 # empty pentagon
+set style line 13 lc rgb color3b lt 4 lw 2.0 pt 15 ps 1.6 # full  pentagon
 
-set style line 14 lc rgb color4a lt 7 lw 2.0 pt 3 ps 1.3 # empty pentagon
-set style line 15 lc rgb color4a lt 7 lw 6.0 pt 3 ps 1.3 # full  pentagon
+set style line 14 lc rgb color4a lt 4 lw 2.0 pt 3 ps 1.3 # empty pentagon
+set style line 15 lc rgb color4a lt 4 lw 6.0 pt 3 ps 1.3 # full  pentagon
 
-set style line 16 lc rgb color4b lt 8 lw 2.0 pt 2 ps 1.3 # empty diamond
-set style line 17 lc rgb color4b lt 8 lw 9.0 pt 2 ps 1.3 # full  diamond
+set style line 16 lc rgb color4b lt 4 lw 2.0 pt 2 ps 1.3 # empty diamond
+set style line 17 lc rgb color4b lt 4 lw 9.0 pt 2 ps 1.3 # full  diamond
 
-set style line 18 lc rgb color5a lt 9 lw 3.0 pt 1 ps 1.6 # empty diamond
-set style line 19 lc rgb color5a lt 9 lw 9.0 pt 1 ps 1.6 # full  diamond
+set style line 18 lc rgb color5a lt 4 lw 3.0 pt 1 ps 1.6 # empty diamond
+set style line 19 lc rgb color5a lt 4 lw 9.0 pt 1 ps 1.6 # full  diamond
 
 tagdx1 = 0.005
 tagdx2 = 0.010

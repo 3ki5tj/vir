@@ -4,6 +4,33 @@
  * and the cavity function */
 #include "dg.h"
 #include "dgrjw.h"
+#include "dgmap.h"
+
+
+
+
+enum {
+  YRTYPE_YR = 0,
+  YRTYPE_YRTR = 1,
+  YRTYPE_LNYR = 2,
+  YRTYPE_LNYRTR = 3,
+  YRTYPE_TOTAL
+};
+
+#define DGYR_CHECKTYPE(type) \
+  die_if (type < 0 || type >= YRTYPE_TOTAL, "invalid y(r) type %d\n", type)
+
+#define DO_LNYR(type) ((type) & YRTYPE_LNYR)
+
+
+
+/* remove or add back the edge between a and b,
+ * which was added or removed in dgyr_preproc() */
+INLINE void dgyr_postproc(dg_t *g, int a, int b, int eab)
+{
+  if ( eab > 0 ) dg_unlink(g, a, b);
+  else if ( eab < 0 ) dg_link(g, a, b);
+}
 
 
 
@@ -12,26 +39,35 @@
 INLINE int dgyr_preproc(dg_t *g, int a, int b, int type, int *eab)
 {
   DG_DEFN_(g)
+  dgword_t vsnab = MKBITSMASK(DG_N_) ^ MKBIT(a) ^ MKBIT(b);
 
-  if ( type == 0 ) { /* compute y(r) */
+  if ( type == YRTYPE_YR || type == YRTYPE_LNYR ) { /* compute y(r) or ln y(r) */
     /* join a and b, if they are not adjacent */
     if ( !dg_linked(g, a, b) ) {
       dg_link(g, a, b);
-      *eab = 1;
+      *eab = 1; /* linked */
     } else {
       *eab = 0;
     }
-  } else { /* compute y(r) - t(r) */
+    if ( !dg_biconnected(g)  /* already disqualified */
+      || ( type == YRTYPE_LNYR && !dg_connectedvs(g, vsnab) ) ) {
+      dgyr_postproc(g, a, b, *eab);
+      return 0;
+    }
+  } else { /* compute y(r) - t(r) or ln y(r) - t(r) */
     if ( dg_linked(g, a, b) ) {
       dg_unlink(g, a, b);
-      if ( !dg_biconnected(g)
-        || (type == 2 && !dg_connectedvs(g, MKBITSMASK(DG_N_) ^ MKBIT(a) ^ MKBIT(b))) ) { /* already disqualified */
+      if ( !dg_biconnected(g) ) {
         dg_link(g, a, b);
         return 0;
       }
-      *eab = 1;
+      *eab = -1; /* unlinked */
     } else {
       *eab = 0;
+    }
+    if ( type == YRTYPE_LNYRTR && !dg_connectedvs(g, vsnab) ) { /* already disqualified */
+      dgyr_postproc(g, a, b, *eab);
+      return 0;
     }
   }
   return 1;
@@ -39,21 +75,7 @@ INLINE int dgyr_preproc(dg_t *g, int a, int b, int type, int *eab)
 
 
 
-/* remove or add back the edge between a and b,
- * which was added or removed in dgyr_preproc() */
-INLINE int dgyr_postproc(dg_t *g, int a, int b, int type, int eab)
-{
-  if ( type == 0 ) { /* y(r) */
-    if ( eab ) dg_unlink(g, a, b); /* disconnect a-b */
-    return -1; /* remove the bond between a and b */
-  } else { /* y(r) - t(r) or ln y(r) */
-    if ( eab ) dg_link(g, a, b);
-    return 1;
-  }
-}
-
-
-#define dgsc_yriter(g, a, b, type) dgsc_yriter0(g, a, b, type, 0)
+#define dgsc_yriter(g, a, b, type) dgsc_yriter0(g, a, b, type, 1)
 
 /* iteratively compute the signed star content for
  * y(r) [type = 0] or y(r) - t(r) [type = 1] or ln y(r) [type = 2]
@@ -70,13 +92,14 @@ INLINE int dgyr_postproc(dg_t *g, int a, int b, int type, int eab)
  * First, disjoin the root vertices a and b, if they are adjacent in g
  * The remaining is the same.
  *
- * 2. Similar to case 1, but also exclude graphs with {a, b} being
+ * 3. ln y(r) - t(r)
+ * Similar to case 1, but also exclude graphs with {a, b} being
  * articulation pair.
  *
  * On return g should be the same
  * This function is adapted from dgsc_iter0.h from dgsc.h
  * */
-INLINE double dgsc_yriter0(dg_t *g, int a, int b, int type, int noproc)
+INLINE double dgsc_yriter0(dg_t *g, int a, int b, int type, int proc)
 {
   static int ed[DG_NMAX * (DG_NMAX - 1)/2][2]; /* edges */
   static int st[DG_NMAX * (DG_NMAX - 1)/2 + 2]; /* state */
@@ -90,8 +113,9 @@ INLINE double dgsc_yriter0(dg_t *g, int a, int b, int type, int noproc)
   if ( a > b ) vi = a, a = b, b = vi;
 
   die_if (b < 0, "(%d-%d) is not a valid edge\n", a, b);
+  DGYR_CHECKTYPE(type);
 
-  if (!noproc && dgyr_preproc(g, a, b, type, &eab) == 0) return 0;
+  if (proc && dgyr_preproc(g, a, b, type, &eab) == 0) return 0;
 
   /* collect edges to be switched on or off */
   ned = dg_degs(g, degs);
@@ -117,7 +141,7 @@ INLINE double dgsc_yriter0(dg_t *g, int a, int b, int type, int noproc)
         continue;
       dg_unlink(g, vi, vj);
       if ( dg_biconnected(g)
-          && (type != 2 || dg_connectedvs(g, vsnab)) ) {
+          && (!DO_LNYR(type) || dg_connectedvs(g, vsnab)) ) {
         /* if we want the bridge diagrams, va and vb cannot be a separation pair */
         degs[vi] = degi - 1, degs[vj] = degj - 1;
         st[top] = ied;
@@ -144,9 +168,11 @@ INLINE double dgsc_yriter0(dg_t *g, int a, int b, int type, int noproc)
     }
   }
 
-  return noproc ? fb : fb * dgyr_postproc(g, a, b, type, eab);
+  if ( proc ) dgyr_postproc(g, a, b, eab);
+  /* we have added an f-bond between a-b, which evaluates -1 */
+  if (type == YRTYPE_YR || type == YRTYPE_LNYR) fb = -fb;
+  return fb;
 }
-
 
 
 
@@ -188,6 +214,7 @@ static void dgrjw_yrprepare(const dg_t *g, int a, int b, int type,
 {
   dgrjw_fb_t fc;
   dgword_t vsab, vs, vs1, ms, ms1, ms2, b1, id, vsmax;
+  int holdab = (type == YRTYPE_YR || type == YRTYPE_LNYR);
   DG_DEFN_(g)
 
   vsmax = 1u << DG_N_; /* 2^n */
@@ -227,7 +254,7 @@ static void dgrjw_yrprepare(const dg_t *g, int a, int b, int type,
       fcarr[vs] = 0;
       aparr[vs] = 0; /* fb(vs) == 0 */
     } else { /* connected diagram */
-      if ( (vs & vsab) == vsab && type == 0 ) { /* vs contains a and b */
+      if ( (vs & vsab) == vsab && holdab ) { /* vs contains a and b */
         ms = vs ^ vsab; /* exclude the roots from the vertex set */
         /* loop over proper subsets of `vs'
          * the first component contains `b1'
@@ -266,9 +293,9 @@ static void dgrjw_yrprepare(const dg_t *g, int a, int b, int type,
 
 /* return fb, assuming dgrjw_yrprepare() has been called */
 static dgrjw_fb_t dgrjw_yriter(const dg_t *g, int a, int b, int type,
-    dgrjw_fb_t *fbarr, int offset, unsigned *vsbysize, dgrjw_ap_t *aparr)
+    dgrjw_fb_t *fbarr, unsigned *vsbysize, dgrjw_ap_t *aparr)
 {
-  int v, iold, inew;
+  int v, iold, inew, holdab = (type == YRTYPE_YR || type == YRTYPE_LNYR);
   size_t idold, idnew, jdold, jdnew;
   dgrjw_fb_t fa;
   dgword_t vs, vsab, vsnew, ms, ms1, ms2, b1, bv, id, vsmax;
@@ -285,8 +312,8 @@ static dgrjw_fb_t dgrjw_yriter(const dg_t *g, int a, int b, int type,
 
   /* loop over the position of the first clique separator */
   for ( v = 0; v < DG_N_; v++ ) {
-    iold = (v + offset) % 2;
-    inew = (v + 1 + offset) % 2;
+    iold = v % 2;
+    inew = (v + 1) % 2;
     idold = iold * vsmax;
     idnew = inew * vsmax;
 
@@ -304,7 +331,7 @@ static dgrjw_fb_t dgrjw_yriter(const dg_t *g, int a, int b, int type,
         fa = 0;
         /* skip if the vertex set does not contain v */
         if ( (bv & vs) != 0 ) {
-          if ( (vs & vsab) == vsab && type == 0 ) {
+          if ( (vs & vsab) == vsab && holdab ) {
             /* in this case, vs1 must contain both a and b */
             ms = vs & ~vsab & ~bv; /* the looper set excludes a, b, v */
             jdnew = idnew | vsab | bv;
@@ -326,13 +353,14 @@ static dgrjw_fb_t dgrjw_yriter(const dg_t *g, int a, int b, int type,
       }
     }
   }
-  return fbarr[vsmax * ((DG_N_ + offset) % 2) + vsmax - 1];
+  return fbarr[vsmax * (DG_N_ % 2) + vsmax - 1];
 }
 
 
 
-/* remove graphs with {a, b} being a separation pair */
-static dgrjw_fb_t dgrjw_yrrmseppair(const dg_t *g, int a, int b,
+/* remove graphs with {a, b} being a separation pair
+ * `fbarr' is the input, `fdarr' is the output */
+static dgrjw_fb_t dgrjw_yrrmseppr(const dg_t *g, int a, int b, int sgn,
     dgrjw_fb_t *fbarr, dgrjw_fb_t *fdarr, unsigned *vsbysize)
 {
   dgrjw_fb_t fa;
@@ -342,8 +370,9 @@ static dgrjw_fb_t dgrjw_yrrmseppair(const dg_t *g, int a, int b,
   vsmax = 1u << DG_N_; /* 2^n */
   vsab = MKBIT(a) | MKBIT(b);
 
-  /* three-vertex subsets */
-  for ( id = DG_N_ * (DG_N_ + 1) / 2 + 1 ; id < vsmax; id++ ) {
+  if ( sgn < 0 ) for ( id = 0; id < vsmax; id++ ) fbarr[id] = -fbarr[id];
+
+  for ( id = 0; id < vsmax; id++ ) {
     vs = vsbysize[id];
     fa = 0;
     /* skip if the vertex set does not contain v */
@@ -365,13 +394,13 @@ static dgrjw_fb_t dgrjw_yrrmseppair(const dg_t *g, int a, int b,
 
 
 
-#define dgrjw_yrfb(g, a, b, type) dgrjw_yrfb0(g, a, b, type, 0)
+#define dgrjw_yrfb(g, a, b, type) dgrjw_yrfb0(g, a, b, type, 1)
 
 /* compute the sum of biconnected diagrams by Wheatley's method
  * This is a low level function and the test of clique separator
  * is not done here.
  * The memory requirement is 2^(n-20)*21MB */
-static dgrjw_fb_t dgrjw_yrfb0(dg_t *g, int a, int b, int type, int noproc)
+static dgrjw_fb_t dgrjw_yrfb0(dg_t *g, int a, int b, int type, int proc)
 {
   DG_DEFN_(g)
   size_t size = 0;
@@ -381,6 +410,9 @@ static dgrjw_fb_t dgrjw_yrfb0(dg_t *g, int a, int b, int type, int noproc)
 #if !defined(N) || N < 32  /* this condition should always be true */
   size = ((size_t) 1u << DG_N_); /* 2^n */
 #endif
+
+  DGYR_CHECKTYPE(type);
+  die_if (type == YRTYPE_LNYRTR, "cannot do type %d\n", type);
 
   /* the memory requirement is 2^(n + 1) * (n + 1) * sizeof(dgrjw_fb_t) */
   if (dgrjw_fbarr_ == NULL) {
@@ -406,28 +438,33 @@ static dgrjw_fb_t dgrjw_yrfb0(dg_t *g, int a, int b, int type, int noproc)
       &dgrjw_vsn_, &dgrjw_vsnmax_);
 
   /* add/remove the edge between a and b */
-  if ( !noproc && dgyr_preproc(g, a, b, type, &eab) == 0 ) return 0;
+  if ( proc && dgyr_preproc(g, a, b, type, &eab) == 0 ) return 0;
   /* pre-compute all fc and fq values */
   dgrjw_yrprepare(g, a, b, type, dgrjw_fbarr_, dgrjw_fbarr_ + size,
                    dgrjw_vsbysize_, dgrjw_aparr_);
-  /* remove graphs in which a and b form an articulation pair */
-  if ( type == 2 ) {
-    dgrjw_yrrmseppair(g, a, b, dgrjw_fbarr_, dgrjw_fbarr_ + size,
-                      dgrjw_vsbysize_);
-    offset = 1;
-  }
   /* remove articulated graphs */
-  fb = dgrjw_yriter(g, a, b, type, dgrjw_fbarr_, offset,
+  fb = dgrjw_yriter(g, a, b, type, dgrjw_fbarr_,
                     dgrjw_vsbysize_, dgrjw_aparr_);
+  /* remove graphs in which a and b form an articulation pair */
+  if ( DO_LNYR(type) ) {
+    offset = DG_N_ % 2;
+    /* in this case, a and b are adjacent,
+     * i.e., we are computing the expansion of f(r) y(r), instead of y(r)
+     * so in removing the graphs with {a, b} being a separation pair
+     * we must use the negative sign to get f(r) ln y(r) */
+    fb = dgrjw_yrrmseppr(g, a, b, -1, dgrjw_fbarr_ + offset * size,
+            dgrjw_fbarr_ + (!offset) *size, dgrjw_vsbysize_);
+  } else {
+    if ( type == YRTYPE_YR ) fb = -fb;
+  }
   /* remove/add back the edge between a and b */
-  return noproc ? fb : fb * dgyr_postproc(g, a, b, type, eab);
+  if ( proc ) dgyr_postproc(g, a, b, eab);
+  return fb;
 }
 
 
 
 #if DGVS_ONEWORD
-
-
 
 /* find clique separator of two vertices except a b */
 static dgvsref_t dg_csep2xp(const dg_t *g, int a, int b)
@@ -517,13 +554,15 @@ static dgvsref_t dg_csep2xp(const dg_t *g, int a, int b)
 
 #define dg_yrfb(g, a, b, type) dg_yrfb0(g, a, b, type, NULL, NULL)
 
-/* compute y(r), or y(r) - t(r), or log y(r) */
+/* compute y(r), or y(r) - t(r), or log y(r), or log y(r) - t(r) */
 INLINE double dg_yrfb0(dg_t *g, int a, int b, int type,
                        int *ned, int *degs)
 {
   double fb = 0;
   int eab, nedges = -1;
   DG_DEFN_(g)
+
+  DGYR_CHECKTYPE(type);
 
   if ( ned == NULL ) ned = &nedges;
 
@@ -533,20 +572,21 @@ INLINE double dg_yrfb0(dg_t *g, int a, int b, int type,
 
   if ( dgyr_preproc(g, a, b, type, &eab) == 0 ) return 0;
 
-  if ( dg_csep2xp(g, a, b) != 0 ) {
+  if ( !DO_LNYR(type) && dg_csep2xp(g, a, b) != 0 ) {
     fb = 0;
     goto END;
   }
 
   /* if the graph is not very dense, use the direct method */
-  if ( *ned <= 2*DG_N_ - 2 || DG_N_ > RJWNMAX ) {
-    fb = dgsc_yriter0(g, a, b, type, 1);
+  if ( *ned <= 2*DG_N_ - 2 || DG_N_ > RJWNMAX || type == YRTYPE_LNYRTR ) {
+    fb = dgsc_yriter0(g, a, b, type, 0);
   } else {
-    fb =  (double) dgrjw_yrfb0(g, a, b, type, 1);
+    fb =  (double) dgrjw_yrfb0(g, a, b, type, 0);
   }
 
 END:
-  return fb * dgyr_postproc(g, a, b, type, eab);
+  dgyr_postproc(g, a, b, eab);
+  return fb;
 }
 
 
@@ -554,16 +594,127 @@ END:
 /* compute y(r), or y(r) - t(r), or log y(r) */
 INLINE double *dg_yrfball(double *fb, dg_t *g, int type)
 {
-  int a, b, id, ned, degs[DG_NMAX];
+  int a, b, ned, degs[DG_NMAX];
   DG_DEFN_(g)
 
   ned = dg_degs(g, degs); /* prepare degrees */
-  id = 0;
   for ( a = 0; a < DG_N_; a++ )
-    for ( b = a + 1; b < DG_N_; b++, id++ )
-      fb[id] = dg_yrfb0(g, a, b, type, &ned, degs);
+    for ( b = a + 1; b < DG_N_; b++ )
+      fb[a*DG_N_ + b] = fb[b*DG_N_ + a] = dg_yrfb0(g, a, b, type, &ned, degs);
   return fb;
 }
+
+
+
+/* yrfb of unique diagrams */
+static double (*dgmap_yrfb_[3][DGMAP_NMAX + 1])[DGMAP_NMAX*DGMAP_NMAX];
+#pragma omp threadprivate(dgmap_yrfb_)
+
+
+/* compute y(r), or y(r) - t(r), or log y(r), or log y(r) - t(r) */
+INLINE double *dgmap_yrfball(double *fb, dg_t *g, int type)
+{
+  DG_DEFN_(g)
+  char ja, jb, ia, ib;
+  int ipr;
+  dgword_t c;
+  unqid_t uid, iperm;
+  dgmap_t *m;
+  double (*arr)[DGMAP_NMAX*DGMAP_NMAX] = dgmap_yrfb_[type][DG_N_];
+
+  /* initialize the look-up table */
+  if (arr == NULL) {
+    int k, cnt = 0;
+    clock_t t0 = clock();
+    dg_t *g1 = dg_open(DG_N_);
+    m = dgmap_ + DG_N_;
+    dgmap_init0(m, DG_N_, 1);
+    xnew(arr, m->ng); /* # of unique diagrams */
+    /* loop over unique diagrams */
+    for (cnt = 0, k = 0; k < m->ng; k++) {
+      dg_decode(g1, &m->first[k]);
+      if ( dg_connected(g1) ) {
+        dg_yrfball(arr[k], g1, type);
+        cnt++;
+      } else {
+        for ( ipr = 0; ipr < DG_N_*DG_N_; ipr++ )
+          arr[k][ipr] = 0;
+      }
+    }
+    dg_close(g1);
+    dgmap_yrfb_[type][DG_N_] = arr;
+    fprintf(stderr, "%4d: type %d, n %d, called dgmap_yrfball() for %d diagrams, %gs\n",
+          inode, type, DG_N_, cnt, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+  }
+
+  /* encode the graph to c */
+  dg_encode(g, &c);
+  m = dgmap_ + DG_N_;
+  uid = m->map[c]; /* get the unique graph */
+  iperm = m->iperm[c];
+  for ( ja = 0; ja < DG_N_; ja++ ) {
+    ia = m->perms[iperm][ja];
+    for ( jb = ja + 1; jb < DG_N_; jb++ ) {
+      ib = m->perms[iperm][jb];
+      fb[ia*DG_N_ + ib] = fb[ib*DG_N_ + ia] = arr[uid][ja*DG_N_ + jb];
+    }
+  }
+  return fb;
+}
+
+
+
+/* compute y(r), or y(r) - t(r), or log y(r), or log y(r) - t(r) */
+INLINE double dgmap_yrfb(dg_t *g, int ia, int ib, int type)
+{
+  DG_DEFN_(g)
+  char ja, jb;
+  int ipr;
+  dgword_t c;
+  unqid_t uid, iperm;
+  dgmap_t *m;
+  double (*arr)[DGMAP_NMAX*DGMAP_NMAX] = dgmap_yrfb_[type][DG_N_];
+
+  /* initialize the look-up table */
+  if (arr == NULL) {
+    int k, cnt = 0;
+    clock_t t0 = clock();
+    dg_t *g1 = dg_open(DG_N_);
+    m = dgmap_ + DG_N_;
+    dgmap_init0(m, DG_N_, 1);
+    xnew(arr, m->ng); /* # of unique diagrams */
+    /* loop over unique diagrams */
+    for (cnt = 0, k = 0; k < m->ng; k++) {
+      dg_decode(g1, &m->first[k]);
+      if ( dg_connected(g1) ) {
+        dg_yrfball(arr[k], g1, type);
+        cnt++;
+      } else {
+        for ( ipr = 0; ipr < DG_N_*DG_N_; ipr++ )
+          arr[k][ipr] = 0;
+      }
+    }
+    dg_close(g1);
+    dgmap_yrfb_[type][DG_N_] = arr;
+    fprintf(stderr, "%4d: type %d, n %d, called dgmap_yrfball() for %d diagrams, %gs\n",
+          inode, type, DG_N_, cnt, 1.*(clock() - t0)/CLOCKS_PER_SEC);
+  }
+
+  /* encode the graph to c */
+  dg_encode(g, &c);
+  m = dgmap_ + DG_N_;
+  uid = m->map[c]; /* get the unique graph */
+  iperm = m->iperm[c];
+  for ( ja = 0; ja < DG_N_; ja++ ) {
+    if (ia != m->perms[iperm][ja]) continue;
+    for ( jb = 0; jb < DG_N_; jb++ ) {
+      if (ib != m->perms[iperm][jb]) continue;
+      return arr[uid][ja*DG_N_ + jb];
+    }
+  }
+  return 0;
+}
+
 
 
 /* histogram for correlation functions */
@@ -636,6 +787,7 @@ INLINE void hscr_add(hscr_t *hs, double x, double fb)
 
 
 
+/* save the correlation function */
 INLINE int hscr_save(hscr_t *hs, const char *fn, double norm)
 {
   FILE *fp;
@@ -653,7 +805,7 @@ INLINE int hscr_save(hscr_t *hs, const char *fn, double norm)
   hs->nsampd += (double) hs->nsampi;
   hs->nsampi = 0;
   xfopen(fp, fn, "w", return -1);
-  fprintf(fp, "# %d %d %d %.0f %g %g %g %g\n",
+  fprintf(fp, "# %d %d %d %.0f %g %.14e %g %g\n",
       hs->dim, hs->order, imax + 1,
       hs->nsampd, hs->dx, norm, hs->sphr, hs->vol);
   for ( i = 0; i <= imax; i++ ) {
@@ -664,6 +816,47 @@ INLINE int hscr_save(hscr_t *hs, const char *fn, double norm)
   }
   fclose(fp);
   return 0;
+}
+
+
+
+/* load the previous correlation function */
+INLINE int hscr_load(hscr_t *hs, const char *fn)
+{
+  FILE *fp;
+  int i, dim, order, cnt, err = -1;
+  char buf[256];
+  double y, r, nsamp, dx, norm;
+
+  xfopen(fp, fn, "r", return -1);
+  fgets(buf, sizeof buf, fp);
+  if ( buf[0] != '#' ||
+      6 != sscanf(buf + 1, "%d%d%d%lf%lf%lf", &dim, &order, &cnt, &nsamp, &dx, &norm) ) {
+    fprintf(stderr, "%s: first line broken!\n%s", fn, buf);
+    goto EXIT;
+  }
+  if ( dim != hs->dim || order != hs->order || fabs(hs->dx - dx) > 1e-8
+      || cnt > hs->npt ) {
+    fprintf(stderr, "%s: mismatched parameters: D %d vs %d, n %d vs %d, dx %g vs %g, cnt %d vs %d",
+            fn, dim, hs->dim, order, hs->order, dx, hs->dx, cnt, hs->npt);
+    goto EXIT;
+  }
+
+  for ( i = 0; i < hs->npt; i++ ) hs->arr[i] = 0;
+  for ( i = 0; i < cnt; i++ ) {
+    fgets(buf, sizeof buf, fp);
+    if ( 2 != sscanf(buf, "%lf%lf", &r, &y) )
+      break;
+    y *= nsamp * hs->sphr * pow(r, hs->dim - 1) * hs->dx / norm;
+    hs->arr[i] = y;
+  }
+  hs->nsampd = nsamp;
+  hs->nsampi = 0;
+
+  err = 0; /* clear the error code */
+EXIT:
+  fclose(fp);
+  return err;
 }
 
 

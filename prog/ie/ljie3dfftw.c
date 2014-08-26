@@ -338,10 +338,10 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     if ( mkcorr ) {
       if (l > 1) Bv *= 1 + shift;
       Bm = get_corr1(l, npt, crl, fr1, rdfr1, ri2, 3,
-          vc, &Bc, &Bv, &fcorr);
+          vc, 1, &Bc, &Bv, &fcorr);
     }
 
-    savevir(fnvir, 3, l+2, Bc, Bv, Bm, Bh, Br, B2, mkcorr, fcorr);
+    savevir(fnvir, 3, l+2, Bc, Bv, Bm, Bh, Br, 0, B2, mkcorr, fcorr);
     savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yrl);
   }
   savevirtail(fnvir, clock() - t1);

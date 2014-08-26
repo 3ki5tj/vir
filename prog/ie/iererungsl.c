@@ -98,9 +98,10 @@ __inline static xdouble get_invcorr1_hs(int l, int npt, int dm,
 static int rerun(int nmax, int npt, xdouble rmax, int dohnc)
 {
   xdouble facr2k, fack2r, surfr, surfk;
-  xdouble Bc = 0, Bv = 0, Bm = 0, Bh = 0, Br = 0, B2, tmp1, tmp2, fcorr = 0;
+  xdouble Bc = 0, Bv = 0, Bm = 0, Bh = 0, Br = 0, By = 0, B2, tmp1, tmp2, fcorr = 0;
   xdouble *fr, **cr, **tr, **ck, **tk, *yrl = NULL, *vc;
   xdouble *ri, *ki, *r2p, *k2p, *rDm1, *kDm1;
+  xdouble *yr0, *lnyr0;
   int i, dm, l, l0 = 1;
   slowdht *dht;
   clock_t t0 = clock(), t1;
@@ -148,6 +149,11 @@ static int rerun(int nmax, int npt, xdouble rmax, int dohnc)
     kDm1[i] = tmp1 * 2 / (dht->kmax * dht->kmax * dht->J2[i+1]);
   }
 
+  MAKE1DARR(yr0, nmax - 1);
+  MAKE1DARR(lnyr0, nmax - 1);
+  yr0[0] = 1;
+  lnyr0[0] = 0;
+
   MAKE1DARR(fr, npt);
   MAKE2DARR(ck, nmax - 1, npt)
   MAKE2DARR(tk, nmax - 1, npt)
@@ -183,8 +189,10 @@ static int rerun(int nmax, int npt, xdouble rmax, int dohnc)
       /* Bv is unaffected */
       if ( dohnc ) {
         Bv = contactv(yrl, dm, B2);
+        yr0[l] = get_zerosep(yrl, ri);
       } else {
         Bv = contactv(tr[l], dm, B2);
+        yr0[l] = get_zerosep(tr[l], ri);
       }
 
       /* in the PY case, y(r) = 1 + t(r) */
@@ -194,10 +202,11 @@ static int rerun(int nmax, int npt, xdouble rmax, int dohnc)
       /* without correction */
       if ( dohnc ) {
         Bv = contactv(yrl, dm, B2);
+        yr0[l] = get_zerosep(yrl, ri);
       } else {
         Bv = contactv(tr[l], dm, B2);
+        yr0[l] = get_zerosep(tr[l], ri);
       }
-
       Bc = -integr(npt, cr[l], rDm1) / (l + 2);
 
       if ( dohnc ) {
@@ -208,7 +217,8 @@ static int rerun(int nmax, int npt, xdouble rmax, int dohnc)
       }
     }
 
-    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, B2, mkcorr, fcorr);
+    By = update_lnyr0(l, yr0, lnyr0);
+    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, By, B2, mkcorr, fcorr);
   }
   savevirtail(fnvir, clock() - t1);
 
@@ -225,6 +235,8 @@ static int rerun(int nmax, int npt, xdouble rmax, int dohnc)
   FREE2DARR(tr, nmax - 1, npt);
   FREE1DARR(yrl, npt);
   FREE1DARR(vc, npt);
+  FREE1DARR(yr0, nmax - 1);
+  FREE1DARR(lnyr0, nmax - 1);
   slowdht_free(dht);
   return 0;
 }

@@ -31,7 +31,13 @@ typedef struct {
   int ng; /* number of unique diagrams */
   unqid_t *map; /* map a diagram to the unique diagram
                    `short' works for n <= 8 */
-  dgword_t *first; /* index of the first unique diagram */
+  dgword_t *first; /* the adjacency matrix, written in a single word,
+                      of the first unique diagram */
+  int nperms;  /* number of permutations, should be n! */
+  char (*perms)[DGMAP_NMAX]; /* permutations */
+  unqid_t *iperm; /* index of the vertex permutation
+                     from the unique diagram to this diagram
+                     iperm[c] can be used as the index of perms[] */
 } dgmap_t;
 
 
@@ -41,28 +47,28 @@ dgmap_t dgmap_[DGMAP_NMAX + 1];
 
 
 /* compute all permutations of n */
-INLINE int dgmap_getperm(int n, int **pp)
+INLINE int dgmap_getperm(int n, char (**pp)[DGMAP_NMAX])
 {
-  int np, npp, ipp, i, top;
+  int np, ip, i, top;
   static int st[DGMAP_NMAX + 2], used[DGMAP_NMAX + 2];
 #pragma omp threadprivate(st, used)
 
   for (np = 1, i = 1; i <= n; i++) np *= i;
-  npp = np * n; /* each permutation needs n numbers */
-  xnew(*pp, npp);
+  xnew(*pp, np);
   /* add all permutations of the diagram */
   for (i = 0; i < n; i++) {
     st[i] = -1;
     used[i] = 0;
   }
-  for (ipp = 0, top = 0; ; ) {
+  for (ip = 0, top = 0; ; ) {
     if (top >= n) {
       /* found an index permutation, build the graph */
-      die_if (ipp >= npp, "ipp %d >= npp %d, n %d\n", ipp, npp, n);
+      die_if (ip >= np, "ip %d >= np %d, n %d\n", ip, np, n);
       for (i = 0; i < n; i++) {
         die_if (st[i] < 0 || st[i] >= n, "bad %d/%d %d\n", i, n, st[i]);
-        (*pp)[ipp++] = st[i];
+        (*pp)[ip][i] = (char) st[i];
       }
+      ip++;
     } else {
       /* select the number on level top */
       for (i = st[top]; ++i < n; )
@@ -82,11 +88,16 @@ INLINE int dgmap_getperm(int n, int **pp)
 }
 
 
+
+int dgmap_needvperm = 0;
+#define dgmap_init(m, n) dgmap_init0(m, n, dgmap_needvperm)
+
 /* compute initial diagram map */
-INLINE int dgmap_init(dgmap_t *m, int n)
+INLINE int dgmap_init0(dgmap_t *m, int n, int getvperm)
 {
   dgword_t c, c1, ng, *masks, *ms;
-  int ipm, npm, *pm, i, j, ipr, npr, gid;
+  int ipm, i, j, ipr, npr, gid, nperms;
+  char (*perms)[DGMAP_NMAX];
   clock_t t0;
   /* number of unique diagrams */
   static int nfirst[DGMAP_NMAX + 1] = {1,
@@ -94,7 +105,7 @@ INLINE int dgmap_init(dgmap_t *m, int n)
 
   die_if (n > DGMAP_NMAX || n <= 0, "bad n %d\n", n);
   /* if any thread sees `m->ng > 0' it is already initialized */
-  if (m->ng > 0) return 0; /* already initialized */
+  if (m->ng > 0 && (!getvperm || m->iperm != NULL)) return 0; /* already initialized */
 
 #ifdef _OPENMP
 #pragma omp critical
@@ -125,17 +136,21 @@ INLINE int dgmap_init(dgmap_t *m, int n)
       }
 
       /* compute all permutations */
-      npm = dgmap_getperm(DG_N_, &pm);
+      nperms = dgmap_getperm(DG_N_, &perms);
+      if ( getvperm ) {
+        m->nperms = nperms;
+        m->perms = perms;
+        xnew(m->iperm, ng);
+      }
       /* for each permutation compute the mask of each vertex pair */
-      xnew(masks, npm * npr);
-      for (ipm = 0; ipm < npm; ipm++)
+      xnew(masks, nperms * npr);
+      for (ipm = 0; ipm < nperms; ipm++)
         for (ipr = 0, i = 0; i < DG_N_ - 1; i++)
           for (j = i + 1; j < DG_N_; j++, ipr++)
             masks[ipm * npr + ipr] /* code bit of the pair (i, j) */
-              = MKBIT( getpairindex(
-                    pm[ipm*DG_N_ + i], pm[ipm*DG_N_ + j], DG_N_
-                    ) );
-      free(pm);
+              = MKBIT(
+                  getpairindex(perms[ipm][i], perms[ipm][j], DG_N_)
+                );
 
       /* loop over all diagrams */
       for (gid = 0, c = 0; c < ng; c++) {
@@ -143,12 +158,14 @@ INLINE int dgmap_init(dgmap_t *m, int n)
         die_if (gid >= nfirst[n], "too many diagrams %d\n", gid);
         m->first[gid] = c;
         /* add all permutations of the diagram */
-        for (ms = masks, ipm = 0; ipm < npm; ipm++) {
+        for (ms = masks, ipm = 0; ipm < nperms; ipm++) {
           /* `c1' is the code of the permuted diagram `c' */
           for (c1 = 0, ipr = 0; ipr < npr; ipr++, ms++)
             if ((c >> ipr) & 1u) c1 |= *ms;
           if (m->map[c1] < 0) {
             m->map[c1] = (unqid_t) gid;
+            if ( m->iperm != NULL )
+              m->iperm[c1] = (unqid_t) ipm;
           } else die_if (m->map[c1] != gid,
             "%4d: error: corruption code: %#x %#x, graph %d, %d\n",
             inode, c, c1, m->map[c1], gid);
@@ -180,6 +197,9 @@ INLINE void dgmap_done(dgmap_t *m)
     free(m->first);
     m->first = NULL;
     m->ng = 0;
+    m->nperms = 0;
+    if ( m->perms != NULL ) free(m->perms);
+    if ( m->iperm != NULL ) free(m->iperm);
   }
 }
 

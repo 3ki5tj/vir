@@ -79,11 +79,13 @@ int dbnobak = 0; /* do not backup the database */
 
 double crxmax = 0;
 double crdx = 0.01; /* interval of dx */
-
 int nstcr = 0; /* frequency of computing cr */
 int nstcrrep = 1000000; /* frequency of reporting cr */
 char fncr[80];
 
+int yrtype = 1; /* 0: y(r), 1: y(r) - t(r), 2: ln y(r), 3: ln y(r) - t(r) */
+double yrxmax = 0;
+double yrdx = 0.01;
 int nstyr = 0; /* frequency of computing yr */
 int nstyrrep = 1000000; /* frequency of reporting yr */
 char fnyr[80];
@@ -144,14 +146,16 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--dbbin",       "%d",   &dbbinary,    "if the output database is binary, 1: binary, 0: text, -1: default");
   argopt_add(ao, "--dbnobak",     "%b",   &dbnobak,     "do not backup database");
 
-  argopt_add(ao, "--crxmax",      "%lf",  &crxmax,      "maximal r");
+  argopt_add(ao, "--crxmax",      "%lf",  &crxmax,      "maximal r for c(r)");
   argopt_add(ao, "--crdx",        "%lf",  &crdx,        "grid spacing of c(r)");
-
   argopt_add(ao, "--nstcr",       "%d",   &nstcr,       "frequency of computing c(r)");
   argopt_add(ao, "--nstcrrep",    "%d",   &nstcrrep,    "frequency of reporting c(r)");
 
   argopt_add(ao, "--nstyr",       "%d",   &nstyr,       "frequency of computing y(r)");
+  argopt_add(ao, "--yrxmax",      "%lf",  &yrxmax,      "maximal r for y(r)");
+  argopt_add(ao, "--yrdx",        "%lf",  &yrdx,        "grid spacing of y(r)");
   argopt_add(ao, "--nstyrrep",    "%d",   &nstyrrep,    "frequency of reporting y(r)");
+  argopt_add(ao, "--yrtype",      "%d",   &yrtype,      "0: y(r), 1: y(r) - t(r), 2: ln y(r), 3: ln y(r) - t(r)");
 
   argopt_parse(ao, argc, argv);
 
@@ -285,12 +289,23 @@ static void doargs(int argc, char **argv)
     sscat(dbfnbak, ".bak");
   }
 
-  if ( argopt_isset(ao, crxmax) || crxmax < 1e-6 )
+  if ( !argopt_isset(ao, crxmax) || crxmax < 1e-6 )
     crxmax = n + 4;
   sprintf(fncr, "crD%dn%d.dat", D, n);
-  sprintf(fnyr, "yrD%dn%d.dat", D, n);
 
-  if (inode == MASTER) {
+  DGYR_CHECKTYPE(yrtype);
+  if ( !argopt_isset(ao, yrxmax) || yrxmax < 1e-6 )
+    yrxmax = n + 4;
+  {
+    char yrnames[4][32] = {"yr", "yrtr", "lnyr", "lnyrtr"};
+    sprintf(fnyr, "%sD%dn%d.dat", yrnames[yrtype], D, n);
+  }
+
+#if DGMAP_EXISTS
+  if ( nstyr > 0 ) dgmap_needvperm = 1;
+#endif
+
+  if ( inode == MASTER ) {
     argopt_dump(ao);
     printf("D %d, n %d, %g steps, amp %g, nstfb %d, %d-bit, "
       "%s, %s disp, Bring %g, Z %g, dbfninp %s, dbfnout %s(%s), RJWNMAX %d\n",
@@ -463,14 +478,18 @@ static void saveyr(hscr_t *hs, rvn_t *x, dg_t *g)
   static unsigned long cnt = 0;
   double fb;
   DG_DEFN_(g)
+  int ned, degs[DG_NMAX];
 
+  ned = dg_degs(g, degs);
   for (i = 0; i < DG_N_; i++)
-    for (j = i + 1; j < DG_N_; j++)
-      if ( dg_linked(g, i, j) ) { /* only interested in r < 1 */
-        real r = rvn_dist(x[i], x[j]);
-        fb = dgsc_yriter(g, i, j, 1);
-        hscr_add0(hs, r, fb);
-      }
+    for (j = i + 1; j < DG_N_; j++) {
+      real r = rvn_dist(x[i], x[j]);
+      if ( lookup )
+        fb = dgmap_yrfb(g, i, j, yrtype);
+      else
+        fb = dg_yrfb0(g, i, j, yrtype, &ned, degs);
+      hscr_add0(hs, r, fb);
+    }
   hscr_inc(hs, DG_N_ * (DG_N_ - 1) / 2);
   if ((cnt = (cnt+1) % nstyrrep) == 0)
     hscr_save(hs, fnyr, Zn);
@@ -535,8 +554,14 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
   nr = dgmap_nr0(DG_N_, gmapid);
 #endif /* !defined(DG_NORING) */
 
-  if (nstcr > 0) hscr = hscr_open(crxmax, crdx, D, DG_N_);
-  if (nstyr > 0) hsyr = hscr_open(1,      crdx, D, DG_N_);
+  if (nstcr > 0) {
+    hscr = hscr_open(crxmax, crdx, D, DG_N_);
+    if (!bsim0) hscr_load(hscr, fncr);
+  }
+  if (nstyr > 0) {
+    hsyr = hscr_open(yrxmax, yrdx, D, DG_N_);
+    if (!bsim0) hscr_load(hsyr, fnyr);
+  }
 
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
@@ -760,8 +785,14 @@ static void mcrat_direct(int n, double nequil, double nsteps,
   fb = dg_fbnr(g, &nr);
   hasfb = 1;
 
-  if (nstcr > 0) hscr = hscr_open(crxmax, crdx, D, DG_N_);
-  if (nstyr > 0) hsyr = hscr_open(1,      crdx, D, DG_N_);
+  if (nstcr > 0) {
+    hscr = hscr_open(crxmax, crdx, D, DG_N_);
+    if (!bsim0) hscr_load(hscr, fncr);
+  }
+  if (nstyr > 0) {
+    hsyr = hscr_open(yrxmax, yrdx, D, DG_N_);
+    if (!bsim0) hscr_load(hsyr, fnyr);
+  }
 
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
