@@ -21,7 +21,7 @@ MPILM =
 
 
 deps = dg.h dgmap.h dgmapl.h dgutil.h dgcsep.h dgrjw.h dgsc.h \
-       dgring.h dgaut.h dgdb.h dghash.h \
+       dgring.h dgaut.h dgdb.h dghash.h dgcryr.h \
        nau0s.h zcom.h GNUmakefile mcutil.h
 bins = mcrat0 mcgc2 mcgcr2
 bins_d = $(patsubst %, %_d, $(bins))
@@ -54,8 +54,13 @@ clean:
 	rm -rf $(bins) $(bins_d) $(bins_mp) $(bins_mpi) *~ a.out gmon.out \
 	  *.his MTSEED bin obj r[0-9][0-9][0-9][a-z]* mr* Zr*
 
-vircode.zip: $(deps) Bring.dat Z.dat
+zipfile = vircode.zip
+
+$(zipfile): $(deps) Bring.dat Z.dat
 	zip vircode.zip *.[ch] *.ma *.dat *.py README.usr README.mds GNUmakefile
 
-zip: vircode.zip
+zip: $(zipfile)
 
+Bossman: zip
+	rsync -avL $(zipfile) \
+	  cz1@129.109.88.204:/Bossman/cz1/vir/prog

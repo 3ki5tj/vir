@@ -254,7 +254,7 @@ static void dgrjw_yrprepare(const dg_t *g, int a, int b, int type,
       fcarr[vs] = 0;
       aparr[vs] = 0; /* fb(vs) == 0 */
     } else { /* connected diagram */
-      if ( (vs & vsab) == vsab && holdab ) { /* vs contains a and b */
+      if ( holdab && (vs & vsab) == vsab ) { /* vs contains a and b */
         ms = vs ^ vsab; /* exclude the roots from the vertex set */
         /* loop over proper subsets of `vs'
          * the first component contains `b1'
@@ -331,7 +331,7 @@ static dgrjw_fb_t dgrjw_yriter(const dg_t *g, int a, int b, int type,
         fa = 0;
         /* skip if the vertex set does not contain v */
         if ( (bv & vs) != 0 ) {
-          if ( (vs & vsab) == vsab && holdab ) {
+          if ( holdab && (vs & vsab) == vsab ) {
             /* in this case, vs1 must contain both a and b */
             ms = vs & ~vsab & ~bv; /* the looper set excludes a, b, v */
             jdnew = idnew | vsab | bv;
@@ -572,9 +572,14 @@ INLINE double dg_yrfb0(dg_t *g, int a, int b, int type,
 
   if ( dgyr_preproc(g, a, b, type, &eab) == 0 ) return 0;
 
-  if ( !DO_LNYR(type) && dg_csep2xp(g, a, b) != 0 ) {
-    fb = 0;
-    goto END;
+  /* exclude clique separators */
+  if ( type == YRTYPE_YR ) {
+    dgvsref_t vs = dg_csep(g);
+    if ( dg_csep2xp(g, a, b) != 0
+     || ((vs = dg_csep(g)) != 0 && (!DGVS_HAS(vs, a) || !DGVS_HAS(vs, b))) )
+        goto END;
+  } else if ( type == YRTYPE_YRTR ) {
+    if ( dg_csep(g) ) goto END;
   }
 
   /* if the graph is not very dense, use the direct method */
@@ -654,7 +659,7 @@ INLINE double *dgmap_yrfball(double *fb, dg_t *g, int type)
   iperm = m->iperm[c];
   for ( ja = 0; ja < DG_N_; ja++ ) {
     ia = m->perms[iperm][ja];
-    for ( jb = ja + 1; jb < DG_N_; jb++ ) {
+    for ( jb = (char) (ja + 1); jb < DG_N_; jb++ ) {
       ib = m->perms[iperm][jb];
       fb[ia*DG_N_ + ib] = fb[ib*DG_N_ + ia] = arr[uid][ja*DG_N_ + jb];
     }
@@ -845,8 +850,10 @@ INLINE int hscr_load(hscr_t *hs, const char *fn)
   for ( i = 0; i < hs->npt; i++ ) hs->arr[i] = 0;
   for ( i = 0; i < cnt; i++ ) {
     fgets(buf, sizeof buf, fp);
-    if ( 2 != sscanf(buf, "%lf%lf", &r, &y) )
-      break;
+    if ( 2 != sscanf(buf, "%lf%lf", &r, &y) ) {
+      fprintf(stderr, "%s corrupted on line %d\n", fn, i + 2);
+      goto EXIT;
+    }
     y *= nsamp * hs->sphr * pow(r, hs->dim - 1) * hs->dx / norm;
     hs->arr[i] = y;
   }

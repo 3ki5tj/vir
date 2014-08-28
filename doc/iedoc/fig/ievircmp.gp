@@ -15,10 +15,15 @@ theylabel='{/Arial-Italic B_n} /{/Arial-Italic B}_2^{{/Arial-Italic n}-1}'
 
 titledsc = "DSC"
 
+# height of the very bottom panels
+bbh = 0.14
+
 # height of the bottom panels
-bh = 0.5
+bh = 0.43
+
+y2 = bbh + bh
 # height of the top panels
-th = 1 - bh
+th = 1 - y2
 
 # width of the right panel
 rw = 0.52
@@ -37,6 +42,7 @@ lbfont  = "Arial, 20"
 
 color1a = "#cc2222"
 color1b = "#000000"
+color1c = "#444466"
 
 color2a = "#666666"  # "#804000"
 color2b = "#666666"
@@ -80,6 +86,11 @@ set style line 17 lc rgb color4b lt 4 lw 9.0 pt 2 ps 1.3 # full  diamond
 set style line 18 lc rgb color5a lt 4 lw 3.0 pt 1 ps 1.6 # empty diamond
 set style line 19 lc rgb color5a lt 4 lw 9.0 pt 1 ps 1.6 # full  diamond
 
+# for errors
+
+set style line 40 lc rgb color1b lt 1 lw 1.0 pt 12 ps 2.0  # for DSC
+set style line 41 lc rgb color1c lt 2 lw 1.0 pt 13 ps 2.0  # for SC
+
 tagdx1 = 0.005
 tagdx2 = 0.010
 tagdy1 = 0.020
@@ -87,8 +98,10 @@ tagdy2 = 0.005
 tagfont = "Arial, 24"
 set label 300 "(a)" at screen       tagdx1,  1 - tagdy1 font tagfont
 set label 301 "(b)" at screen  lw + tagdx2,  1 - tagdy1 font tagfont
-set label 302 "(c)" at screen       tagdx1, bh - tagdy2 font tagfont
-set label 303 "(d)" at screen  lw + tagdx2, bh - tagdy2 font tagfont
+set label 302 "(c)" at screen       tagdx1, y2 - tagdy2 font tagfont
+set label 303 "(d)" at screen  lw + tagdx2, y2 - tagdy2 font tagfont
+set label 304 "(e)" at screen       tagdx1,bbh - tagdy2 font tagfont
+set label 305 "(f)" at screen  lw + tagdx2,bbh - tagdy2 font tagfont
 
 
 
@@ -100,7 +113,7 @@ set multiplot
 # left-top panel
 
 set size    lw, th
-set origin 0.0, bh
+set origin 0.0, bh + bbh
 
 set xtics 4 font tcfont offset 0, 0.5
 set mxtics 4
@@ -118,7 +131,7 @@ set label 100 "{/Arial-Italic D} = 2" at 13.5, 7e-5 font tlfont
 # Left: align text to the left
 # reverse: symbol first, text next
 # invert: first drawn shown last in the legend
-set key at 13.5, 10e-4 Left reverse spacing spc font lbfont
+set key at 13.5, 16e-4 Left reverse spacing spc font lbfont
 
 plot [2:16][5e-5:1] \
   "data/D2/BnD2n14.dat"                   u ($1):(abs($2))                              w l  ls 2         notitle, \
@@ -154,7 +167,7 @@ plot [2:16][5e-5:1] \
 # right-top panel
 
 set size    rw, th
-set origin  lw, bh
+set origin  lw, bh + bbh
 
 set lmargin 7.0
 set rmargin 1.5
@@ -211,11 +224,10 @@ plot [2:32][4e-6:4] \
 # left-bottom panel
 
 set size    lw, bh
-set origin 0.0, 0.0
+set origin 0.0, bbh
 
 set tmargin 0.
-set bmargin 2.5
-set xlabel thexlabel font lbfont offset 2, 1.0
+set bmargin 1.5
 
 set lmargin 6.0
 set rmargin 0.5
@@ -226,9 +238,9 @@ set label 100 "{/Arial-Italic D} = 10" at 26.0, 8.0e-4 font tlfont
 # Left: align text to the left
 # reverse: symbol first, text next
 # invert: first drawn shown last in the legend
-set key at 26.5, 3.5 Left reverse spacing spc font lbfont
+set key at 26.5, 4.5 Left reverse spacing spc font lbfont
 
-plot [2:32][5e-4:4] \
+plot [2:32][5e-4:5] \
   "data/D10r1n32/BnD10n32.dat"              u ($1):(abs($2))                              w l  ls 2         notitle, \
   ""                                        u ($1):(($2 > 0) ? abs($2) : 1/0)             w p  ls 2         notitle, \
   ""                                        u ($1):(($2 < 0) ? abs($2) : 1/0)             w p  ls 3         notitle, \
@@ -274,22 +286,22 @@ unset arrow
 # right-bottom panel
 
 set size    rw, bh
-set origin  lw, 0.0
+set origin  lw, bbh
 
 set lmargin 7.0
 set rmargin 1.5
 
 
-set ylabel theylabel font lbfont offset 1.5, 4.5
+set ylabel theylabel font lbfont offset 1.5, 2.5
 
 set label 100 "{/Arial-Italic D} = 15" at 26, 1.5e-4 font tlfont
 
 # Left: align text to the left
 # reverse: symbol first, text next
 # invert: first drawn shown last in the legend
-set key at 26.5, 0.9 Left reverse spacing spc font lbfont
+set key at 26.5, 1.8 Left reverse spacing spc font lbfont
 
-plot [2:32][1e-4:1] \
+plot [2:32][1e-4:2] \
   "data/D15r1n64/BnD15n64.dat"            u ($1):(abs($2))                              w l  ls 2         notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)             w p  ls 2         notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)             w p  ls 3         notitle, \
@@ -323,6 +335,45 @@ plot [2:32][1e-4:1] \
   ""                                      u ($1):(($4 < 0) ? abs($4) : 1/0)             w p  ls 17        notitle, \
   ""                                      u ($1):-1                                     w lp ls 16        t "HNC, cavity", \
   1e-100 lw 0 notitle
+
+
+
+
+# inset panels
+unset label
+
+set xlabel thexlabel font lbfont offset 2, 1.0
+set ylabel "{/Symbol-Oblique e}&{/=12 .}({/Arial-Italic B_n}&{/=12 .})" font lbfont offset 1.0, 0.0
+set bmargin 2.5
+
+# left very bottom panel
+set size    lw, bbh
+set origin  0.0, 0.0
+
+set lmargin 6.0
+set rmargin 0
+
+set key at 22, 10e-4 Left reverse spacing spc font lbfont
+set label 100 "{/Arial-Italic D} = 10" at 26, 1.0e-4 font tlfont
+
+plot [2:32][1e-5:1] \
+  "iedata/err/xBnPYcD10n128.err"          u ($1):(abs($4/$3)) w lp ls 40  t "DSC", \
+  "iedata/err/xBnIRD10n36.err"            u ($1):(abs($4/$3)) w lp ls 41  t "Rowlinson 2"
+
+
+# right very bottom panel
+set size    rw, bbh
+set origin  lw, 0.0
+
+set lmargin 7.0
+set rmargin 1.5
+set key at 19, 10e-4 Left reverse spacing spc font lbfont
+set label 100 "{/Arial-Italic D} = 15" at 26, 1.0e-4 font tlfont
+
+plot [2:32][1e-5:1] \
+  "iedata/err/xBnPYcD15n128.err"          u ($1):(abs($4/$3)) w lp ls 40  t "DSC", \
+  "iedata/err/xBnIRD15n36.err"            u ($1):(abs($4/$3)) w lp ls 41  t "Rowlinson 2"
+
 
 unset multiplot
 unset output

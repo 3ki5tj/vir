@@ -16,6 +16,7 @@ nstep = -1
 verbose = 0
 purepy = 0
 purehnc = 0
+pureir = 0
 errmax = 10  # error
 wreport = 0 # write a report
 scanall = 0 # scan all dimensions
@@ -40,6 +41,7 @@ def usage():
    -Q:     minimal resolution
    --py:   PY closure (default is the self-consistent closure)
    --hnc:  HNC closure
+   --ir:   Inverse Rowlinson closure
    -v:     be verbose
    -vv:    be more verbose
   """
@@ -51,7 +53,7 @@ def doargs():
   ''' Handle common parameters from command line options '''
   try:
     opts, args = getopt.gnu_getopt(sys.argv[1:], "D:n:M:e:wQ:av",
-        [ "dim=", "order=", "errmax=", "py", "hnc", "report", "all",
+        [ "dim=", "order=", "errmax=", "py", "hnc", "ir", "report", "all",
           "ref=", "resmin=",
           "verbose=", "help", ])
   except getopt.GetoptError, err:
@@ -59,7 +61,7 @@ def doargs():
     print str(err) # will print something like "option -a not recognized"
     usage()
 
-  global dim, nstep, nmax, wreport, purepy, purehnc, scanall, verbose, errmax
+  global dim, nstep, nmax, wreport, purepy, purehnc, pureir, scanall, verbose, errmax
   global refval, resolmin
 
   for o, a in opts:
@@ -83,6 +85,8 @@ def doargs():
       purepy = 1
     elif o in ("--hnc",):
       purehnc = 1
+    elif o in ("--ir",):
+      pureir = 1
     elif o in ("-v",):
       verbose += 1
     elif o in ("--verbose",):
@@ -186,7 +190,11 @@ def calcres(a, ls):
     y = yx[0]
     wt = resol*2
     yy = sum(x**j * a[j] for j in range(M))
-    res += (yy - y)**2 * wt
+    try:
+      res += (yy - y)**2 * wt
+    except Exception:
+      print yy, y, wt
+      exit()
     s += wt
   return res / s
 
@@ -217,6 +225,7 @@ def searchdatalist(dim, order, tag, col):
   template = "*Bn%sD%dn*.dat" % (tag, dim)
   fns = glob.glob(template)
   ls = []
+  #print fns, template
   for fn in fns:
     m = re.search("R([0-9]*)M([0-9]*)(.*).dat", fn)
     if not m: continue
@@ -373,7 +382,7 @@ def niceprint(x, err, dim = 0, n = 0, cnt = "", lsprec = ""):
         dim, n, scifmt.scifmt(x, err).text(errmax = errmax),
         x, err, cnt, lsprec)
   except Exception:
-    print "%4d %24.14e %e %s %s" % (n, Bn, err, cnt, lsprec)
+    print "%4d %24.14e %e %s %s" % (n, x, err, cnt, lsprec)
 
 
 
@@ -384,6 +393,8 @@ def doit(dim):
     tag, cols = "PY", ((1, "compressibility"), (2, "virial"), (3, "ddP"), (-1, "cavity"))
   elif purehnc:
     tag, cols = "HNC", ((1, "compressibility"), (2, "virial"), (-1, "cavity"))
+  elif pureir:
+    tag, cols = "IR", ((1, "compressibility"), (2, "virial"))
 
   nmin = nstep
   if nmin < 3: nmin = int((3 + nstep - 1)/nstep) * nstep

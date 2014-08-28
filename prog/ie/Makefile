@@ -136,5 +136,5 @@ $(prj)code.zip: fft.h fftmpfr.h xdouble.h slowdht.h zcom.h \
 zip: $(prj)code.zip
 
 Bossman: zip
-	rsync -avL $(prj)prog.zip \
+	rsync -avL $(prj)code.zip \
 	  cz1@129.109.88.204:/Bossman/cz1/vir/prog

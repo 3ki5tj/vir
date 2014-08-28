@@ -14,3 +14,5 @@ gaussf.h      compute the virial coefficients of the Gaussian model
 Utilities:
 ===========
 gaussfmerge   to compile: make gaussfmerge
+
+gaussfextra.py    extrapolate along the number of edges for large n (n >= 13)
