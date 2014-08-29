@@ -10,15 +10,19 @@ Summary of programs
 
 C programs (native datatypes family)
 -------------------------------------
-    iegsl.c         GSL         an arbitrary even or odd dimension
-                    slowdht.h
+    ievir.c         GSL/FFTW3   actual code of iegsl.c and ieodfftw.c
+
+    iegsl.c         GSL         alias of ievir.c
+                    slowdht.h   an arbitrary even or odd dimension
+
+    ieodfftw.c      FFTW3       alias of ievir.c
+                    fft.h       arbitrary odd-dimensional case
 
     snapfixgsl.c    GSL         fix the snapshotXXX_.dat output of iegsl.c
-                                e.g., the snapshotXXX_ck.dat and snapshotXXX_tr.dat
+    (deprecated)                e.g., the snapshotXXX_ck.dat and snapshotXXX_tr.dat
                                 may be of a different frame.
 
-    ieodfftw.c      FFTW3       arbitrary odd-dimensional case
-                    fft.h       -DNOFFTW
+    ozcrtr.c        GSL/FFTW3   given c(r), compute t(r) from the OZ relation
 
     ljie3dfftw.c    FFTW3       3-dimensional case for the LJ potential
 

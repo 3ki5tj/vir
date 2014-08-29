@@ -6,6 +6,9 @@
 #define ZCOM_PICK
 #define ZCOM_ARGOPT
 #include "zcom.h"
+#ifndef DHT
+#define DHT 1
+#endif
 #include "slowdht.h"
 #include "ieutil.h"
 
@@ -243,34 +246,9 @@ static int rerun(int nmax, int npt, xdouble rmax, int dohnc)
 
 
 
-/* adjust rmax such that r = 1 lies at the middle of the dm'th and dm+1'th bins */
-static xdouble jadjustrmax(double rmax0, int npt)
-{
-  xdouble dr, km, kp, kM, rmax;
-  double nu = dim*.5 - 1;
-  int dm;
-
-  dr = rmax0 / npt;
-  dm = (int)(1/dr + .5);
-  kM = gsl_sf_bessel_zero_Jnu(nu, npt + 1);
-  while ( 1 ) {
-    km = gsl_sf_bessel_zero_Jnu(nu, dm);
-    kp = gsl_sf_bessel_zero_Jnu(nu, dm + 1);
-    rmax = kM*2/(km + kp);
-    if ( rmax >= rmax0 - 1e-8 || dm == 1 ) break;
-    dm--;
-  }
-  dr = rmax / npt;
-  printf("D %d, %d bins, %d within the hard core (dr %g), rmax %g, k %g - %g\n",
-      dim, npt, dm, (double) dr, (double) rmax, (double) km, (double) kp);
-  return rmax;
-}
-
-
-
 int main(int argc, char **argv)
 {
   doargs(argc, argv);
-  rerun(nmax, numpt, jadjustrmax(rmax, numpt), dohnc);
+  rerun(nmax, numpt, jadjustrmax(rmax, numpt, dim), dohnc);
   return 0;
 }

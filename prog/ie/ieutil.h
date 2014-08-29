@@ -1684,7 +1684,7 @@ static void sphr_fft(int K, int npt, xdouble *in, xdouble *out, xdouble fac,
 /* compute
  *  out(k) = fac Int {from 0 to infinity} dr
  *           r^(D/2) in(r) J_{D/2-1}(k r) */
-static void sphr_dht(xdouble *in, xdouble *out, xdouble fac,
+INLINE void sphr_dht(xdouble *in, xdouble *out, xdouble fac,
     xdht *dht, xdouble *arr, xdouble *r2p, xdouble *k2p)
 {
   int i, npt = dht->size;

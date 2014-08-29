@@ -8,6 +8,19 @@
  *  gcc -DFFTW -DDHT -DLDBL ievir.c -lfftw3l -lgsl -lgslcblas
  * Or for the 128-bit precision
  *  gcc -DFFTW -DDHT -DF128 ievir.c -lfftw3q -lgsl -lgslcblas -lquadmath -lm
+ * --------------------------------------------------------------------
+ * Use the GSL version only:
+ *  gcc -DDHT iegsl.c -lgsl -lgslcblas -lm
+ * --------------------------------------------------------------------
+ * Use the FFTW version only:
+ * For the normal double precision
+ *  gcc -DFFTW ieodfftw.c -lfftw3
+ * Or for the long double precision
+ *  gcc -DFFTW -DLDBL ieodfftw.c -lfftw3l
+ * Or for the 128-bit precision
+ *  gcc -DFFTW -DF128 ieodfftw.c -lfftw3q -lquadmath -lm
+ * To disable FFTW and use FFTW0
+ *  gcc -DFFT0 ieodfftw.c -lm
  * */
 #include <stdio.h>
 #include <stdlib.h>

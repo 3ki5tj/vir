@@ -24,7 +24,9 @@ CQ = gcc -DQUAD -O3 -g -Wall -Wunused -Wextra -Wno-unknown-pragmas
 LMQ = -lm $(LQ)
 
 # source code that uses GMP and MPFR
-csrc            = $(wildcard *.c)
+csrc            = $(filter-out \
+                    ievir.c ozcrtr.c, \
+                    $(wildcard *.c))
 csrc_fftw       = $(wildcard *fftw*.c)
 csrc_mpfr       = $(wildcard *mpfr*.c)
 csrc_gmp        = $(wildcard *gmp*.c)
@@ -58,17 +60,29 @@ exe: $(bins) $(bins_l) $(bins_q)
 
 all: $(bins) $(bins_l) $(bins_q) $(bins_d)
 
+$(bins_gsl) : %: %.c $(deps) slowdht.h
+	$(CX) -DDHT=1 -DSLOWDHT=1 -o $@ $< $(LMX) $(LGSL)
+
+$(bins_gsl_l) : %_l: %.c $(deps) slowdht.h
+	$(CX) -DDHT=1 -DLDBL -DSLOWDHT=1 -o $@ $< $(LMX) $(LGSL)
+
+$(bins_gsl_q) : %_q: %.c $(deps) slowdht.h
+	$(CQ) -DDHT=1 -DF128 -DSLOWDHT=1 -o $@ $< $(LMQ) $(LGSL)
+
+$(bins_gsl_d) : %_d: %.c $(deps) slowdht.h
+	$(CC) -DDHT=1 -DSLOWDHT=1 -o $@ $< $(LM) $(LGSL)
+
 $(bins_fftw) : %: %.c $(deps)
-	$(CX) -o $@ $< $(LMX) $(LFFTW)
+	$(CX) -DFFTW=1 -o $@ $< $(LMX) $(LFFTW)
 
 $(bins_fftw_l) : %_l: %.c $(deps)
-	$(CX) -DLDBL -o $@ $< $(LMX) $(LFFTWL)
+	$(CX) -DFFTW=1 -DLDBL -o $@ $< $(LMX) $(LFFTWL)
 
 $(bins_fftw_q) : %_q: %.c $(deps)
-	$(CQ) -o $@ $< $(LQ) $(LFFTWQ)
+	$(CQ) -DFFTW=1 -o $@ $< $(LQ) $(LFFTWQ)
 
 $(bins_fftw_d) : %_d: %.c $(deps)
-	$(CC) -o $@ $< $(LM) $(LFFTW)
+	$(CC) -DFFTW -o $@ $< $(LM) $(LFFTW)
 
 $(bins_mpfr) : %: %.c $(deps)
 	$(CX) -o $@ $< $(LMX) $(LMPFR)
@@ -81,18 +95,6 @@ $(bins_gmp) : %: %.c $(deps)
 
 $(bins_gmp_d) : %_d: %.c $(deps)
 	$(CC) -o $@ $< $(LM) $(LGMP)
-
-$(bins_gsl) : %: %.c $(deps) slowdht.h
-	$(CX) -DSLOWDHT=1 -o $@ $< $(LMX) $(LGSL)
-
-$(bins_gsl_l) : %_l: %.c $(deps) slowdht.h
-	$(CX) -DLDBL -DSLOWDHT=1 -o $@ $< $(LMX) $(LGSL)
-
-$(bins_gsl_q) : %_q: %.c $(deps) slowdht.h
-	$(CQ) -DF128 -DSLOWDHT=1 -o $@ $< $(LMQ) $(LGSL)
-
-$(bins_gsl_d) : %_d: %.c $(deps) slowdht.h
-	$(CC) -DSLOWDHT=1 -o $@ $< $(LM) $(LGSL)
 
 $(bins_extra) : %: %.c $(deps)
 	$(CX) -o $@ $< $(LMX)
@@ -127,6 +129,7 @@ $(prj)code.zip: fft.h fftmpfr.h xdouble.h slowdht.h zcom.h \
   		ievir.c iegsl.c ieodfftw.c ieutil.h \
 		ieodmpfr.c ieutilmpfr.h \
 		ybgvir.c kirkvir.c \
+		ozcrtr.c \
 		base/pyfftw.c base/hncfftw.c \
 		scifmt.py ieoptparam.py ievirextra.py \
 		iebenchmark.sh \
