@@ -1,3 +1,4 @@
+#!/usr/bin/env gnuplot
 unset multiplot
 reset
 
@@ -34,8 +35,8 @@ spc = 1.2
 
 set logscale y
 set format y '10^{%T}'
-set ytics 1e-8,10,0.1 font tcfont offset 0.3, 0
-set ytics add ("1 " 1.0)
+set ytics ("1 " 1.0, "10" 10.0)
+set ytics add 1e-9,10,1e9 font tcfont offset 0.3, 0
 set mytics 10
 
 lbfont  = "Arial, 20"
@@ -180,7 +181,7 @@ set label 100 "{/Arial-Italic D} = 7" at 26, 8e-6 font tlfont
 # Left: align text to the left
 # reverse: symbol first, text next
 # invert: first drawn shown last in the legend
-set key at 27, 3.5 Left reverse spacing spc font lbfont
+set key at 26.5, 3.5 Left reverse spacing spc font lbfont
 
 plot [2:32][4e-6:4] \
   "data/D7/BnD7n20.dat"                   u ($1):(abs($2))                              w l  ls 2         notitle, \

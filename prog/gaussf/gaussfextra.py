@@ -48,7 +48,7 @@ def extrapolate(dim, n):
   #print ls
 
   # 3. extrapolate using a geometric series
-  prev = 0
+  Bnprev = prev = 0
   for ed, vir, svir in ls:
     if ed == 0: continue
     rat = prev / vir
@@ -57,17 +57,21 @@ def extrapolate(dim, n):
       Bn = svir + dx
     else:
       Bn = svir
-    err = fabs(dx)
+    if Bnprev > 0:
+      err = fabs(Bn - Bnprev)
+    else:
+      err = fabs(dx)
     if prev != 0:
-      print "D %2d, n %2d, e %2d %-28s %.20f %s | %s" % (
-          dim, n, ed, scifmt.scifmt(Bn, err), Bn, err, svir)
+      print "D %2d, n %2d, e %2d %-28s %.20f %s | %s rat %s" % (
+          dim, n, ed, scifmt.scifmt(Bn, err).text(errmax = 100), Bn, err, svir, rat)
     prev = vir
+    Bnprev = Bn
 
   try:
-    print "Final\nD %2d, n %d, %-28s %s %s" % (
-        dim, n, scifmt.scifmt(Bn, err), Bn, err)
+    print "Final\nD %2d, n %d, %-28s %.20f %s" % (
+        dim, n, scifmt.scifmt(Bn, err).text(errmax = 100), Bn, err)
   except Exception:
-    print "D %d, n %d, %s %s" % (dim, n, Bn, err)
+    print "D %d, n %d, %.20f %s" % (dim, n, Bn, err)
 
 
 

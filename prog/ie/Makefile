@@ -15,7 +15,7 @@ LM = -lm
 # optimized compiling
 # warnings 11001 and 11006 are notices invoked by -ipo
 # warning 1572 is the float-point comparison
-CX = icc -O2 -ipo -Wall -Wremarks -Wcheck -wd11001 -wd11006 -wd1572
+CX = icc -O2 -ipo -Wall -Wremarks -Wcheck -wd11001 -wd11006 -wd1572 -wd981
 #CX = gcc -O3 -march=native -fwhole-program -Wall -Wextra -Wunused
 LMX =
 

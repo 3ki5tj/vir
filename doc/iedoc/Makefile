@@ -19,6 +19,7 @@ iegraph.pdf: iegraph.tex liquid.bib Makefile
 clean:
 	$(RM) *.aux *.bbl *.blg *.log *.dvi \
 	      *Notes.bib *~
+	rstrip.py
 
 $(prj)doc.zip: $(prj)doc.tex $(prj)doc.pdf $(prj)text.doc \
   	       iegraph.tex iegraph.pdf liquid.bib \

@@ -1,9 +1,10 @@
+#!/usr/bin/env gnuplot
 unset multiplot
 reset
 
 set encoding cp1250 # make minus sign longer
 #set encoding iso_8859_1
-set terminal postscript eps enhanced size 7, 9 font "Arial, 20"
+set terminal postscript eps enhanced size 7, 7 font "Arial, 20"
 set output "ievirlow.eps"
 
 tcfont="Arial, 16"
@@ -11,7 +12,7 @@ thexlabel='Order {/Arial-Italic n}'
 theylabel='{/Arial-Italic B_n} /{/Arial-Italic B}_2^{{/Arial-Italic n}-1}'
 
 # height of the bottom panels
-bh = 0.45
+bh = 0.4
 # height of the top panels
 th = 1 - bh
 
@@ -21,7 +22,8 @@ rw = 0.52
 lw = 1 - rw
 
 set logscale y
-set ytics font tcfont offset 0.3, 0
+set ytics ("1 " 1.0, "10" 10.0)
+set ytics add 1e-9,10,1e9 font tcfont offset 0.3, 0
 set mytics 10
 set format y '10^{%T}'
 
@@ -30,7 +32,7 @@ lbfont  = "Arial, 20"
 color1a   = "#cc2222"
 color1b   = "#222222"
 color1b1  = "#444444"
-color1b2  = "#001166"
+color1b2  = "#444488"
 
 color2a   = color1a   # "#000000"
 color2b   = color1b   # "#804000"
@@ -42,6 +44,8 @@ color3b   = color1b   # "#006000"
 
 color4a   = color1a   # "#a0a0a0"
 color4b   = color1b   # "#008080"
+
+colorarr  = "#777777"
 
 # line styles for the small panels
 set style line 1  lc rgb "#aaaaaa" lt 1 lw 1
@@ -103,7 +107,7 @@ set style line 17 lc rgb color4b  lt 2 lw 9.0 pt 2  ps 1.7 # cross X, thick
 
 
 tagdx1 = 0.005
-tagdx2 = 0.010
+tagdx2 = 0.015
 tagdy1 = 0.020
 tagdy2 = 0.005
 tagfont = "Arial, 24"
@@ -128,7 +132,7 @@ set xtics 4 font tcfont offset 0, 0.5
 set mxtics 4
 unset xlabel
 
-set ylabel theylabel offset 1.3, 0.7
+set ylabel theylabel offset 1.3, 0.0
 
 set tmargin 1.
 set bmargin 1.5
@@ -136,20 +140,20 @@ set rmargin 0.
 set lmargin 6.0
 
 set label 101 "{/Arial-Italic D} = 2, {/Symbol-Oblique k} = 0" \
-  at 17.0, 0.8e-4 rotate by -63  textcolor rgb color1b font lbfont
+  at 16.0, 1.3e-4 rotate by -53  textcolor rgb color1b font lbfont
 
 set label 301 "{/Arial-Italic D} = 2, {/Symbol-Oblique k} = (0.194)_{{/Arial-Italic n} {/Symbol \263} 6}" \
-  at 15.0, 3.0e-3 rotate by -60  textcolor rgb color1b2 font lbfont
+  at 14.5, 3.0e-3 rotate by -52  textcolor rgb color1b2 font lbfont
 
 set label 102 "{/Arial-Italic D} = 3, {/Symbol-Oblique k} = 0" \
-   at 10.0, 1.0e-4 rotate by -75  textcolor rgb color2b font lbfont
+  at  9.5, 2.4e-4 rotate by -72  textcolor rgb color2b font lbfont
 
 set label 302 "{/Arial-Italic D} = 3, {/Symbol-Oblique k} = (0.335)_{{/Arial-Italic n} {/Symbol \263} 5}" \
-   at 11.0, 4.0e-4 rotate by -70  textcolor rgb color2b2 font lbfont
+  at 10.5, 8.5e-4 rotate by -68  textcolor rgb color2b2 font lbfont
 
 set label 103 "{/Arial-Italic D} = 4" at  5.0, 5.5e-3 rotate by -78  textcolor rgb color3b font lbfont
 
-plot [2:22][8e-6:1] \
+plot [2:22][8e-6:2] \
   "data/D2/BnD2n14.dat"                   u ($1):(abs($2)):3                            w l  ls 2              notitle, \
   ""                                      u ($1):(abs($2)):3                            w p  ls 2              notitle, \
   "data/D3/BnD3n12.dat"                   u ($1):(abs($2)):3                            w l  ls 6              notitle, \
@@ -182,8 +186,8 @@ unset label
 set size    rw, th
 set origin  lw, bh
 
-set rmargin 1.0
-set lmargin 7.0
+set rmargin 1.5
+set lmargin 5.0
 unset ylabel
 
 set label 101 "{/Arial-Italic D} = 5" at  13, 2e-5   rotate by 0  textcolor rgb color1a font lbfont
@@ -194,12 +198,12 @@ set label 102 "{/Arial-Italic D} = 6, {/Symbol-Oblique k} = 0" \
 set label 202 "{/Arial-Italic D} = 6, {/Symbol-Oblique k} = (0.352)_{{/Arial-Italic n} {/Symbol \263} 4}" \
     at  14.5, 1.5e-4 rotate by 0  textcolor rgb color2b2 font lbfont
 
-set label 103 "{/Arial-Italic D} = 7" at  22, 5e-3   rotate by 38 textcolor rgb color3b font lbfont
-set label 104 "{/Arial-Italic D} = 8" at  23, 3e-2   rotate by 45 textcolor rgb color4b font lbfont
+set label 103 "{/Arial-Italic D} = 7" at  22, 5e-3   rotate by 30 textcolor rgb color3b font lbfont
+set label 104 "{/Arial-Italic D} = 8" at  23, 3e-2   rotate by 36 textcolor rgb color4b font lbfont
 
 
 
-plot [2:28][1e-5:1] \
+plot [2:28][1e-5:2] \
   "data/D5/BnD5n12.dat"                   u ($1):(abs($2))                                  w l ls 2              notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0):3               w p ls 2              notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0):3               w p ls 3              notitle, \
@@ -245,7 +249,7 @@ set xlabel thexlabel font lbfont offset 2, 1.0
 
 set lmargin 6.0
 set format y '10^{%T}'
-set ylabel theylabel font lbfont offset 1.5, 0.0
+set ylabel theylabel font lbfont offset 1.5, 0.7
 
 set rmargin 0.
 
@@ -253,9 +257,9 @@ set label 101 "{/Arial-Italic D} = 9"   at  19.5, 6.0e-3  rotate by 0  textcolor
 set label 102 "{/Arial-Italic D} = 10"  at  11.0, 1.5e-2  rotate by 0  textcolor rgb color2b font lbfont
 set label 103 "{/Arial-Italic D} = 11"  at  14.0, 2.6e-3  rotate by 0  textcolor rgb color3b font lbfont
 
-set arrow from 20.5, 6.8e-3 to 19.0, 1.2e-2 ls 4  lt 1 nohead
-set arrow from 13.0, 1.3e-2 to 16.0, 7.7e-3 ls 8  lt 1 nohead
-set arrow from 14.0, 2.8e-3 to 12.1, 3.2e-3 ls 12 lt 1 nohead
+set arrow from 20.5, 6.8e-3 to 19.0, 1.2e-2 filled ls 4  lt 1 lc rgb colorarr head
+set arrow from 13.0, 1.3e-2 to 16.0, 7.7e-3 filled ls 8  lt 1 lc rgb colorarr head
+set arrow from 14.0, 2.8e-3 to 12.1, 3.2e-3 filled ls 12 lt 1 lc rgb colorarr head
 
 plot [2:24][2e-3:3e-1] \
   "data/D9r1n20/BnD9n20.dat"              u ($1):(abs($2))                      w l ls 2         lw 0.3 notitle, \
@@ -289,23 +293,23 @@ unset arrow
 set size    rw, bh
 set origin  lw, 0.0
 
-set lmargin 7.0
-set rmargin 1.0
+set lmargin 5.0
+set rmargin 1.5
 
 set xtics 10 font tcfont offset 0, 0.5
 set mxtics 10
 unset ylabel
-set ytics 1e-4, 10
+#set ytics 1e-4, 10
 
 set label 101 "{/Arial-Italic D} = 12"  at  23.0, 3.0e0   rotate by 0  textcolor rgb color1b font lbfont
 set label 102 "{/Arial-Italic D} = 13"  at   6.0, 2.0e-2  rotate by 0  textcolor rgb color2b font lbfont
 set label 103 "{/Arial-Italic D} = 14"  at  30.0, 1.0e-2  rotate by 0  textcolor rgb color3b font lbfont
 
-set arrow from 26.0, 2.2e0  to 29.0, 3.9e-1 ls 4  lt 1 nohead  # D = 12
-set arrow from  8.0, 1.5e-2 to 11.0, 1.7e-3 ls 8  lt 1 nohead  # D = 13
-set arrow from 30.0, 1.2e-2 to 25.4, 3.0e-2 ls 12 lt 1 nohead  # D = 14
+set arrow from 26.0, 2.2e0  to 29.0, 3.9e-1 filled ls 4  lt 1 lc rgb colorarr head  # D = 12
+set arrow from  8.0, 1.5e-2 to 11.0, 1.7e-3 filled ls 8  lt 1 lc rgb colorarr head  # D = 13
+set arrow from 30.0, 1.2e-2 to 25.4, 3.0e-2 filled ls 12 lt 1 lc rgb colorarr head  # D = 14
 
-plot [2:40][5e-4:1e2] \
+plot [2:40][5e-4:5e1] \
   "data/D12r1n64/BnD12n64.dat"            u ($1):(abs($2))                    w l ls 2         lw 0.3 notitle, \
   ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)   w p ls 2  ps 1.5        notitle, \
   ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)   w p ls 3  ps 1.5        notitle, \

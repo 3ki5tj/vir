@@ -36,7 +36,7 @@ int verbose = 0;
 static void doargs(int argc, char **argv)
 {
   argopt_t *ao = argopt_open(0);
-  ao->desc = "computing pressure and its derivatives from the HNC closure";
+  ao->desc = "computing pressure and its derivatives from the PY closure";
   argopt_add(ao, "-T", "%" XDBLSCNF "f", &T, "temperature");
   argopt_add(ao, "-r", "%" XDBLSCNF "f", &rho, "rho");
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &rmax, "maximal r");
@@ -129,7 +129,7 @@ static void iter(int npt, xdouble rho, xdouble *ri, xdouble *ki,
 /* solve d/d(rho) functions */
 static void iterd(int npt, xdouble rho, xdouble *ri, xdouble *ki,
     xdouble *dcr, xdouble *dtr, xdouble *dck, xdouble *dtk,
-    const xdouble *cr, const xdouble *tr, const xdouble *ck, const xdouble *tk,
+    const xdouble *ck, const xdouble *tk,
     xdouble *fr, xdouble facr2k, xdouble fack2r,
     FFTWPFX(plan) plan, xdouble *arr, int itmax)
 {
@@ -295,7 +295,7 @@ static void integ(int npt, xdouble rmax, xdouble rho)
 
   iter(npt, rho - delta, ri, ki, cr, tr, ck, tk,
       fr, facr2k, fack2r, plan, arr, itmax);
-  iterd(npt, rho, ri, ki, dcr, dtr, dck, dtk, cr, tr, ck, tk,
+  iterd(npt, rho - delta, ri, ki, dcr, dtr, dck, dtk, ck, tk,
       fr, facr2k, fack2r, plan, arr, itmax);
   if ( savecr )
     output(npt, ri, cr, tr, dcr, dtr, fr, bphi, "vv1.dat");
@@ -304,7 +304,7 @@ static void integ(int npt, xdouble rmax, xdouble rho)
 
   iter(npt, rho, ri, ki, cr, tr, ck, tk,
       fr, facr2k, fack2r, plan, arr, itmax);
-  iterd(npt, rho, ri, ki, dcr, dtr, dck, dtk, cr, tr, ck, tk,
+  iterd(npt, rho, ri, ki, dcr, dtr, dck, dtk, ck, tk,
       fr, facr2k, fack2r, plan, arr, itmax);
   if ( savecr )
     output(npt, ri, cr, tr, dcr, dtr, fr, bphi, "vv2.dat");
@@ -321,9 +321,9 @@ static void integ(int npt, xdouble rmax, xdouble rho)
       (double) dcompr1, (double) dcompr2,
       (double) ((compr2 - compr1)/delta) );
 
-  printf("rho %5.3f, T %6.3f: P1 %9.6f, P2 %9.6f, "
-         "dP1 %9.6f, dP2 %9.6f, dP %9.6f; "
-         "ddP1 %9.6f, ddP2 %9.6f, ddP(diff) %9.6f\n\n",
+  printf("rho %5.3f, T %6.3f: Pv-%9.6f, Pv %9.6f, "
+         "dPv-%9.6f, dPv %9.6f, dP %9.6f; "
+         "ddPv-%9.6f, ddPv %9.6f, ddP(diff) %9.6f\n\n",
       (double) rho, (double) (1/beta),
       (double) pres1b, (double) pres2b, (double) compr1b, (double) compr2b,
       (double) ((pres2b - pres1b)/delta),

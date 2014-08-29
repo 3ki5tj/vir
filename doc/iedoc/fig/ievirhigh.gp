@@ -1,3 +1,4 @@
+#!/usr/bin/env gnuplot
 unset multiplot
 reset
 
@@ -25,7 +26,8 @@ theylabel='{/Arial-Italic B_n} /{/Arial-Italic B}_2^{{/Arial-Italic n}-1}'
 
 set xtics font tcfont offset 0, 0.3
 set logscale y
-set ytics font tcfont offset 0.3, 0
+set ytics ("1 " 1.0)
+set ytics add 1e-100,1e5,1e100 font tcfont offset 0.3, 0
 set format y '10^{%T}'
 
 lbfont2 = "Arial, 12"

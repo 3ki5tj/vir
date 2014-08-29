@@ -1,3 +1,4 @@
+#!/usr/bin/env gnuplot
 unset multiplot
 reset
 

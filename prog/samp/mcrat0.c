@@ -297,7 +297,7 @@ static void doargs(int argc, char **argv)
   if ( !argopt_isset(ao, yrxmax) || yrxmax < 1e-6 )
     yrxmax = n + 4;
   {
-    char yrnames[4][32] = {"yr", "yrtr", "lnyr", "lnyrtr"};
+    char yrnames[4][32] = {"yr", "yrtr", "wr", "Br"};
     sprintf(fnyr, "%sD%dn%d.dat", yrnames[yrtype], D, n);
   }
 

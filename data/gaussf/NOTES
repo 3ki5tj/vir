@@ -18,3 +18,6 @@ n = 19, e25, >Z 3998400716  graphs generated in 259623.74 sec
 
 n = 20, e25, >Z 399710248   graphs generated in 166268.12 sec
 
+n = 21, e25, >Z 21104365    graphs generated in 128480.18 sec
+
+n = 22, e25, >Z 553333      graphs generated in 99407.43 sec
