@@ -1396,6 +1396,9 @@ __inline static int savecrtr(const char *fn, int l, int npt,
 
   if (fn == NULL) return -1;
   xfopen(fp, fn, (l == 1) ? "w" : "a", return -1);
+  if ( l == 1 ) {
+    fprintf(fp, "# %d\n", npt);
+  }
   for ( i = 0; i < npt; i++ ) {
     fprintf(fp, XDBLPRNE " " XDBLPRNE " " XDBLPRNE " %d",
         ri[i], cr[i], tr[i], l);

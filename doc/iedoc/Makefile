@@ -5,6 +5,8 @@ pdffigs=$(patsubst %,fig/%.pdf, $(figs))
 epsfigs=$(patsubst %,fig/%.eps, $(figs))
 figgps=$(patsubst %,fig/%.gp,  $(figs))
 
+all: $(prj)doc.pdf $(prj)notes.pdf
+
 $(prj)doc.pdf: $(prj)doc.tex $(prj)text.pdf \
   		iegraph.pdf $(pdffigs) Makefile
 	make -C fig
@@ -16,6 +18,9 @@ iegraph.pdf: iegraph.tex liquid.bib Makefile
 	latex $<
 	pdflatex $<
 
+$(prj)notes.pdf: $(prj)notes.tex Makefile
+	pdflatex $<
+
 clean:
 	$(RM) *.aux *.bbl *.blg *.log *.dvi \
 	      *Notes.bib *~
@@ -23,6 +28,7 @@ clean:
 
 $(prj)doc.zip: $(prj)doc.tex $(prj)doc.pdf $(prj)text.doc \
   	       iegraph.tex iegraph.pdf liquid.bib \
+	       $(prj)notes.tex $(prj)notes.pdf \
                $(prj).enl $(prj).Data \
 	       $(epsfigs) $(pdffigs) $(figgps) \
 	       README Makefile

@@ -62,6 +62,8 @@ int gaussf = 0; /* Gaussian model */
 int invexp = 0; /* inverse potential */
 char systitle[32];
 
+int doyr = 0;
+
 
 
 static void doargs(int argc, char **argv)
@@ -76,6 +78,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type, 0: integral grid points, 1: half-integer grid points");
   argopt_add(ao, "--crtr", NULL, &fncrtr, "file name of c(r) and t(r)");
+  argopt_add(ao, "--yr", "%b", &doyr, "deduce the bridge diagram from y(r)");
 #ifdef DHT
   argopt_add(ao, "--disk", "%d", &dhtdisk, "use disk for discrete Hankel transform (DHT)");
   argopt_add(ao, "--tmpdir", "%s", &slowdht_tmpdir, "directory for temporary files");
@@ -127,7 +130,7 @@ static void doargs(int argc, char **argv)
 
 
 /* load the reference c(r) that comes from Mayer sampling */
-INLINE double *loadcrraw(const char *fn, int *npt, double **ri)
+__inline double *loadcrraw(const char *fn, int *npt, double **ri)
 {
   double *cr = NULL;
   int dim, order, i;
@@ -169,7 +172,7 @@ EXIT:
 
 
 /* given the array (xi, yi), evaluate the value at x */
-INLINE double interp(double x, double *xi, double *yi,
+__inline double interp(double x, double *xi, double *yi,
     int imin, int imax, int cutimin, int cutimax)
 {
   int i;
@@ -190,17 +193,22 @@ INLINE double interp(double x, double *xi, double *yi,
 
 
 
+#define loadcr(l, npt, crl, ri) loadcorl("cr", l, npt, crl, ri)
+
+#define loadyrtr(l, npt, crl, ri) loadcorl("yrtr", l, npt, crl, ri)
+
 /* load c(r) from Mayer sampling */
-INLINE int loadcr(int l, int npt, xdouble *crl, xdouble *ri)
+__inline int loadcorl(const char *prefix,
+    int l, int npt, xdouble *crl, xdouble *ri)
 {
   double *ri0 = NULL, *cr0 = NULL, r, y;
   int n0 = 0, dm0 = 0, imin0, imax0, cutimin0, cutimax0;
-  char fn0[80];
+  char fn[80];
   int i;
 
   /* load the raw data */
-  sprintf(fn0, "crD%dn%d.dat", dim, l+2);
-  cr0 = loadcrraw(fn0, &n0, &ri0);
+  sprintf(fn, "%sD%dn%d.dat", prefix, dim, l+2);
+  cr0 = loadcrraw(fn, &n0, &ri0);
   if ( cr0 == NULL )
     return -1;
   /* get the hard core boundary */
@@ -231,12 +239,32 @@ INLINE int loadcr(int l, int npt, xdouble *crl, xdouble *ri)
 
 
 
+/* compute w(r) from y(r) */
+__inline static void getwr(int l, int npt, xdouble *wr, xdouble **yr)
+{
+  int i, u;
+  xdouble *a, *b;
+
+  xnew(a, l + 1);
+  xnew(b, l + 1);
+  for ( i = 0; i < npt; i++) {
+    for ( a[0] = 1, u = 1; u <= l; u++ ) a[u] = yr[u][i];
+    log_series(l + 1, a, b);
+    wr[i] = b[l];
+  }
+  free(a);
+  free(b);
+}
+
+
+
 static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
 {
   xdouble facr2k, fack2r, surfr, surfk;
   xdouble Bc, B2;
   xdouble *fr, *rdfr = NULL;
   xdouble *crl, *trl, *tkl;
+  xdouble **yr = NULL, *yrtrl = NULL, *wrl = NULL;
   xdouble **ck;
   xdouble *arr;
   xdouble *ri, *ki, *rDm1, *kDm1;
@@ -380,6 +408,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
   if ( smoothpot ) MAKE1DARR(rdfr, npt);
   MAKE1DARR(crl, npt);
   MAKE1DARR(trl, npt);
+  MAKE1DARR(yrtrl, npt);
+  MAKE1DARR(wrl, npt);
+  MAKE2DARR(yr, nmax - 1, npt);
   MAKE1DARR(tkl, npt);
   MAKE2DARR(ck, nmax - 1, npt);
 
@@ -399,19 +430,35 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
     crl[i] = fr[i];
   }
 
+  for ( i = 0; i < npt; i++ )
+    yr[0][i] = 1;
+
   for ( l = l0; l < nmax - 1; l++ ) {
     if ( l == 2 ) {
       /* this is the PY solution, exact for l - 1 = 1 */
       for ( i = 0; i < npt; i++ )
         crl[i] = trl[i] * fr[i];
-    } else /* try to load c_{l - 1}(r), starts with c_2(r) */
+    }
+    /* try to load c_{l - 1}(r), starts with c_2(r) */
     if ( l >= 3 && loadcr(l-1, npt, crl, ri) != 0 ) {
       fprintf(stderr, "stop at c_%d(r)\n", l - 1);
       break;
     }
+    if (doyr) {
+      /* try to load y_{l-1}(r), starts with y_2(r) */
+      if ( l >= 3 && loadyrtr(l-1, npt, yrtrl, ri) != 0 ) {
+        fprintf(stderr, "stop at y_%d(r)\n", l - 1);
+        break;
+      }
+      for ( i = 0; i < npt; i++ )
+        yr[l-1][i] = trl[i] + (l >= 3 ? yrtrl[i] : 0);
+      getwr(l - 1, npt, wrl, yr);
+      for ( i = 0; i < npt; i++ ) /* bridge function */
+        yrtrl[i] = wrl[i] - trl[i];
+    }
     Bc = get_Bc(l-1, npt, crl, rDm1);
     printf("n%4d, Bc %20.12" XDBLPRNF "e\n", l+1, Bc/pow_si(B2, l));
-    savecrtr(fncrtr, l-1, npt, ri, crl, trl, NULL, NULL);
+    savecrtr(fncrtr, l-1, npt, ri, crl, trl, yrtrl, wrl);
 
     /* c_l(r) --> c_l(k) for the previous l */
     sphr_r2k(crl, ck[l-1]);
@@ -432,6 +479,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
   FREE1DARR(rdfr, npt);
   FREE1DARR(crl,  npt);
   FREE1DARR(trl,  npt);
+  FREE1DARR(yrtrl, npt);
+  FREE1DARR(wrl, npt);
+  FREE2DARR(yr, nmax - 1, npt);
   FREE1DARR(tkl,  npt);
   FREE2DARR(ck, nmax - 1, npt);
 
