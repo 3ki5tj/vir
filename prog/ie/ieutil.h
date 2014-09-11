@@ -85,7 +85,7 @@ __inline static xdouble adjustrmax(xdouble rmax, int npt,
 #endif
 
 
-__inline static xdouble integr(int n, xdouble *f, xdouble *w)
+__inline static xdouble integr(int n, const xdouble *f, const xdouble *w)
 {
   xdouble y = 0;
   int i;
@@ -97,7 +97,7 @@ __inline static xdouble integr(int n, xdouble *f, xdouble *w)
 
 
 
-__inline static xdouble integr2(int n, xdouble *f1, xdouble *f2, xdouble *w)
+__inline static xdouble integr2(int n, const xdouble *f1, const xdouble *f2, const xdouble *w)
 {
   xdouble y = 0;
   int i;
@@ -109,7 +109,7 @@ __inline static xdouble integr2(int n, xdouble *f1, xdouble *f2, xdouble *w)
 
 
 
-__inline static xdouble integre(int n, xdouble *f, xdouble *fr, xdouble *w)
+__inline static xdouble integre(int n, const xdouble *f, const xdouble *fr, const xdouble *w)
 {
   xdouble y = 0;
   int i;
@@ -880,8 +880,8 @@ __inline static xdouble get_inv1mrc(int l, int npt,
 
 
 
-/* B_{l+2}^c = [1/(1 + rho Int h(r) surfr r^(D-1) dr) ]_{l + 2} */
-__inline static xdouble get_Bc_hr(int l, int npt, xdouble *hrl,
+/* B_{l+2}^c = 1/(l+2) [1/(1 + rho Int h(r) surfr r^(D-1) dr) ]_{l + 2} */
+__inline static xdouble get_Bc_hr(int l, int npt, const xdouble *hrl,
     xdouble *hk0, xdouble *rDm1)
 {
   int i;

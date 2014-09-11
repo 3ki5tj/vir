@@ -285,7 +285,6 @@ static void integ(int npt, xdouble rmax, xdouble rho)
   xnew(dck, npt);
   xnew(dtk, npt);
 
-  /* solvent-solvent interaction */
   for ( i = 0; i < npt; i++ ) {
     bphi[i] = beta * pot(ri[i], 1, 1, &rdfr[i]);
     x = EXP(-bphi[i]);

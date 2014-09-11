@@ -25,7 +25,7 @@ LMQ = -lm $(LQ)
 
 # source code that uses GMP and MPFR
 csrc            = $(filter-out \
-                    ievir.c ozcrtr.c, \
+                    ievir.c ozcrtr.c, muhs.c \
                     $(wildcard *.c))
 csrc_fftw       = $(wildcard *fftw*.c)
 csrc_mpfr       = $(wildcard *mpfr*.c)
@@ -118,6 +118,7 @@ clean:
 	  *Bn*.dat snapshot* tmp*.dat *.pyc \
 	  ieoptparam*.err ieoptparam*.out \
 	  r[0-9][0-9][0-9][a-z]* vv*.dat
+	rstrip.py -Rv
 
 usb:
 	$(MAKE) -C ../.. $@
@@ -130,7 +131,7 @@ $(prj)code.zip: fft.h fftmpfr.h xdouble.h slowdht.h zcom.h \
 		ieodmpfr.c ieutilmpfr.h \
 		ybgvir.c kirkvir.c \
 		ozcrtr.c \
-		base/pyfftw.c base/hncfftw.c \
+		base/pyfftw.c base/hncfftw.c base/muhs.c \
 		scifmt.py ieoptparam.py ievirextra.py \
 		iebenchmark.sh \
 		README Makefile

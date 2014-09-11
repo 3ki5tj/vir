@@ -24,9 +24,12 @@ typedef void *FFTWPFX(plan);
 #endif
 
 
+
 int dim = 3; /* currently default to 3 */
 int numpt = 8192;
 xdouble rmax = (xdouble) 20.48L;
+xdouble T = (xdouble) 10;
+xdouble beta;
 xdouble rho = (xdouble) 0.7L;
 xdouble drho = (xdouble) 0.05L;
 int itmax = 10000;
@@ -43,20 +46,26 @@ int dosc = 0;
 int doSC = 0;
 xdouble sqrs = 0.16564;
 xdouble irs = 0.16464;
-xdouble hcs = 1.83436;
+xdouble hcs = 0.83436;
+
 char *fnBr; /* bridge function */
+xdouble slope = 0.1;
+
+enum { SYS_HS, SYS_LJ };
+int sys;
 
 
 
 static void doargs(int argc, char **argv)
 {
   argopt_t *ao = argopt_open(0);
-  ao->desc = "computing pressure and its derivatives from the PY closure";
+  ao->desc = "computing chemical potential from integral equations";
   argopt_add(ao, "-r", "%" XDBLSCNF "f", &rho, "maximal density rho");
   argopt_add(ao, "--drho", "%" XDBLSCNF "f", &drho, "rho step size");
+  argopt_add(ao, "-T", "%" XDBLSCNF "f", &T, "temperature");
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &rmax, "maximal r");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
-  argopt_add(ao, "-d", "%" XDBLSCNF "f", &delta, "delta lambda");
+  argopt_add(ao, "-d", "%" XDBLSCNF "f", &delta, "delta xi");
   argopt_add(ao, "-O", "%b", &savecr, "save cr and tr");
   argopt_add(ao, "-s", "%" XDBLSCNF "f", &sqrs, "parameter of the quadratic closure");
   argopt_add(ao, "--py", "%b", &dopy, "do the PY closure");
@@ -66,15 +75,34 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--sc", "%b", &dosc, "do the self-consistent closure based on P");
   argopt_add(ao, "--SC", "%b", &doSC, "do the self-consistent closure based on mu");
   argopt_add(ao, "--Br", NULL, &fnBr, "file for the bridge function");
+  argopt_add(ao, "-k", "%" XDBLSCNF "f", &slope, "k in gamma = 2/3 - k * rho");
+  argopt_add(ao, "--lj", "%b", &sys, "do the Lennard-Jones fluid");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "-h");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
+  beta = 1./T;
   if ( dopy ) sqrs = 0;
-  printf("rmax %f, rho %g, delta %g\n",
+  printf("T %g, rmax %f, rho %g, delta %g\n", (double) T,
       (double) rmax, (double) rho, (double) delta);
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
+}
+
+
+
+/* return the potential phi(r), and -r*phi'(r)*/
+static xdouble potlj(xdouble r, xdouble sig, xdouble eps, xdouble *ndphir)
+{
+  xdouble invr6 = (sig*sig)/(r*r), u;
+
+  invr6 = invr6*invr6*invr6;
+  u = 4*invr6*(invr6 - 1);
+  if (u > 1000) u = 1000;
+  *ndphir = invr6*(48*invr6 - 24);
+  if (*ndphir > 12000) *ndphir = 12000;
+  *ndphir *= eps;
+  return eps*u;
 }
 
 
@@ -126,7 +154,11 @@ __inline static int getBrs(const char *fn, int lmax, int npt,
     /* read the raw data */
     for ( i = 0; i < numpt; i++ ) {
       if ( fgets(buf, sizeof buf, fp) == NULL ) {
-        fprintf(stderr, "%s: no line %d, l %d\n", fn, i, l);
+        if (i != 0) {
+          fprintf(stderr, "%s: no line %d, l %d\n", fn, i, l);
+        } else {
+          fprintf(stderr, "%s stop at order l %d\n", fn, l - 1);
+        }
         goto EXIT;
       }
       if ( 6 != sscanf(buf, "%lf %lf %lf %d %lf %lf",
@@ -159,7 +191,7 @@ EXIT:
 
 
 
-/* combine the bridge function */
+/* combine the bridge function from the density components */
 __inline static int combBr(int lmax, int npt, xdouble *Br, xdouble **Brs, xdouble rho)
 {
   int i, l;
@@ -236,7 +268,8 @@ __inline static xdouble getyr(xdouble tr, xdouble *dy, xdouble *w, xdouble *dw)
 
 __inline static xdouble updates(xdouble ds)
 {
-  if ( doir ) return irs += ds;
+  if ( dohnc || dopy ) return 0;
+  else if ( doir ) return irs += ds;
   else if ( dohc ) return hcs += ds;
   else return sqrs += ds;
 }
@@ -310,32 +343,40 @@ static void iterd(int npt, xdouble rho, xdouble *ri, xdouble *ki,
 /* compute the parameter for the self-consistent closure based on pressure */
 static xdouble correct(int npt, xdouble rho, int dm,
     xdouble *cr, xdouble *tr, xdouble *fr, xdouble *ri2,
-    xdouble *dcr, xdouble *dtr, xdouble surfr)
+    xdouble *dcr, xdouble *dtr,
+    xdouble surfr, xdouble *rdfr)
 {
   int i;
-  xdouble num = 0, den = 0, num2 = 0, den2 = 0, y, Dy, w, Dw, ds;
+  xdouble num = 0, den = 0, y, Dy, w, Dw, ds;
 
   (void) dcr;
 
   /* 1. compute s */
   for ( i = 0; i < npt; i++ ) {
-    num += cr[i] * ri2[i];
-    getyr(tr[i], NULL, &w, NULL);
+    /* Dy = dy / dt
+     * w = dy / ds
+     * Dw = d^2 y / ds dt */
+    y = getyr(tr[i], &Dy, &w, &Dw);
     //w = 0.5 * tr[i] * tr[i];
-    den += (1 + fr[i]) * w * ri2[i];
+    num += cr[i] * ri2[i];
+    den += (1 + fr[i]) * w * ri2[i]; /* d_xi c = (1 + f) d_xi y */
+    if ( sys != SYS_HS ) {
+      num += rdfr[i] * (y + .5 * rho * Dy * dtr[i]) / dim;
+      den += rdfr[i] * (w + .5 * rho * Dw * dtr[i]) / dim;
+    }
   }
-  // checking code
-  //y = 1+tr[dm]+.5*sqrs*tr[dm]*tr[dm];
-  //Dy = 1 + sqrs*tr[dm];
-  //w = 0.5*tr[dm]*tr[dm];
-  //Dw = tr[dm];
-  y = getyr(tr[dm], &Dy, &w, &Dw);
-  num2 = (y + Dy * dtr[dm] * rho * .5) * surfr / dim;
-  den2 = (w + Dw * dtr[dm] * rho * .5) * surfr / dim;
-  num += num2;
-  den += den2;
+  if ( sys == SYS_HS ) {
+    // checking code
+    //y = 1+tr[dm]+.5*sqrs*tr[dm]*tr[dm];
+    //Dy = 1 + sqrs*tr[dm];
+    //w = 0.5*tr[dm]*tr[dm];
+    //Dw = tr[dm];
+    y = getyr(tr[dm], &Dy, &w, &Dw);
+    num += (y + Dy * dtr[dm] * rho * .5) * surfr / dim;
+    den += (w + Dw * dtr[dm] * rho * .5) * surfr / dim;
+  }
   ds = -num/den;
-  //printf("num %g,%g, den %g,%g dm %d, y %g, %g, w %g, %g, s %g\n", (double) num, (double) num2, (double) den, (double) den2, dm,
+  //printf("num %g, den %g, dm %d, y %g, %g, w %g, %g, s %g\n", (double) num, (double) den, dm,
   //    (double) y, (double) Dy, (double) w, (double) Dw, (double) sqrs); getchar();
 
   /* 2. use s to correct the correlation functions */
@@ -378,10 +419,10 @@ static xdouble correct2(int npt, xdouble rho,
 
 
 
-/* solve the lambda case, lambda is the charging parameter */
+/* solve the xi != 1 case, xi is the charging parameter */
 static void iterc(int npt, xdouble rho, xdouble *ri, xdouble *ki,
     xdouble *Cr, xdouble *Tr, xdouble *Ck, xdouble *Tk,
-    xdouble *Br, xdouble lambda,
+    xdouble *Br, xdouble xi,
     const xdouble *cr, const xdouble *tr,
     const xdouble *ck, const xdouble *tk,
     xdouble *Fr, xdouble facr2k, xdouble fack2r,
@@ -403,7 +444,7 @@ static void iterc(int npt, xdouble rho, xdouble *ri, xdouble *ki,
     for ( errmax = 0, i = 0; i < npt; i++ ) {
       /* C(r) = (1 + F(r)) Y(r) - T(r) - 1 */
       if ( Br != NULL ) {
-        Yr = EXP(Tr[i] + Br[i]*lambda*lambda);
+        Yr = EXP(Tr[i] + Br[i]*xi*xi);
       } else {
         Yr = getyr(Tr[i], NULL, NULL, NULL);
       }
@@ -419,7 +460,7 @@ static void iterc(int npt, xdouble rho, xdouble *ri, xdouble *ki,
 
 
 
-/* solve d/d(lambda) functions, where lambda is the charging parameter */
+/* solve d/d(xi) functions, where xi is the charging parameter */
 static void iterdc(int npt, xdouble rho, xdouble *ri, xdouble *ki,
     xdouble *dcr, xdouble *dtr, xdouble *dck, xdouble *dtk,
     const xdouble *cr, const xdouble *tr, const xdouble *ck, const xdouble *tk,
@@ -485,7 +526,6 @@ static xdouble getmu(int npt, xdouble rho,
   int i;
   xdouble yr, dyr, mu0, Bi, dBi, Bh = 0, hdB = 0, Bdh = 0;
 
-  /* beta mu = Int { -c + B + (1/2) t h } + ... */
   mu0 = 0;
   *dmu = 0;
   for ( i = 0; i < npt; i++ ) {
@@ -496,12 +536,15 @@ static xdouble getmu(int npt, xdouble rho,
     Bdh += Bi*(dcr[i] + dtr[i]) * ri2[i];
 
     if (br != 0) {
-      Bi = dBi = br[i];
+      Bi = br[i];
+      dBi = 2*Bi;
     }
+    /* beta mu = Int ( -c + B + (1/2) t h ) dr
+     *         + Int {0 to 1} dxi Int dB h dr */
     mu0 += (-cr[i] + Bi + .5*tr[i]*(cr[i] + tr[i])) * ri2[i];
+    /* beta dmu = Int ( -dc + dB + (1/2) dt h + (1/2) t dh + dB h) dr */
     *dmu += (-dcr[i] + dBi + dtr[i]*tr[i] + .5*dtr[i]*cr[i]
             + .5*tr[i]*dcr[i] + dBi*(cr[i]+tr[i])) * ri2[i];
-    //*dmu += (-dcr[i] + lambda * fr[i] * dtr[i]) * ri2[i];
     Bh += Bi*(cr[i] + tr[i]) * ri2[i];
   }
   if ( FABS(*ratio) < 1e-6 ) {
@@ -521,14 +564,14 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
 {
   xdouble dr, dk, facr2k, fack2r, surfr, surfk, *bphi;
   xdouble mu0, mu0a, mu0b, rab0, dmu0, mu1, mu1a, mu1b, rab1, dmu1;
-  xdouble *fr, *cr, *tr, *ck, *tk;
+  xdouble *fr, *rdfr, *cr, *tr, *ck, *tk;
   xdouble *dcr, *dtr, *dck, *dtk, *Dcr, *Dtr, *Dck, *Dtk;
-  xdouble *Fr, *Cr, *Tr, *Ck, *Tk;
+  xdouble *Fr, *rdFr, *Cr, *Tr, *Ck, *Tk;
   xdouble *dCr, *dTr, *dCk, *dTk;
   xdouble *arr, *ri, *ki, *ri2, *ki2, s = 0, ds;
   int i, dm, sci;
   FFTWPFX(plan) plan = NULL;
-  char fnout[80] = "iemu.dat";
+  char fnout[80] = "iemu.dat", buf[80] = "";
   FILE *fp;
   int Brlmax = -1;
   xdouble *Br = NULL, **Brs = NULL;
@@ -559,6 +602,7 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
 
   xnew(bphi, npt);
   xnew(fr, npt);
+  xnew(rdfr, npt);
   xnew(cr, npt);
   xnew(tr, npt);
   xnew(ck, npt);
@@ -573,6 +617,7 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
   xnew(Dtk, npt);
 
   xnew(Fr, npt);
+  xnew(rdFr, npt);
   xnew(Cr, npt);
   xnew(Tr, npt);
   xnew(Ck, npt);
@@ -584,15 +629,27 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
 
   /* solvent-solvent interaction */
   for ( dm = -1, i = 0; i < npt; i++ ) {
-    fr[i] = (ri[i] < 1) ? -1 : 0;
-    Fr[i] = (ri[i] < 1) ? -(1-delta) : 0;
+    if ( sys == SYS_HS ) {
+      fr[i] = (ri[i] < 1) ? -1 : 0;
+    } else {
+      xdouble bphi, x;
+      bphi = beta * potlj(ri[i], 1, 1, &rdfr[i]);
+      x = EXP(-bphi);
+      fr[i] = x - 1;
+      rdfr[i] *= beta * x;
+    }
+    Fr[i] = fr[i] * (1 - delta);
+    rdFr[i] = rdfr[i] * (1 - delta);
     if ( dm < 0 && ri[i] > 1) dm = i;
   }
 
   /* open the report file */
-  sprintf(fnout, "iemuhs%s%s.dat",
-      dohnc?"hnc":dopy?"py":dohc?"hc":doir?"ir":"sqr",
-      dosc?"sc":doSC?"SC":"");
+  if ( sys != SYS_HS ) sprintf(buf, "T%g", (double) T);
+  else buf[0] = '\0';
+  sprintf(fnout, "iemu%s%s%s%s.dat",
+      sys?"lj":"hs", buf,
+      fnBr?"Br":dohnc?"hnc":dopy?"py":dohc?"hc":doir?"ir":"sqr",
+      dosc?"scp":doSC?"scmu":"");
   if ((fp = fopen(fnout, "w")) == NULL) {
     fprintf(stderr, "cannot open %s\n", fnout);
     return -1;
@@ -621,18 +678,18 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
   for ( rho = rhodel; rho < rhomax + tol; rho += rhodel ) {
     if (Br != NULL) combBr(Brlmax, npt, Br, Brs, rho);
 
-    /* 1. solve the case of lambda = 1 */
+    /* 1. solve the case of xi = 1 */
     iter(npt, rho, ri, ki, cr, tr, ck, tk, Br,
         fr, facr2k, fack2r, plan, arr, itmax);
 
     /* self-consistently determine s based on the pressure
      * it appears that this only makes the result slightly worse */
     if (dosc) {
-      for (sci = 0; ; sci++) {
+      for (sci = 1; ; sci++) {
         /* differentiating with respect to rho */
         iterd(npt, rho, ri, ki, Dcr, Dtr, Dck, Dtk, tr, ck, tk,
               fr, facr2k, fack2r, plan, arr, itmax);
-        ds = correct(npt, rho, dm, cr, tr, fr, ri2, Dcr, Dtr, surfr);
+        ds = correct(npt, rho, dm, cr, tr, fr, ri2, Dcr, Dtr, surfr, rdfr);
         iter(npt, rho, ri, ki, cr, tr, ck, tk, Br,
             fr, facr2k, fack2r, plan, arr, itmax);
         s = updates(ds);
@@ -642,12 +699,12 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
       //fprintf(stderr, "self-consistent iteration finished in %d rounds, s %g\n", sci, (double) s);
     }
 
-    /* 2. compute dc(r), dt(r), differentiation w.r.t. lambda, at lambda = 1 */
+    /* 2. compute dc(r), dt(r), differentiation w.r.t. xi, at xi = 1 */
     iterdc(npt, rho, ri, ki, dcr, dtr, dck, dtk, cr, tr, ck, tk,
         fr, fr, facr2k, fack2r, plan, arr, itmax);
 
     if (doSC) {
-      for (sci = 0; ; sci++) {
+      for (sci = 1; ; sci++) {
         /* differentiating with respect to rho */
         iterd(npt, rho, ri, ki, Dcr, Dtr, Dck, Dtk, tr, ck, tk,
               fr, facr2k, fack2r, plan, arr, itmax);
@@ -662,17 +719,17 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
       //fprintf(stderr, "self-consistent iteration finished in %d rounds, s %g\n", sci, (double) s);
     }
 
-    rab0 = 0;
+    rab0 = (Br != NULL) ? (2./3 - slope * rho) : 0;
     mu0 = getmu(npt, rho, cr, tr, Br, dcr, dtr, ri2, &mu0a, &mu0b, &rab0, &dmu0);
 
     if ( savecr )
       output(npt, ri, cr, tr, dcr, dtr, fr, bphi, "cr.dat");
 
-    /* 3. solve the case of lambda = 1 - delta  */
+    /* 3. solve the case of xi = 1 - delta  */
     iterc(npt, rho, ri, ki, Cr, Tr, Ck, Tk, Br, 1-delta, cr, tr, ck, tk,
         Fr, facr2k, fack2r, plan, arr, itmax);
 
-    /* 4. compute dc(r), dt(r), differentiation w.r.t. lambda, at lambda = 1 - delta */
+    /* 4. compute dc(r), dt(r), differentiation w.r.t. xi, at xi = 1 - delta */
     iterdc(npt, rho, ri, ki, dCr, dTr, dCk, dTk, Cr, Tr, Ck, Tk,
         Fr, fr, facr2k, fack2r, plan, arr, itmax);
 
@@ -703,6 +760,7 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
 
   free(bphi);
   free(fr);
+  free(rdfr);
   free(cr);
   free(tr);
   free(ck);
@@ -713,6 +771,7 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
   free(dtk);
 
   free(Fr);
+  free(rdFr);
   free(Cr);
   free(Tr);
   free(Ck);

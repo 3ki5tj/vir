@@ -63,20 +63,35 @@ double rmax = 0;
 xdouble Rmax = 0;
 int numpt = 32768;
 int ffttype = 1;
+int mkcorr = 0;
 int verbose = 0;
 char *fnvir = NULL;
 char *fncrtr = NULL;
 int snapshot = 0;
+
+enum { CORR_HNC = 1, CORR_HC = 2,
+  CORR_RHODEP = 3, CORR_RHODEPB4 = 4, CORR_RHODEPB5 = 5};
 
 int smoothpot = 0; /* smooth potential */
 int gaussf = 0; /* Gaussian model */
 int invexp = 0; /* inverse potential */
 char systitle[32];
 
+xdouble hcs = 0.56;
 
 
+xdouble facr2k, fack2r, surfr, surfk;
+xdouble *arr;
 
-#ifdef DHT
+#ifdef FFT /* for odd dimensions */
+xdouble **r2pow = NULL, **invr2pow = NULL, **k2pow = NULL, **invk2pow = NULL;
+long *coef = NULL;
+FFTWPFX(plan) plans[2] = {NULL, NULL};
+#endif /* defined(FFT) */
+
+#ifdef DHT /* for even dimensions */
+xdouble *r2p, *k2p;
+xdht *dht = NULL;
 #endif /* defined(DHT) */
 
 
@@ -94,6 +109,8 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type, 0: integral grid points, 1: half-integer grid points");
   argopt_add(ao, "-o", NULL, &fnvir, "output virial coefficient");
   argopt_add(ao, "--crtr", NULL, &fncrtr, "file name of c(r) and t(r)");
+  argopt_add(ao, "--corr", "%d", &mkcorr, "linearly correct the closure, 1: HNC, 2: HC, 3: Gaskell, 4: Gaskell B4, 5: Gaskell B4-B5");
+  argopt_add(ao, "--hcs", "%" XDBLSCNF "f", &hcs, "s in the Hutchinson-Conkie closure");
 #ifdef DHT
   argopt_add(ao, "--disk", "%d", &dhtdisk, "use disk for discrete Hankel transform (DHT)");
   argopt_add(ao, "--tmpdir", "%s", &slowdht_tmpdir, "directory for temporary files");
@@ -158,25 +175,127 @@ __inline static void get_wk_ybg(int l, int npt, xdouble *wkl,
 
 
 
+/* compute w(k) from f(k), y(r = 1), and h(k), self-consistent
+ * with rho-dependent lambda */
+__inline static void get_wk_ybgx(int l, int npt,
+    xdouble *wkl, xdouble *lambda,
+    xdouble *fk, xdouble *yd,
+    xdouble **wk, xdouble **hk)
+{
+  int i, u, v;
+
+  for ( i = 0; i < npt; i++ ) {
+    for ( wkl[i] = 0, u = 0; u < l; u++ )
+      wkl[i] += fk[i] * yd[u] * hk[l - u - 1][i];
+
+    /* add low-order corrections from the closure */
+    for ( v = 0; v < l - 2; v++ ) {
+      xdouble y;
+      for ( y = 0, u = 1; u < l - v; u++ )
+        y += (hk[u][i] - wk[u][i] - fk[i]*yd[u]) * hk[l - v - u - 1][i];
+      wkl[i] += y * lambda[v];
+    }
+  }
+}
+
+
+
+/* Gaskell 1968 Physics Letters, Vol 27A, number 4, pages 209-210 */
+__inline static void mkcorrfunc0(int l, int npt,
+    xdouble *vcr, xdouble *vck,
+    xdouble *fk, xdouble *yd, xdouble **wk, xdouble **hk)
+{
+  int i;
+
+  if (l < 2) return;
+  for ( i = 0; i < npt; i++ )
+    vck[i] = (hk[1][i] - wk[1][i] - fk[i]*yd[1]) * hk[0][i];
+  sphr_k2r(vck, vcr); /* compute vcr */
+}
+
+
+
+__inline static void mkcorrfunc1(int l, int npt,
+    xdouble *vcr, xdouble *vck, xdouble **wk, xdouble **hk)
+{
+  int i, u;
+
+  for ( i = 0; i < npt; i++ )
+    for ( vck[i] = -wk[l][i], u = 0; u < l; u++ )
+      vck[i] += (hk[u][i] - wk[u][i]) * hk[l - u - 1][i];
+  sphr_k2r(vck, vcr); /* compute vcr */
+}
+
+
+
+__inline static void mkcorrfunc2(int l, int npt,
+    xdouble *vcr, xdouble *vck,
+    xdouble **tr, xdouble *wrl, xdouble **hk, xdouble s)
+{
+  int i, u, v;
+  xdouble *a, *b;
+
+  xnew(a, l + 1);
+  xnew(b, l + 1);
+  for ( i = 0; i < npt; i++ ) {
+    /* compute the indirect correlation function t(k)
+     * from the Ornstein-Zernike relation */
+    a[0] = 0;
+    for ( v = 1; v <= l; v++ )
+      for ( a[v] = 0, u = 0; u < v; u++ )
+        a[v] += (hk[u][i] - a[u]) * hk[v-1-u][i];
+    vck[i] = a[l];
+  }
+  sphr_k2r(vck, tr[l]); /* compute tr */
+  for ( i = 0; i < npt; i++ ) {
+    /* form 1 + t */
+    for ( a[0] = 1, u = 1; u <= l; u++ )
+      a[u] = s*tr[u][i];
+    /* compute log(1 + s t)/s */
+    log_series(l+1, a, b);
+    vcr[i] = b[l]/s - wrl[i];
+  }
+  sphr_r2k(vcr, vck); /* vc(r) */
+  free(a);
+  free(b);
+}
+
+
+
+/* correct the YBG equation
+ * this function is in fact identical to get_corr1_hs
+ * with cr --> hr */
+#define get_ybgcorr1_hs get_corr1_hs
+/* y(r) = exp w(r), for the highest order correction
+ * d y_l(r) = d w_l(r) = vc(r)
+ * So
+ *    dBv = contactv(vcr, dm, B2);
+ */
+/* d(beta*P)/drho = (1 - rho ck0) = 1/(1 + rho hk0)
+ * for the highest order component
+ * d [ (l+2) B_{l+2} rho^{l+1} ] = - d(hk0l) rho^{l+1}
+ * d(hk0) = Int (1 + f) d(yrl) dr
+ * So
+ *    dBc = -integre(npt, vcr, fr, rDm1)/(l+2);
+ */
+
+
+
 /* compute virial coefficients from integral equations */
 static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
 {
-  xdouble facr2k, fack2r, surfr, surfk;
-  xdouble Bc, Bv, By = 0, B2, fcorr = 0;
+  xdouble Bc, Bv, Bm = 0, By = 0, B2, fcorr = 0;
   xdouble *fr, *fk, *rdfr = NULL;
   xdouble **wr, *hrl, *yrl, *yd;
-  xdouble *wkl = NULL, **hk = NULL, *hk0;
-  xdouble *arr;
+  xdouble *vcr = NULL, *vck = NULL, **tr = NULL, *lambda = NULL;
+  xdouble **wk = NULL, *wkl = NULL, **hk = NULL, *hk0;
   xdouble *ri, *ki, *rDm1, *kDm1;
   int i, dm, l, l0 = 1;
   clock_t t0 = clock(), t1;
 
 
 #ifdef FFT /* for odd dimensions */
-  xdouble dr,dk, rl, invrl, kl, invkl;
-  xdouble **r2pow = NULL, **invr2pow = NULL, **k2pow = NULL, **invk2pow = NULL;
-  long *coef = NULL;
-  FFTWPFX(plan) plans[2] = {NULL, NULL};
+  xdouble dr, dk, rl, invrl, kl, invkl;
 
   rmax = adjustrmax(rmax, numpt, &dr, &dm, ffttype);
   dk = PI/dr/npt;
@@ -187,8 +306,6 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
 
 #ifdef DHT /* for even dimensions */
   xdouble tmp1, tmp2;
-  xdouble *r2p, *k2p;
-  xdht *dht = NULL;
 
   dht = XDHT(newx)(npt, (xdouble) dim/2 - 1, rmax, dhtdisk);
 
@@ -339,6 +456,16 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
   sphr_r2k(fr, fk);
   COPY1DARR(hk[0], fk, npt); /* hk[0] = fk */
 
+  if ( mkcorr ) {
+    MAKE1DARR(vcr, npt);
+    MAKE1DARR(vck, npt);
+    MAKE2DARR(wk, nmax - 1, npt);
+    if ( mkcorr == CORR_HC ) {
+      MAKE2DARR(tr, nmax - 1, npt);
+    }
+  }
+  MAKE1DARR(lambda, nmax - 1);
+
   t1 = clock();
 
   fnvir = savevirheadx(fnvir, systitle, dim, l0, nmax,
@@ -346,16 +473,21 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
 
   for ( l = l0; l < nmax - 1; l++ ) {
     /* get w_l(k) */
-    get_wk_ybg(l, npt, wkl, fk, yd, hk);
+    if ( mkcorr >= CORR_RHODEP ) {
+      get_wk_ybgx(l, npt, wkl, lambda, fk, yd, wk, hk);
+    } else {
+      get_wk_ybg(l, npt, wkl, fk, yd, hk);
+    }
+
+    if ( wk != NULL ) {
+      COPY1DARR(wk[l], wkl, npt);
+    }
 
     /* w_l(k) --> w_l(r) */
     sphr_k2r(wkl, wr[l]);
 
     /* y_l(r) = [exp w(r)]_l */
     get_yr_hnc(l, npt, yrl, wr);
-
-    /* only for the hard-sphere model */
-    yd[l] = (yrl[dm-1] + yrl[dm])/2;
 
     for ( i = 0; i < npt; i++ ) {
       /* h(r) = (f(r) + 1) y(r) - 1 */
@@ -367,9 +499,45 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
 
     Bv = get_Bv(npt, yrl, smoothpot, rdfr, rDm1, dim, dm, B2);
     Bc = get_Bc_hr(l, npt, hrl, hk0, rDm1);
+
+    if ( mkcorr ) {
+      if ( mkcorr == 1 ) {
+        mkcorrfunc1(l, npt, vcr, vck, wk, hk);
+      } else if ( mkcorr == 2 ) { /* HC */
+        mkcorrfunc2(l, npt, vcr, vck, tr, wr[l], hk, hcs);
+      } else { /* Gaskell */
+        mkcorrfunc0(l, npt, vcr, vck, fk, yd, wk, hk);
+      }
+
+      if (  mkcorr <= CORR_RHODEP ||
+           (mkcorr == CORR_RHODEPB4 && l <= 2) ||
+           (mkcorr == CORR_RHODEPB5 && l <= 3) ) {
+        Bm = get_ybgcorr1_hs(l, npt, dm, hrl, fr, rDm1,
+            B2, vcr, 1, &Bc, &Bv, &fcorr);
+        if (l >= 2) lambda[l - 2] = fcorr;
+      } else {
+        for ( i = 0; i < npt; i++ ) vcr[i] = vck[i] = 0;
+        fcorr = 0;
+        Bm = Bc;
+      }
+      sphr_r2k(hrl, hk[l]);
+      /* additional corrections */
+      for ( i = 0; i < npt; i++ ) {
+        vck[i] *= fcorr;
+        wkl[i] += vck[i];
+        wk[l][i] = wkl[i];
+        wr[l][i] += vcr[i];
+        yrl[i] += vcr[i];
+      }
+      hk0[l] += integre(npt, vcr, fr, rDm1);
+    }
+
+    /* only for the hard-sphere model */
+    yd[l] = (yrl[dm-1] + yrl[dm])/2;
+
     By = get_zerosep(wr[l], ri)*l/(l+1);
 
-    savevir(fnvir, dim, l+2, Bc, Bv, 0, 0, 0, By, B2, 0, fcorr);
+    savevir(fnvir, dim, l+2, Bc, Bv, Bm, 0, 0, By, B2, mkcorr, fcorr);
   }
   savevirtail(fnvir, clock() - t1);
 
@@ -390,6 +558,12 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
   FREE1DARR(yd, nmax - 1);
   FREE1DARR(hk0, nmax - 1);
 
+  FREE1DARR(vcr, npt);
+  FREE1DARR(vck, npt);
+  FREE2DARR(wk, nmax - 1, npt);
+  FREE2DARR(tr, nmax - 1, npt);
+  FREE1DARR(lambda, nmax - 1);
+
 #ifdef FFT
   FREE1DARR(coef, K);
 #ifdef FFTW
@@ -407,7 +581,6 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
   FREE1DARR(k2p,  npt);
   XDHT(free)(dht);
 #endif /* defined(DHT) */
-
 
   return 0;
 }
