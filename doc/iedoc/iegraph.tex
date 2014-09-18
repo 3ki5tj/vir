@@ -1,6 +1,7 @@
 %\documentclass{revtex4-1}
 % options: aip, jcp, reprint, preprint
-\documentclass[notitlepage,preprint]{revtex4-1}
+\documentclass[preprint]{revtex4-1}
+%\documentclass[notitlepage,preprint]{revtex4-1}
 %\documentclass[aip,jcp,reprint,superscriptaddress]{revtex4-1}
 
 \usepackage{amsmath}
@@ -25,17 +26,28 @@
 \newcommand{\vk}{\vct{k}}
 \newcommand{\dvk}{\frac{d\vk}{(2\pi)^D}}
 \newcommand{\tdvk}{\tfrac{d\vk}{(2\pi)^D}}
+\newcommand{\vR}{\vct{R}}
+\newcommand{\vK}{\vct{K}}
 
 % add a superscript ``ex''
 \newcommand{\supex}[1]{ { { #1 }^{ \mathrm{ex} } } }
+\newcommand{\supexv}[1]{ { { #1 }^{ \mathrm{ex}, \, (v) } } }
 \newcommand{\Pex}{\supex{P}}
+\newcommand{\Pexv}{\supexv{P}}
 \newcommand{\Fex}{\supex{F}}
+\newcommand{\Fexv}{\supexv{F}}
 \newcommand{\muex}{\supex{\mu}}
+\newcommand{\muexv}{\supexv{\mu}}
 \newcommand{\kex}{\supex{\kappa}}
 \newcommand{\Chn}{\mathscr{C}}
 %\newcommand{\Chn}{\mathcal{C}}
 %\newcommand{\Chn}{\mathsf{C}}
-\newcommand{\secref}[1]{Sec. \ref{#1}}
+% for the graph sum
+\newcommand{\A}{\mathcal{A}}
+% to denote a group
+\newcommand{\G}{\mathsf{G}}
+\newcommand{\Hgroup}{\mathsf{H}}
+\newcommand{\Aut}{\mathrm{Aut}}
 
 \newcommand{\llbra}{[\![}
 \newcommand{\llket}{]\!]}
@@ -58,20 +70,22 @@
 %  The University of Texas Medical Branch,
 %  Galveston, Texas 7755, USA
 %}
-%\begin{abstract}
-%\end{abstract}
+\begin{abstract}
+  We review a few classic formulae that compute thermodynamic quantities
+  and virial coefficients from correlation functions.
+\end{abstract}
 
 \maketitle
 
 
 
-%\appendix
 
 
 
 \section{Basics}
 
-We first repeat a few basic formulas in the main text for easy reference.
+For easy reference,
+we first repeat a few basic formulae in the main text.
 %
 The virial expansion is
 %
@@ -81,7 +95,7 @@ The virial expansion is
 \end{equation}
 %
 where $\beta = 1/(k_B T)$ is the inverse temperature.
-
+%
 The direct, indirect, and total correlation functions
   are denoted by $c(\vr)$, $t(\vr)$,
   and $h(\vr) \equiv c(\vr) + t(\vr)$,
@@ -96,21 +110,24 @@ The Ornstein-Zernike (OZ) relation\cite{hansen} reads
 \end{align}
 %
 where ``$*$'' denotes a convolution:
-\begin{equation}
-  (a * b)(\vr) = \int d\vr' a(\vr - \vr') \, b(\vr').
-\label{eq:convol}
-\end{equation}
+%\begin{equation*}
+  $(a * b)(\vr) = \int d\vr' a(\vr - \vr') \, b(\vr')$.
+%\label{eq:convol}
+%\end{equation*}
 %
 
 
 A general closure is given by the following form
 %
-\begin{equation}
-  c(\vr) = [1 + f(\vr)] \, y(\vr) - t(\vr) - 1,
+\begin{align}
+  c(\vr)
+&= [1 + f(\vr)] \, y(\vr) - t(\vr) - 1
+  \notag \\
+&= f(\vr) \, y(\vr) + \big[ y(\vr) - t(\vr) - 1 \big],
   \label{eq:closure}
-\end{equation}
+\end{align}
 %
-where the cavity function $y(\vr) \equiv g(\vr) \, e^{ \beta \phi(\vr) }$
+where the cavity distribution function $y(\vr) \equiv g(\vr) \, e^{ \beta \phi(\vr) }$
   is to be approximated as some functional of $t(\vr)$.
 %
 The Percus-Yevick (PY) closure\cite{percusyevick}
@@ -129,7 +146,7 @@ with $\phi(\vr)$ being the pair potential.
 %
 Alternatively, the hypernetted-chain (HNC) closure\cite{
 morita1958, *morita1959, *morita1960}
-  approximates $y(\vr) \approx e^{ t(\vr) }$, so
+  approximates $y(\vr) \approx \exp { t(\vr) }$, so
 %
 \begin{align}
   c(\vr) &= \big[ 1 + f(\vr) \big] \, e^{t(\vr)} - t(\vr) - 1 \notag \\
@@ -139,7 +156,8 @@ morita1958, *morita1959, *morita1960}
   \label{eq:hnc}
 \end{align}
 %
-where $\llbra P \llket$ is the Iverson bracket, which is 1 if condition $P$ is true, or 0 otherwise.
+where $\llbra P \llket$ is the Iverson bracket,
+  which is 1 if condition $P$ is true, or 0 otherwise.
 
 Below we shall express thermodynamic quantities
   as integrals of $c(\vr)$ and $t(\vr)$
@@ -388,8 +406,10 @@ Table \ref{tab:thermodyn}
 
 
 
+\subsection{Graph theory}
 
-Here we briefly review the graphic representation in liquid theory\cite{hansen, mayer, uhlenbeck1962}.
+Here we briefly review the graphic representation
+in liquid state theory\cite{hansen, mayer, uhlenbeck1962}.
 %
 We first list a few basic terms in the graph theory.
 %
@@ -427,11 +447,16 @@ In other words, a biconnected graph
   is free of any \emph{articulation point},
   whose removal disconnects the graph.
 %
-Similarly, removing a \emph{separation pair} of vertices
-  and the adjacent edges disconnects the graph.
+Similarly, a \emph{separation pair} is a pair of vertices
+  whose removal along with the adjacent edges
+  disconnects a connected graph.
 
-In liquid theory,
-  each graph represents an integral.
+
+
+\subsection{Graphs and integrals}
+
+In liquid state theory,
+  a graph represents an integral.
 %
 A vertex $i$ is associated to a spatial point at $\vr_i$.
 %
@@ -483,7 +508,7 @@ By the translational symmetry,
 %
 The spatial correlation functions,
   such as $c(\vr)$ and $t(\vr)$,
-  are all sums of 2-root graphs.
+  are sums of 2-root graphs.
 
 
 
@@ -514,15 +539,26 @@ The choice of the last vertex is arbitrary
 
 
 
-Since the black dots are identical,
+\subsection{Symmetry number}
+
+Since the non-root vertices are identical,
   the above labeled graphs can be reduced to the following unlabeled graphs.
 %
-Note that the white dots (roots) are always (implicitly) labeled.
+Note that the roots (white dots) are always (implicitly) labeled.
 %
-For an unlabeled graph $G$, we define the \emph{symmetry number} $s(G)$,
-  after assuming an arbitrary labeling of the black dots of $G$,
-  as the number of ways of relabeling the
-  black dots that keep the connections of $G$ unchanged.
+For an unlabeled graph $G$,
+  after assuming an arbitrary labeling of the non-root vertices of $G$,
+  we define the \emph{symmetry number} $s(G)$
+  as the number of permuting the labels of the non-root vertices that
+  keep the connections of $G$ unchanged\cite{hansen, uhlenbeck1962}.
+%
+The connection-preserving permutations
+  form a group called the automorphism group $\Aut(G)$,
+and $s(G)$ is equal to the order of the automorphism group:
+%
+\begin{equation*}
+  s(G) \equiv | \Aut(G) |.
+\end{equation*}
 %
 For example,
   $s\left({
@@ -546,12 +582,15 @@ but
     \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1);
   \end{tikzpicture}
   }\right) = 1$,
-  because the two white dots are distinguished,
+  because the two white dots are distinguishable,
   and thus exchanging the two black dots alters the connection.
+%
 
 
 
-We state without proving the following results\cite{hansen, mayer, uhlenbeck1962}.
+\subsection{\label{sec:bcsums}Sums of biconnected graphs}
+
+We state without proving the following exact results\cite{hansen, mayer, uhlenbeck1962}.
 %
 The virial expansion \eqref{eq:virial} contains
   all unrooted labeled biconnected graphs,
@@ -575,11 +614,9 @@ The expansion of $c(\vr)$ is the sum of
   weighted by $1/s(G)$.
 %
 
-
-
-Not all biconnected graphs can be produced by integral equations.
+Unfortunately, not all biconnected graphs can be produced by integral equations.
 %
-In either integral equation,
+In either the PY or the HNC equation,
   $c(\vr)$, for example, contains only a subset of the biconnected graphs $G$,
   and the weight may not be $1/s(G)$.
 %
@@ -590,7 +627,7 @@ The hope, however, is that the missing graphs either are negligible (HNC),
 
 
 
-\subsection*{Series-parallel graphs}
+\subsection{Series-parallel graphs}
 
 
 
@@ -721,17 +758,19 @@ A \emph{series composition} $A*B$
 \]
 The merged and blackened root is called the \emph{joint}.
 %
-The value of $A*B$ is a convolution $\rho \cdot (a*b)(\vr)$.
+The value of $A*B$ is the convolution $\rho \cdot (a*b)(\vr)$.
 %
 Generally, a series composition,
   or a \emph{chain},
   of several graphs
   $A_1$, \dots, $A_l$ is equal to
-  $\rho^{l-1} \cdot (a_1 * \cdots * a_l)(\vr)$.
+  $\rho^{l-1} \cdot (a_1 * \cdots * a_l)(\vr)$,
+and we say that $A_1$, \dots, $A_l$
+  are the \emph{links} of the chain.
 
 
 
-A \emph{cycle} is a circular series composition,
+A \emph{cycle} is a circular (series) composition,
 %
 e.g.,
 %
@@ -802,28 +841,45 @@ e.g.,
 %
 A cycle of $A_1$, \dots, $A_l$ is equal to
 %
-\begin{align}
+\begin{multline}
       \rho^l (a_1 * \cdots * a_l)(\vct{0})
-  &=
+  =
       \rho^l
-      \int (a_1 * \cdots * a_{l-1})(\vr) \, a_l(\vr) \, d\vr
-      \notag \\
-  &=
+      \int \tilde{a}_1(\vk) \cdots \tilde{a}_l(\vk) \, \dvk
+      \\
+  =
       \rho^l
-      \int \tilde{a}_1(\vk) \cdots \tilde{a}_l(\vk) \, \dvk,
+      \int (a_1 * \cdots * a_{l-1})(\vr) \, a_l(\vr) \, d\vr,
 \label{eq:cyclesp}
-\end{align}
+\end{multline}
 %
 where
-  $\tilde{a}_i(\vk) = \int a_i(\vr) e^{-i \vk \cdot \vr} \, d\vr$
-  denotes the Fourier transform of $a_i(\vr)$.
+  $\tilde{a}_i(\vk) = \int a_i(\vr) \, \exp(-i \vk \cdot \vr) \, d\vr$
+  denotes the Fourier transform of $a_i(\vr)$ ($1 \le i \le l$).
 %
-We have also assumed that
-  $a_i(\vr)$ is an even function of $\vr$,
-  such that
-  $\tilde{a_i}(\vk) = \tilde{a_i}(-\vk)$.
+On the second line,
+  we have assumed that
+  $a_l(\vr)$ is an even function of $\vr$,
+  and
+  $a_l(\vr) = a_l(-\vr)$.
 %
-Applying \eqref{eq:cyclesp} to \eqref{eq:oz} gives
+In this case,
+  the cycle can be written as a parallel composition
+  of the chain $A_1 * \cdots * A_{l-1}$ and $A_l$.
+%
+Particularly,
+%
+\begin{align}
+      (a * b)(\vct{0})
+      %\notag \\
+  =
+      \int \tilde{a}(\vk) \, \tilde{b}(\vk) \, \dvk
+  =
+      \int a(\vr) \, b(\vr) \, d\vr,
+\label{eq:cyclesp2}
+\end{align}
+%
+Using \eqref{eq:cyclesp2} in \eqref{eq:oz} gives
   a zero-separation theorem\cite{rosenfeld1978}
 %
 \begin{align}
@@ -840,9 +896,43 @@ where the second step follows from
 
 
 
+\subsection{Graphic interpolation of the closure}
+
+
+
+We state a general relationship between the indirect correlation function
+  and the cavity distribution function $y(\vr)$.
+%
+In \eqref{eq:closure},
+since $y(\vr)$ and $t(\vr)$
+collect only graphs with nonadjacent roots,
+we have
+%
+\begin{lemm}
+The graphs in the expansion of $c(\vr)$
+  can be split into two exclusive parts:
+  those with adjacent roots belong to
+  the expansion of $y(\vr)\, f(\vr)$,
+  and the rest belong to
+  the expansion of $y(\vr) - t(\vr) - 1$.
+Conversely,
+  all graphs in the expansions of $y(\vr) \, f(\vr)$
+  and $y(\vr) - t(\vr) - 1$ belong to
+  the expansion of $c(\vr)$.
+\label{thm:crsplit}
+\end{lemm}
+%
+
+
+
+
+
 \section{\label{sec:py}PY approximation and polygon graphs}
 
 
+
+
+\subsection{Polygon graphs}
 
 
 
@@ -939,26 +1029,114 @@ A pie graph is equivalent to
 \end{lemm}
 
 \begin{proof}
-In the forward direction, assume the contrary and
+To show that every pie graph is a chain of polygon graphs,
+we assume the contrary and
 %
 let $G$ be the smallest pie graph
-  that is not a chain of polygon graphs,
+  that is not a chain,
 %
 and $v$ be the last vertex adjacent to $1$ ($2 \le v < n$).
 %
 The induced subgraph $G^{(1)} = G(\{1, \dots, v\})$
-  is clearly a polygon graph.
+  clearly forms a polygon graph.
 %
-If $v$ and $n$ are adjacent,
+If $v$ and $n$ are adjacent [case (a) below],
   the induced subgraph $G^{(2)} = (\{v, \dots, n\})$
-  is also a polygon graph,
+  also forms a polygon graph,
   and $G = G^{(1)} * G^{(2)}$ is a chain,
   which is a contradiction.
 %
-Otherwise, $G^{(2)}$ is a pie graph
+Otherwise [case (b)], $G^{(2)}$ is a pie graph
   rooted at $v$ and $n$,
   and $G^{(2)}$ is smaller than $G$,
   which is also a contradiction.
+
+\[
+  \newcommand{\sz}{0.7cm}
+  \begin{tikzpicture}
+    \node (r1) at (-90+360.0/7*6.5 : \sz) [whitedot,label=left:{\footnotesize$1$}]{};
+    \node (r2) at (-90+360.0/7*5.5 : \sz) [blackdot,label=left:{\footnotesize$2$}]{};
+    \node (r3) at (-90+360.0/7*4.5 : \sz) [blackdot,label=left:{\footnotesize$3$}]{};
+    \node (r5) at (-90+360.0/7*2.5 : \sz) [blackdot]{};
+    \node (r6) at (-90+360.0/7*1.5 : \sz) [blackdot,label=right:{\footnotesize$n-1$}]{};
+    \node (r7) at (-90+360.0/7*0.5 : \sz) [whitedot,label=right:{\footnotesize$n$}]{};
+    \node (r4) at (-90+360.0/7*3.5 : \sz) [blackdot,label=above:{\footnotesize$v$}]{}
+      edge[densely dotted, thick, bend right=15] (r3)
+      edge[densely dotted, thick, bend left=15] (r5);
+    \draw[thick]
+          (r4) -- (r1) -- (r2) -- (r3)
+          (r5) -- (r6) -- (r7) -- (r5)
+          (r4) -- (r7);
+    % beginning of G^1
+    \draw[thick, fill=blue!20!gray, opacity=0.2, draw=blue]
+      plot [smooth cycle]
+      coordinates{
+                   (-90+360.0/7*6.7 : 1.3*\sz)
+                   (-90+360.0/7*5.6 : 1.7*\sz)
+                   (-90+360.0/7*4.6 : 1.6*\sz)
+                   (-90+360.0/7*3.3 : 1.1*\sz) };
+    \node (G1) at (-2.0*\sz, 1.0*\sz) [blue] {$G^{(1)}$};
+    % end of G1
+
+    % beginning of G^2
+    \draw[thick, fill=red, opacity=0.2, draw=red!50!black]
+      plot [smooth cycle]
+      coordinates{
+                   (-90+360.0/7*3.7 : 1.1*\sz)
+                   (-90+360.0/7*2.6 : 1.4*\sz)
+                   %(-90+360.0/7*1.6 : 1.6*\sz)
+                   (2.5*\sz, -0.3*\sz)
+                   (-90+360.0/7*0.3 : 1.3*\sz) };
+    \node (G2) at (2.2*\sz, 1.0*\sz) [red!80!black] {$G^{(2)}$};
+    % end of G2
+
+    \node (pie) at (0, -\sz-0.4*\sz) [anchor=north]
+      {(a) $v$ and $n$ are adjacent};
+  \end{tikzpicture}
+  \;
+  \begin{tikzpicture}
+    \node (r1) at (-90+360.0/7*6.5 : \sz) [whitedot,label=left:{\footnotesize$1$}]{};
+    \node (r2) at (-90+360.0/7*5.5 : \sz) [blackdot,label=left:{\footnotesize$2$}]{};
+    \node (r3) at (-90+360.0/7*4.5 : \sz) [blackdot,label=left:{\footnotesize$3$}]{};
+    \node (r5) at (-90+360.0/7*2.5 : \sz) [blackdot]{};
+    \node (r6) at (-90+360.0/7*1.5 : \sz) [blackdot,label=right:{\footnotesize$n-1$}]{};
+    \node (r7) at (-90+360.0/7*0.5 : \sz) [whitedot,label=right:{\footnotesize$n$}]{};
+    \node (r4) at (-90+360.0/7*3.5 : \sz) [blackdot,label=above:{\footnotesize$v$}]{}
+      edge[densely dotted, thick, bend right=15] (r3)
+      edge[densely dotted, thick, bend left=15] (r5);
+    \draw[thick]
+          (r4) -- (r1) -- (r2) -- (r3)
+          (r5) -- (r6) -- (r7) -- (r5);
+
+    % beginning of G^1
+    \draw[thick, fill=blue!20!gray, opacity=0.2, draw=blue]
+      plot [smooth cycle]
+      coordinates{
+                   (-90+360.0/7*6.7 : 1.3*\sz)
+                   (-90+360.0/7*5.6 : 1.7*\sz)
+                   (-90+360.0/7*4.6 : 1.6*\sz)
+                   (-90+360.0/7*3.3 : 1.1*\sz) };
+    \node (G1) at (-2.0*\sz, 1.0*\sz) [blue] {$G^{(1)}$};
+    % end of G1
+
+    % beginning of G^2
+    \draw[thick, fill=green, opacity=0.2, draw=green!50!black]
+      plot [smooth cycle]
+      coordinates{
+                   (-90+360.0/7*3.7 : 1.2*\sz)
+                   (-90+360.0/7*2.6 : 1.4*\sz)
+                   (2.5*\sz,  0.2*\sz)
+                   (2.3*\sz, -0.9*\sz)
+                   (-90+360.0/7*0.3 : 1.3*\sz)
+                   (-90+360.0/7*2.5 : 0.4*\sz)
+                 };
+    \node (G2) at (2.2*\sz, 1.0*\sz) [green!50!black] {$G^{(2)}$};
+    % end of G2
+
+    \node (pie) at (0, -\sz-0.4*\sz) [anchor=north]
+      {(b) $v$ and $n$ are not adjacent};
+  \end{tikzpicture}
+\]
 
 The converse is obvious.
 %Conversely,
@@ -984,6 +1162,30 @@ The converse is obvious.
 
 
 
+The above lemma shows that
+any polygon graph without a side
+can be decomposed into a chain of polygon graphs.
+%
+Given a polygon graph without knowing the labels of non-root vertices,
+we can then recursively decompose the polygon graph
+and determine the proper labels of all non-root vertices.
+%
+Thus
+
+\begin{lemm}
+Given the roots of a polygon graph $G$,
+  the labels of the rest of the vertices
+  can be uniquely determined.
+Thus,
+  the symmetry number $s(G)$ is always unity.
+  \label{thm:polygonsymnum}
+\end{lemm}
+
+
+
+We now use polygon and pie graphs to characters
+  graphs in the PY equation.
+
 \begin{lemm}
 Under the PY closure,
   $c(\vr)$ is the unweighted sum of
@@ -1005,7 +1207,7 @@ consider the case of $n = k + 1$.
 The OZ relation \eqref{eq:oz}
   shows that every graph in $t(\vr)$
   is a chain of smaller polygon graphs,
-  hence a pie graph. % by Lemma \ref{thm:pycat}.
+  hence a pie graph by Lemma \ref{thm:pycat}.
 
 The PY closure \eqref{eq:py} generates
   an $n$-vertex graph $G$ in $c(\vr)$
@@ -1021,74 +1223,84 @@ We can similarly show the converse:
 \end{proof}
 
 
+%In terms of labelled graphs, which do not have the symmetry number,
+%we say that
+%%
+%\begin{lemm}
+%Under the PY closure,
+%  $c(\vr)$ is the sum of
+%  all nonequivalent \emph{labelled} polygon graphs $G$,
+%  each weighted by $[n(G) - 2]!$,
+%  with $n(G)$ being the number of vertices in $G$;
+%  and $t(\vr)$ is that of all nonequivalent
+%  labelled pie graphs.
+%\label{thm:pycrsum_l}
+%\end{lemm}
+
+
+
+\subsection{Polygon packs}
+
 
 
 A \emph{polygon pack} $G$ is obtained
-  by blackening the two white dots of a polygon graph $H$
-  (equivalent to the integration $\rho^2 \int d\vr$).
+  by blackening the two white dots of a polygon graph $H$.
 %
-Conversely,
-  whitening the two vertices of any side of
+The blackening operation is equivalent to the integration $\rho^2 \int d\vr$.
+%
+Therefore, in the expansion of $\rho^2 \int c(\vr) \, d\vr$,
+  a polygon pack $G$ carries weight $w(G)$
+  that is equal to the number of polygon graphs $H$ that
+  can be reduced to the same $G$ after the blackening.
+
+Now, for a given polygon pack $G$,
+  whitening two vertices on any side of
   a polygon pack $G$
-  yields a polygon graph $H'$,
-  and there are $2n$ possible $H'$ with $2$ for each side
+  yields a polygon graph $H'$
+  (note that $H'$ may be different from the original $H$).
+%  and there are $2n$ possible $H'$ with $2$ for each side
 %
-  (some $H'$, however, may be different from $H$).
+One can further show that
+  whitening a nonadjacent pair of vertices always yields
+  a non-polygon graph with intersecting edges,
+  no matter how the black dots are labeled.
 %
-To satisfy Lemma \ref{thm:pycrsum},
-  a nonequivalent polygon pack $G$ must appear $2 \, n/s(G)$ times
-  in $\rho^2 \int c(\vr) \, d\vr$,
-  where $s(G)$ is the symmetry number.
-%  or the number of ways of relabelling the vertices
-%  that keep $G$ unchanged.
+Thus,
+  the largest possible symmetry group of
+  permuting vertices in a polygon graph
+  is the dihedral group,
+  which allows only cycling vertex labels along the sides,
+  and/or reversing the labels.
+%
+The automorphism group of $G$
+  is necessarily a subgroup of the dihedral group,
+  whose order is $2 \, n(G)$.
+%
+The symmetry number $s(G)$,
+  which is the order of the automorphism group,
+  is therefore a divisor of $2 \, n(G)$,
+  by Lagrange's theorem.
+%
+Further,
+  the number of cosets of the automorphism group,
+  which is equal to $w(G)$, the number of ways of
+  producing nonequivalent vertex labels,
+  is given by $2 \, n(G) / s(G)$.
+%
+In summary,
+%To satisfy Lemma \ref{thm:pycrsum},
+%  a nonequivalent polygon pack $G$ appears $2 \, n/s(G)$ times
+%  in $\rho^2 \int c(\vr) \, d\vr$,
+%  where $s(G)$ is the symmetry number.
 %%
-%For example,
+%Note that since $s(G)$ is the number of ways of relabeling the vertices
+%  that keep $G$ unchanged,
+%$2n/s$ is the number of nonequivalent polygon graphs
+%  that can be reduced to the same polygon pack.
 %%
-%%
-%% Examples of the symmetry numbers
-%%
-%%
-%\begin{equation*}
-% \newcommand{\hh}{0.07}
-%  s \left( {
-%    \begin{tikzpicture}[baseline=-1mm]
-%      \node (r1) at (-4*\hh, -4*\hh) [blackdot]{};
-%      \node (r2) at ( 4*\hh, -4*\hh) [blackdot]{};
-%      \node (r3) at ( 4*\hh,  4*\hh) [blackdot]{};
-%      \node (r4) at (-4*\hh,  4*\hh) [blackdot]{};
-%      \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1);
-%    \end{tikzpicture}
-%    } \right)
-%  = 8,
-%  \;\;
-%  s \left( {
-%    \begin{tikzpicture}[baseline=-1mm]
-%      \node (r1) at (-2.3*\hh, -4*\hh) [blackdot]{};
-%      \node (r2) at (-4.6*\hh,  0.0) [blackdot]{};
-%      \node (r3) at (-2.3*\hh,  4*\hh) [blackdot]{};
-%      \node (r4) at ( 2.3*\hh,  4*\hh) [blackdot]{};
-%      \node (r5) at ( 4.6*\hh,  0.0) [blackdot]{};
-%      \node (r6) at ( 2.3*\hh, -4*\hh) [blackdot]{};
-%      \draw (r1) -- (r2) -- (r3) -- (r4) -- (r5) -- (r6) -- (r1)
-%            (r1) -- (r5) (r1) -- (r4);
-%    \end{tikzpicture}
-%    } \right)
-%  = 1.
-%\end{equation*}
-%
-For a polygon graph $G$, $s(G)$ always divides $2n$,
-  i.e.,
-  the only permissible symmetry operations
-  are rotations and reflections,
-  and all other operations produce intersecting edges.
-%
-To summarize
-%
-%
-%
 \begin{lemm}
 Under the PY-closure,
-  $\rho^2 \int c(\vr) \, d\vr$ is a sum of
+  $\rho^2 \int c(\vr) \, d\vr$ is the sum of
   all nonequivalent polygon packs $G$:
   %
   \begin{equation}
@@ -1104,12 +1316,68 @@ Under the PY-closure,
   respectively.
   \label{thm:pykappasum}
 \end{lemm}
+%
+Note that the $n = 2$ case is special,
+  for the $f$-graph does not form a polygon.
+Thus, we manually set $s(G) = 4$ in this case.
+
+We give two examples are below.
+For
+$G_1 = {\begin{tikzpicture}[baseline=-1mm]
+      \newcommand{\hh}{2.0mm}
+      \node (r1) at (-\hh, -\hh) [blackdot]{};
+      \node (r2) at ( \hh, -\hh) [blackdot]{};
+      \node (r3) at ( \hh,  \hh) [blackdot]{};
+      \node (r4) at (-\hh,  \hh) [blackdot]{};
+      \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1);
+  \end{tikzpicture}}$,
+we have
+$s(G_1) = 8$, and $w(G_1) = 2\times 4/8 = 1$,
+because whitening the two vertices on any side
+yields the same polygon graph
+${\begin{tikzpicture}[baseline=-1mm]
+      \newcommand{\hh}{2.0mm}
+      \node (r1) at (-\hh, -\hh) [whitedot]{};
+      \node (r2) at ( \hh, -\hh) [whitedot]{};
+      \node (r3) at ( \hh,  \hh) [blackdot]{};
+      \node (r4) at (-\hh,  \hh) [blackdot]{};
+      \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1);
+  \end{tikzpicture}}$.
+%
+On the other hand, for
+$G_2 = {
+    \begin{tikzpicture}[baseline=-1mm]
+      \newcommand{\hh}{0.7mm}
+      \node (r1) at (-2.3*\hh, -4*\hh) [blackdot]{};
+      \node (r2) at (-4.6*\hh,  0.0) [blackdot]{};
+      \node (r3) at (-2.3*\hh,  4*\hh) [blackdot]{};
+      \node (r4) at ( 2.3*\hh,  4*\hh) [blackdot]{};
+      \node (r5) at ( 4.6*\hh,  0.0) [blackdot]{};
+      \node (r6) at ( 2.3*\hh, -4*\hh) [blackdot]{};
+      \draw (r1) -- (r2) -- (r3) -- (r4) -- (r5) -- (r6) -- (r1)
+            (r1) -- (r5) (r1) -- (r4);
+    \end{tikzpicture}
+  }$,
+$s(G_2) = 1$, and $w(G_2) = 2\times 6 = 12$.
+This means that whitening the two vertices on any side of the polygon
+in either order yields a nonequivalent polygon graph.
+
+
+%We can write \eqref{eq:pykappasum}
+%in functional differentiation
+%\begin{align*}
+%  \frac {\delta } { \delta f_\mathrm{side}(\vr) }
+%  \left[ \sum_G \frac{ I(G) }{ s(G) } \right]
+%  =
+%  \frac{\rho^2}{2} \frac{ c(\vr) } { f(\vr) }
+%  =
+%  \frac{\rho^2}{2}
+%  [ 1 + t(\vr) ]
+%\end{align*}
 
 
 
-
-
-\subsection*{Face decomposition of a polygon graph}
+\subsection{Face decomposition of a polygon graph}
 
 
 
@@ -1139,7 +1407,7 @@ Under the PY-closure,
 
 
 A polygon graph or pack
-  can always be decomposed as a cycle of small polygon graphs.
+  can always be decomposed as a cycle of smaller polygon graphs.
 %
 %removing the edge between the roots in a polygon graph
 %  yields a chain of polygon graphs,
@@ -1205,7 +1473,7 @@ Geometrically,
 
 
 
-If $G$ has $m(G)$ faces, then by counting the vertices, we get
+If $G$ has $m(G)$ faces, then by counting vertices, we get
 %
 \begin{equation}
   n(G) = 2 + \sum_{a = 1}^{m(G)} (l_a - 2)
@@ -1237,7 +1505,7 @@ where $l_a (l_a - 1)$ gives the number of pairs in face $a$,
 
 
 
-
+\subsection{Cycle sums}
 
 Using \eqref{eq:countvertices} in \eqref{eq:pykappasum} yields
 %
@@ -1248,36 +1516,125 @@ Using \eqref{eq:countvertices} in \eqref{eq:pykappasum} yields
 \label{eq:pyintgcr2sums}
 \end{equation}
 %
-where $\Chn_l$ is the sum of all cycles of length $l$ in all $G$:
+where
+$\Chn_l \equiv \sum_G m_l(G) \, I(G) / s(G)$
+is the sum of all cycles of length $l$ in all $G$.
 %
+To evaluate $\Chn_l$, we need the following lemma.
+
+\begin{lemm}
+The cycle sum $\Chn_l$ satisfies
 \begin{align}
       \Chn_l
   \equiv
       \sum_G \frac{ m_l(G) \, I(G) } { s(G) }
 %      \notag \\
-  &=  \frac{1}{2 \, l}
-      \int \rho^l (\underbrace{c*\cdots *c}_{l-1 \mbox{ times}})(\vr)
-                        \, c(\vr) \, d\vr
+  &=  \frac{1}{2 \, l} \,
+      \rho^l \, (\underbrace{c*\cdots *c}_{l \; \mathrm{times}})(\vct 0)
       \notag \\
   &=  \frac{1}{2 \, l}
-      \int \rho^l \tilde{c}^l(\vk) \dvk,
+      \int \rho^l \, \tilde{c}^l(\vk) \dvk.
 \label{eq:ccycling}
 \end{align}
 %
-where the factor $2 \, l$ corresponds to the number of ways
-  of cycling and reversing the elements in the $l$ cycle
-  [also cf. \eqref{eq:cyclesp}].
+\end{lemm}
+
+\begin{proof}
+We show this under a generalized condition:
+%Below, for generality,
+%we assume that
+every 2-rooted graph $G$ in the expansion of $c(\vr)$
+carries the weight of $1/s(G)$.
 %
-The reader can readily verify that
-  if the longest non-repeating segment of an $l$-cycle
-  is of length $d$ (and $d$ divides $l$),
-  the cycle along with its isomorphic counterparts
-  contribute $d/(p\cdot l)$ to both sides of \eqref{eq:ccycling},
+This condition is satisfied in the PY case,
+for every polygon graph in $c(\vr)$
+carries the unit weight,
+and $s(G) = 1$ by Lemma \ref{thm:polygonsymnum}.
 %
-where $p = 2$ if the cycle is symmetric in both directions,
-  or $p = 1$ otherwise.
+The generalization
+allows the proof to be also applicable to the HNC case. % below.
+
+
+By definition,
+$s(G)$ is the order of the automorphism group $\Aut(G)$ of $G$,
+or the number of vertex permutations that keep the connection of $G$ unchanged.
 %
+Suppose $L$ is an $l$-cycle in $G$,
+and the joints are $V_L = \{v_1, v_2, \dots v_l\}$.
+%
+The vertex permutations in $\Aut(G)$ that
+map $V_L$ to $V_L$ itself % by cycling and/or reversing the elements
+form a subgroup $\G_L$ of $\Aut(G)$.
+%
+The number of cosets $w(\G_L)$ of $\G_L$
+is then equal to the number of $l$-cycles in $G$
+that are isomorphic to $L$,
+but with different sets of joints.
+%
+Thus, by Lagrange's theorem,
+$w(\G_L) = |\Aut(G)|/|\G_L| = s(G)/|\G_L|$,
+%
+and
+$m_l(G) = \sum w(\G_L)$,
+where the sum is over all non-isomorphic $l$-cycles in $G$.
+%
+It follows that the $l$-cycle $L$
+and its isomorphic counterparts
+contribute
+\begin{equation}
+  \frac{ w(\G_L) \, I(G) }{ s(G) }
+= \frac{ I(G) }{ |\G_L|}
+\label{eq:ccyclingleft}
+\end{equation}
+to the left hand side of \eqref{eq:ccycling}.
+
+
+As discussed above,
+the $l$-cycle $L$ represents a cycle decomposition of $G$
+as $G_1 * \cdots * G_l (* \, G_1)$,
+where $G_1$, $G_2$, \dots, $G_l$ are polygon graphs
+rooted at the joints
+$(v_1, v_2)$, $(v_2, v_3)$, \dots, $(v_l, v_1)$, respectively.
+%
+The permutations of $G_1$, $G_2$, \dots, $G_l$ in the $l$-cycle
+form a subgroup $\Hgroup_L$ of the dihedral group $D_l$,
+whose order is $2l$.
+%
+The number of different ways of the circular composition
+$G_1 * \cdots * G_l (*\, G_1)$
+occurring in $\rho^l (c * \cdots * c)$ is equal to $2l / |\Hgroup_L|$.
+%
+Now, as each $G_i$ ($1 \le i \le l$)
+carries the weight of $1/s(G_i)$ in the expansion of $c(\vr)$,
+the total contribution of the cycle $L$
+to the right hand side is
+\begin{align*}
+  \frac{1}{2l}
+  \cdot
+  \frac{2l}{|\Hgroup_L|}
+  \cdot
+  \frac{I(G)}{ s(G_1) \cdots s(G_l)}
+= \frac{ I(G) }
+ { |\Hgroup_L| \cdot s(G_1) \cdots s(G_l) }.
+\end{align*}
+The above expression is the same as \eqref{eq:ccyclingleft}
+because
+\begin{equation}
+  \G_L = \Hgroup_L \times \Aut(G_1) \times \cdots \times \Aut(G_l).
+  \label{eq:GLfactor}
+\end{equation}
+%
+In other words,
+if a vertex permutation preserves the joints in $L$,
+it can only be built on
+(1) cycling and reflecting the cycle elements, and
+(2) exchanging the vertices in each $G_i$.
+Taking the order of \eqref{eq:GLfactor} yields
+$|\G_L| = |\Hgroup_L| \cdot s(G_1) \cdots s(G_l)$.
+\end{proof}
+
 For example,
+the graph
 \newcommand{\hi}{0.05}
 $G = {\begin{tikzpicture}[baseline=-1mm]
       \node (r1) at (-4*\hi, -4*\hi) [blackdot]{};
@@ -1286,25 +1643,52 @@ $G = {\begin{tikzpicture}[baseline=-1mm]
       \node (r4) at (-4*\hi,  4*\hi) [blackdot]{};
       \draw (r1) -- (r2) -- (r3) -- (r1) -- (r4) -- (r3);
 \end{tikzpicture} }$
-has $m=2$ isomorphic cycles of length $l = 3$ with $d = 3$ and $p = 2$.
-The symmetry number $s = 4$, for either diagonal allows
-the exchange of the two vertices.
-So the contribution to both sides is $m/s = d/(p\cdot l) = 1/2$.
+has a symmetry number $s(G) = 4$,
+for one can exchange the two vertices
+on either diagonals.
+%
+On the other hand,
+$G$ has $m=2$ isomorphic cycles of length $l = 3$.
+The cycle only has a reflection symmetry, so $|\Hgroup_L| = 2$.
+So the contribution to both sides is
+$I \cdot m/s = I/|\Hgroup_L| = I/2$.
+
+
+%The reader can readily verify that
+%  if the longest non-repeating segment of an $l$-cycle
+%  is of length $d$ (and $d$ divides $l$),
+%  the cycle along with its isomorphic counterparts
+%  contribute $I(G) \cdot d/(p\cdot l)$ to both sides of \eqref{eq:ccycling},
+%%
+%where $p = 2$ if the cycle is symmetric in both directions,
+%  or $p = 1$ otherwise.
+%%
+%For example,
+%\newcommand{\hi}{0.05}
+%$G = {\begin{tikzpicture}[baseline=-1mm]
+%      \node (r1) at (-4*\hi, -4*\hi) [blackdot]{};
+%      \node (r2) at ( 4*\hi, -4*\hi) [blackdot]{};
+%      \node (r3) at ( 4*\hi,  4*\hi) [blackdot]{};
+%      \node (r4) at (-4*\hi,  4*\hi) [blackdot]{};
+%      \draw (r1) -- (r2) -- (r3) -- (r1) -- (r4) -- (r3);
+%\end{tikzpicture} }$
+%has $m=2$ isomorphic cycles of length $l = 3$ with $d = 3$ and $p = 2$.
+%The symmetry number $s = 4$, for either diagonal allows
+%the exchange of the two vertices.
+%So the contribution to both sides is
+%$I(G) \cdot m/s = I(G) \cdot d/(p\cdot l) = I(G)/2$.
+
 
 
 Summing \eqref{eq:ccycling} over $l$ yields
 %
 \begin{align}
-     \sum_{l=2}^{\infty} 2 \, \Chn_l
-     %\sum_{l=3}^{\infty} 2 \, \Chn_l
-  &= -\int \Big\{
-              \log[ 1 - \rho \tilde{c}(\vk) ]
-            + \rho \tilde{c}(\vk)
-           \Big\}\, \dvk,
+      \sum_{l=3}^{\infty} 2 \, \Chn_l
+  &=  \int \tilde{T}(\vk) \, \dvk,
   %\notag \\
   %& \hphantom{=}
   %   - \frac{\rho^2}{2} \int c^2(\vr) \, d\vr,
-     \label{eq:Clsum} \\
+     \label{eq:Clsum3} \\
   %
       \sum_{l=3}^{\infty} \, l \, \Chn_l
   &=
@@ -1317,13 +1701,53 @@ Summing \eqref{eq:ccycling} over $l$ yields
 \label{eq:Clsumll}
 \end{align}
 %
-Note that \eqref{eq:Clsum}, \eqref{eq:Clsuml}, and \eqref{eq:Clsumll}
-  are applicable to any integral equation (not just the PY one).
+where
+\begin{align}
+  \tilde{T}(\vk)
+\equiv
+  - \log\big[1 - \rho \, \tilde{c}(\vk) \big]
+  - \rho \, \tilde{c}(\vk)
+  - \frac{ \big[ \rho \, \tilde{c}(\vk) \big]^2 } { 2 }.
+  \label{eq:logrhoc}
+\end{align}
+%
+Note that \eqref{eq:Clsum3}, \eqref{eq:Clsuml}, and \eqref{eq:Clsumll}
+  are direct consequences of the OZ relation \eqref{eq:oz},
+  and thus are applicable to any integral equation (not just the PY one).
+%
+For later convenience, we list a few variants below
+%
+\begin{align}
+      2 \, \Chn_2
+  &=
+      \frac{ \rho^2 }{2} \int c^2(\vr) \, d\vr,
+%\label{eq:Clsum_cc}
+\notag \\
+%
+      \sum_{l=2}^{\infty} \, l \, \Chn_l
+  &=
+      \frac{ \rho^2 }{2} \int c(\vr) \, h(\vr) \, d\vr,
+%\label{eq:Clsum_ch}
+\notag \\
+%
+      \sum_{l=2}^{\infty} \, l \, (l - 2) \, \Chn_l
+  &=  \frac{ \rho^2 }{ 2 }
+      \int t(\vr) \, h(\vr) \, d\vr,
+\label{eq:Clsum_th} \\
+%
+      \sum_{l=1}^{\infty} \, l \, (l - 1) \, \Chn_l
+  &=  \frac{ \rho^2 }{ 2 }
+      \int h^2(\vr) \, d\vr.
+%\label{eq:Clsum_hh}
+\notag
+\end{align}
+%
+Thus, the integrals of $c^2$, $t^2$, $h^2$, $ct$, $ch$, and $th$
+can all be expressed as chain sums.
 
 
 
-
-\subsection*{Baxter's pressure formula}
+\subsection{Baxter's pressure formula}
 
 
 %We now derive Baxter's pressure formula
@@ -1332,35 +1756,35 @@ Note that \eqref{eq:Clsum}, \eqref{eq:Clsuml}, and \eqref{eq:Clsumll}
 To obtain an expression of pressure,
   we start with\cite{hansen}
 %
-\begin{equation}
-  -\partial (\beta P^{\mathrm{ex}}) / \partial \rho
-  = \rho \int c(\vr) \, d\vr.
+\begin{align}
+  -\partial_\rho (\beta \Pex)
+  &= \rho \int c(\vr) \, d\vr
+  \notag \\
+  &= \sum_{G} \frac{ 2 \, n(G) \, \rho^{-1} I(G) }{ s(G) },
 \label{eq:crcompr}
-\end{equation}
+\end{align}
+where
+we have used \eqref{eq:pykappasum} in the second step.
 %
 %where the superscript ``ex'' means to the excess, or non-ideal-gas, part of the contribution.
 %
-Note that
-  the integral $I(G)$ of a polygon pack $G$ of $n$ vertices
-  in \eqref{eq:pykappasum}
-  is proportional to $\rho^n$.
+Since for a polygon pack $G$ of $n$ vertices, $\rho^{-1} I(G)$
+  is proportional to $\rho^{n-1}$,
 %
-Thus, an integration over $\rho$ yields\cite{baxterpressure}
+integration over $\rho$ yields\cite{baxterpressure}
 %
 \begin{align}
       -\beta \Pex
-  =&  \sum_{G} \frac{ 2 \, I(G) }{ s(G) }
-  =   \frac{ \rho^2 }{ 2 }
-      \int [c(\vr) - h(\vr) c(\vr)] \, d\vr \notag \\
-  &
-      -\int \big\{
-        \log[1 - \rho \tilde{c}(\vk)] + \rho \tilde{c}(\vk)
-        \big\} \dvk.
+  &=  \sum_{G} \frac{ 2 \, I(G) }{ s(G) }
+      \notag \\
+  &=   \frac{ \rho^2 }{ 2 }
+    \int [1 - t(\vr)]\, c(\vr) \, d\vr
+      +\int \tilde{T}(\vk) \, \dvk.
 \label{eq:baxterpressure}
 \end{align}
 %
 where we have used
-\eqref{eq:pyintgcr2sums}, \eqref{eq:Clsum} and \eqref{eq:Clsuml}.
+\eqref{eq:pyintgcr2sums}, \eqref{eq:Clsum3} and \eqref{eq:Clsuml}.
 %
 Note that the weight $-2/s(G)$ is rather different
   from that $(1-n)/s(G)$ given in Sec. \ref{sec:graph}.
@@ -1369,37 +1793,28 @@ This means that the PY closure not only drops the non-polygon graphs,
   but also reduces the weights of the polygon graphs.
 %
 By using \eqref{eq:zerosep} and adding the ideal-gas part,
-  we can rewrite the above result in $\tilde{c}(\vk)$ only:
+  we can rewrite the above result as
 %
 \begin{align*}
       \beta P
     =
-      \int \left\{
-            \log[1 - \rho \tilde{c}(\vk)]
-            + \frac{\rho \tilde{c}(\vk)}{2}
-           \right\} \dvk
-     +\frac{ \rho - \rho^2 \tilde{c}(\vct0) }{2}.
+      \int \log\big[1 - \rho \tilde{c}(\vk)\big] \, \dvk
+      -\frac{ \rho \, t(\vct{0}) + \rho^2 \tilde{c}(\vct0) }{2}.
 \end{align*}
 %
+Further, by using the virial theorem,
+the Fourier-space integral can be avoided,
+resulting \eqref{eq:pyPsimplified} in Sec. \ref{sec:vtpy}.
 
 
+
+\subsection{Algebraic verification}
 
 We can show that
   \eqref{eq:baxterpressure} is equivalent to \eqref{eq:crcompr}
   algebraically\cite{baxterpressure}.
 %
-We first define
-%
-\begin{align}
-  \tilde{T}(\vk)
-\equiv
-  - \log[1 - \rho \tilde{c}(\vk)]
-  - \rho \tilde{c}(\vk)
-  - \left[ \rho \tilde{c}(\vk) \right]^2 / 2.
-  \label{eq:logrhoc}
-\end{align}
-%
-Then, differentiating \eqref{eq:logrhoc} and using \eqref{eq:oz} yields
+Differentiating \eqref{eq:logrhoc} and using \eqref{eq:oz} yields
 %
 \begin{align*}
   \partial_\rho \tilde T
@@ -1414,7 +1829,7 @@ Then, differentiating \eqref{eq:logrhoc} and using \eqref{eq:oz} yields
 %
 where ``$(\vk)$'' is dropped.
 %
-Integrating over $\vk$ and using \eqref{eq:cyclesp} yields
+Integrating over $\vk$ and using \eqref{eq:cyclesp2} yields
 %
 \begin{align}
   \int \partial_\rho \tilde T \dvk
@@ -1435,15 +1850,8 @@ Integrating over $\vk$ and using \eqref{eq:cyclesp} yields
 
 
 
-We now rewrite \eqref{eq:baxterpressure} as %in terms of $\tilde{T}$,
-\[
-  -\beta \Pex
-=
-  (\rho^2/2) \int (c - t \, c) d\vr
-  + \int \tilde{T} d\vk/(2\pi)^D.
-\]
-%
-Differentiating with respect to $\rho$ and using \eqref{eq:intdlogrhoc} yields
+Differentiating \eqref{eq:baxterpressure}
+with respect to $\rho$ and using \eqref{eq:intdlogrhoc} yields
 %
 \[
   -\partial_\rho ( \beta \Pex )
@@ -1461,7 +1869,7 @@ We then recover \eqref{eq:crcompr}.
 
 
 
-\subsection*{Second density derivative of pressure}
+\subsection{Second density derivative of pressure}
 
 Similarly,
   by differentiating \eqref{eq:pykappasum} with respect to $\rho$,
@@ -1482,7 +1890,7 @@ Similarly,
 \label{eq:pyddpressure}
 \end{align}
 %
-where we have use \eqref{eq:countpairs}, \eqref{eq:Clsuml}, and \eqref{eq:Clsumll}.
+where we have use \eqref{eq:countpairs}, \eqref{eq:pyintgcr2sums}, and \eqref{eq:Clsum_th}.
 %
 Note that this relation is approximate
   and contains an error
@@ -1495,6 +1903,7 @@ Note that this relation is approximate
 \section{\label{sec:hnc}HNC approximation}
 
 
+\subsection{$c$-graphs}
 
 The HNC closure includes
   more graphs than the PY closure.
@@ -1609,7 +2018,10 @@ One can verify that the above definition
 %
 
 Further, we define a \emph{$c$-chain}
-  as a chain of $c$-graphs.
+  as a chain of $c$-graphs,
+and a \emph{$c$-bundle}
+  as a parallel composition of
+  $c$-chains.
 %
 Then, similar to Lemma \ref{thm:pycrsum},
   we have
@@ -1618,15 +2030,13 @@ Then, similar to Lemma \ref{thm:pycrsum},
 Under the HNC closure,
 %
 $c(\vr)$
-  is the sum of all nonequivalent $c$-graphs $G$
-  each weighted by
-  the inverse symmetry number
-  $1/s(G)$,
-  %where $s(G)$ is the number of ways of relabelling
+  is the sum of all nonequivalent $c$-graphs $G$,
+  each weighted by the inverse symmetry number $1/s(G)$;
+  %where $s(G)$ is the number of ways of relabeling
   %\emph{black} vertices that keep the connections of $G$ unchanged;
-%
-and $t(\vr)$ is the corresponding sum of all
-  $c$-chains $H$, each weighted by $1/s(H)$.
+and $t(\vr)$ and $y(\vr)$ are the corresponding weighted sum of all
+  $c$-chains and $c$-bundles, respectively.
+  \label{thm:hnccr}
 \end{lemm}
 %
 %
@@ -1640,47 +2050,159 @@ The statement is true for $n \le 3$.
 Suppose it is true for $n \le k$,
   we prove the $n = k + 1$ case below.
 
-According to the OZ relation \eqref{eq:oz},
-  every graph $H$ in $t(\vr)$ is
-  a $c$-chain $G_1 * \cdots * G_l$.
+
+We first show that
+  every graph $H$ in the expansion of $t(\vr)$
+  is a $c$-chain weighted by $1/s(H)$.
+%
+According to \eqref{eq:oz},
+\[
+  t = \rho \, c*c + \rho^2 \, c * c * c + \rho^3 \, c*c*c*c \cdots.
+\]
+So, $H$ can be written as a $c$-chain
+  $G_1 * \cdots * G_l$ ($l \ge 2$).
 %
 The weight $w(G)$ is
   $w(G_1) \cdots w(G_l)$,
   which is, by the induction hypotheses, equal to
-  $1/\left[ s(G_1) \cdots s(G_l) \right]$.
+  $s^{-1}(G_1) \cdots s^{-1}(G_l)$.
 %
-Since the relabelling of the black vertices of $H$
+Since the joins are distinguishable,
+  and the relabeling of the non-joint vertices  of $H$
   can occur only within each $G_i$ independently,
   the symmetry number is
   $s(H) = s(G_1) \cdots s(G_l)$,
   which is indeed the inverse weight of $H$.
 
-We now turn to $c(\vr)$.
+Next, we show every graph in the expansion of $y(r)$
+  in a $c$-bundle.
 %
-Under the HNC closure \eqref{eq:hnc},
+Since the HNC closure is
+\[
+  y(\vr) = \exp t(\vr) = 1 + t(\vr) + t^2(\vr)/2 + \cdots,
+\]
+every graph $M$ in the graphic expansion of $y(\vr)$,
+  specifically, in the expansion of $t^m(\vr)/m!$ ($m \ge 0$),
+  is a $c$-bundle of $m$ $c$-chains,
+  $H_1$, $H_2$, \dots, and $H_m$.
+%
+%
+To verify the weight $w(M)$,
+  we sort the $m$ chains as
+\begin{equation}
+\begin{split}
+  %\hphantom{~~~~}
+& \text{$m_1$ identical chains of type $1$}, \\
+  %\hphantom{~~~~}
+& \dots, \\
+  %\hphantom{~~~~}
+& \text{$m_t$ identical chains of type $t$}, \\
+& \text{with $m = m_1 + \cdots + m_t$}.
+\end{split}\label{eq:sortchains}
+\end{equation}
+%
+The number of times of $M$
+  appearing in expansion of $t^m(\vr)$
+  is equal to the number of ways
+  of assigning the $t$ types to the $m$ chains
+  under the conditions \eqref{eq:sortchains},
+  which can be computed from the multinomial coefficients
+  $m!/(m_1! \cdots m_t!)$.
+%
+So
+%
+\[
+  w(M)
+=
+  \frac{ m! } { m_1! \cdots m_t! }
+  \times
+  \frac{ 1 } { m! }
+  \frac{ 1 } { s(H_1) \cdots s(H_m) }.
+\]
+%
+On the other hand,
+  the symmetry number of $M$ is
+  $s(M) = m_1! \cdots m_t! \, s(H_1) \cdots s(H_m)$,
+  because, besides the intra-chain permutations,
+  there are $m_r!$ ways of permuting the chains of the same type $r$,
+  and collectively relabeling the vertices within accordingly.
+So $w(M) = 1/s(M)$.
+%
+
+Next, let us show that every graph in the expansion of $c(\vr)$
+  is a $c$-graph.
+%
+Again, from the closure \eqref{eq:hnc},
   an $n$-vertex graph $G$ in $c(\vr)$ is
-  a parallel composition of
+  either a $c$-bundle $M$ of
   $m$ $c$-chains $H_1$, \dots, $H_m$,
-  and possibly also an $f$-graph,
-  i.e., $G = H_1 \cdots H_m (\cdot f)$,
+  or the parallel composition of $M$ and an $f$-graph,
+  i.e., $G = M (\cdot f) = H_1 \cdots H_m (\cdot f)$,
   if it is generated by the term
   $\big\{\llbra m \ge 2 \llket + f(\vr)\big\} \, t^m(\vr) / m!$.
 %
 Let us first show that $G$ is a $c$-graph.
 %
-If $m \le 2$,
+In the case of $m = 0$,
+  $G$ is the $f$-graph, which is a $c$-graph.
+%
+If $1 \le m \le 2$,
   $G$ is a cycle of $c$-graphs,
   hence a $c$-graph.
 %
 For $m \ge 3$, we carry an induction on $m$.
 %
-Since $G$ is a parallel composition of the $c$-chain $H_m$
-  and the graph
-  $G' = H_1 \cdots H_{m-1} (\cdot f)$ (which is a $c$-graph by the induction hypothesis),
-  $G$ is a cycle of $c$-graphs, hence a $c$-graph,
-  by \eqref{eq:cyclesp}.
+We view $G$ as a parallel composition of the $c$-chain $H_m$
+  and the graph $G' = H_1 \cdots H_{m-1}
+  (\cdot f)$, as shown below.
+\[
+  \newcommand{\sz}{3mm}
+  \begin{tikzpicture}
+    \node (v1)    at ( 0, 0) [blackdot,label=left:$v_1$]{};
+    \node (v2)    at ( 1.0*\sz, 2.0*\sz) [blackdot,blue,label=left:$v_2$]{}
+      edge[thick, blue, bend right=10] (v1);
+    \node (vlm1)  at ( 9.0*\sz, 2.0*\sz) [blackdot,blue,label=right:$v_{l-1}$]{}
+      edge[dotted, thick, blue, bend right=45] (v2);
+    %\node (ui)    at ( 5.0*\sz, 3.5*\sz) []{}
+    %  edge[dotted, bend right=25] (v2);
+    %  edge[dotted, bend left=25] (vlm1);
+    \node (vl)    at (10.0*\sz, 0) [blackdot,label=right:$v_l$]{}
+      edge[thick, blue, bend right=10] (vlm1)
+      edge[dashed, thick] node[anchor=north] {$f$} (v1)
+      edge[thick, bend left=40] node[anchor=north] {$H_1$} (v1);
+
+%      edge[ultra thick, bend left=150] node[anchor=north] {$H_{m-1}$} (v1);
+
+    \node (Hm) at (5.0*\sz, 2.5*\sz) [blue] {$H_m$};
+
+    \node (elps) at (4.9*\sz, -3.5*\sz) {$\vdots$};
+
+    \node (um1)   at (5.0*\sz, -4.7*\sz)
+      [inner sep=0pt, minimum size=0pt, label=below:$H_{m-1}$]{}
+      edge[thick, bend left=45] (v1)
+      edge[thick, bend right=45] (vl);
+
+    %% beginning of G'
+    \draw[fill=lightgray, opacity=.2] plot [smooth cycle]
+      coordinates{
+                   (-2.3*\sz,-3.0*\sz)
+                   (-2.2*\sz, 0.0*\sz)
+                   ( 0.0*\sz, 1.0*\sz)
+                   (10.0*\sz, 1.0*\sz)
+                   (12.2*\sz, 0.0*\sz)
+                   (12.3*\sz,-3.0*\sz)
+                   (10.0*\sz,-6.0*\sz)
+                   ( 0.0*\sz,-6.0*\sz) };
+    \node (Gp) at (9.5*\sz, -5.0*\sz) {$G'$};
+
+  \end{tikzpicture}
+\]
+Since $G'$ is a $c$-graph by the induction hypothesis,
+  $G$, which is a the parallel composition of $G'$ and $H_m$,
+  is a cycle of $c$-graphs [by \eqref{eq:cyclesp}],
+  and hence a $c$-graph.
 %
-We can then show that $G$ is a $c$-graph by an induction on $m$.
+The weight $w(G)$ is the same as $w(M)$.
 
 
 
@@ -1694,76 +2216,35 @@ If the two roots are not consecutive joints of the cycle,
 %
 Otherwise, $G$ can be written as a cycle
   $v_1 - \cdots - v_l - v_1$
-  rooted at the two consecutive joints $v_1$ and $v_l$
+  rooted at the joints $v_1$ and $v_l$
   ($l \ge 3$),
 %
-or, equivalently, $G = G_l \cdot H_m$,
+or, equivalently, $G = G' \cdot H_m$,
   with
-    $G_l$ being the $c$-graph between $v_1$ and $v_l$,
+    $G'$ being the $c$-graph between $v_1$ and $v_l$,
   and
     $H_m \equiv v_1 - \cdots - v_l$
     being a $c$-chain.
 %
 By the induction hypotheses,
-  $G_l$ can be generated by the term
+  $G'$ can be generated by the term
   $\big\{ \llbra m \ge 3 \llket +f(\vr) \big\} t^{m - 1}(\vr) / (m - 1)!$
-  of some $m$ (for $G_l$ has fewer vertices than $G$),
+  of some $m$ (for $G'$ has fewer vertices than $G$),
 whereas
-  the $H_m$ can be generated by $t(\vr)$.
+  $H_m$ can be generated by $t(\vr)$.
 %
 It follows that
   $G$ can be generated by the term
-  $\big\{ \llbra m \ge 2 \llket  + f(\vr)\big\} t^{m}(\vr) / m! $,
+  $\big\{ \llbra m \ge 2 \llket  + f(\vr)\big\} t^{m}(\vr) / m! $.
 %
-
-
-
-Now for the weight.
-%
-Suppose $G$ is generated by
-  a parallel composition $G = H_1 \cdots H_m (\cdot f)$,
-%
-we sort the $m$ chains as \\
-  \hphantom{~~~~}
-    $m_1$ identical chains of type 1, \\
-  \hphantom{~~~~}
-    \dots, \\
-  \hphantom{~~~~}
-    $m_t$ identical chains of type $t$, \\
-  with
-    $m = m_1 + \cdots + m_t$.
-%
-The symmetry number is
-  $s(G) = m_1! \cdots m_t! \, s(H_1) \cdots s(H_m)$,
-  for there are $m_r!$ ways of
-  permuting the chains of the same type $r$,
-  and collectively relabelling the vertices within accordingly.
-%
-On the other hand,
-  the number of times of $G$
-  appearing in expansion of $t^m(\vr)$
-  is equal to the number of ways
-  of assigning the types to the $m$ chains,
-  which can be computed from the multinomial coefficients
-  $m!/(m_1! \cdots m_t!)$.
-%
-So the overall weight of $G$ is
-%
-\[
-  \frac{ m! } { m_1! \cdots m_t! }
-  \times
-  \frac{ 1 } { m! }
-  \frac{ 1 } { s(H_1) \cdots s(H_m) },
-\]
-%
-which is indeed the inverse of $s(G)$.
 \end{proof}
 
 
 
 
+\subsection{$c$-packs}
 
-We call a $c$-graph without the marked roots a \emph{$c$-pack},
+We call a $c$-graph without the designated roots a \emph{$c$-pack},
 %
 in which,
   an ordered pair of vertices forms a \emph{pivot}
@@ -1804,23 +2285,284 @@ where $p(G)$ and $s(G)$ are
 \label{thm:hnccrsum}
 \end{lemm}
 
+%Note that, for the $f$-graph, we define $p(G) = 2$.
+
+
+The converse is the following.
+
+
+\begin{lemm}
+Define the following sum over all $c$-packs
+\begin{equation}
+  \A \equiv \sum_G \frac{ I(G) }{ s(G) },
+  \label{eq:Adef}
+\end{equation}
+The sums obtained from whitening all possible pivots,
+adjacent pivots, and nonadjacent pivots
+of all $c$-packs $G$ in $\A$
+are given by
+$\rho^2 \, c(\vr)$,
+$\rho^2 \, f(\vr) \, y(\vr)$,
+and
+$\rho^2 \, [y(\vr) - t(\vr) - 1]$,
+respectively.
+\label{thm:whitenA}
+\end{lemm}
+
+
+
+\begin{proof}
+By definition,
+  the symmetry number $s(G)$
+  of a $c$-pack $G$
+  is the order of the automorphism group $\Aut(G)$,
+  which is the set of vertex permutations
+  that keep the connections of $G$ unchanged.
+%
+Given a pivot $(i, j)$ of $G$,
+  let $G_{ij}$ be the $c$-graph
+  from whitening the pivot in $G$.
+%
+Let $\G_{ij}$
+  denote the set of permutations of the non-root vertices
+  that keep the connections of $G_{ij}$ unchanged,
+then the symmetry number $s(G_{ij}) = |\G_{ij}|$.
+%
+Clearly, $\G_{ij}$ is a subgroup of $\Aut(G)$.
+%
+%Each coset of $\G_{ij}$
+%corresponds to a vertex permutation
+%that maps $(i, j)$ to an isomorphic pivot.
+%
+Thus, the number of cosets $w_{ij}(G)$
+is equal to the number of pivots in $G$
+that are equivalent to $(i, j)$.
+%
+It follows that the procedure of whitening all pivots
+produces $w_{ij}(G)$ copies of $G_{ij}$,
+and the total contribution
+to the sum of the whitened graphs
+is $w_{ij}(G) \, I(G_{ij})/s(G)$,
+which is equal to $I(G_{ij})/s(G_{ij})$ by Lagrange's theorem.
+%
+A sum over $c$-packs $G$
+then yields $\rho^2 \, c(\vr)$ by Lemma \ref{thm:hnccr}.
+
+By using Lemma \ref{thm:crsplit},
+  we can separate $c$-graphs with adjacent roots from nonadjacent ones,
+  and this yields the other two sums.
+\end{proof}
+
+
+
+Lemma \ref{thm:whitenA} can be
+restated in terms of functional derivatives.
+%
+We define, for two arbitrary functions $\psi_0(\vr)$ and $\psi_1(\vr)$,
+the generalize sum
+\begin{align}
+  \A(\psi_0, \psi_1)
+\equiv
+  \sum_G \frac{ I(G; \psi_0, \psi_1) } { s(G) },
+\label{eq:Apsi}
+\end{align}
+where
+\begin{multline}
+  I(G; \psi_0, \psi_1)
+=
+  \int
+  %\left[
+    \prod_{\{i, j\} \in E(G)}
+    \Bigl[
+      f(\vr_{ij}) \, \exp \psi_1(\vr_{ij})
+    \Bigr]
+  %\right]
+  %\notag
+  \\
+%& \hphantom{=\int}
+  %\left(
+    \prod_{
+      \substack{
+        \{l, m\} \notin E(G) \\
+        \{l, m\} \in P(G)
+      }
+    }
+    \Bigl[
+      \exp \psi_0(\vr_{lm})
+    \Bigr]
+  %\right)
+  \quad
+  d\vr_2 \, \cdots \, d\vr_n,
+  \label{eq:Ipsi}
+\end{multline}
+with $E(G)$, $P(G)$ being the sets of edges and unordered pivots in $G$.
+%
+Thus, $|E(G)|$ is equal to the number of edges $e(G)$,
+and $|P(G)| = p(G)/2$,
+where the factor $1/2$ accounts for the ordering
+of the two vertices in the pivot.
+
+
+
+We shall show in Lemma \ref{thm:hncfpivot} that
+every edge in $G$ is an unordered pivot.
+%
+Thus,
+the first product in \eqref{eq:Ipsi}
+covers all adjacent pivots.
+%
+We can treat
+$\A(\psi_0, \psi_1)$
+as a generating function
+of nonadjacent ($\psi_0$) and adjacent ($\psi_1$) pivots,
+%
+and $\A(0,0)$ recovers \eqref{eq:Adef}.
+%
+Thus, Lemma \ref{thm:whitenA} can now be stated as
+\begin{align*}
+  \frac{\rho^2}{2} c(\vr)
+&=
+  \left.
+  \sum_{\sigma = 0, 1}
+  \frac{ \delta \A(\psi_0, \psi_1) } { \delta \psi_\sigma(\vr) }
+  \right|_{\psi_0 = \psi_1 = 0},
+\\
+%
+%
+%
+  \frac{\rho^2}{2} f(\vr) \, y(\vr)
+&=
+  \left.
+  \frac{ \delta \A(\psi_0, \psi_1) } { \delta \psi_1(\vr) }
+  \right|_{\psi_0 = \psi_1 = 0},
+\\
+%
+%
+%
+  \frac{\rho^2}{2}[ y(\vr) - t(\vr) - 1 ]
+&=
+  \left.
+  \frac{ \delta \A(\psi_0, \psi_1) } { \delta \psi_0(\vr) }
+  \right|_{\psi_0 = \psi_1 = 0}.
+\end{align*}
+
+Since $\delta \psi_1(\vr) = \delta f(\vr)/ f(\vr)$,
+the second equation becomes
+\begin{equation}
+  \frac{ \delta \A } { \delta f(\vr) }
+  = \frac{1}{2} \, \rho^2 y(\vr).
+  \label{eq:yrfunctional}
+\end{equation}
 
 
 
 
-\subsection*{Cycle decomposition}
+
+\subsection{\label{sec:hncFex}Graphic sums of free energy and chemical potential}
+
+
+We now show that the free energy is given by\cite{morita1958, *morita1959, *morita1960}
+\begin{equation}
+  -\frac{ \beta \Fex }{V}
+=
+  \A \equiv \sum_G \frac{ I(G) }{ s(G) }.
+\label{eq:hncFexA}
+\end{equation}
+%A proof will be given in Secs. \ref{sec:hnccavity} and \ref{sec:hncFex}.
+%
+%From thermodynamics, we have
+We start from
+\begin{align}
+  \partial_\beta (\beta \Fex)
+&=
+ \langle \Phi \rangle
+=
+\frac{\rho^2 \, V}{2} \int
+  \phi(\vr) \, g(\vr) \, d\vr,
+  \label{eq:Fti}
+\end{align}
+where $\Phi = \sum_{i < j} \phi(\vr_{ij})$
+is the potential energy of the system.
+%
+On the other hand, differentiating $\A$ yields
+\begin{align*}
+  \partial_\beta \A
+&=
+  \int
+  \frac{ \delta \A } { \delta f(\vr) }
+  \,
+  \partial_\beta f(\vr) \, d\vr
+  \\
+&=
+  -\frac{\rho^2} {2}
+  \int
+  y(\vr) \, [f(\vr) + 1]
+  \, \phi(\vr) \, d\vr
+  \\
+&=
+  -\frac{\rho^2} {2}
+  \int \phi(\vr) \, g(\vr) \, d\vr,
+\end{align*}
+where we have used \eqref{eq:yrfunctional}.
+%
+Comparing this to \eqref{eq:Fti}, we get
+\begin{equation}
+  -\partial_\beta(\beta \, \Fex/V) = \partial_\beta \A.
+  \label{eq:hncdFexdA}
+\end{equation}
+Since at the high temperature limit ($\beta = 0$),
+we have $\phi(\vr) = f(\vr) = 0$,
+and $\Fex(\beta = 0) = \A(\beta = 0) = 0$,
+%
+integrating \eqref{eq:hncdFexdA} from $\beta = 0$
+yields \eqref{eq:hncFexA}.
+%
+A similar derivation from the virial theorem
+can be found in Sec. \ref{sec:vthnc},
+which shows that the expression \eqref{eq:hncFexA}
+corresponds to the virial-route result.
+
+Equation \eqref{eq:hncFexA} shows that the graphic sum
+in the HNC closure uses the same weight as
+the exact sum given in Sec. \ref{sec:bcsums}.
+%
+The only difference is that the former covers only $c$-packs,
+whereas the latter covers all unrooted biconnected graphs.
+
+
+For the chemical potential, we use the relation
+\begin{equation}
+  \muex = \partial_N(\Fex)_V = \partial_\rho(\Fex/V),
+  \label{eq:muexdFex}
+\end{equation}
+and
+%The chemical potential can now be obtained as
+%
+\begin{align}
+    - \beta \rho \muex
+  =
+  -\rho \, \partial_\rho(\beta \, \Fex/V)
+  =
+    \sum_G \frac{ n(G) \, I(G) } { s(G) }.
+\label{eq:hncmugsum}
+\end{align}
+where we have used $I(G) \propto \rho^{n(G)}$.
+
+
+
+\subsection{Cycle decomposition}
 
 
 
 We now generalize the face decomposition in the PY case
   to a cycle decomposition for the HNC case,
-  which helps adapting the counting formulas
+  which helps adapting the counting formulae
   \eqref{eq:countvertices} and \eqref{eq:countpairs}.
 
 
 First, a cycle of $l$ ($l \ge 3$) $c$-graphs
   is \emph{simple}
-  in which at least $(l-1)$ of the member $c$-graphs are $f$-graphs.
+  in which at least $(l-1)$ links of the cycle are $f$-graphs.
 %
 We now show that
 %
@@ -1847,11 +2589,12 @@ By definition,
 If $K$ is simple, there is nothing to prove.
 %
 Otherwise,
-  there is a $c$-graph in $K$, say $G_1$ between $v_1$ and $v_2$,
-  that is not an $f$-graph.
+  there is a link in $K$, say $G_1$ between $v_1$ and $v_2$,
+  that is a $c$-graph, but not an $f$-graph
+  (as shown below).
 %
 Now $G_1$ can be decomposed to
-  a cycle $J'$ (as shown below, blue) of $c$-graphs
+  a cycle $J'$ (blue) of $c$-graphs
   passing through $v'_1 \equiv v_1$
   and $v'_{k'} \equiv v_2$:
 %
@@ -1878,6 +2621,23 @@ Thus, $G$ can be decomposed to a different cycle
 \[
   \newcommand{\sz}{4mm}
   \begin{tikzpicture}
+    % begin of graph G_1
+    \draw[thick, fill=lightgray!50!white, draw=blue!20!gray, opacity=0.5]
+      plot [smooth cycle]
+      coordinates{
+        (  2.0*\sz,  1.0*\sz)
+        ( -1.5*\sz,  3.0*\sz)
+        ( -1.0*\sz,  5.5*\sz)
+        (  1.5*\sz,  7.5*\sz)
+        (  9.5*\sz,  7.5*\sz)
+        ( 12.0*\sz,  5.5*\sz)
+        ( 12.5*\sz,  3.0*\sz)
+        (  9.0*\sz,  1.0*\sz)
+        (  5.5*\sz,  0.5*\sz)
+      };
+    \node (G1) at ( 13.0*\sz, 5.5*\sz) [gray!50!blue] {$G_1$};
+    % end of graph G_1
+
     \node (vn)  at ( 0, 0) [blackdot]{};
     \node (v0)  at ( 0.2*\sz, 1.5*\sz) [blackdot,label=left:$v_l$]{}
       edge[thick, bend right=10] (vn);
@@ -1897,7 +2657,8 @@ Thus, $G$ can be decomposed to a different cycle
       [blackdot,blue,label={[label distance=-1mm]20:$v'_{k'-1}$}]{}
       edge[blue, thick, bend left=30] (v2)
       edge[blue, dotted, thick, bend right=10] (u2);
-    \node (uk1) at ( 7.5*\sz, 1.5*\sz) [blackdot,blue,label=above:$v'_{k'+1}$]{}
+    \node (uk1) at ( 7.5*\sz, 1.5*\sz)
+      [blackdot,blue,label=above:$v'_{k'+1}$]{}
       edge[blue, thick, bend right=30] (v2);
     \node (ul) at  ( 3.5*\sz, 1.5*\sz) [blackdot,blue,label=above:$v'_{l'}$]{}
       edge[blue, thick, bend left=30] (v1)
@@ -1907,7 +2668,7 @@ Thus, $G$ can be decomposed to a different cycle
     % end of the inner J' cycle
 
     % beginning of the K' cycle
-    \draw[green!50!black, thick] plot [smooth cycle]
+    \draw[draw=green!50!black, thick] plot [smooth cycle]
       coordinates{ ( 2.5*\sz, 3.9*\sz)
                    ( 3.5*\sz, 5.7*\sz)
                    ( 7.5*\sz, 5.7*\sz)
@@ -1926,11 +2687,11 @@ Thus, $G$ can be decomposed to a different cycle
       edge[dotted, thick, bend right=7] (vb)
       edge[thick, bend left=20] (vn);
 
-    \draw[dashed, very thick] (v1) -- (v2);
+    %\draw[dashed, black] (v1) -- (v2);
     \node (K) at (11.0*\sz, -1.2*\sz) {$K$};
 
     % beginning of the J cycle
-    \draw[red!80!black, thick] plot [smooth cycle]
+    \draw[draw=red!80!black, thick] plot [smooth cycle]
         coordinates{ ( 1.5*\sz, 2.5*\sz)
                      ( 0.7*\sz, 0.2*\sz)
                      ( 3.5*\sz,-1.2*\sz)
@@ -1950,20 +2711,21 @@ Thus, $G$ can be decomposed to a different cycle
 If $K'$ is simple, we are done.
 %
 Otherwise,
-  we replace the $c$-graph between $v'_1$ and $v'_{k'}$ in $K'$
-  (of cycle $J$)
+  we replace the link between $v'_1$ and $v'_{k'}$ in $K'$
+  (which is also the subgraph induced by the vertices on cycle $J$)
   by an $f$-graph.
 %
 On the simplified graph $G'$,
-  we can apply the above step
+  we can further apply the above step
   to any link $v'_{j'} - v'_{j'+1}$ of $K'$
   that is not an $f$-graph.
 %
 One can readily show that
-  the above replacement removes more edges than vertices,
+  the above procedure removes more edges than vertices,
 %
-such that the process always ends with a $G'$
-  with equal numbers of vertices and edges.
+such that the overall process always ends with a $c$-graph
+  with equal numbers of vertices and edges
+  (i.e., a simple cycle).
 \end{proof}
 
 
@@ -2021,7 +2783,7 @@ We will show below that
   either
   (a) the vertices in $V_L = \{ v_2, \dots, v_{l-1} \}$
     are entirely contained in
-    some $c$-graph between $u_i$ and $u_{i+1}$,
+    some link between $u_i$ and $u_{i+1}$,
   or
   (b) $L^{(s)}$ and $J$ share the same joints (i.e., the two are the same).
 %
@@ -2033,7 +2795,7 @@ Since case (a) leaves $J$ intact,
 
 If (a) is not true,
   it means that the vertices in $L^{(s)}$
-  are located in multiple member $c$-graphs $u_i - u_{i+1}$ in cycle $J$.
+  are located in multiple links $u_i - u_{i+1}$ in cycle $J$.
 %
 Then,
   there is at least one joint $u_i$ of $J$
@@ -2044,14 +2806,14 @@ Consider now the $c$-pack $G^{(s)}$
   in Step 2 of the $s$th round of Algorithm D.
 %
 Since every vertex in $V_L$ is adjacent to only two vertices,
-  the $c$-graph between $u_{i-1}$ and $u_i$
-  and that between $u_i$ and $u_{i+1}$
+  the link between $u_{i-1}$ and $u_i$
+  and that between $u_i$ and $u_{i+1}$ in $J$
   must both be $f$-graphs,
 %
 and $u_{i-1}$ and $u_{i+1}$ are the only two vertices
   adjacent to $u_i$ in $G^{(s)}$.
 %
-Now since the vertices in $V_L$ are connected,
+Now, since the vertices in $V_L$ are connected,
   either $u_i$ is the only vertex in $V_L$,
   or $V_L$ contains at least one of $u_{i-1}$ and $u_{i+1}$.
 %
@@ -2061,31 +2823,33 @@ Now since the vertices in $V_L$ are connected,
     \node (v1)    at ( 0, 0) [blackdot,label=left:$v_1$]{};
     \node (v2)    at ( 0.5*\sz, 2.0*\sz) [blackdot,label=left:$v_2$]{}
       edge[thick, bend right=10] (v1);
-    \node (uim1)  at ( 2.0*\sz, 3.5*\sz) [blackdot,blue,label=left:$u_{i-1}$]{}
+    \node (uim1)  at ( 2.0*\sz, 3.7*\sz) [blackdot,blue,label=left:$u_{i-1}$]{}
       edge[dotted, bend right=10] (v2);
-    \node (ui)    at ( 5.0*\sz, 4.5*\sz) [blackdot,blue,label=above:$u_{i}$]{}
-      edge[blue, thick, bend right=15] (uim1);
-    \node (uip1)  at ( 8.0*\sz, 3.5*\sz) [blackdot,blue,label=right:$u_{i+1}$]{}
-      edge[blue, thick, bend right=15] (ui);
+    \node (ui)    at ( 5.0*\sz, 4.2*\sz)
+      [blackdot,blue,label={[label distance=1mm]above:$u_{i}$}]{}
+      edge[blue, thick, bend right=7] (uim1);
+    \node (uip1)  at ( 8.0*\sz, 3.7*\sz) [blackdot,blue,label=right:$u_{i+1}$]{}
+      edge[blue, thick, bend right=7] (ui);
     \node (vlm1)  at ( 9.5*\sz, 2.0*\sz) [blackdot,label=right:$v_{l-1}$]{}
       edge[dotted, bend right=10] (uip1);
     \node (vl)    at (10.0*\sz, 0) [blackdot,label=right:$v_l$]{}
       edge[thick, bend right=10] (vlm1)
       edge[ultra thick, bend left=10] (v1);
 
-    \node (u1)    at ( 5.0*\sz, 9.0*\sz) [blackdot,blue,label=above:$u_1$]{};
+    \node (u1)    at ( 5.0*\sz, 8.7*\sz) [blackdot,blue,label=above:$u_1$]{};
     \node (uj)    at ( 8.0*\sz, 8.0*\sz) [blackdot,blue,label=45:$u_j$]{}
       edge[blue,dotted,thick, bend left=60] (uip1)
-      edge[blue,thick, bend right=10] (u1);
+      edge[blue,thick, bend right=8] (u1);
     \node (u2)    at ( 2.0*\sz, 8.0*\sz) [blue, blackdot,blue,label=135:$u_2$]{}
       edge[blue,dotted,thick, bend right=60] (uim1)
-      edge[blue,thick, bend left=10] (u1);
+      edge[blue,thick, bend left=8] (u1);
 
     % beginning of the L circle
-    \draw[black, thick] plot [smooth cycle]
+    \draw[draw=black, thick]
+      plot [smooth cycle]
       coordinates{ ( 0.8*\sz, 0.6*\sz)
-                   ( 3.0*\sz, 3.6*\sz)
-                   ( 7.0*\sz, 3.6*\sz)
+                   ( 2.4*\sz, 3.4*\sz)
+                   ( 7.6*\sz, 3.4*\sz)
                    ( 9.2*\sz, 0.6*\sz)
                    ( 5.0*\sz, 0.0*\sz) };
 
@@ -2093,24 +2857,25 @@ Now since the vertices in $V_L$ are connected,
     % end of the L circle
 
     % beginning of the J circle
-    \draw[blue, thick] plot [smooth cycle]
+    \draw[thick, draw=blue]
+      plot [smooth cycle]
       coordinates{
-                   ( 2.0*\sz, 4.3*\sz)
+                   ( 2.0*\sz, 4.5*\sz)
                    ( 1.2*\sz, 5.9*\sz)
                    ( 2.2*\sz, 7.6*\sz)
-                   ( 5.0*\sz, 8.5*\sz)
+                   ( 5.0*\sz, 8.3*\sz)
                    ( 7.8*\sz, 7.6*\sz)
                    ( 8.8*\sz, 5.9*\sz)
-                   ( 8.0*\sz, 4.3*\sz)
-                   ( 5.0*\sz, 4.9*\sz) };
-
+                   ( 8.2*\sz, 4.5*\sz)
+                   ( 5.0*\sz, 4.7*\sz) };
 
     \node (J) at (5.0*\sz, 7.0*\sz) [blue] {$J$};
     % end of the J circle
   \end{tikzpicture}
 \]
 
-By repeating the above argument, we can show that
+By repeating the above argument on $u_{i-1}$ or $u_{i+1}$,
+we can show that
   all the joints $v_1$, \dots $v_l$ of $L^{(s)}$
   are also consecutive joints of $J$.
 %
@@ -2120,8 +2885,17 @@ This means that the two cycles share the same joints
 
 
 
+Since every edge (except the last one) is removed in Step 3 of Algorithm D,
+we have
+\begin{lemm}
+  Every $f$-bond in a $c$-pack is an unordered pivot.
+\label{thm:hncfpivot}
+\end{lemm}
 
-\subsection*{Free energy and chemical potential}
+
+
+
+\subsection{\label{sec:hncFexmuex}Free energy, chemical potential, and pressure}
 
 
 Given a $c$-pack $G$,
@@ -2153,8 +2927,18 @@ Thus, \eqref{eq:countpairs}
 
 
 
-The free energy can be computed
-  as follows\cite{morita1958, *morita1959, *morita1960, singer1985}
+%It can be shown that \cite{morita1958, *morita1959, *morita1960}
+%\begin{equation}
+%  -\frac{ \beta \Fex }{V}
+%=
+%  \A \equiv \sum_G \frac{ I(G) }{ s(G) }.
+%\label{eq:hncFexA}
+%\end{equation}
+%A proof will be given in Secs. \ref{sec:hnccavity} and \ref{sec:hncFex}.
+%%
+%Thus, the free energy can be computed
+The free energy can now be computed from \eqref{eq:hncFexA}
+as\cite{morita1958, *morita1959, *morita1960, singer1985}
 %
 \begin{align}
     - \frac{ 2 \beta \Fex } { V }
@@ -2166,13 +2950,10 @@ The free energy can be computed
     - \sum_{l = 3}^\infty \left[ l(l-1) - 2 \right] \, \Chn_l
       \notag \\
   &=
-      \rho^2 \int \left[ c(\vr) - \tfrac{1}{2} h^2(\vr) \right] \, d\vr
+      \rho^2 \int \left[ c(\vr) - \tfrac{1}{2} t^2(\vr) - t(\vr) \, c(\vr) \right] \, d\vr
       \notag \\
   & \hphantom{=}
-    - \int  \Big\{
-              \log\left[ 1 - \rho \, \tilde{c}(\vk) \right]
-                           + \rho \, \tilde{c}(\vk)
-            \Big\}  \dvk,
+      + \int  \tilde{T}(\vk) \, \dvk,
 \label{eq:hncF}
 \end{align}
 %
@@ -2180,13 +2961,14 @@ where,
   on the second line,
   we have used \eqref{eq:hnccrsum} and \eqref{eq:countpairs},
   and on the next lines,
-  we have used \eqref{eq:Clsum}-\eqref{eq:Clsumll}.
+  we have used \eqref{eq:Clsum3}-\eqref{eq:Clsumll}.
 %
 Similarly, the chemical potential
-  is given by\cite{morita1958, *morita1959, *morita1960, singer1985}
+  can be computed from \eqref{eq:hncmugsum}
+  as \cite{morita1958, *morita1959, *morita1960, singer1985}
 %
 \begin{align}
-    - \beta \rho \muex
+    - \beta \, \rho \, \muex
   &=
       \sum_G \frac{ n(G) \, I(G) } { s(G) }
   =
@@ -2202,25 +2984,19 @@ Similarly, the chemical potential
 \label{eq:hncmu}
 \end{align}
 %
-Although \eqref{eq:hncmu} assigns the correct weight to each $G$,
-  the sum goes over only a subset (that of $c$-packs) of the biconnected graphs.
-%
-So it is still an approximate relation.
-%
+%Although \eqref{eq:hncmu} assigns the correct weight to each $G$,
+%  the sum goes over only a subset (that of $c$-packs) of the biconnected graphs.
+%%
+%So it is still an approximate relation.
+%%
 
 
-
-We can algebraically derive \eqref{eq:hncmu} from \eqref{eq:hncF}.
+As a check, let us algebraically derive \eqref{eq:hncmu} from \eqref{eq:hncF}.
 %
-First, rewrite \eqref{eq:hncF} [dropping ``$(\vk)$''] as
-%
+Using \eqref{eq:muexdFex} and \eqref{eq:intdlogrhoc},
+we get from differentiating \eqref{eq:hncF}:
 \[
-  -2 \beta \Fex/V = \rho^2 \int (c - t^2/2 - t\,c) \, d\vr + \int \tilde{T} d\vk/(2\pi)^D.
-\]
-%
-Using $\partial_\rho (\Fex/V) = \muex$ and \eqref{eq:intdlogrhoc}, we get
-\[
-  -2 \beta \muex = \rho \int (2\,c - h \, t) \, d\vr
+  -2 \, \beta \, \muex = \rho \int (2\,c - h \, t) \, d\vr
   + \rho^2 \int (\partial_\rho c - h \, \partial_\rho t) \, d\vr.
 \]
 The second term vanishes because of the HNC closure
@@ -2232,14 +3008,452 @@ We then recover \eqref{eq:hncmu}.
 
 
 
-
-The pressure can be obtained from
-  $\frac{1}{2} \times \eqref{eq:hncF} - \eqref{eq:hncmu}$
-  because $P = \rho \mu - F/V$.
+We obtain the pressure from
+  $\Pex = \rho \muex - \Fex/V$:
 %
-Table \ref{tab:thermodyn} gives
-  a comparison of the results from the PY and HNC closures.
+\begin{align*}
+2 \, \beta \Pex
+&=
+\sum_G \frac{ 2 \, [n(G) - 1] \, I(G) } { s(G) }
+\notag \\
+&=
+\rho^2 \int
+  \left[
+    \tfrac{1}{2} t^2(\vr) - c(\vr)
+  \right] d\vr
+  +\int \tilde T(\vk) \dvk.
+\end{align*}
 
+
+
+
+
+\section{Virial theorem}
+
+Here we derive a virial theorem,
+and use it
+(a) to simplify Baxter's pressure formula,
+and
+(b) to show that \eqref{eq:hncF} and \eqref{eq:hncmu}
+produce the same virial coefficients as the virial-route pressure formula:
+\begin{equation}
+  \beta \, \Pexv
+=
+  - \frac{\rho^2}{2D}
+  \int (\vr \cdot \nabla\phi) g(\vr) \, d\vr.
+\label{eq:virialpressure}
+\end{equation}
+
+
+
+\subsection{Derivation}
+
+We first define
+\begin{equation}
+  I^*(G; \rho, \zeta)
+  = \rho^{n-1} \int \prod f(\zeta \, \vr_{ij}) \, d\vr_2 \cdots d\vr_n,
+  \label{eq:Irhozetadef}
+\end{equation}
+where $n = n(G)$ is the number of vertices in $G$,
+and the inner product goes over all $f$-bonds in the $G$.
+%%
+%The normal integral is recovered as
+%\[
+%  I(G) = \rho \, I^*(G; \rho, 1).
+%\]
+%%
+Since the integral in \eqref{eq:Irhozetadef} is independent of $\rho$,
+$I^*(G;\rho, \zeta)$ is a homogeneous function of $\rho$, and
+%
+\begin{equation}
+  \rho \, \partial_\rho I^*(G; \rho, \zeta)
+  = (n - 1) \, I^*(G; \rho, \zeta).
+  \label{eq:Idrho}
+\end{equation}
+
+
+
+The integral can be written in reduced coordinates
+$\vR_i = V^{-1/D} \vr_i$
+as
+\begin{align*}
+  I^*(G; \rho, \zeta)
+&= N^{n-1} \int \prod f(\zeta \, V^{1/D} \vR_{ij}) \, d\vR_2 \cdots d\vR_n
+  \notag \\
+&= I^*(G; N, \zeta \, V^{1/D}) \\
+&= I^*(G; N, N^{1/D} \, \zeta \, \rho^{-1/D}),
+\end{align*}
+where
+$N = V \rho$ is the number of particles
+(not to be confused to with the order $n$).
+%
+It follows that
+\begin{align}
+ \zeta \, \partial_\zeta I^*(G; \rho, \zeta)
+&= -D \, \rho \, \partial_\rho I^*(G; \rho, \zeta) \notag \\
+&= -D \, (n - 1) \, I^*(G; \rho, \zeta),
+\label{eq:drhodzeta}
+\end{align}
+where we have used \eqref{eq:Idrho} in the second step.
+
+
+Consider now an arbitrary sum over all unrooted graphs (polygon packs or $c$-packs)
+\[
+  A^*(\rho, \zeta) = \sum_G w(G) I^*(G; \rho, \zeta),
+\]
+where $w(G)$ is some weight.
+%
+Using \eqref{eq:drhodzeta} yields,
+\begin{align*}
+  \zeta \, \partial_\zeta A^*(\rho, \zeta)
+&=
+  -D \, \rho \, \partial_\rho A^*(\rho, \zeta)
+  \\
+&=
+  \sum_G w(G) \, [n(G) - 1] \, I^*(G; \rho, \zeta).
+\end{align*}
+%or in terms of the graphic sums,
+%\begin{align*}
+%  \sum_G w(G) J^*(G; \rho, \zeta)
+%  &= \zeta \, \partial_\zeta A^*(\rho, \zeta) \notag \\
+%  %= -D \, \rho \, \partial_\rho A^*(\rho, \zeta) \notag \\
+%  &= \sum_G w(G) \, [n(G) - 1] \, I^*(G; \rho, \zeta).
+%\end{align*}
+%%
+%where
+%\begin{equation*}
+%  J^*(G; \rho, \zeta)
+%  = \rho^{n-1} \int
+%  \zeta \, \partial_\zeta
+%  \left[
+%    \prod f(\zeta \, \vr_{ij})
+%  \right] \, d\vr_2 \cdots d\vr_n.
+%  \label{eq:Krhozetadef}
+%\end{equation*}
+%
+Finally, we multiply both sides by $\rho$, and
+%
+\begin{align}
+  %\sum_G w(G) J(G, \zeta)
+  %&=
+  \zeta \, \partial_\zeta A(\rho, \zeta) %\notag \\
+  &= -D \, \rho^2 \, \partial_\rho \big[ A(\rho, \zeta)/\rho \big] \notag \\
+  &= \sum_G -D \, (n - 1) \, w(G) \, I(G, \zeta),
+  \label{eq:virialtheorem}
+\end{align}
+where
+\begin{align*}
+  I(G, \zeta)    &= \rho \, I^*(G; \rho, \zeta), &
+            I(G) &= I(G, 1), \\
+%  J(G, \zeta)    &= \rho \, J^*(G; \rho, \zeta) = \zeta \, \rho \, \partial_\zeta I(G, \zeta), &
+%            J(G) &= J(G, 1), \\
+  A(\rho, \zeta) &= \rho \, A^*(\rho, \zeta) = \sum_G w(G) \, I(G, \zeta), &
+         A(\rho) &= A(\rho, 1).
+\end{align*}
+%
+Note that
+$I(G)$ is
+%both $I(G)$ and $J(G)$ are
+proportional to $\rho^n$, instead of $\rho^{n-1}$.
+
+
+
+
+\subsection{\label{sec:vtpy}Simplified Baxter's pressure formula (PY closure)}
+
+
+
+For the PY closure, we use $w(G) = 2/s(G)$
+in \eqref{eq:virialtheorem}
+and carry the sum over all polygon packs $G$.
+%
+Then
+%
+\begin{align*}
+  \sum_G \frac{ 2 \, I(G) } { s(G) }
+  =
+  \sum_G \frac{ 2 \, n(G) \, I(G) } { s(G) }
+  + \frac{ \zeta \partial_\zeta }{ D }
+    \left. \left(
+    \sum_G \frac{ 2 \, I(G, \zeta) } { s(G) }
+    \right) \right|_{\zeta = 1}.
+\end{align*}
+
+
+Using \eqref{eq:pykappasum} and \eqref{eq:crcompr}, we get
+\begin{align*}
+  -\beta \, \Pex
+  =
+  \rho^2 \int c(\vr) \, d\vr
+  + (1/D) \,
+      \partial_\zeta \left( -\beta \Pex \right)
+    \Big|_{\zeta = 1}.
+\end{align*}
+%
+For the second term on the right hand side,
+we differentiate \eqref{eq:baxterpressure} with respect to $\zeta$,
+and
+\begin{align*}
+  \partial_\zeta (-\beta \, \Pex) \Big|_{\zeta=1}
+&=
+\frac{\rho^2}{2}
+\int
+  \partial_\zeta (c - t \, c)
+  \Big|_{\zeta = 1} \, d\vr
+\notag \\
+&\hphantom{=}
++ \rho^2 \int t \, (\partial_\zeta c) \Big|_{\zeta = 1} \, d\vr
+\\
+&=
+\frac{\rho^2}{2}
+\int (1+t)^2 \, (\partial_\zeta f) \Big|_{\zeta = 1} \, d\vr \\
+&=
+\frac{\rho^2}{2}
+\int (1+t)^2 \, (\vr \cdot \nabla f) \, d\vr.
+\end{align*}
+%
+where we have used
+\begin{align}
+%
+\int \partial_\zeta \, \tilde T \, \dvk
+&=
+  \rho^2 \int \tilde{t} \, \partial_\zeta \tilde{c} \, \dvk
+=
+  \rho^2 \int t \, \partial_\zeta c \, d\vr,
+  \label{eq:dTdzeta} \\
+%
+  \partial_\zeta \, c
+&=
+  f \, \partial_\zeta t
+  + (1 + t) \, \partial_\zeta f,
+  \notag \\
+%
+  t \, \partial_\zeta \, c - c \, \partial_\zeta t
+&=
+  -f \, \partial_\zeta t
+  + t \, (1 + t) \, \partial_\zeta f,
+  \notag \\
+%
+  (\partial_\zeta f) \Big|_{\zeta = 1}
+&= \vr \cdot \nabla f.
+  \label{eq:dfdzeta}
+\end{align}
+Note that \eqref{eq:dTdzeta} and \eqref{eq:dfdzeta} are general
+whereas the rest two are specific to the PY closure \eqref{eq:py},
+%
+Thus,
+\begin{equation}
+  -\beta \Pex = \rho^2 \int
+  \left\{ c(\vr)
+    + \frac{ \big[ 1 + t(\vr) \big]^2 (\vr \cdot \nabla f) }
+           { 2 \, D }
+  \right\} \, d\vr.
+  \label{eq:pyPsimplified}
+\end{equation}
+
+
+
+Note that, although \eqref{eq:dfdzeta} is true,
+generally
+\[
+  (\partial_\zeta c) \big|_{\zeta = 1}
+\ne
+  \vr \cdot \nabla c.
+\]
+This is because
+$\partial_\zeta c$ means $\partial_\zeta c(\vr; \zeta)$,
+in which \emph{every} $f$-bond in $c(\vr; \zeta)$
+is affected by $\zeta$.
+%(with $\zeta$ set to unity only after the differentiation).
+%
+Thus,
+$c(\vr; \zeta) \ne c(\zeta \, \vr)$.
+%
+%The distinction is clearly demonstrated in
+For a concrete example,
+consider
+$c_1(\vr) = (f*f)\cdot f$,
+and evaluate the integrals
+$J^*_1 = \rho^2 \, \zeta \, \partial_\zeta \int c_1(\vr; \zeta) \, d\vr$
+and
+$J^*_2 = \rho^2 \, \zeta \, \partial_\zeta \int c_1(\zeta \vr) \, d\vr$.
+%
+For $J^*_1$,
+we have, by \eqref{eq:drhodzeta},
+\begin{align*}
+  J^*_1 \big|_{\zeta = 1}
+&=
+  \left.
+  \zeta \, \partial_\zeta \left(
+  {
+  \begin{tikzpicture}[baseline=1.8mm]
+    \newcommand{\sz}{3.0mm}
+    \node (r1) at (-\sz, 0) [whitedot,label=left:{\footnotesize$1$}]{};
+    \node (r2) at ( \sz, 0) [blackdot,label=right:{\footnotesize$2$}]{}
+      edge[inner sep=0.3mm] node[anchor=north] {\footnotesize$\zeta$} (r1);
+    \node (r3) at ( 0, 1.8*\sz) [blackdot,label=above:{\footnotesize$3$}]{}
+      edge[inner sep=1.0mm] node[anchor=-30] {\footnotesize$\zeta$} (r1)
+      edge[inner sep=1.0mm] node[anchor=210] {\footnotesize$\zeta$} (r2);
+  \end{tikzpicture}
+  }
+  \right)
+  \right|_{\zeta=1}
+= -2 \, D
+  {
+  \begin{tikzpicture}[baseline=1.8mm]
+    \newcommand{\sz}{3.0mm}
+    \node (r1) at (-\sz, 0) [whitedot,label=left:{\footnotesize$1$}]{};
+    \node (r2) at ( \sz, 0) [blackdot,label=right:{\footnotesize$2$}]{}
+      edge[inner sep=0.3mm] (r1);
+    \node (r3) at ( 0, 1.8*\sz) [blackdot,label=above:{\footnotesize$3$}]{}
+      edge[inner sep=1.0mm] (r1)
+      edge[inner sep=1.0mm] (r2);
+  \end{tikzpicture}
+  }.
+\end{align*}
+%
+%
+%
+For $J^*_2$, we integrate by parts, and
+\begin{align*}
+  J^*_2
+&=
+  \rho^2 \, \int \zeta \, \vr \cdot \nabla c_1(\zeta \, \vr) \, d\vr
+  \\
+&=
+  -\rho^2 \, \int (\nabla \cdot \vr) \, c_1 (\zeta \, \vr) \, \zeta \, d\vr
+= -D
+  {
+  \begin{tikzpicture}[baseline=1.8mm]
+    \newcommand{\sz}{3.0mm}
+    \node (r1) at (-\sz, 0) [whitedot,label=left:{\footnotesize$1$}]{};
+    \node (r2) at ( \sz, 0) [blackdot,label=right:{\footnotesize$2$}]{}
+      edge[inner sep=0.2mm] (r1);
+    \node (r3) at ( 0, 1.8*\sz) [blackdot,label=above:{\footnotesize$3$}]{}
+      edge[] (r1)
+      edge[] (r2);
+  \end{tikzpicture}
+  }.
+\end{align*}
+%
+Thus, $J^*_1 \big|_{\zeta = 1} \ne J^*_2 \big|_{\zeta = 1}$. %, even with $\zeta = 1$.
+
+
+
+
+\subsection{\label{sec:vthnc}Virial-route nature of \eqref{eq:hncF} and \eqref{eq:hncmu} (HNC closure)}
+
+Here, we derive \eqref{eq:hncFexA} from the virial theorem.
+%
+Differentiating $\A$ with respect to $\zeta$ yields
+\begin{align*}
+  (\zeta \, \partial_\zeta \A) \big|_{\zeta = 1}
+&=
+  \int \frac{ \delta \A } { \delta f(\vr) } \,
+  \big[ \zeta \partial_\zeta f(\vr) \big]_{\zeta = 1} \, d\vr
+  \\
+&=
+  \frac{\rho^2}{2}
+  \int y(\vr) \,
+  (\vr \cdot \nabla f) \, d\vr
+  \\
+&=
+  -\frac{ \beta \, \rho^2}{2}
+  \int (\vr \cdot \nabla \phi) \, g(\vr) \, d\vr
+= \beta \, \Pexv,
+\end{align*}
+where we have used \eqref{eq:yrfunctional},
+\eqref{eq:dfdzeta}, and \eqref{eq:virialpressure}.
+%The last step follows from the classic formula of virial-route pressure.
+%
+Using \eqref{eq:virialtheorem}
+with $w(G) = 1/s(G)$, we get
+\begin{align*}
+  -\rho^2 \partial_\rho ( \A/\rho )
+=
+  \frac{1}{D} (\zeta \, \partial_\zeta \A) \big|_{\zeta = 1}
+=
+  \beta \, \Pexv
+\end{align*}
+%
+But from thermodynamics, we have
+\begin{align*}
+  \Pexv
+=
+  -\partial_V \bigl( \Fexv \bigr)_N
+=
+  \rho^2 \partial_\rho \bigl( \Fexv/N \bigr)_N.
+\end{align*}
+%
+Thus,
+$\partial_\rho (\A/\rho)  = -\partial_\rho( \beta \, \Fexv/N )$,
+and an integration $\rho$ from 0,
+where $\A \big|_{\rho = 0} = \Fexv \big|_{\rho = 0} = 0$, yields
+\[
+  \A/\rho = -\beta \, \Fexv/N.
+\]
+%we get the virial route pressure formula
+%\begin{equation}
+%  \beta \, \Pexv = \frac{\rho^2} {2D} \, \int (\vr \cdot \nabla f) \, y \, d\vr.
+%  \label{eq:Pvirial}
+%\end{equation}
+This show the free energy $\Fex$ in \eqref{eq:hncFexA} and \eqref{eq:hncF}
+is the virial-route result $\Fexv$.
+%
+%As shown in Sec. \ref{sec:hncFexmuex},
+%\eqref{eq:hncmu}
+%is related to \eqref{eq:hncF}
+%by a differentiation with respect to $\rho$.
+%
+Further, the excess chemical potential
+$\muex$ in \eqref{eq:hncmugsum} and \eqref{eq:hncmu}
+is also the virial-route result,
+for it obtained from differentiating $\Fex$
+with respect to $\rho$
+[see \eqref{eq:muexdFex}].
+%
+Below we verify this algebraically.
+
+We now differentiate \eqref{eq:hncF} with respect to $\zeta$,
+\begin{align}
+  \zeta \, \partial_\zeta (-\beta\,\Fex/V) \big|_{\zeta = 1}
+&=
+\frac{\rho^2}{2} \int
+  \zeta \, \bigl[
+    \partial_\zeta c - (c + t) \, \partial_\zeta t
+  \bigr] \Big|_{\zeta = 1} \, d\vr
+  \notag \\
+&= \frac{\rho^2}{2} \int (\zeta \, \partial_\zeta f) \big|_{\zeta = 1} \, y \, d\vr
+  \notag \\
+&= \frac{\rho^2}{2} \int (\vr \cdot \nabla f) \, y \, d\vr
+%  \notag \\
+= D \, \beta \, \Pexv,
+  \notag
+%  \label{eq:hncdFdzeta1}
+\end{align}
+%
+where we have used \eqref{eq:dTdzeta}, \eqref{eq:dfdzeta}, %, \eqref{eq:Pvirial},
+and
+\[
+  \partial_\zeta c
+  = (1 + c + t) \, \partial_\zeta t
+  + y \, \partial_\zeta f - \partial_\zeta t,
+\]
+which is obtained from differentiating the closure \eqref{eq:hnc}.
+
+Now, by setting $A \rightarrow \Fex / V$ in \eqref{eq:virialtheorem}, we get
+\begin{align}
+  \zeta \, \partial_\zeta (\Fex/V)
+  = -D \, \rho^2 \, \partial_\rho (\Fex/N)
+  %  \notag \\
+  = D \, \partial_V (\Fex)_N.
+    \notag %\\
+%  &= D \beta \Pex,
+%    \label{eq:hncdFdzeta2}
+\end{align}
+Thus, $-\partial_V (\Fex)_N = \Pexv$,
+and hence $\Fex$ from \eqref{eq:hncmu} is the virial-route result.
+%
 
 
 
@@ -2247,14 +3461,14 @@ Table \ref{tab:thermodyn} gives
 
 \section{Zero separation theorem}
 
-Finally, for the hard-sphere fluid, we have an additional
-  formula to compute the virial coefficients
-  from the cavity function $y(\vr)$\cite{hoover1962}:
+Finally, for the hard-sphere fluid, we have an additional formula,
+  which computes the virial coefficients
+  from the cavity distribution function $y(\vr)$\cite{hoover1962}:
 %
-\begin{equation}
-  \log y(\vct0) = \beta \muex
-  \label{eq:zerosephoover}
-\end{equation}
+\begin{equation*}
+  \log y(\vct0) = \beta \muex.
+  \label{eq:yrzerosep}
+\end{equation*}
 %
 We now show this graphically.
 %
@@ -2262,9 +3476,8 @@ Every graph included in $y(\vr)$
   has two nonadjacent roots\cite{hansen},
 %
   and joining the roots
-  yields a biconnected graph in $c(\vr)$
-  [which can be seen from comparing graphs
-  with adjacent roots in \eqref{eq:closure}].
+  yields a biconnected graph in $c(\vr)$,
+  by Lemma \ref{thm:crsplit},
 %
 Taking the logarithm further
   removes any graph in $y(\vr)$
@@ -2275,27 +3488,50 @@ Thus, when the roots of a graph $H$ in $\log y(\vr)$
   are merged as $\vr \rightarrow \vct0$,
   the resulting graph $G$ is biconnected,
   for the merged root in $G$ is not an articulation point.
-%
-Consider a particular $G$,
+
+
+Now consider a particular $G$,
   which has $K$ vertices $v_1, \dots, v_K$ adjacent to the root.
 %
 We collect all graphs $H$ that can be reduced to $G$
-  by the above root merging.
+  by the above root merging (see below).
+\[
+  {
+  \begin{tikzpicture}[baseline=1.2mm]
+    \newcommand{\sz}{4.0mm}
+    \node (r1) at (-\sz, 0) [whitedot,label=left:{\footnotesize$1$}]{};
+    \node (r2) at ( \sz, 0) [whitedot,label=right:{\footnotesize$2$}]{};
+    \node (v1) at (-2.0*\sz, 2*\sz) [blackdot,label=above:{\footnotesize$v_1$}]{}
+        edge[thick] (r1)
+        edge[thick, dashed] (r2);
+    \node (v2) at (-0.5*\sz, 2*\sz) [blackdot,label=above:{\footnotesize$v_2$}]{}
+        edge[thick] (r1)
+        edge[thick, dashed] (r2);
+    \node (vK) at ( 2.0*\sz, 2*\sz) [blackdot,label=above:{\footnotesize$v_K$}]{}
+        edge[thick] (r1)
+        edge[thick, dashed] (r2);
+    \node (elps) at (0.8*\sz, 2*\sz) [label=above:{\footnotesize$\cdots$}]{};
+  \end{tikzpicture}
+  }
+\]
 %
 In $H$, each $v_k$ ($1 \le k \le K$) is adjacent to
   either root 1 only,
   or root 2 only,
   or both roots,
-  except the two cases in which all $v_1, \dots, v_K$ are adjacent to the same root.
+  except the two cases in which all $v_1, \dots, v_K$ are adjacent to the same root only.
 %
 Since for the hard-sphere potential $f^2 = -f$,
 %
 the sum of all the above graphs $H$
-  is equal to $G$ times $(1 + 1 - 1)^K - 2 = -1$.
+  multiplies the contribution of $G$ by
+  $(1 + 1 - 1)^K - 2 = -1$.
 %
-Thus, $\log y(\vct0)$ is the sum of all
-  one-root unlabeled graph $G$ weighted by $-1/s(G)$,
-  which is equal to $\beta \muex$.
+Thus, $\log y(\vct0) = (-1) \cdot \sum_G I(G)/s(G)$,
+  where the sum is carried over all one-root unlabeled biconnected graphs $G$.
+According to Sec. \ref{sec:bcsums},
+  the sum is equal to $\beta \muex$,
+  which proves \eqref{eq:yrzerosep}.
 
 
 

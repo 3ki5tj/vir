@@ -42,6 +42,8 @@ typedef __float128 xdouble;
 #define J0(x)     j0q(x)
 #define J1(x)     j1q(x)
 #define JN(n, x)  jnq(n, x)
+#define ERF(x)    erfq(x)
+#define ERFC(x)   erfcq(x)
 
 
 
@@ -67,8 +69,14 @@ typedef long double xdouble;
 #define J0(x)     j0l(x)
 #define J1(x)     j1l(x)
 #define JN(n, x)  jnl(n, x)
+#define ERF(x)    erfl(x)
+#define ERFC(x)   erfcl(x)
+
+
 
 #else
+
+
 
 #ifndef HAVEF128
 #define HAVEF128 0
@@ -90,6 +98,8 @@ typedef double xdouble;
 #define J0(x)     j0(x)
 #define J1(x)     j1(x)
 #define JN(n, x)  jn(n, x)
+#define ERF(x)    erf(x)
+#define ERFC(x)   erfc(x)
 
 #endif
 
