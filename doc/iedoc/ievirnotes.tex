@@ -1,0 +1,1669 @@
+%\documentclass{revtex4-1}
+% options: aip, jcp, reprint, preprint
+%\documentclass[notitlepage,preprint]{revtex4-1}
+\documentclass[aip,jcp,reprint,superscriptaddress]{revtex4-1}
+
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{mathrsfs}
+\usepackage{graphicx}
+\usepackage{dcolumn}
+\usepackage{bm}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{tikz}
+%\usepackage{setspace}
+
+\tikzstyle{blackdot}=[circle,draw=black,fill=black,
+                      inner sep=0pt,minimum size=1.5mm]
+\tikzstyle{whitedot}=[circle,draw=black,fill=white,
+                      inner sep=0pt,minimum size=1.5mm]
+\tikzstyle{combine}=[green!30!black, very thick, densely dotted]
+\tikzstyle{concat}=[blue!40!black, very thick, densely dashed]
+
+\numberwithin{equation}{subsection}
+\renewcommand{\theequation}{\thesection.\thesubsection.\arabic{equation}}
+
+\newtheorem{defn}{Definition}
+\newtheorem{thrm}{Theorem}
+\newtheorem{lemm}[thrm]{Lemma}
+\newtheorem{prop}[thrm]{Proposition}
+
+\newcommand{\vct}[1]{\mathbf{#1}}
+\providecommand{\vr}{} % clear \vr
+\renewcommand{\vr}{\vct{r}}
+\newcommand{\vk}{\vct{k}}
+\newcommand{\vR}{\vct{R}}
+\newcommand{\dvr}{d\vr}
+\newcommand{\dvR}{d\vR}
+\newcommand{\dvk}{\frac{d\vk}{(2\pi)^D}}
+\newcommand{\tdvk}{\tfrac{d\vk}{(2\pi)^D}}
+
+% add a superscript ``ex''
+\newcommand{\supex}[1]{ { { #1 }^{ \mathrm{ex} } } }
+\newcommand{\Pex}{\supex{P}}
+\newcommand{\Fex}{\supex{F}}
+\newcommand{\muex}{\supex{\mu}}
+\newcommand{\kex}{\supex{\kappa}}
+\newcommand{\Chn}{\mathscr{C}}
+%\newcommand{\Chn}{\mathcal{C}}
+%\newcommand{\Chn}{\mathsf{C}}
+\newcommand{\secref}[1]{Sec. \ref{#1}}
+
+\newcommand{\FT}{\mathscr{F}}
+
+\newcommand{\llbra}{[\![}
+\newcommand{\llket}{]\!]}
+
+
+
+
+
+\begin{document}
+
+\title{Notes}
+
+\maketitle
+
+
+
+\section{Main text: Methods}
+
+
+\subsection{Fourier-space OZ relation, from Eq. (2) to (3)}
+
+The convolution in the Fourier space is a product:
+\begin{align*}
+  \tilde{t}(\vk)
+&= \int_\vr t(\vr) \, e^{-i\vk \cdot \vr} \, d\vr \\
+&= \rho \int_\vr \int_{\vr'} c(\vr') h(\vr - \vr') d\vr' e^{-i\vk \cdot \vr} \, d\vr \\
+&= \rho \int_\vr' c(\vr') e^{-i\vk \cdot \vr'} \, d\vr'
+        \int_\vR h(\vR) e^{-i\vk \cdot \vR} \, d\vR \\
+&= \rho \tilde{c}(\vk) \, \tilde{h}(\vk).
+\end{align*}
+%
+Here $\vR \equiv \vr - \vr'$.
+
+
+
+\subsection{OZ relation, Eq. (10)}
+
+Density components of the OZ relation:
+\begin{align*}
+  \sum_{l = 1}^{\infty} \tilde{t}_l \, \rho^l
+  &=
+  \rho \sum_{i = 0}^{\infty} \tilde{c}_i \rho^i
+  \sum_{j = 0}^{\infty} \tilde{h}_j \rho^j
+  \quad \mbox{set ($i \rightarrow l - 1 - j$)}
+  \\
+  &=
+  \sum_{l = 1}^{\infty}
+  \left(
+  \sum_{j = 0}^{l-1}
+    \tilde{c}_{l-1-j} \tilde{h}_j \right) \rho^l.
+\end{align*}
+
+So
+\begin{equation}
+  \tilde{t}_l = \sum_{j = 0}^{l - 1}
+  \tilde{c}_{l-1-j} \tilde{h}_j
+  \tag{10}
+\end{equation}
+
+
+
+\subsection{PY closure, Eq. (11)}
+
+The PY closure:
+\[
+  \sum_{l = 0}^{\infty} y_l \rho^l = 1 + \sum_{l = 1}^{\infty} t_l \rho^l,
+\]
+which shows $y_l = t_l + \delta_{l, 0}$.
+
+\[
+  \sum_{l = 0}^{\infty} c_l \rho^l
+= (1 + f) \sum_{l = 0}^{\infty} y_l \rho^l
+  - 1 - \sum_{l = 1}^{\infty} t_l \rho^l,
+\]
+which shows
+$c_l = (1 + f) y_l - t_l - \delta_{l, 0}$.
+
+
+
+\subsection{Compressibility-route $B_n^{(c)}$, from Eq. (13) to Eq. (14)}
+
+Compressibility-route virial coefficient
+\[
+  \partial_\rho \left( \sum_{n = 1}^\infty B_n \rho^n \right)
+=
+  1 - \rho \int \left( \sum_{l = 0}^\infty c_l(\vr) \rho^l \right) \, d\vr,
+\]
+%
+which means
+%
+\[
+  \sum_{n = 1}^\infty n B_n \rho^{n - 1}
+=
+1 - \sum_{l = 0}^\infty \left( \int c_l(\vr) \, d\vr \right) \rho^{l+1}.
+\]
+Setting $l = n - 2$ yields
+\[
+  B_n = -\frac{1}{n} \int c_{n-2}(\vr) \, d\vr.
+\]
+
+
+
+\subsection{Eq. (15)}
+
+Taking the gradient of
+\[
+  f(\vr) = e^{-\beta \phi(\vr)} - 1,
+\]
+yields
+\[
+  \nabla f(\vr) = -\beta \nabla \phi(\vr) \, e^{-\beta \phi(\vr)}.
+\]
+So
+\[
+  \nabla f(\vr) y(\vr) = -\beta \nabla \phi(\vr) g(\vr).
+\]
+
+
+
+\subsection{Virial-route $B_n^{(v)}$, Eq. (16)}
+
+Virial-route virial coefficient
+\[
+  \nabla f =
+  \left(
+  \frac{ \partial f }
+       { \partial x_1 },
+  \dots,
+  \frac{ \partial f }
+       { \partial x_D }
+  \right)
+  =
+  \left(
+  \frac{ x_1 } { r },
+  \dots,
+  \frac{ x_D } { r }
+  \right)
+  \frac{ d f(r) }
+       { d r },
+\]
+where we have used that $\partial r / \partial x_i = x_i / r$
+(Differentiating $r^2 = \sum_{i = 1}^D x_i^2$
+ yields $2 r dr = \sum_{i = 1}^D 2 x_i d x_i$,
+ or $dr = \sum_{i = 1}^D (x_i/r) \, d x_i$).
+
+So
+\[
+  \vr \cdot \nabla f
+=
+  \frac{
+    \sum_{i = 1}^D x_i^2
+  } { r }
+  f'(r) = r f'(r).
+\]
+
+For the density expansion
+\[
+  \sum_{n = 1}^\infty B_n \rho^n
+= \rho
++
+\frac{ \rho^2 }{ 2 D }
+\int r f'(r)
+    \sum_{l = 0}^\infty y_l(\vr) \rho^l \, d\vr.
+\]
+%
+Setting $n = l + 2$ yields
+\[
+B_n = \frac{1}{2D} \int r f'(r) y_{n-2}(r) \, d\vr.
+\]
+
+
+
+\subsection{Hard-sphere $B_n^{(v)}$, Eq. (17)}
+
+\begin{align}
+  B_n^{(v)}
+&=
+  \frac{1}{2D}
+    \int_0^\infty r f'(r) y_{n-2}(r) S_D(r) \, dr
+    \notag \\
+&=
+  \frac{1}{2D}
+    \int_0^\infty r \delta(r - 1) y_{n-2}(r) S_D(r) \, dr
+    \notag \\
+&= \frac{1}{2D}
+    y_{n-2}(1) S_D(1),
+    \label{eq:Bnv}
+\end{align}
+%
+where $S_D(r)$ is the surface area,
+which is equal to $4\pi r^2$ in three dimensions.
+
+Now applying the above formula to the $n = 2$ yields
+\begin{equation}
+B_2^{(v)}
+=
+y_0(1) S_D(1) = S_D(1).
+\label{eq:B2v}
+\end{equation}
+Here we have used $y(r) = 1$, so $y_l(r) = \delta_{l, 0}$,
+  which is independent of $r$.
+
+Dividing Eq. \eqref{eq:Bnv} by Eq. \eqref{eq:B2v} yields
+\[
+  B_n^{(v)} / B_2^{(v)} = y_{n-2}(1).
+\]
+
+
+
+\subsection{Surface area $S_D(r)$}
+
+First it is clear that $S_D(r)$ is proportional to $r^{D-1}$.
+So we can write it as $S_D(r) = S_D(1) \, r^{D-1}$.
+To find $S_D(1)$, we consider the following integral.
+\[
+I
+\equiv
+\int \exp(-r^2) \, d\vr
+\]
+
+On the one hand, we have
+\begin{align}
+I
+&=
+\int \exp(-r^2) \, S_D(r) \, d r
+\notag \\
+&=
+\int \exp(-r^2) \, S_D(1) r^{D-1} \, dr
+\notag \\
+&=
+[S_D(1)/2]
+\int \exp(-z) \, z^{D/2 - 1} \, dz
+\notag \\
+&=
+S_D(1) \Gamma(D/2)/2,
+\label{eq:gaussintsphere}
+\end{align}
+%
+where $z = r^2$,
+and we have used the definition of the gamma function in the last step.
+
+On the other hand, we have
+\begin{align}
+  I
+  &=
+\left( \int \exp(-x_1^2) \, d x_1 \right)
+\dots
+\left( \int \exp(-x_D^2) \, d x_D \right) \notag \\
+&= \sqrt\pi^D.
+\label{eq:gaussintsphere2}
+\end{align}
+
+Comparing Eq. \eqref{eq:gaussintsphere} with Eq. \eqref{eq:gaussintsphere2}
+yields
+\begin{equation}
+  S_D(1) = \frac{ 2 \, \pi^{D/2} } { \Gamma(D/2) }.
+  \label{eq:surfareaD}
+\end{equation}
+Using this in Eq. \eqref{eq:B2v} yields
+\[
+  B_2^{(v)} = \frac{ \pi^{D/2} } { D \Gamma(D/2) }.
+\]
+
+
+
+\subsection{Baxter's pressure formula}
+
+Here, we will give some key steps, see also the supplemental material
+for missing steps
+
+First,
+\[
+\log(1 - \rho \tilde{c})
+=
+-\rho \tilde{c}
+-(\rho \tilde{c})^2/2
+-(\rho \tilde{c})^3/3
+-\dots
+\]
+Differentiating with respect to $\rho$ yields
+\begin{align*}
+\partial_\rho \log[1 - \rho \tilde{c}(\vk)]
+&=
+-[1
+  + \rho \tilde{c}
+  + (\rho \tilde{c})^2
+  + \dots
+  ] \partial_\rho (\rho \tilde c)
+  \notag \\
+&=
+-(1 + \rho \tilde h) \partial_\rho \, (\rho \tilde c).
+\end{align*}
+%
+Then integrating over $\vr$ yields
+\begin{align*}
+  & \int \partial_\rho \log[1 - \rho \tilde{c}(\vk)] \dvk \\
+  &= -\int [1 + \rho \tilde{h}(\vk)] \, \partial_\rho [\rho \tilde{c}(\vk)] \dvk \\
+  &= -\rho c(\vct 0)
+  - \rho \int h(\vr) \, \partial_\rho [\rho c(\vr)] \, d\vr \\
+  &= -\rho c(\vct 0)
+  - \rho \int
+  [h(\vr) \, c(\vr) + \rho h(\vr) \partial_\rho c(\vr)] \, d\vr.
+\end{align*}
+%
+
+
+For the next piece, we have
+\[
+  \frac{1}{2} \int \rho \tilde{c}(\vk) \dvk = \frac{1}{2} \rho c(\vct{0}).
+\]
+
+Next, we will use the relation that
+$0 = g(\vct0) = 1 + c(\vct0) + t(\vct0)$.
+So
+\begin{align*}
+   -\rho c(\vct{0}) - \rho
+  &= \rho t(\vct{0})
+  = \int \rho^2 c(\vk) h(\vk) \dvk \\
+  &= \int \rho^2 c(\vr) h(\vr) d\vr
+\end{align*}
+
+Using the above results, we get
+\begin{align}
+  &  \partial_\rho \int \left[
+    \log(1-\rho\tilde{c}) + \frac{ \rho \tilde{c} }{2}
+  \right] \, \dvk
+  +\partial_\rho \left[
+    \frac{\rho - \rho^2 \tilde{c}(\vct{0}) } {2}
+  \right] \notag \\
+  &= 1 -\int ( \rho \, h \, c + \rho^2 \, h \, \partial_\rho c ) \, d\vr
+  + \frac{1}{2} \partial_\rho \int \rho^2 (c \, h - c) \, d\vr \notag \\
+  &= 1
+  - \frac{1}{2} \int \rho^2 (h \, \partial_\rho c - c \, \partial_\rho h + \partial_\rho c) d\vr
+  - \rho \int c \, d\vr \notag \\
+  &= 1
+  - \rho \int c \, d\vr.
+  \label{eq:dPbaxter}
+\end{align}
+
+The last step follows from the PY closure.
+Since
+\[
+  \partial_\rho c = f\partial_\rho t,
+\]
+we have
+\begin{align*}
+  h \partial_\rho c - c \partial_\rho h + \partial_\rho c
+&= t \partial_\rho c - c \partial_\rho t + \partial_\rho c \\
+&= (1 + t) f \partial_\rho t - f (1 + t) \partial_\rho t = 0.
+\end{align*}
+
+Equation \eqref{eq:dPbaxter} shows that Baxter's pressure
+formula is consistent with the compressibility route formula.
+
+
+
+\subsection{Second derivative of pressure, Eq. (18)}
+
+From the unnumbered equation above Eq. (18),
+\begin{align*}
+&  -\rho^2 \sum_{n = 1}^\infty
+  n (n - 1) B_n \rho^{n - 2} \\
+&=
+  \rho^2 \int \left[
+    \sum_{l = 0}^\infty c_l(\vr) \rho^l  \
+    + \
+    \sum_{l = 1}^\infty
+      \left( \sum_{j=1}^{l} h_{l-j}(\vr) t_j(\vr) \right) \rho^l
+  \right] \, d\vr.
+\end{align*}
+
+Setting $l = n - 2$ yields
+\[
+  B_n
+=
+  \frac{-1}{n(n-1)}
+   \int \left[
+     c_{n-2}(\vr) \
+    + \
+      \sum_{j=1}^{n-2} h_{n-2-j}(\vr) t_j(\vr)
+  \right] \, d\vr.
+\]
+
+A few special cases are listed below.
+\begin{align*}
+  B_2
+  &= -\frac{1}{2} \int c_0(\vr) \, d\vr
+  = -\frac{1}{2} \int f(\vr) \, d\vr
+  = -\frac{1}{2}
+  \begin{tikzpicture}[baseline=-0.5mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, 0) [blackdot]{};
+    \node (r2) at ( \sz, 0) [blackdot]{};
+    \draw (r1) -- (r2);
+  \end{tikzpicture}
+\\
+  B_3
+  &= -\frac{1}{6} \int [c_1(\vr) + h_0(\vr) t_1(\vr)] \, d\vr \\
+  &= -\frac{1}{6} \int [c_1(\vr) + f(\vr) t_1(\vr)] \, d\vr \\
+  &= -\frac{1}{3} \int c(\vr) \, d\vr
+  = -\frac{1}{3}
+  \begin{tikzpicture}[baseline=1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, 0) [blackdot]{};
+    \node (r2) at ( \sz, 0) [blackdot]{};
+    \node (r3) at ( 0, 1.8*\sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r1);
+  \end{tikzpicture}
+\\
+  B_4
+  &= -\frac{1}{12} \int [c_2(\vr) + h_0(\vr) t_2(\vr) + h_1(\vr) t_1(\vr)] \, d\vr \\
+  &= -\frac{1}{12} \int [2 c_2(\vr) + h_1(\vr) t_1(\vr)] \, d\vr \\
+  &= -\frac{1}{12} \int \left(
+  2 \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [whitedot]{};
+    \node (r2) at ( \sz, -\sz) [whitedot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1);
+  \end{tikzpicture}
+  +
+  2 \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [whitedot]{};
+    \node (r2) at ( \sz, -\sz) [whitedot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1) -- (r3);
+  \end{tikzpicture}
+  +
+  2 \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [whitedot]{};
+    \node (r2) at ( \sz, -\sz) [whitedot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1) (r2) -- (r4);
+  \end{tikzpicture}
+  +
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, 0) [whitedot]{};
+    \node (r2) at ( \sz, 0) [whitedot]{};
+    \node (r3) at (   0,  \sz) [blackdot]{};
+    \node (r4) at (   0, -\sz) [blackdot]{};
+    \draw (r1) -- (r3) -- (r2) -- (r1) -- (r4) -- (r2);
+  \end{tikzpicture}
+  +
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, 0) [whitedot]{};
+    \node (r2) at ( \sz, 0) [whitedot]{};
+    \node (r3) at (   0,  \sz) [blackdot]{};
+    \node (r4) at (   0, -\sz) [blackdot]{};
+    \draw (r1) -- (r3) -- (r2) (r1) -- (r4) -- (r2);
+  \end{tikzpicture}
+  \right) \, d \vr
+  \notag \\
+  &= -\frac{1}{12} \left(
+  3 \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [blackdot]{};
+    \node (r2) at ( \sz, -\sz) [blackdot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1);
+  \end{tikzpicture}
+  +
+  5 \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [blackdot]{};
+    \node (r2) at ( \sz, -\sz) [blackdot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1) -- (r3);
+  \end{tikzpicture}
+  \right)
+\end{align*}
+
+
+So, Eq. (18) gives the exact $B_2$ and $B_3$.
+The value of $B_4$, however, differs from
+the compressibility-route $B_4^{(c)}$:
+\begin{align*}
+B_4^{(c)}
+  &= -\frac{1}{12} \left(
+  3 \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [blackdot]{};
+    \node (r2) at ( \sz, -\sz) [blackdot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1);
+  \end{tikzpicture}
+  +
+  6 \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [blackdot]{};
+    \node (r2) at ( \sz, -\sz) [blackdot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1) -- (r3);
+  \end{tikzpicture}
+  \right)
+\end{align*}
+%
+The difference
+$
+  -\frac{1}{12}
+  \int \left(
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, 0) [whitedot]{};
+    \node (r2) at ( \sz, 0) [whitedot]{};
+    \node (r3) at (   0,  \sz) [blackdot]{};
+    \node (r4) at (   0, -\sz) [blackdot]{};
+    \draw (r1) -- (r3) -- (r2) (r1) -- (r4) -- (r2) (r3) -- (r4);
+  \end{tikzpicture}
+  \right) \, d \vr
+$
+is due to that we have dropped
+interface pairs in the derivation (see supplemental material).
+
+
+\subsection{Shaul et al.'s formula for the cavity function}
+
+First, we have
+\begin{align*}
+  y(\vr)
+  &= \exp\left[ t(\vr)  \right] \\
+  &= \sum_{k = 0}^\infty \frac{1}{k!} [t(\vr)]^k
+  = \sum_{k = 0}^\infty \frac{1}{k!} \left[ \sum_{i = 1}^\infty t_i \rho^i \right]^k \\
+  &= \sum_{k = 0}^\infty
+  \frac{1}{k!}
+  \sum_{ (l_1, \dots, l_k) } t_{l_1} \dots t_{l_k}
+  \rho^{l_1 + \dots + l_k}
+\end{align*}
+Taking the $l$th component yields the equation.
+
+
+
+\subsection{Eq. (20)}
+
+Since
+\[
+  y = y_0 + y_1 \rho + y_2 \rho^2 + \cdots,
+\]
+we have
+\[
+  \partial_\rho y = y_1  + 2 y_2 \rho + \cdots
+  = \sum_{l = 1}^\infty l y_l \rho^{l-1}.
+\]
+Similarly, we have
+\[
+  \partial_\rho t = t_1  + 2 t_2 \rho + \cdots
+  = \sum_{j = 1}^\infty j t_j \rho^{j-1}.
+\]
+Plug them into $\partial_\rho y = y \, \partial_\rho t$,
+we get
+\begin{align*}
+  \sum_{l = 1}^\infty l y_l \rho^{l - 1}
+&= \sum_{i = 0}^\infty y_i \rho^i
+  \sum_{j = 1}^\infty j t_j \rho^{j - 1},
+  \quad \mbox{(set $i \rightarrow l - j$)}
+  \\
+&=
+  \sum_{l = 1}^\infty
+  \left(
+  \sum_{j = 1}^l y_{l - j} j t_j
+  \right) \rho^{l - 1}.
+\end{align*}
+Then take the coefficient before $\rho^{l-1}$.
+
+
+
+\subsection{Show that $\partial_\rho P = \rho \, \partial_\rho \mu$}
+
+From the first law,
+\[
+  dE = T dS - P dV + \mu dN.
+\]
+So,
+\[
+  -\left. \frac{ \partial P } {\partial N} \right|_{V}
+  = \left. \frac{ \partial \mu } { \partial V } \right|_{N}.
+\]
+It follows,
+\[
+  -\left. \frac{ \partial P } {V \partial \rho} \right|_{V}
+  = \left. \frac{ \partial \mu } {N \partial (1/\rho) } \right|_{N}.
+\]
+So
+\begin{equation}
+  \frac{ \partial P } {\rho \partial \rho}
+  = \frac{ \partial \mu } { \partial \rho }.
+  \label{eq:Pmu}
+\end{equation}
+
+For the excess part
+\begin{equation}
+  \frac{ \partial  \Pex } {\rho \partial \rho}
+  = \frac{ \partial \muex } { \partial \rho }.
+  \label{eq:Pmu}
+\end{equation}
+
+We now expand
+\begin{equation}
+  -\beta \muex = \sum_{n = 2}^\infty \beta_{n-1} \rho^{n-1}.
+  \label{eq:expandmu}
+\end{equation}
+Then
+\[
+  \sum_{n = 2}^\infty n B_n \rho^{n-2}
+=
+  -\sum_{n = 2}^\infty \beta_{n-1} \rho^{n-2},
+\]
+which means
+\begin{equation}
+  B_n = \frac{1-n}{n}\beta_{n-1}.
+  \label{eq:Bbeta}
+\end{equation}
+
+
+
+\subsection{Chemical potential for the HNC closure}
+
+The formula is
+\begin{equation}
+  -\beta \muex = \rho \int \left( c - \tfrac{1}{2} h \, t\right) d\vr.
+  \label{eq:muex}
+\end{equation}
+
+To show this,
+we start from differentiating $g = (1+f)y$ with respect to
+the charging parameters $\xi$.
+The charging parameter affects only the potential terms involving
+the designated particle 1;
+$\xi = 0$ means particle 1 is not interacting with the rest of the particles,
+$\xi = 1$ means particle 1 is identical to any other particle:
+\begin{align*}
+  \partial_\xi g
+  &= (\partial_\xi f) \, y + (1+f) \, \partial_\xi y
+  = (\partial_\xi f) \, y + (1+f) \, y \, \partial_\xi t \\
+  &= (\partial_\xi f) \, y + g \, \partial_\xi t,
+\end{align*}
+Here, we have used $y = \exp t$ so that $\partial_\xi y = y \, \partial_\xi t$.
+
+Next, we will use
+\begin{align*}
+  -\beta \muex
+  = \rho \int_0^1 d\xi \int_\vr (\partial_\xi f) \, y \, d\vr \\
+\end{align*}
+where $\rho$ comes about such that
+\[
+  \rho \int_\vr f \, y \, d \vr = \rho \int_\vr g \, d\vr = N
+  \approx N - 1,
+\]
+which gives the number of particles interacting with particle 1.
+%
+Then,
+\begin{align*}
+  -\beta \muex
+  &= \rho \int_0^1 d\xi \int d\vr \, (\partial_\xi g - g \, \partial_\xi t) \\
+  &= \rho \int_0^1 d\xi \int d\vr \, (\partial_\xi c - h \, \partial_\xi t) \\
+  &= \rho \int_0^1 d\xi \int d\vr \, \partial_\xi \left(c - \tfrac{1}{2} h \, t \right) \\
+  &= \rho \int d\vr \, \left(c - \tfrac{1}{2} h \, t \right)
+\end{align*}
+We have assumed infinite dilution on the third line so that
+$t \, \partial_\xi h = h \, \partial_\xi t = \tfrac{1}{2} \partial_\xi (h t)$.
+
+
+Now for the virial coefficients,
+using \eqref{eq:expandmu},
+we get
+\begin{multline*}
+  \sum_{n = 2}^\infty \beta_{n - 1} \rho^{n - 1}
+\\
+= \rho \int
+  \left[
+  \sum_{l = 0}^\infty c_l \, \rho^l
+  -\frac{1}{2}
+  \sum_{l = 1}^\infty
+  \left(
+  \sum_{j = 1}^l h_{l - j} t_j
+  \right) \rho^l
+  \right] d\vr.
+\end{multline*}
+Setting $l = n - 2$, we get
+\[
+  \beta_{n - 1}
+= \int_\vr
+  \left(
+    c_{n-2}
+  -\frac{1}{2}
+  \sum_{j = 1}^{n-2} h_{n - 2 - j} t_j
+  \right) \, d\vr.
+\]
+By using \eqref{eq:Bbeta},
+\[
+  B_n
+= \frac{1-n}{n} \int_\vr
+  \left(
+    c_{n-2}
+  -\frac{1}{2}
+  \sum_{j = 1}^{n-2} h_{n - 2 - j} t_j
+  \right) \, d\vr.
+\]
+
+A few special cases are given below
+\begin{align*}
+  B_2
+  &= -\frac{1}{2} \int c_0(\vr) \, d\vr
+  = -\frac{1}{2} \int f(\vr) \, d\vr
+  = -\frac{1}{2}
+  \begin{tikzpicture}[baseline=-0.5mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, 0) [blackdot]{};
+    \node (r2) at ( \sz, 0) [blackdot]{};
+    \draw (r1) -- (r2);
+  \end{tikzpicture}
+\\
+  B_3
+  &= -\frac{2}{3} \int \left[ c_1(\vr) - \frac{1}{2} h_0(\vr) t_1(\vr) \right] \, d\vr \\
+  &= -\frac{2}{3} \int \left[ c_1(\vr) - \frac{1}{2} f(\vr) t_1(\vr) \right] \, d\vr \\
+  &= -\frac{1}{3} \int c(\vr) \, d\vr
+  = -\frac{1}{3}
+  \begin{tikzpicture}[baseline=1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, 0) [blackdot]{};
+    \node (r2) at ( \sz, 0) [blackdot]{};
+    \node (r3) at ( 0, 1.8*\sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r1);
+  \end{tikzpicture}
+\\
+  B_4
+  &= -\frac{3}{4} \int \left[c_2(\vr) - \frac{1}{2} h_0(\vr) t_2(\vr) -\frac{1}{2} h_1(\vr) t_1(\vr)\right] \, d\vr \\
+  &= -\frac{3}{4} \int \left[
+      \frac{1}{2} f(\vr) t_2(\vr)
+    + \frac{1}{2} h_1(\vr) t_1(\vr)
+    - \frac{1}{2} h_1(\vr) t_1(\vr) \right] \, d\vr \\
+  &= -\frac{3}{8} \int
+      f(\vr) t_2(\vr) \, d\vr \\
+  &= -\frac{3}{8} \int \left(
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [whitedot]{};
+    \node (r2) at ( \sz, -\sz) [whitedot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1);
+  \end{tikzpicture}
+  +
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [whitedot]{};
+    \node (r2) at ( \sz, -\sz) [whitedot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1) -- (r3);
+  \end{tikzpicture}
+  +
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [whitedot]{};
+    \node (r2) at ( \sz, -\sz) [whitedot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1) (r2) -- (r4);
+  \end{tikzpicture}
+  \right) \, d \vr
+  \notag \\
+  &= -\frac{3}{8}
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [blackdot]{};
+    \node (r2) at ( \sz, -\sz) [blackdot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1);
+  \end{tikzpicture}
+  - \frac{3}{4}
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [blackdot]{};
+    \node (r2) at ( \sz, -\sz) [blackdot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1) -- (r3);
+  \end{tikzpicture}.
+\end{align*}
+%
+The above examples shows that the virial coefficients
+are identical to the virial-route results.
+
+
+\subsection{Eq. (21)}
+
+Diagrammatically, $\log y$ collects all diagrams
+such that the two roots are nonadjacent
+and they do not form an articulation pair.
+%
+Thus, if $\log y(\vr)$ is exactly expanded, we have
+\[
+  \log y(\vr)
+  =
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [whitedot]{};
+    \node (r2) at ( \sz, -\sz) [whitedot]{};
+    \node (r3) at ( 0,  0.8*\sz) [blackdot]{};
+    \draw (r2) -- (r3) -- (r1);
+  \end{tikzpicture}
+  +
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [whitedot]{};
+    \node (r2) at ( \sz, -\sz) [whitedot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r2) -- (r3) -- (r4) -- (r1);
+  \end{tikzpicture}
+  +
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [whitedot]{};
+    \node (r2) at ( \sz, -\sz) [whitedot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r2) -- (r3) -- (r4) -- (r1) (r1) -- (r3);
+  \end{tikzpicture}
+  +
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [whitedot]{};
+    \node (r2) at ( \sz, -\sz) [whitedot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r2) -- (r3) -- (r4) -- (r1) (r2) -- (r4);
+  \end{tikzpicture}
+  +
+  \frac{1}{2}
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [whitedot]{};
+    \node (r2) at ( \sz, -\sz) [whitedot]{};
+    \node (r3) at ( \sz,  \sz) [blackdot]{};
+    \node (r4) at (-\sz,  \sz) [blackdot]{};
+    \draw (r2) -- (r3) -- (r4) -- (r1) (r2) -- (r4) (r1) -- (r3);
+  \end{tikzpicture}
+  + \cdots
+\]
+
+At zero separation,
+\[
+  \log y(\vct 0)
+  =
+  - \,
+  \begin{tikzpicture}[baseline=-3.5mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [whitedot]{};
+    \node (r2) at ( \sz, -\sz) [blackdot]{};
+    \draw (r1) -- (r2);
+  \end{tikzpicture}
+  -\frac{1}{2} \,
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, -\sz) [whitedot]{};
+    \node (r2) at ( \sz, -\sz) [blackdot]{};
+    \node (r3) at (   0,  \sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r1);
+  \end{tikzpicture}
+  - \cdots
+\]
+
+Therefore,
+%
+\begin{align*}
+  B_2
+  &= -\frac{1}{2} \,
+  \begin{tikzpicture}[baseline=-0.5mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, 0) [blackdot]{};
+    \node (r2) at ( \sz, 0) [blackdot]{};
+    \draw (r1) -- (r2);
+  \end{tikzpicture}
+\\
+  B_3
+  &= -\frac{1}{3} \,
+  \begin{tikzpicture}[baseline=1.0mm]
+    \newcommand{\sz}{2.5mm}
+    \node (r1) at (-\sz, 0) [blackdot]{};
+    \node (r2) at ( \sz, 0) [blackdot]{};
+    \node (r3) at ( 0, 1.8*\sz) [blackdot]{};
+    \draw (r1) -- (r2) -- (r3) -- (r1);
+  \end{tikzpicture},
+  \dots
+\end{align*}
+%
+which are both correct.
+
+
+
+\subsection{Eq. (26)}
+
+For $l \ge 1$, the compressibility- and virial- route
+results are given by
+\begin{align*}
+  B^{(c)}_n
+&=
+  -\frac{1}{n} \int c_{n-2}(\vr) \, d\vr
+\\
+&=
+-\frac{1}{n}
+\int \Big[
+  f \, t_{n-2} + \lambda_{n-2} \, (1+ f) \, w_{n-2}
+\Big] \, d\vr
+\\
+&=B^{(c, \mathrm{uncorr})}_n
+ + \lambda_{n-2} \, \Delta B^{(c)}_n
+\end{align*}
+and
+\begin{align*}
+  B^{(v)}_n
+&=
+  \frac{1}{2D} \int rf' \, y_{n-2} \, d\vr
+\\
+&=
+\frac{1}{2D} \int rf'\, (t_{n-2} + \lambda_{n-2} w_{n-2}) \, d\vr
+\\
+&=B^{(v, \mathrm{uncorr})}_n
+ + \lambda_{n-2} \, \Delta B^{(v)}_n
+\end{align*}
+
+To make the two equal
+\[
+\lambda_{n-2} \left[ \Delta B^{(c)}_n - \Delta B^{(v)}_n \right]
+  = B^{(v, \mathrm{uncorr})}_n
+  - B^{(c, \mathrm{uncorr})}_n,
+\]
+which leads to Eq. (26).
+
+
+
+
+\section{Appendix A: Fourier transform in odd dimensions}
+
+\subsection{Remembering the Bessel function}
+
+A relatively easy way to remember the Bessel function
+is through the generating function
+\[
+  \exp\left[ \frac{z}{2} \left(t - \frac{1}{t}\right) \right]
+  =
+  \sum_{\nu = \infty}^\infty J_\nu(z) \, t^\nu.
+\]
+%
+Expanding the left side yields
+\begin{align*}
+&
+  \sum_{l = 0}^\infty \frac{ (zt/2)^l } { l! }
+  \sum_{s = 0}^\infty (-)^s \frac{ (z/2/t)^s } { s! }
+  \quad \mbox{(set $l \rightarrow s + \nu$)} \\
+&=
+  \sum_{\nu = -\infty}^\infty
+  \sum_{s = 0}^\infty
+  \frac { (z/2)^{\nu + 2s} } {s! (\nu + 2s)! } t^\nu
+\end{align*}
+So,
+\begin{equation}
+  \frac{ J_\nu(z) }{ (z/2)^\nu }
+=
+  \sum_{s = 0}^\infty
+  \frac{ (z/2)^{2s} } { s! (\nu + 2s)! }
+  \label{eq:bessel}
+\end{equation}
+
+
+
+\subsection{Eq. (A1)}
+
+One way to convince yourself of Eq. (A1) is to study the small $k$ limit.
+%
+Keeping the first term in \eqref{eq:bessel} yields
+\[
+  J_\nu(z) \rightarrow \frac{ (z/2)^\nu }{ \nu! }
+\]
+So
+%
+\begin{align*}
+\tilde A(k \rightarrow 0)
+&\approx
+\frac{ (2 \pi)^{D/2} } { k^{D/2 - 1} \Gamma(D/2) }
+\int A(r) \left( \frac{k r}{2} \right)^{D/2 - 1} dr \\
+&=
+\frac{ 2 \pi^{D/2} } { \Gamma(D/2) }
+\int A(r) r^{D/2 - 1} dr
+\end{align*}
+%
+The pre-factor is indeed the surface area
+given by \eqref{eq:surfareaD}.
+
+
+The inverse of Eq. (A1) is
+\begin{equation}
+A(r)
+=
+\frac{ (2\pi)^{-D/2} } { r^{D/2 - 1} }
+\int \tilde{A}(k) \, J_{D/2-1}(kr) \, k^{D/2} \, dk.
+\label{eq:invftsphr}
+\end{equation}
+Note that, besides $k \leftrightarrow r$,
+the $(2\pi)^{D/2}$ in the pre-factor is now $(2\pi)^{-D/2}$
+for we have to divide it by $(2\pi)^D$.
+
+
+\subsection{Eq. (A2)}
+
+Since $D = 2\delta + 3$, $D/2 - 1 = \delta + 1/2$.
+%
+Next $J_{D/2-1}(kr) \rightarrow \sqrt{2 k r/\pi} j_{D/2-3/2} (kr)$.
+%
+So
+\begin{align*}
+\tilde A(k)
+&=
+\frac{ (2 \pi)^{\delta + 3/2} } { k^{\delta + 1/2} }
+\int_0^R
+  A(r) \, \frac{ (2kr)^{1/2} } { \pi^{1/2} } \,
+  j_\delta(k r) \, r^{\delta + 3/2}\, dr \\
+&=
+  \frac{ 2^{\delta + 2} \pi^{\delta + 1} } { k^\delta }
+\int_0^R
+  A(r) \, j_\delta(k r) \, r^{\delta + 2} \, dr
+\end{align*}
+
+
+
+\section{Appendix B: Fourier transform in even dimensions}
+
+\subsection{Hankel transform}
+
+Rewrite Eq. (A1) as
+\[
+\tilde{A}(k) k^{D/2-1}
+= (2 \pi)^{D/2}
+\int A(r) r^{D/2-1} \, J_{D/2-1}(kr) \, r \, dr.
+\]
+
+Now replace $D/2 - 1$ by $\nu$, and
+\[
+\tilde{A}(k) k^\nu
+= (2 \pi)^{\nu+1}
+\int A(r) r^\nu \, J_{\nu}(kr) \, r \, dr.
+\]
+
+We now do the following replacements:
+\begin{equation}
+\begin{split}
+  A(r) r^\nu \rightarrow \alpha(r) \\
+  \tilde{A}(k) k^\nu (2\pi)^{-\nu-1}
+  \rightarrow
+  \hat a(k),
+\end{split}
+\label{eq:Atoalpha}
+\end{equation}
+we get
+\[
+\hat a(k)
+=
+\int \alpha(r) J_\nu(kr) \, r \, dr.
+\]
+
+For the inverse, we rewrite \eqref{eq:invftsphr}
+\[
+A(r) r^{D/2-1}
+=
+(2\pi)^{-D/2}
+\int \tilde{A}(k) k^{D/2-1} \, J_{D/2-1}(kr) \, k \, dk.
+\]
+
+Replacing $D/2 - 1$ by $\nu$ yields
+\[
+A(r) r^\nu
+=
+(2\pi)^{-\nu-1}
+\int \tilde{A}(k) k^\nu \, J_\nu(kr) \, k \, dk.
+\]
+
+Using \eqref{eq:Atoalpha} gives
+\[
+\alpha(r)
+=
+\int \hat \alpha(k) J_\nu(kr) \, k \, dk.
+\]
+
+So our transform from $\alpha(r)$ to $\hat\alpha(k)$
+should be completely symmetric to the inverse transform
+from $\hat\alpha(k)$ to $\alpha(r)$.
+
+
+
+
+\section{Appendix D: Transformation of series}
+
+\subsection{Product}
+
+Given that $c = a \cdot b$, we have
+\begin{align*}
+  \sum_{l = 0}^{\infty} c_l \, \rho^l
+  &=
+  \sum_{i = 0}^{\infty} a_i \rho^i
+  \sum_{j = 0}^{\infty} b_j \rho^j
+  \qquad \mbox{set $i \rightarrow l - j$}
+ \notag \\
+  &=
+  \sum_{l = 0}^{\infty}
+  \left(
+  \sum_{j = 0}^{l}
+    a_{l-j} b_j \right) \rho^l.
+\end{align*}
+
+So
+\begin{align}
+  c_l = \sum_{j = 0}^{l} a_{l-j} b_j,
+  \label{eq:product}
+\end{align}
+
+
+
+\subsection{Quotient}
+
+
+Because $a = b \cdot d$,
+use the product formula \eqref{eq:product}
+\begin{align*}
+  a_l
+  &= \sum_{j = 0}^{l} b_{l-j} d_j
+  = \sum_{j = 0}^{l - 1} b_{l - j} d_j + b_0 d_l,
+\\
+  &= \sum_{i = 1}^{l} b_{i} d_{l - i} + b_0 d_l,
+\end{align*}
+So
+\begin{align*}
+  b_0 \, d_l = a_l -\sum_{j = 1}^{l} b_{i} d_{l - i}.
+\end{align*}
+
+
+\subsection{Power}
+
+From $a \, (\partial_\rho p) = \nu p \, (\partial_\rho a)$,
+%
+\begin{align*}
+  \sum_{i = 0} a_i \rho^i
+  \sum_{j = 0} j p_j \rho^{j - 1}
+&=
+  \nu
+  \sum_{i = 0} i a_i \rho^{i - 1}
+  \sum_{j = 0} p_j \rho^{j},
+\end{align*}
+
+So
+\begin{align*}
+  \sum_{j = 0}^{l-1} a_{l-j} j p_j + a_0 l p_l
+&=
+  \sum_{j = 0}^{l-1} \nu (l - j) a_{l - j} p_j
+\end{align*}
+
+And,
+\begin{align*}
+  a_0 l p_l
+&=
+  \sum_{j = 0}^{l-1} [ \nu (l - j) - j] a_{l - j} p_j
+\\
+&=
+  \sum_{j = 0}^{l-1} [ \nu l - (\nu + 1) j] a_{l - j} p_j.
+\end{align*}
+
+
+\subsection{Logarithm}
+
+Start with the exponential formula
+\[
+  l y_l = \sum_{j = 1}^l j t_j y_{l - j}
+  = \sum_{j = 1}^{l - 1} j t_j y_{l - j} + l t_l.
+\]
+So
+\[
+  t_l = y_l - \sum_{j = 1}^{l-1} j t_j y_{l - j}/l.
+\]
+
+
+\subsection{Inverse series}
+
+Given that $t = \sum_i t_i \rho^i$, and
+\begin{equation}
+  t = T(y) = T_0 + T_1 y + T_2 y^2 + \dots,
+  \label{eq:tTy}
+\end{equation}
+we want to know the expansion $y = \sum_j y_j \rho^j$.
+
+
+Define a partial sum $y^{(l)} = \sum_{j=0}^l y_j \, \rho^j$,
+then
+\begin{align*}
+  T[y^{(l)}]_l - T[y^{(l-1)}]_l
+&=
+  T_1 y_l
++ T_2 2 y_0 y_l
++ T_3 3 y_0^2 y_l
++ \cdots
+\\
+&=
+  (T_1
++ T_2 2 y_0
++ T_3 3 y_0^2
++ \cdots) y_l
+\\
+&= T'(y_0) \, y_l.
+\end{align*}
+
+Now plugging this into \eqref{eq:tTy},
+and extracting the coefficient before $\rho^l$
+yields
+\begin{align*}
+  t_l = T[y^{(l-1)}]_l + T'(y_0) \, y_l.
+\end{align*}
+
+
+
+\subsection{Hurst's closure}
+
+The Hurst's closure is
+\[
+  T(y) = y^m \, \log y.
+\]
+
+So
+\[
+  T'(y_0)
+  = m y_0^{m -1} \, \log y_0 + y_0^{m - 1}
+  = m \cdot 0 + 1 = 1.
+\]
+
+For the direct inversion,
+let $\omega \equiv \log y$,
+then the closure is $t = (1+\omega)^m \omega$.
+%
+We want to compute the inverse series
+\begin{align*}
+  \omega = \sum_k \omega_k t^k,
+\end{align*}
+
+\begin{align*}
+\omega_k
+&=
+\oint \frac{\omega}{t^{k+1}} \frac{dt}{2\pi i}
+=
+\frac{1}{-k (2\pi i)} \oint \omega d\left(\frac{1}{t^{k+1}}\right)
+\\
+&=
+\frac{1}{k (2\pi i)} \oint \frac{ d\omega }{t^{k}}
+\\
+&=
+\frac{1}{k (2\pi i)} \oint \frac{ \exp( -k m\omega)  }{\omega^{k}} d\omega
+=(-k m \omega)^{k-1} / k!
+\end{align*}
+
+So
+\[
+  \omega = \sum_k (-k m \omega)^{k-1} t^k / k!,
+\]
+and $y = \exp(\omega)$.
+
+
+
+
+\section{YBG equation}
+
+\subsection{Eq. (E1), Constant shift}
+
+In (E1), $g(\vr_{32})$ is replaced by $h(\vr_{32}) = g(\vr_{32}) - 1$,
+this is valid because
+\[
+ \int \nabla_1 \phi(\vr_{13}) g(\vr_{13} \, d\vr_3
+= \nabla_1 \left( \int \phi(\vr_{13}) g(\vr_{13} \, d\vr_3 \right)
+= 0.
+\]
+
+
+\subsection{Fourier transform}
+
+Eq. (E1) can be written as
+\[
+  \vct{W}
+=
+\rho \vct{Y} * h.
+\]
+where
+\[
+  \vct{W}(\vr) = \nabla \omega(\vr) = (\vr/r) \, \omega'(r),
+\]
+and
+\[
+  \vct{Y}(\vr) = \nabla f(\vr) y(\vr)
+  = (\vr/r) \, f'(r) \, y(r).
+\]
+
+The Fourier transform of $\vct W$ is
+\begin{align*}
+  \tilde{\vct{W}}(\vk)
+&=
+\int \vct{W}(\vr) \exp(-i\vk\cdot\vr) \, d\vr
+\\
+&=
+\int (\vr/r) \, \omega'(r) \, \exp(-i\vk\cdot\vr) \, d\vr
+\\
+&=
+\frac{\partial}{(-i) \, \partial \vk}
+\int \frac{\omega'(r)}{r} \, \exp(-i\vk\cdot\vr) \, d\vr
+\end{align*}
+%
+Since $\tilde{\vct{W}}$ is necessarily a radial function,
+we have
+\begin{align*}
+  \tilde{\vct{W}}(\vk)
+&=
+  \tilde{\vct{W}}(k)
+\\
+&=
+i \frac{\vk}{k} \frac{\partial}{\partial k}
+\int \frac{\omega'(r)}{r} \, \exp(-i\vk\cdot\vr) \, d\vr
+\\
+&\equiv
+i \vk \, \tilde{w}(k),
+\end{align*}
+where
+\begin{align*}
+\tilde{w}
+&=
+\frac{\partial}{k\partial k}
+\int \frac{\omega'(r)}{r} \, \exp(-i\vk\cdot\vr) \, d\vr
+\end{align*}
+
+We write the above function in Bessel functions:
+\begin{align}
+  \tilde{w}
+&=
+\frac{\partial}{k\partial k}
+\left[
+\frac{(2\pi)^{D/2}}{k^{D/2-1}}
+\int \frac{\omega'(r)}{r} \, r^{D/2} J_{D/2-1}(kr) \, dr
+\right]
+\notag \\
+&=
+\frac{(2\pi)^{D/2}}{k}
+\int
+\frac{\omega'(r)}{r}
+\,
+\frac{r^D \, \partial}{\partial (kr)}
+\left[
+\frac{1}{(kr)^{D/2-1}}
+  J_{D/2-1}(kr)
+\right]
+\, dr
+\notag \\
+&=
+-
+\frac{(2\pi)^{D/2}}{k}
+\int
+\frac{\omega'(r)}{r}
+\frac{r^D}
+{
+(kr)^{D/2-1}
+}
+\, J_{D/2}(kr) \, dr
+\notag \\
+&=
+-
+\frac{(2\pi)^{D/2}}{k^D}
+\int
+\omega'(r) \, (kr)^{D/2}
+\, J_{D/2}(kr) \, dr
+\label{eq:wbessel1}
+\end{align}
+Here, we have used
+\begin{align*}
+  \frac{d}{dz} [z^{-\nu} J_\nu(z)] = -z^{-\nu} J_{\nu+1}(z).
+\end{align*}
+where $\nu = D/2-1$.
+
+
+We then integrating by parts
+\begin{align*}
+\tilde{w}(k)
+&=
+\frac{(2\pi)^{D/2}}{k^D}
+\int
+\omega(r) \,
+\frac{\partial }{\partial r}
+\left[
+  (kr)^{D/2}
+  \, J_{D/2}(kr)
+\right]
+\, dr
+\\
+&=
+\frac{(2\pi)^{D/2}}{k^{D-1}}
+\int
+\omega(r) \,
+\frac{\partial }{\partial (kr)}
+\left[
+  (kr)^{D/2}
+  \, J_{D/2}(kr)
+\right]
+\, dr
+\\
+&=
+\frac{(2\pi)^{D/2}}{k^{D-1}}
+\int
+\omega(r) \,
+\left[
+  (kr)^{D/2}
+  \, J_{D/2-1}(kr)
+\right]
+\, dr
+\\
+&=
+\frac{(2\pi)^{D/2}}{k^{D/2-1}}
+\int
+\omega(r) \,
+  r^{D/2}
+  \, J_{D/2-1}(kr)
+\, dr
+\\
+&=\tilde\omega(k).
+\end{align*}
+Here we have used another property of the Bessel function
+\[
+  \frac{d}{dz} \Big[ z^\nu J_\nu(z) \Big]
+=
+  z^\nu \, J_{\nu - 1}(z).
+\]
+
+The simple result can be alternatively derived as
+\begin{align*}
+  \tilde{\vct{W}}
+&=
+\int \nabla \omega \, \exp(-i\vk \cdot \vr) \, d\vr
+\\
+&=
+-\int \omega \, \nabla \exp(-i\vk \cdot \vr) \, d\vr
+\\
+&=
+i \vk \, \int \omega \exp(-i\vk \cdot \vr) \, d\vr
+\\
+&=
+i \vk \, \tilde{\omega}(\vk).
+\end{align*}
+
+
+The Fourier transform of $\vct{Y}$ is given by
+\begin{align*}
+  \tilde{\vct{Y}}(\vk)
+&=
+\int \vct{Y}(\vr) \exp(-i\vk\cdot\vr) \, d\vr
+\\
+&=
+\int (\vr/r) \, f'(r) \, y(r) \, \exp(-i\vk\cdot\vr) \, d\vr
+\\
+&=
+\frac{\partial}{(-i) \, \partial \vk}
+\int \frac{f'(r) \, y(r)}{r} \, \exp(-i\vk\cdot\vr) \, d\vr
+\\
+&=
+i \frac{\vk}{k} \frac{\partial}{\partial k}
+\int \frac{f'(r) \, y(r)}{r} \, \exp(-i\vk\cdot\vr) \, d\vr
+\\
+&=
+i \vk \, \tilde{\gamma}(k),
+\end{align*}
+%
+where
+\[
+\tilde{\gamma}(k)
+=
+\frac{\partial}{k\partial k}
+\int \frac{f'(r) \, y(r)}{r} \, \exp(-i\vk\cdot\vr) \, d\vr.
+\]
+
+We now use similar manipulations as
+those in \eqref{eq:wbessel1}, and
+\begin{align*}
+\tilde{\gamma}(k)
+&=
+\frac{\partial}{k\partial k}
+\int \frac{f'(r) \, y(r)}{r} \, \exp(-i\vk\cdot\vr) \, d\vr
+\\
+&=-\frac{(2\pi)^{D/2}}{k^{D/2}}
+\int f'(r) \, y(r) \, r^{D/2} \, J_{D/2}(kr) \, dr.
+\end{align*}
+
+
+
+\subsection{OZ relation}
+
+The OZ relation is
+\[
+  1 - \rho \tilde c(\vk)
+=
+ [1 + \rho \tilde h(\vk)]^{-1}.
+\]
+with $\vk = 0$, we get
+\[
+  1 - \rho \tilde c(\vct 0)
+=
+ [1 + \rho \tilde h(\vct 0)]^{-1}.
+\]
+or
+\[
+  1 - \rho \int c(\vr) \, d\vr
+=
+ \left[1 + \rho \int h(\vr) \, d\vr \right]^{-1}.
+\]
+This expression is equal to $\partial_\rho (\beta P)$.
+
+
+
+\section{Supplemental material}
+
+\subsection{Eq. (8)}
+
+We start from the two function case.
+%
+\begin{align}
+& \hphantom{=\int} (a_1 * a_2)(\vr)
+\notag \\
+&=
+  \int_{\vr'}
+    a_1(\vr') \,
+    a_2(\vr - \vr') \, d\vr'
+\notag \\
+&=
+  \int_{\vr'}
+    \left(
+      \int_\vk \tilde{a}_1(\vk) \, \exp(i\vk\cdot\vr') \, \dvk
+    \right)
+%\notag \\
+%&\hphantom{=}
+%\quad \times
+    a_2(\vr - \vr') \, d\vr'
+\notag \\
+&=
+  \int_\vk \dvk \,
+  \tilde{a}_1(\vk) \,
+  \exp(i\vk\cdot\vr)
+\notag \\
+&\hphantom{=}\times
+  \int_{\vr'} d\vr' \,
+    a_2(\vr - \vr') \, \exp[-i\vk\cdot(\vr - \vr')]
+\notag \\
+&=
+  \int_\vk \dvk \,
+  \tilde{a}_1(\vk) \,
+  \tilde{a}_2(\vk) \,
+  \exp(i\vk\cdot\vr).
+  \label{eq:convol}
+\end{align}
+Thus, the Fourier transform of $a_1 * a_2$ is
+$\tilde{a}_1(\vk) \, \tilde{a}_2(\vk)$:
+\[
+  \FT(a_1 * a_2)(\vk) = \tilde{a_1}(\vk) \, \tilde{a}_2(\vk).
+\]
+
+It follows that
+\begin{align*}
+  \FT(a_1 * a_2 * a_3)(\vk)
+&= \FT(a_1 * a_2)(\vk) \, \tilde{a}_3(\vk)
+  \\
+&= \tilde{a}_1(\vk) \, \tilde{a}_2(\vk) \, \tilde{a}_3(\vk).
+\end{align*}
+and by induction
+\begin{align*}
+  \FT(a_1 * \cdots * a_l)(\vk)
+&= \tilde{a}_1(\vk) \, \cdots \, \tilde{a}_l(\vk).
+\end{align*}
+
+This means
+\begin{align*}
+  (a_1 * \cdots * a_l)(\vr)
+= \int \dvk \, \tilde{a}_1(\vk) \, \cdots \, \tilde{a}_l(\vk)
+  \, \exp(i\vk\cdot\vr).
+\end{align*}
+%
+Now setting $\vr = 0$ yields the first equality.
+\begin{align*}
+  (a_1 * \cdots * a_l)(\vct 0)
+= \int \dvk \, \tilde{a}_1(\vk) \, \cdots \, \tilde{a}_l(\vk).
+\end{align*}
+
+Setting $\vr = 0$ in the first expression of \eqref{eq:convol}, yields
+\[
+  \int a_1(\vr') \, a_2(-\vr') \, d\vr'
+= \int \dvk \tilde{a}_1(\vk) \, \tilde{a}_2(\vk).
+\]
+For an even $a_2$,
+the left hand side can be written as
+\[
+  \int a_1(\vr) \, a_2(\vr) \, d\vr.
+\]
+
+
+
+%\bibliography{liquid}
+\end{document}
+
