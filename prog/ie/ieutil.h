@@ -484,47 +484,61 @@ __inline static void get_yr_xsqr(int l, int npt, xdouble *yrl,
 
 
 
-/* compute y(r) for the cubic Percus-Yevick approximation */
+/* compute y(r) for the cubic closure 1 + t + s t^2/2 + r t^3/6 */
 __inline static void get_yr_cub(int l, int npt, xdouble *yrl,
-    xdouble **tr, xdouble s, xdouble t)
+    xdouble **tr, xdouble s, xdouble r)
 {
   int i, j, k;
 
   s /= 2;
-  t /= 6;
-  /* y(r) = 1 + t(r) + (s/2) t(r)^2 + (t/6) t(r)^3 */
+  r /= 6;
+  /* y(r) = 1 + t(r) + (s/2) t(r)^2 + (r/6) t(r)^3 */
   for ( i = 0; i < npt; i++) {
     yrl[i] = tr[l][i]; /* t(r) */
     for ( j = 1; j < l; j++ ) /* do t(r)^2 */
       yrl[i] += s * tr[j][i] * tr[l-j][i];
     for ( j = 1; j < l; j++ )
       for ( k = 1; k < l - j; k++ )
-        yrl[i] += t * tr[j][i] * tr[k][i] * tr[l-k-j][i];
+        yrl[i] += r * tr[j][i] * tr[k][i] * tr[l-k-j][i];
   }
 }
 
 
 
-/* compute y(r) for the geometric closure */
+/* compute y(r) for the geometric closure
+ * y(r) = 1 + t(r) + (s/2) t(r)^2/[1 - th t(r)] */
 __inline static void get_yr_geo(int l, int npt, xdouble *yrl,
-    xdouble **tr, xdouble q)
+    xdouble **tr, xdouble s, xdouble th)
 {
-  int i, u, v;
-  xdouble *a;
+  int i, u;
+  xdouble *a, *b, *c;
 
-  q /= 2;
+  s /= 2;
   xnew(a, l + 1);
-  /* y(r) = 1 + t(r) + q t(r)^2 + q^2 t(r)^3 + ...
-   * y1 = y - 1 satisfies y1 = t + q t y1
-   * y1_l = t_l + q Sum_{ j = 1 to l - 1} t_j y1_{l - j} */
+  xnew(b, l + 1);
+  xnew(c, l + 1);
+  /* y(r) = 1 + t(r) + (s/2) t(r)^2 / [1 - th t(r)]
+   *      = 1 + t(r) + (s/2/th) t(r) / [1 - th t(r)] - (s/2/th) t(r)
+   *      = 1 + t(r) + (s/2/th/th) / [1 - th t(r)] - (s/2/th/th) [1 + th t(r)]
+   * */
   for ( i = 0; i < npt; i++) {
-    a[0] = 0;
-    for ( u = 1; u <= l; u++ )
-      for ( a[u] = tr[u][i], v = 1; v < u; v++ )
-        a[u] += q * tr[v][i] * a[u - v];
-    yrl[i] = a[l];
+    if ( FABS(th) < 1e-20 ) {
+      yrl[i] = tr[l][i];
+      for ( u = 1; u < l; u++ )
+        yrl[i] += s * tr[u][i] * tr[l-u][i];
+      continue;
+    }
+    c[0] = s/th/th;
+    /* form 1 - th t(r) */
+    for ( a[0] = 1, u = 1; u <= l; u++ )
+      a[u] = -th * tr[u][i];
+    div_series(l + 1, c, a, b);
+    //printf("l %d, a[l] %g, b[l] %g\n", l, (double) a[l], (double) b[l]); getchar();
+    yrl[i] = tr[l][i] * (1 - s/th) + b[l];
   }
   free(a);
+  free(b);
+  free(c);
 }
 
 
@@ -993,8 +1007,9 @@ enum {
   IETYPE_HC = 20, /* Hutchinson and Conkie, 1971, Molecular Physics, Vol. 21, No. 5, 881-890 */
   IETYPE_BBPG = 30, /* Ballon, Pastore, Galli, and Gazzillo */
   IETYPE_VERLET = 40, /* Verlet, 1980 */
-  IETYPE_GEO = 100,
-  IETYPE_LOG = 101,
+  IETYPE_GEO  = 100,
+  IETYPE_EXP  = 110,
+  IETYPE_LOG  = 120,
   IETYPE_YBG = 1000, /* Yvon-Green-Born */
   IETYPE_KIRKWOOD = 1100,
   IETYPE_LAST
@@ -1162,15 +1177,16 @@ __inline static void init_cubcoef(xdouble *a, int lmax, xdouble s, xdouble t)
 
 
 /* initialize the geometric coefficients, here
- *  y(r) = 1 + t(r) + q t(r)^2 + q^2 t(r)^3 + ...
+ *  y(r) = 1 + t(r) + (s/2) t(r)^2 (1 + th t(r) + th^2 t^2(r) + ...)
  */
-__inline static void init_geocoef(xdouble *a, int lmax, xdouble q)
+__inline static void init_geocoef(xdouble *a, int lmax,
+    xdouble s, xdouble th)
 {
   int i;
 
-  q /= 2;
   a[0] = a[1] = 1;
-  for ( i = 2; i < lmax; i++ ) a[i] = a[i-1]*q;
+  a[2] = s/2;
+  for ( i = 3; i < lmax; i++ ) a[i] = a[i-1]*th;
 }
 
 
@@ -1233,13 +1249,14 @@ __inline static char *savevirheadx(const char *fn, const char *title,
   else if ( ietype == IETYPE_ROWLINSON) strcpy(sietype, "R");
   else if ( ietype == IETYPE_INVROWLINSON) strcpy(sietype, "IR");
   else if ( ietype == IETYPE_VERLET) strcpy(sietype, "V");
-  else if ( ietype == IETYPE_SQR) strcpy(sietype, "SQR");
-  else if ( ietype == IETYPE_XSQR) strcpy(sietype, "XSQR");
-  else if ( ietype == IETYPE_CUB) strcpy(sietype, "CUB");
-  else if ( ietype == IETYPE_GEO) strcpy(sietype, "GEO");
-  else if ( ietype == IETYPE_LOG) strcpy(sietype, "LOG");
-  else if ( ietype == IETYPE_BBPG) strcpy(sietype, "BBPG");
-  else if ( ietype == IETYPE_YBG) strcpy(sietype, "YBG");
+  else if ( ietype == IETYPE_SQR)   strcpy(sietype, "SQR");
+  else if ( ietype == IETYPE_XSQR)  strcpy(sietype, "XSQR");
+  else if ( ietype == IETYPE_CUB)   strcpy(sietype, "CUB");
+  else if ( ietype == IETYPE_GEO)   strcpy(sietype, "GEO");
+  else if ( ietype == IETYPE_EXP)   strcpy(sietype, "EXP");
+  else if ( ietype == IETYPE_LOG)   strcpy(sietype, "LOG");
+  else if ( ietype == IETYPE_BBPG)  strcpy(sietype, "BBPG");
+  else if ( ietype == IETYPE_YBG)   strcpy(sietype, "YBG");
   else if ( ietype == IETYPE_KIRKWOOD) strcpy(sietype, "K");
   if ( mkcorr ) strcat(sietype, "c");
   else if ( expcorr ) strcat(sietype, "x");

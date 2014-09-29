@@ -107,6 +107,7 @@ xdouble xsqrs = 0;
 xdouble cubs = 0.5;
 xdouble cubt = 0.0;
 xdouble geos = 1;
+xdouble geot = 1;
 xdouble logs = 1;
 
 xdouble shift = 0, shiftinc = 0;
@@ -143,7 +144,8 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--xsqrs", "%" XDBLSCNF "f", &xsqrs, "s of the exponential quadratic approximation, y(r) = exp[ t(r) + s t(r)^2 ]");
   argopt_add(ao, "--cubs", "%" XDBLSCNF "f", &cubs, "s of the cubic approximation, y(r) = 1 + t(r) + s t(r)^2 / 2 + t t(r)^3/6");
   argopt_add(ao, "--cubt", "%" XDBLSCNF "f", &cubt, "t of the cubic approximation");
-  argopt_add(ao, "--geos", "%" XDBLSCNF "f", &geos, "s of the geometric approximation, y(r) = 1 + t(r) + (s/2) t(r)^2 + (s/2)^2 t(r)^3 + ...");
+  argopt_add(ao, "--geos", "%" XDBLSCNF "f", &geos, "s of the geometric approximation, y(r) = 1 + t(r) + (s/2) t(r) / [1 - t t(r)] + ...");
+  argopt_add(ao, "--geot", "%" XDBLSCNF "f", &geot, "t of the geometric approximation, y(r) = 1 + t(r) + (s/2) t(r) / [1 - t t(r)] + ...");
   argopt_add(ao, "--logs", "%" XDBLSCNF "f", &logs, "s of the logarithmic approximation, y(r) = 1 + t(r) + s t(r)^2/2 + s^2 t(r)^3/3 + ...");
   argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted-chain (HNC) like approximation");
   argopt_add(ao, "--corr", "%b", &mkcorr, "linearly correct the closure");
@@ -208,7 +210,11 @@ static void doargs(int argc, char **argv)
   if ( argopt_isset(ao, sqrs) ) ietype = IETYPE_SQR;
   if ( argopt_isset(ao, xsqrs) ) ietype = IETYPE_XSQR;
   if ( argopt_isset(ao, cubs) || argopt_isset(ao, cubt) ) ietype = IETYPE_CUB;
-  if ( argopt_isset(ao, geos) ) ietype = IETYPE_GEO;
+  if ( argopt_isset(ao, geos) ) {
+    ietype = IETYPE_GEO;
+    if ( !argopt_isset(ao, geot) )
+      geot = geos/2;
+  }
   if ( argopt_isset(ao, logs) ) ietype = IETYPE_LOG;
 
   if ( ietype > IETYPE_HNC ) dohnc = 0;
@@ -464,7 +470,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
     } else if ( ietype == IETYPE_CUB ) {
       init_cubcoef(yrcoef, nmax - 1, cubs, cubt);
     } else if ( ietype == IETYPE_GEO ) {
-      init_geocoef(yrcoef, nmax - 1, geos);
+      init_geocoef(yrcoef, nmax - 1, geos, geot);
     } else if ( ietype == IETYPE_LOG ) {
       init_logcoef(yrcoef, nmax - 1, logs);
     }
@@ -555,7 +561,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
     } else if ( ietype == IETYPE_CUB ) {
       get_yr_cub(l, npt, yrl, tr, cubs, cubt);
     } else if ( ietype == IETYPE_GEO ) {
-      get_yr_geo(l, npt, yrl, tr, geos);
+      get_yr_geo(l, npt, yrl, tr, geos, geot);
     } else if ( ietype == IETYPE_LOG ) {
       get_yr_log(l, npt, yrl, tr, logs);
     } else if ( ietype == IETYPE_ROWLINSON ) {

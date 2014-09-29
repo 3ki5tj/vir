@@ -311,7 +311,11 @@ yields
 \end{equation}
 Using this in Eq. \eqref{eq:B2v} yields
 \[
-  B_2^{(v)} = \frac{ \pi^{D/2} } { D \Gamma(D/2) }.
+  B_2^{(v)}
+=
+\frac{ \pi^{D/2} } { D \Gamma(D/2) }
+=
+\frac{ S_D(1) } { 2 \, D }.
 \]
 
 
@@ -581,8 +585,8 @@ interface pairs in the derivation (see supplemental material).
 First, we have
 \begin{align*}
   y(\vr)
-  &= \exp\left[ t(\vr)  \right] \\
-  &= \sum_{k = 0}^\infty \frac{1}{k!} [t(\vr)]^k
+  &= \exp t(\vr) \\
+  &= \sum_{k = 0}^\infty \frac{1}{k!} \bigl[ t(\vr) \bigr]^k
   = \sum_{k = 0}^\infty \frac{1}{k!} \left[ \sum_{i = 1}^\infty t_i \rho^i \right]^k \\
   &= \sum_{k = 0}^\infty
   \frac{1}{k!}
@@ -996,6 +1000,36 @@ which leads to Eq. (26).
 
 
 
+\section{Main text: Results}
+
+\subsection{Geometric closure}
+
+The closure
+\begin{align*}
+  y
+&=
+1 + t/(1 - \eta \, t/2)
+\\
+&=
+1 + t  + \eta t^2/2 + \eta^2 t^3/4 + \eta^3 t^4/8 + \cdots
+\end{align*}
+
+
+
+\subsection{Logarithmic closure}
+
+The closure
+\begin{align*}
+  y
+&=
+1 - \log(1 - \eta t)/\eta
+\\
+&=
+1 + t  + \eta t^2/2 + \eta^2 t^3/3 + \eta^3 t^4/4 + \cdots
+\end{align*}
+
+
+
 \section{Appendix A: Fourier transform in odd dimensions}
 
 \subsection{Remembering the Bessel function}
@@ -1175,7 +1209,7 @@ Given that $c = a \cdot b$, we have
 
 So
 \begin{align}
-  c_l = \sum_{j = 0}^{l} a_{l-j} b_j,
+  c_l = \sum_{j = 0}^{l} a_{l-j} b_j.
   \label{eq:product}
 \end{align}
 
@@ -1191,7 +1225,7 @@ use the product formula \eqref{eq:product}
   &= \sum_{j = 0}^{l} b_{l-j} d_j
   = \sum_{j = 0}^{l - 1} b_{l - j} d_j + b_0 d_l,
 \\
-  &= \sum_{i = 1}^{l} b_{i} d_{l - i} + b_0 d_l,
+  &= \sum_{i = 1}^{l} b_{i} d_{l - i} + b_0 d_l.
 \end{align*}
 So
 \begin{align*}
@@ -1276,7 +1310,11 @@ Now plugging this into \eqref{eq:tTy},
 and extracting the coefficient before $\rho^l$
 yields
 \begin{align*}
-  t_l = T[y^{(l-1)}]_l + T'(y_0) \, y_l.
+  t_l
+&= T[y^{(l)}]_l
+\\
+&=
+  T[y^{(l-1)}]_l + T'(y_0) \, y_l.
 \end{align*}
 
 
@@ -1297,13 +1335,14 @@ So
 
 For the direct inversion,
 let $\omega \equiv \log y$,
-then the closure is $t = (1+\omega)^m \omega$.
+then the closure is $t = \exp(m \omega) \, \omega$.
 %
 We want to compute the inverse series
 \begin{align*}
-  \omega = \sum_k \omega_k t^k,
+  \omega = \sum_{k=1}^\infty \omega_k t^k,
 \end{align*}
 
+By contour integral,
 \begin{align*}
 \omega_k
 &=
@@ -1316,19 +1355,62 @@ We want to compute the inverse series
 \\
 &=
 \frac{1}{k (2\pi i)} \oint \frac{ \exp( -k m\omega)  }{\omega^{k}} d\omega
-=(-k m \omega)^{k-1} / k!
+=
+\frac{ (-k m)^{k-1} }
+     { k! }.
 \end{align*}
 
 So
 \[
-  \omega = \sum_k (-k m \omega)^{k-1} t^k / k!,
+  \omega = \sum_{k=1}^\infty (-k m)^{k-1} t^k / k!,
 \]
-and $y = \exp(\omega)$.
+and
+\[
+  y
+= \exp \omega
+= \exp\left[ \sum_{k=1}^\infty (-k m)^{k-1} t^k / k! \right].
+\]
+
+
+Similarly, suppose
+\[
+  y - 1
+=
+\sum_{k = 1}^\infty y_k t^k.
+\]
+By contour integral
+\begin{align*}
+y_k
+&=
+\oint \frac{y}{t^{k+1}} \frac{dt}{2\pi i}
+=
+\frac{1}{-k (2\pi i)} \oint y d\left(\frac{1}{t^{k+1}}\right)
+\\
+&=
+\frac{1}{k (2\pi i)} \oint \frac{ dy }{t^{k}}
+\\
+&=
+\frac{1}{k (2\pi i)} \oint \frac{ \exp(\omega) \, d\omega }{t^{k}}
+\\
+&=
+\frac{1}{k (2\pi i)} \oint \frac{ \exp[(1 - k m) \omega]  }{\omega^{k}} d\omega
+=
+\frac{ (1-k m)^{k-1} }
+     { k! }.
+\end{align*}
+
+So
+\[
+  y
+=
+1 + \sum_{k = 1}^\infty
+\frac{ (1 - k m)^{k-1} t^k } { k! }.
+\]
 
 
 
 
-\section{YBG equation}
+\section{Appendix E: YBG equation}
 
 \subsection{Eq. (E1), Constant shift}
 
@@ -1554,15 +1636,68 @@ those in \eqref{eq:wbessel1}, and
 \end{align*}
 
 
+\subsection{Hard-sphere case}
+
+In the hard sphere case $f'(r) = \delta(r - 1)$,
+so
+\begin{align}
+\tilde{\gamma}(k)
+&=-\frac{(2\pi)^{D/2}}{k^{D/2}}
+\int \delta(r - 1) \, y(r) \, r^{D/2} \, J_{D/2}(kr) \, dr
+\notag \\
+&=-\frac{(2\pi)^{D/2}}{k^{D/2}}
+y(1) \, J_{D/2}(k)
+\label{eq:gammahs}
+\end{align}
+
+
+
+\subsection{Fourier transform of the $f$-bond}
+
+We write the above function in Bessel functions:
+\begin{align}
+  \tilde{f}(k)
+&=
+\frac{(2\pi)^{D/2}}{k^{D/2-1}}
+\int f(r) \, r^{D/2} J_{D/2-1}(kr) \, dr
+\notag \\
+&=
+-\frac{(2\pi)^{D/2}}{k^{D/2-1}}
+\int_0^1 r^{D/2} J_{D/2-1}(kr) \, dr
+\notag \\
+&=
+-\frac{(2\pi)^{D/2}}{k^{D-1}}
+\int_0^1 \frac{\partial}{\partial (kr)}
+\left[(kr)^{D/2} J_{D/2}(kr) \right] \, dr
+\notag \\
+&=
+-\frac{(2\pi)^{D/2}}{k^{D-1}} \frac{1}{k}
+k^{D/2} J_{D/2}(k).
+\notag \\
+&=
+-\frac{(2\pi)^{D/2}}{k^{D/2}} J_{D/2}(k).
+\end{align}
+
+
+Using the above relation, \eqref{eq:gammahs}
+can be rewritten as
+\[
+  \tilde{\gamma}(k) = \tilde{f}(k) \, y(1).
+\]
+
+
+
 
 \subsection{OZ relation}
 
 The OZ relation is
-\[
+\begin{equation}
   1 - \rho \tilde c(\vk)
 =
  [1 + \rho \tilde h(\vk)]^{-1}.
-\]
+ \label{eq:ozsymm}
+\end{equation}
+%
 with $\vk = 0$, we get
 \[
   1 - \rho \tilde c(\vct 0)
@@ -1570,12 +1705,388 @@ with $\vk = 0$, we get
  [1 + \rho \tilde h(\vct 0)]^{-1}.
 \]
 or
-\[
+\begin{equation}
   1 - \rho \int c(\vr) \, d\vr
 =
  \left[1 + \rho \int h(\vr) \, d\vr \right]^{-1}.
+ \label{eq:ozr}
+\end{equation}
+
+
+From the \eqref{eq:ozsymm}
+\[
+  (1 - \rho \tilde{c}) (1 + \rho \tilde{h}) = 1.
 \]
-This expression is equal to $\partial_\rho (\beta P)$.
+So
+\[
+  \rho \tilde{h} - \rho \tilde{c} - \rho^2 \tilde{c} \tilde{h} = 0,
+\]
+or
+\[
+   \tilde{h} = \tilde{c} + \rho \tilde{c} \tilde{h},
+\]
+which is usual OZ form.
+
+
+
+\subsection{Compressibility-route virial coefficients}
+Both sides of \eqref{eq:ozr}
+are equal to $\partial_\rho (\beta P)$.
+\begin{equation*}
+  \partial_\rho (\beta \, P)
+=
+ \left[1 + \rho \int h(\vr) \, d\vr \right]^{-1}.
+\end{equation*}
+
+Now expand the above equation in $\rho$,
+\[
+  \sum_n n B_n \rho^{n-1}
+=
+  \sum_n
+  \Bigl\{
+    \left[1 + \rho \int h(\vr) \, d\vr \right]^{-1}
+  \Bigr\}_{n - 1} \, \rho^{n-1}.
+\]
+So
+\[
+  B_n
+=
+\frac{1}{n}
+  \Bigl\{
+    \left[1 + \rho \int h(\vr) \, d\vr \right]^{-1}
+  \Bigr\}_{n - 1}.
+\]
+
+
+
+\section{Appendix F: Kirkwood equation}
+
+\subsection{Expansion of correlation functions}
+
+The index $l$ is associated to $\rho$,
+and it indicates the number black dots.
+%
+The index $m$ is associated to $\xi$,
+and it indicates the number of $f$-bonds associated to root $1$.
+\begin{align*}
+\omega(\vr;\xi)
+&=
+\sum_{l = 1}^\infty
+\sum_{m = 1}^l
+\omega_{l, m} \rho^l \xi^m
+\\
+&=
+  {
+  \begin{tikzpicture}[baseline=1.2mm]
+    \newcommand{\sz}{2.0mm}
+    \node (r1) at (-\sz, 0) [whitedot,label=left:{\footnotesize$1$}]{};
+    \node (r2) at ( \sz, 0) [whitedot,label=right:{\footnotesize$2$}]{};
+    \node (r3) at (   0, 2*\sz) [blackdot,label=above:{\footnotesize$3$}]{};
+    \draw (r1) -- (r3) -- (r2);
+  \end{tikzpicture}
+  }
+  + \cdots
+\end{align*}
+
+For the cavity distribution function
+\begin{align*}
+y(\vr;\xi)
+&=
+\sum_{l = 0}^\infty
+\sum_{m = 0}^l
+y_{l, m} \rho^l \xi^m
+\\
+&=
+1+
+\sum_{l = 1}^\infty
+\sum_{m = 1}^l
+y_{l, m} \rho^l \xi^m
+\\
+&=
+  ({
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.0mm}
+    \node (r1) at (-\sz, 0) [whitedot,label=below:{\footnotesize$1$}]{};
+    \node (r2) at ( \sz, 0) [whitedot,label=below:{\footnotesize$2$}]{};
+  \end{tikzpicture}
+  })
+  +
+  {
+  \begin{tikzpicture}[baseline=1.2mm]
+    \newcommand{\sz}{2.0mm}
+    \node (r1) at (-\sz, 0) [whitedot,label=left:{\footnotesize$1$}]{};
+    \node (r2) at ( \sz, 0) [whitedot,label=right:{\footnotesize$2$}]{};
+    \node (r3) at (   0, 2*\sz) [blackdot,label=above:{\footnotesize$3$}]{};
+    \draw (r1) -- (r3) -- (r2);
+  \end{tikzpicture}
+  }
+  + \cdots
+\end{align*}
+
+
+For the kernel
+\begin{align*}
+K(\vr;\xi)
+&=
+\sum_{l = 0}^\infty
+\sum_{m = 1}^{l+1}
+K_{l, m} \rho^l \xi^m
+\\
+&=
+  ({
+  \begin{tikzpicture}[baseline=-1.0mm]
+    \newcommand{\sz}{2.0mm}
+    \node (r1) at (-\sz, 0) [whitedot,label=below:{\footnotesize$1$}]{};
+    \node (r2) at ( \sz, 0) [whitedot,label=below:{\footnotesize$2$}]{};
+    \draw (r1) -- (r2);
+  \end{tikzpicture}
+  })
+  +
+  \frac{1}{2} \,
+  {
+  \begin{tikzpicture}[baseline=1.2mm]
+    \newcommand{\sz}{2.0mm}
+    \node (r1) at (-\sz, 0) [whitedot,label=left:{\footnotesize$1$}]{};
+    \node (r2) at ( \sz, 0) [whitedot,label=right:{\footnotesize$2$}]{};
+    \node (r3) at (   0, 2*\sz) [blackdot,label=above:{\footnotesize$3$}]{};
+    \draw (r1) -- (r3) -- (r2) -- (r1);
+  \end{tikzpicture}
+  }
+  + \cdots
+\end{align*}
+
+
+
+\subsection{Eq. (F4)}
+
+From Eq. (F3)
+\begin{align*}
+  \sum_{l=0}^\infty
+  \sum_{m=1}^{l+1}
+  K_{l,m} \rho^l \xi^m
+&=
+  f
+  \int_0^\xi d\xi'
+  \sum_{l=0}^\infty
+  \sum_{m=0}^l
+  y_{l,m} \rho^l {\xi'}^m
+\\
+&=
+  f
+  \sum_{l=0}^\infty
+  \sum_{m=0}^l
+  y_{l,m} \rho^l \frac{ \xi^{m+1} }{m+1}
+\\
+&=
+  \sum_{l=0}^\infty
+  \sum_{m=1}^{l+1}
+  \frac{ f \, y_{l,m-1} }{m} \rho^l \xi^{m}
+\end{align*}
+
+Thus
+\[
+  K_{l,m} = f y_{l, m-1}/m,
+\]
+
+
+Geometrically, for each graph in $y(\vr)$,
+we join the roots by an $f$-bond,
+and divide the weight by $m$,
+which is number of $f$-bonds adjacent to root 1
+in $y(\vr)$.
+
+
+
+\subsection{Eq. (F5)}
+
+From Eq. (F2)
+\begin{align*}
+  \sum_{l=1}^\infty
+  \sum_{m=1}^{l}
+  \tilde\omega_{l,m} \rho^l \xi^m
+&=
+  \rho
+  \,
+  \sum_{i=1}^\infty
+  \sum_{m=1}^{i+1}
+  \tilde K_{i,m} \rho^i \xi^m
+ \;
+  \sum_{j=0}^\infty
+  \tilde h_{j} \rho^j
+\\
+&=
+  \sum_{i=1}^\infty
+  \sum_{j=0}^\infty
+  \sum_{m=1}^{i+1}
+  \tilde K_{i,m}
+  \tilde h_j
+  \, \rho^{i+j+1} \xi^m.
+\end{align*}
+
+So
+\[
+  \tilde \omega_{l,m}
+=
+  \sum_{j = 0}^{l-1}
+  \tilde K_{l - j - 1, m}
+  \tilde h_{j}.
+\]
+
+
+
+\subsection{Eq. (F6)}
+
+The exponentiation satisfies $\partial_\rho y = y \partial_\rho \omega$.
+\begin{align*}
+\sum_{l = 1}^\infty
+\sum_{m = 1}^l
+l \, y_{l, m} \rho^{l-1} \xi^m
+&=
+\sum_{i = 0}^\infty
+\sum_{n = 0}^i
+y_{i, n} \rho^{i} \xi^n
+\,
+\sum_{j = 1}^\infty
+\sum_{k = 1}^j
+j \, \omega_{j, k} \rho^{j-1} \xi^k
+\\
+&=
+\sum_{i = 0}^\infty
+\sum_{n = 0}^i
+\sum_{j = 1}^\infty
+\sum_{k = 1}^j
+j \, y_{i, n} \,
+\omega_{j, k} \rho^{i+j-1} \xi^{n+k}
+\end{align*}
+
+Thus,
+\[
+  l \, y_{l,m}
+=
+\sum_{j = 1}^{l} \sum_{k = 1}^j
+j \, y_{i, n} \, \omega{j, k}.
+\]
+The index $k$ satisfies
+\begin{align*}
+   0 \le n = m - k \le i
+\end{align*}
+or
+\[
+  m - (l - j) = m - i \le k \le m.
+\]
+
+
+\subsection{Eq. (F7)}
+
+Since $1+h = g = (1+f) \,y$, we have
+\[
+  \sum_{l = 0}^\infty (\delta_{l,0} + h_{l}) \rho^l
+=
+  \sum_{l = 0}^\infty
+  \left[
+    (1 + f) \sum_{m = 0}^l y_{l, m} \xi^m \Big|_{\xi = 1}
+  \right] \rho^l
+\]
+
+So
+\[
+  \delta_{l, 0} + h_l
+  = (1 + f) \sum_{m=0}^l
+  y_{l, m}.
+\]
+
+
+
+\section{Appendix H: Expansion of the correlation functions at a finite density}
+
+
+\subsection{The $l = 1$ case}
+
+The general formula is
+\begin{align}
+  \rho \tilde h_{l;\rho}
+&=
+\left\{
+  \left[
+    1 - \rho \, \tilde c
+    - \sum_{j = 1}^l
+        (\rho \tilde c_{j;\rho} + \tilde c_{j-1;\rho})
+          \, \Delta \rho^j
+  \right]^{-1}
+\right\}_{l;\rho}
+\notag \\
+&\hphantom{=}- \tilde h_{l-1; \rho}.
+\end{align}
+
+For the $l = 1$ case, we have
+\begin{align*}
+  \rho \, \partial_\rho \tilde h
+&=
+  \rho \, \tilde h_{1;\rho}
+\\
+&=
+\left\{
+  \left[
+    1 - \rho \, \tilde c
+    - (\rho \, \tilde c_{1;\rho} + \tilde c_{0;\rho})
+          \, \Delta \rho
+  \right]^{-1}
+\right\}_{1; \rho}
+  - \tilde h_{0; \rho}
+\\
+&=
+(1 - \rho \, \tilde c)^{-1} \,
+\left[
+  1 - \frac{ (\rho \, \partial_\rho \tilde c + \tilde c) }
+           { 1 - \rho \, \tilde c }
+\right]^{-1}_{1;\rho}
+- \tilde h,
+\\
+&=
+(1 - \rho \, \tilde c)^{-2} \,
+(\rho \, \partial_\rho \tilde c + \tilde c)
+- \tilde h,
+\\
+&=
+(1 + \rho \, \tilde h)^2 \,
+\rho \, \partial_\rho \tilde c
++ (1 + \rho \, \tilde h) \, \tilde h
+- \tilde h,
+\\
+&=
+(1 + \rho \, \tilde h)^2 \,
+\rho \, \partial_\rho \tilde c
++ \rho \, \tilde h^2,
+\end{align*}
+where we have use
+$\tilde c_{1;\rho} = \partial_\rho \tilde c$,
+$\tilde h_{1;\rho} = \partial_\rho \tilde h$,
+$\tilde c_{1;\rho} = \tilde c$,
+$\tilde h_{1;\rho} = \tilde h$,
+and
+\[
+  (1 - \rho \tilde c)^{-1}
+=
+  1 + \rho \tilde h.
+\]
+
+
+So
+\begin{align*}
+\partial_\rho \tilde h
+&=
+(1 + \rho \, \tilde h)^2 \,
+\partial_\rho \tilde c
++ \tilde h^2,
+\end{align*}
+and since $t = h - c$, we have
+\begin{align*}
+\partial_\rho \tilde t
+&=
+(2 + \rho \, \tilde h) \rho \, \tilde h \,
+\partial_\rho \tilde c
++ \tilde h^2.
+\end{align*}
 
 
 
@@ -1663,6 +2174,73 @@ the left hand side can be written as
 \]
 
 
+
+\subsection{Derivatives w.r.t. $\zeta$ in the PY equation}
+
+
+
+For $\partial_\zeta c$,
+we have $c + t = (1 + f) \, y$,
+with $y = 1 + t$,
+and
+\begin{align*}
+\partial_\zeta c
++ \partial_\zeta t
+&= \partial_\zeta [(1+f)y]
+=
+(1 + f) \partial_\zeta t
++ (1 + t) \, \partial_\zeta f.
+\end{align*}
+
+So
+\begin{align}
+\partial_\zeta c
+=
+f \, \partial_\zeta t
++ (1+t) \partial_\zeta f.
+\label{eq:dcdzeta}
+\end{align}
+
+Using \eqref{eq:dcdzeta},
+\begin{align*}
+  t\, \partial_\zeta c - c \, \partial_\zeta t
+&=
+  t \, f \, \partial_\zeta t
++ t \, (1 + t) \, \partial_\zeta f
+- f \, (1 + t) \, \partial_\zeta t
+\\
+&=
+- f \, \partial_\zeta t
++ t \, (1 + t) \, \partial_\zeta f.
+\end{align*}
+
+
+
+\subsection{$\partial_\zeta c$ in the HNC equation}
+
+For $\partial_\zeta c$, we have
+$c + t = (1 + f) \, y$
+with
+$y = \exp t$,
+and
+\begin{align*}
+  \partial_\zeta c + \partial_\zeta t
+&= (1 + f) \, \partial_\zeta y
++ y \, \partial_\zeta f
+\\
+&= (1 + f) \, y \, \partial_\zeta t
++ y \, \partial_\zeta f
+\\
+&= (1 + c + t) \, \partial_\zeta t
++ y \, \partial_\zeta f
+\end{align*}
+
+So
+\begin{align*}
+  \partial_\zeta c
+&= (c + t) \, \partial_\zeta t
++ y \, \partial_\zeta f.
+\end{align*}
 
 %\bibliography{liquid}
 \end{document}

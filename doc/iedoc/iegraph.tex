@@ -1,8 +1,9 @@
 %\documentclass{revtex4-1}
 % options: aip, jcp, reprint, preprint
-%\documentclass[preprint]{revtex4-1}
+\documentclass[preprint]{revtex4-1}
 %\documentclass[notitlepage,preprint]{revtex4-1}
-\documentclass[aip,jcp,reprint,superscriptaddress]{revtex4-1}
+%\documentclass[aip,jcp,reprint,superscriptaddress]{revtex4-1}
+%\documentclass[reprint]{revtex4-1}
 
 \usepackage{amsmath}
 \usepackage{amsthm}
@@ -46,6 +47,8 @@
 \newcommand{\A}{\mathcal{A}}
 % to denote a group
 \newcommand{\G}{\mathsf{G}}
+% to denote a dihedral group
+\newcommand{\D}{\mathsf{D}}
 \newcommand{\Hgroup}{\mathsf{H}}
 \newcommand{\Aut}{\mathrm{Aut}}
 
@@ -71,13 +74,30 @@
 %  Galveston, Texas 7755, USA
 %}
 \begin{abstract}
-  We review a few classic formulae that compute thermodynamic quantities
+We review a few classic formulae that compute thermodynamic quantities
   and virial coefficients from correlation functions.
+%
+For the Percus-Yevick closure,
+  we give a simplified version \eqref{eq:pyPsimplified}
+  of Baxter's pressure formula
+  and show that it produces the same virial coefficients
+  as the compressibility-route values.
+%
+We also derive an approximate formula \eqref{eq:pyddpressure}
+  for the second density derivative of pressure.
+%
+For the hypernetted-chain closure,
+  we show that the classical formulae
+  for the free energy \eqref{eq:hncF}
+  and chemical potential \eqref{eq:hncmu}
+  produce the same virial coefficients
+  as the virial-route pressure formula.
 \end{abstract}
 
 \maketitle
 
 
+%\tableofcontents
 
 
 
@@ -896,7 +916,7 @@ where the second step follows from
 
 
 
-\subsection{Graphic interpolation of the closure}
+\subsection{Graphic interpretation of the closure}
 
 
 
@@ -927,7 +947,7 @@ Conversely,
 
 
 
-\section{\label{sec:py}PY approximation and polygon graphs}
+\section{\label{sec:py}PY equation and polygon graphs}
 
 
 
@@ -941,17 +961,19 @@ We now characterize the graphs involved in $c(\vr)$
 %
 A \emph{polygon graph} $G$ satisfies
   %
-  1) the vertices of $G$ can be placed
+  (i) the vertices of $G$ can be placed
   %on a polygon inscribed in a circle,
   on a convex polygon
   with no edges intersecting,
   %and labelled from 1 to $n$ in a clockwise fashion,
   %such that no two edges are intersecting;
   %
-  %2) the consecutive vertices
+  %(ii) the consecutive vertices
   %$1$ and $2$, $2$ and $3$, \ldots,
   %or $n$ and $1$ ($\equiv n+1$) are adjacent.
-  2) all sides of the polygon are edges.
+  (ii) all sides of the polygon are edges,
+  %
+  (iii) the two roots lie on a side of the polygon (unless indicated otherwise).
 %
 We label the vertices from $1$ to $n$ in a clockwise fashion,
   and mark vertices $1$ and $n$ as the only two roots.
@@ -1187,7 +1209,7 @@ We now use polygon and pie graphs to characters
   graphs in the PY equation.
 
 \begin{lemm}
-Under the PY closure,
+In the PY equation,
   $c(\vr)$ is the unweighted sum of
   all nonequivalent polygon graphs,
   and $t(\vr)$ is that of all nonequivalent
@@ -1227,7 +1249,7 @@ We can similarly show the converse:
 %we say that
 %%
 %\begin{lemm}
-%Under the PY closure,
+%In the PY equation,
 %  $c(\vr)$ is the sum of
 %  all nonequivalent \emph{labelled} polygon graphs $G$,
 %  each weighted by $[n(G) - 2]!$,
@@ -1299,7 +1321,7 @@ In summary,
 %  that can be reduced to the same polygon pack.
 %%
 \begin{lemm}
-Under the PY-closure,
+In the PY equation,
   $\rho^2 \int c(\vr) \, d\vr$ is the sum of
   all nonequivalent polygon packs $G$:
   %
@@ -1597,7 +1619,7 @@ rooted at the joints
 $(v_1, v_2)$, $(v_2, v_3)$, \dots, $(v_l, v_1)$, respectively.
 %
 The permutations of $G_1$, $G_2$, \dots, $G_l$ in the $l$-cycle
-form a subgroup $\Hgroup_L$ of the dihedral group $D_l$,
+form a subgroup $\Hgroup_L$ of the dihedral group $\D_l$,
 whose order is $2l$.
 %
 The number of different ways of the circular composition
@@ -1627,8 +1649,8 @@ because
 In other words,
 if a vertex permutation preserves the joints in $L$,
 it can only be built on
-(1) cycling and reflecting the cycle elements, and
-(2) exchanging the vertices in each $G_i$.
+(i) cycling and reflecting the cycle elements, and
+(ii) exchanging the vertices in each $G_i$.
 Taking the order of \eqref{eq:GLfactor} yields
 $|\G_L| = |\Hgroup_L| \cdot s(G_1) \cdots s(G_l)$.
 \end{proof}
@@ -1704,7 +1726,12 @@ Summing \eqref{eq:ccycling} over $l$ yields
 where
 \begin{align}
   \tilde{T}(\vk)
-\equiv
+&\equiv
+    \frac{ \big[ \rho \, \tilde{c}(\vk) \big]^3 } { 3 }
+  + \frac{ \big[ \rho \, \tilde{c}(\vk) \big]^4 } { 4 }
+  + \cdots
+\notag \\
+&=
   - \log\big[1 - \rho \, \tilde{c}(\vk) \big]
   - \rho \, \tilde{c}(\vk)
   - \frac{ \big[ \rho \, \tilde{c}(\vk) \big]^2 } { 2 }.
@@ -1798,7 +1825,7 @@ By using \eqref{eq:zerosep} and adding the ideal-gas part,
 \begin{align*}
       \beta P
     =
-      \int \log\big[1 - \rho \tilde{c}(\vk)\big] \, \dvk
+      \int \log\big[1 - \rho \, \tilde{c}(\vk)\big] \, \dvk
       -\frac{ \rho \, t(\vct{0}) + \rho^2 \tilde{c}(\vct0) }{2}.
 \end{align*}
 %
@@ -1864,7 +1891,19 @@ with respect to $\rho$ and using \eqref{eq:intdlogrhoc} yields
 The second term vanishes because of the PY closure \eqref{eq:py}:
 $c \, \partial_\rho t = (1 + \, t) \, f \, \partial_\rho t = (1 + t) \, \partial_\rho c$.
 %
-We then recover \eqref{eq:crcompr}.
+Thus,
+\[
+  -\partial_\rho ( \beta \Pex )
+=
+  \rho \int c \, d\vr,
+\]
+which is \eqref{eq:crcompr}.
+
+This demonstration proves that
+\eqref{eq:crcompr} and \eqref{eq:baxterpressure}
+produce the same virial coefficients,
+since the two formulae differ only
+by a differentiation with respect to the density, $\rho$.
 
 
 
@@ -1900,12 +1939,12 @@ Note that this relation is approximate
 
 
 
-\section{\label{sec:hnc}HNC approximation}
+\section{\label{sec:hnc}HNC equation}
 
 
 \subsection{$c$-graphs}
 
-The HNC closure includes
+The HNC equation includes
   more graphs than the PY closure.
 %
 For example, $c(\vr)$ contains
@@ -2027,7 +2066,7 @@ Then, similar to Lemma \ref{thm:pycrsum},
   we have
 
 \begin{lemm}
-Under the HNC closure,
+In the HNC equation,
 %
 $c(\vr)$
   is the sum of all nonequivalent $c$-graphs $G$,
@@ -2079,10 +2118,15 @@ Next, we show every graph in the expansion of $y(r)$
 %
 Since the HNC closure is
 \[
-  y(\vr) = \exp t(\vr) = 1 + t(\vr) + t^2(\vr)/2 + \cdots,
+  y(\vr)
+= \exp t(\vr)
+=
+1 + t(\vr)
++ \frac{ t^2(\vr) }{ 2! }
++ \frac{ t^3(\vr) }{ 3! }+ \cdots,
 \]
 every graph $M$ in the graphic expansion of $y(\vr)$,
-  specifically, in the expansion of $t^m(\vr)/m!$ ($m \ge 0$),
+  or, specifically, in the expansion of $t^m(\vr)/m!$ ($m \ge 0$),
   is a $c$-bundle of $m$ $c$-chains,
   $H_1$, $H_2$, \dots, and $H_m$.
 %
@@ -2266,7 +2310,7 @@ Following an argument similar to the one leading to Lemma \ref{thm:pykappasum},
   we have
 
 \begin{lemm}
-Under the HNC closure,
+In the HNC equation,
 %
 $\rho^2 \int c(\vr) \, d\vr$
   is the sum of all nonequivalent $c$-packs $G$:
@@ -2297,8 +2341,11 @@ Define the following sum over all $c$-packs
   \A \equiv \sum_G \frac{ I(G) }{ s(G) },
   \label{eq:Adef}
 \end{equation}
-The sums obtained from whitening all possible pivots,
-adjacent pivots, and nonadjacent pivots
+The sums obtained from whitening,
+one at a time,
+all possible pivots,
+adjacent pivots,
+and nonadjacent pivots
 of all $c$-packs $G$ in $\A$
 are given by
 $\rho^2 \, c(\vr)$,
@@ -2306,7 +2353,7 @@ $\rho^2 \, f(\vr) \, y(\vr)$,
 and
 $\rho^2 \, [y(\vr) - t(\vr) - 1]$,
 respectively.
-\label{thm:whitenA}
+\label{thm:whitenAhnc}
 \end{lemm}
 
 
@@ -2349,13 +2396,14 @@ A sum over $c$-packs $G$
 then yields $\rho^2 \, c(\vr)$ by Lemma \ref{thm:hnccr}.
 
 By using Lemma \ref{thm:crsplit},
-  we can separate $c$-graphs with adjacent roots from nonadjacent ones,
+  we can separate the $c$-graphs with adjacent roots
+  from those with nonadjacent ones,
   and this yields the other two sums.
 \end{proof}
 
 
 
-Lemma \ref{thm:whitenA} can be
+Lemma \ref{thm:whitenAhnc} can be
 restated in terms of functional derivatives.
 %
 We define, for two arbitrary functions $\psi_0(\vr)$ and $\psi_1(\vr)$,
@@ -2418,7 +2466,7 @@ of nonadjacent ($\psi_0$) and adjacent ($\psi_1$) pivots,
 %
 and $\A(0,0)$ recovers \eqref{eq:Adef}.
 %
-Thus, Lemma \ref{thm:whitenA} can now be stated as
+Thus, Lemma \ref{thm:whitenAhnc} can now be stated as
 \begin{align*}
   \frac{\rho^2}{2} c(\vr)
 &=
@@ -2453,6 +2501,8 @@ the second equation becomes
   = \frac{1}{2} \, \rho^2 y(\vr).
   \label{eq:yrfunctional}
 \end{equation}
+The counterpart of \eqref{eq:yrfunctional} for the PY equation
+will be shown in Sec. \ref{sec:pyPalt}.
 
 
 
@@ -2523,7 +2573,7 @@ which shows that the expression \eqref{eq:hncFexA}
 corresponds to the virial-route result.
 
 Equation \eqref{eq:hncFexA} shows that the graphic sum
-in the HNC closure uses the same weight as
+in the HNC equation shares the same weight as
 the exact sum given in Sec. \ref{sec:bcsums}.
 %
 The only difference is that the former covers only $c$-packs,
@@ -2535,7 +2585,12 @@ For the chemical potential, we use the relation
   \muex = \partial_N(\Fex)_V = \partial_\rho(\Fex/V),
   \label{eq:muexdFex}
 \end{equation}
-and
+where,
+$N = \rho \, V$
+is the total number of particles
+(not to be confused with the order $n$).
+%
+Thus
 %The chemical potential can now be obtained as
 %
 \begin{align}
@@ -2547,6 +2602,8 @@ and
 \label{eq:hncmugsum}
 \end{align}
 where we have used $I(G) \propto \rho^{n(G)}$.
+
+
 
 
 
@@ -2999,8 +3056,9 @@ we get from differentiating \eqref{eq:hncF}:
   -2 \, \beta \, \muex = \rho \int (2\,c - h \, t) \, d\vr
   + \rho^2 \int (\partial_\rho c - h \, \partial_\rho t) \, d\vr.
 \]
-The second term vanishes because of the HNC closure
-  \eqref{eq:hnc}, or $1+h = (1+f) \, e^t$,
+The second term vanishes because of the HNC closure \eqref{eq:hnc},
+or
+$1+h = (1+f) \, \exp t$,
 %
   which implies $\partial_\rho h = (1+ h) \, \partial_\rho t$.
 %
@@ -3035,12 +3093,13 @@ and use it
 (a) to simplify Baxter's pressure formula,
 and
 (b) to show that \eqref{eq:hncF} and \eqref{eq:hncmu}
-produce the same virial coefficients as the virial-route pressure formula:
+produce the same virial coefficients as
+the virial-route pressure formula:
 \begin{equation}
   \beta \, \Pexv
 =
   - \frac{\rho^2}{2D}
-  \int (\vr \cdot \nabla\phi) g(\vr) \, d\vr.
+  \int (\vr \cdot \nabla\phi) \, g(\vr) \, d\vr.
 \label{eq:virialpressure}
 \end{equation}
 
@@ -3073,19 +3132,16 @@ $I^*(G;\rho, \zeta)$ is a homogeneous function of $\rho$, and
 
 
 
-The integral can be written in reduced coordinates
-$\vR_i = V^{-1/D} \vr_i$
+Now consider a scaling transform
+$\vr'_i = \rho^{1/D} \vr_i$
 as
 \begin{align*}
   I^*(G; \rho, \zeta)
-&= N^{n-1} \int \prod f(\zeta \, V^{1/D} \vR_{ij}) \, d\vR_2 \cdots d\vR_n
+&= \int \prod f(\zeta \, \rho^{-1/D} \vr'_{ij})
+        \, d\vr'_2 \cdots d\vr'_n
   \notag \\
-&= I^*(G; N, \zeta \, V^{1/D}) \\
-&= I^*(G; N, N^{1/D} \, \zeta \, \rho^{-1/D}),
+&= I^*(G; 1, \zeta \, \rho^{-1/D}).
 \end{align*}
-where
-$N = V \rho$ is the number of particles
-(not to be confused to with the order $n$).
 %
 It follows that
 \begin{align}
@@ -3110,7 +3166,7 @@ Using \eqref{eq:drhodzeta} yields,
   -D \, \rho \, \partial_\rho A^*(\rho, \zeta)
   \\
 &=
-  \sum_G w(G) \, [n(G) - 1] \, I^*(G; \rho, \zeta).
+  \sum_G w(G) \, \bigl[ n(G) - 1 \bigr] \, I^*(G; \rho, \zeta).
 \end{align*}
 %or in terms of the graphic sums,
 %\begin{align*}
@@ -3159,7 +3215,7 @@ proportional to $\rho^n$, instead of $\rho^{n-1}$.
 
 
 
-\subsection{\label{sec:vtpy}Simplified Baxter's pressure formula (PY closure)}
+\subsection{\label{sec:vtpy}Simplified Baxter's pressure formula (PY equation)}
 
 
 
@@ -3181,14 +3237,15 @@ Then
 
 
 Using \eqref{eq:pykappasum} and \eqref{eq:crcompr}, we get
-\begin{align*}
+\begin{align}
   -\beta \, \Pex
   =
   \rho^2 \int c(\vr) \, d\vr
   + (1/D) \,
       \partial_\zeta \left( -\beta \Pex \right)
     \Big|_{\zeta = 1}.
-\end{align*}
+\label{eq:pyPsimp1}
+\end{align}
 %
 For the second term on the right hand side,
 we differentiate \eqref{eq:baxterpressure} with respect to $\zeta$,
@@ -3238,22 +3295,67 @@ where we have used
 &= \vr \cdot \nabla f.
   \label{eq:dfdzeta}
 \end{align}
-Note that \eqref{eq:dTdzeta} and \eqref{eq:dfdzeta} are general
+%
+Note that \eqref{eq:dTdzeta} and \eqref{eq:dfdzeta} are general,
 whereas the rest two are specific to the PY closure \eqref{eq:py},
 %
 Thus,
 \begin{equation}
   -\beta \Pex = \rho^2 \int
   \left\{ c(\vr)
-    + \frac{ \big[ 1 + t(\vr) \big]^2 (\vr \cdot \nabla f) }
+    + \frac{ \big[ t(\vr) + 1 \big]^2 (\vr \cdot \nabla f) }
            { 2 \, D }
   \right\} \, d\vr.
   \label{eq:pyPsimplified}
 \end{equation}
 
+For the hard-sphere fluid,
+$f'(r) = \delta(r - 1)$, and
+\begin{align}
+  -\beta \Pex
+&=
+  \rho^2 \tilde{c}(0)
+  +
+  \rho^2 \int
+    \frac{ \big[ t(r) + 1 \big]^2 r f'(r) }
+         { 2 \, D }
+  \, S_D \, r^{D-1} \, dr
+\notag
+\\
+&=
+  \rho^2
+  \Bigl\{
+    \tilde{c}(0)
+  +
+  \big[ t(1) + 1 \big]^2 \, B_2
+  \Bigr\}
+\notag
+\\
+&=
+  \rho^2
+  \bigl[
+    \tilde{c}(0)
+  +
+    c^2(1^-) \, B_2
+  \bigr],
+  \label{eq:pyPsimplifiedhs}
+\end{align}
+%
+where
+$S_D r^{D-1}$ is the surface area of a $D$-dimensional hypersphere of radius $r$,
+and $B_2 = S_D / (2D)$.
+%
+On the last line, we have also used the fact that
+$0 = g(\vr) = c(\vr) + t(\vr) + 1$
+for $|\vr| < 1$.
 
 
-Note that, although \eqref{eq:dfdzeta} is true,
+
+
+\subsection{Warning on derivatives with respect to $\zeta$}
+
+
+Note that although \eqref{eq:dfdzeta} is true,
 generally
 \[
   (\partial_\zeta c) \big|_{\zeta = 1}
@@ -3262,11 +3364,12 @@ generally
 \]
 This is because
 $\partial_\zeta c$ means $\partial_\zeta c(\vr; \zeta)$,
-in which \emph{every} $f$-bond in $c(\vr; \zeta)$
-is affected by $\zeta$.
+in which \emph{every} $f$-bond
+in the graphic expansion of $c(\vr; \zeta)$
+is affected by $\zeta$,
 %(with $\zeta$ set to unity only after the differentiation).
 %
-Thus,
+and thus,
 $c(\vr; \zeta) \ne c(\zeta \, \vr)$.
 %
 %The distinction is clearly demonstrated in
@@ -3340,8 +3443,188 @@ Thus, $J^*_1 \big|_{\zeta = 1} \ne J^*_2 \big|_{\zeta = 1}$. %, even with $\zeta
 
 
 
+\subsection{\label{sec:pyPalt}
+Alternative derivation of \eqref{eq:pyPsimplified} (PY equation)}
 
-\subsection{\label{sec:vthnc}Virial-route nature of \eqref{eq:hncF} and \eqref{eq:hncmu} (HNC closure)}
+
+We now explain the origin of the term $(t+1)^2$ in \eqref{eq:pyPsimplified}.
+%
+We first define the \emph{extended polygon graph}
+to allow any intra-face pair, instead of one on a side,
+as the roots.
+
+
+\begin{lemm}
+In the PY equation,
+$t^2(\vr)/2$
+is the weighted sum of all nonequivalent extended polygon graphs $G$
+with the roots being a nonadjacent intra-face pair,
+with the weight of $G$ given by $1/s(G)$;
+$\bigl[ t(\vr) + 1 \bigr]^2/2$
+is the responding sum of extended polygon graphs
+with adjacent roots.
+\end{lemm}
+
+\begin{proof}
+If an extended polygon graph $G$ has a nonadjacent intra-face pair,
+  it can be viewed as a parallel composition
+  of two pie graphs joined at the pair.
+%
+Thus, $G$ exists in the expansion of $t^2(\vr)/2$
+  by Lemma \ref{thm:pycrsum}.
+%
+Conversely,
+  each graph $G$ in the expansion of $t^2(\vr)/2$
+  takes the form of $H_1 \cdot H_2$,
+  where $H_1$ and $H_2$ are pie graphs.
+%
+Now for the weight.
+%
+If $H_1$ and $H_2$ are identical,
+  the weight is $1/2$,
+  which is equal to the inverse of
+  the symmetry number $s(G) = 2$
+  (for we can collectively exchange
+  the labels of the non-root vertices in $H_1$
+  and those in $H_2$).
+%
+Otherwise,
+  we have a symmetric copy of $G' = H_2 \cdot H_1$
+  in the expansion.
+So the weight $2\cdot(1/2) = 1$ of $H_1 \cdot H_2$
+  is equal to the inverse symmetry number $s(G) = 1$.
+
+For the second part regarding adjacent pairs,
+  we observe that
+  if an adjacent pair is on a side of a polygon,
+  then the sum gives $f(\vr) \, [1/2 + t(\vr)]$,
+  by Lemma \ref{thm:pycrsum}
+  (with the weight of the $f$-graph
+  modified by a factor of $1/2$).
+%
+Otherwise,
+  $G$ can be viewed as the parallel composition
+  of the $f$-graph and two pie graphs $H_1$ and $H_2$.
+%
+The sum is $f(\vr) \, t^2(\vr)/2$,
+  following the above reasoning.
+%
+The sum the two cases gives
+  $f(\vr) \, \bigl[ t(\vr) + 1 \bigr]^2/2$.
+\end{proof}
+
+
+
+By using a proof similar to that of
+Lemma \ref{thm:whitenAhnc},
+we get
+
+\begin{lemm}
+Redefine $\A$ in \eqref{eq:Adef}
+such that the sum is carried over all polygon packs.
+Then, the sums obtained from whitening,
+one at a time,
+all possible
+adjacent and nonadjacent intra-face pairs
+of all polygon pack $G$ in $\A$
+are given by
+$\frac{1}{2} \, \rho^2 \, f(\vr) \, [t(\vr) + 1]^2$
+and
+$\frac{1}{2} \, \rho^2 \, t^2(\vr)$,
+respectively.
+\label{thm:whitenApy}
+\end{lemm}
+
+
+The above result can also be written
+in terms of functional derivatives.
+%
+We borrow the definitions in
+\eqref{eq:Apsi} and \eqref{eq:Ipsi},
+under two modifications:
+(i) the sum over $G$ in \eqref{eq:Apsi}
+is carried over all polygon packs;
+(ii) $P(G)$ is replaced to the set of intra-face pairs.
+%
+Note that every edge is an unordered intra-face pair, so
+%
+\begin{align*}
+\frac{\rho^2}{4} \, f(\vr) \, \bigl[ t(\vr) + 1 \bigr]^2
+&=
+\left.
+\frac{ \delta \A(\psi_0, \psi_1) } { \delta \psi_1(\vr) }
+\right|_{\psi_0 = \psi_1 = 0},
+\\
+\frac{\rho^2}{4} \, t^2(\vr)
+&=
+\left.
+\frac{ \delta \A(\psi_0, \psi_1) } { \delta \psi_0(\vr) }
+\right|_{\psi_0 = \psi_1 = 0}.
+\end{align*}
+%
+The first equation can also be written as
+\begin{equation}
+  \frac{ \delta \A } { \delta f(\vr)}
+=
+  \frac{ \rho^2 } {4}
+  \bigl[ t(\vr) + 1 \bigr]^2,
+  \label{eq:yrfunctionalhnc}
+\end{equation}
+%
+which is the counterpart of \eqref{eq:yrfunctional}
+in the HNC case.
+
+
+We now have a new derivation of \eqref{eq:pyPsimplified}:
+%
+\begin{align*}
+  \partial_\zeta (-\beta \Pex) \big|_{\zeta = 1}
+&=
+  2 \, (\partial_\zeta \A)_{\zeta = 1}
+\\
+&=
+  2 \int \frac{ \delta \A } { \delta f(\vr) } \,
+  \big[ \partial_\zeta f(\vr) \big]_{\zeta = 1} \, d\vr
+\\
+&=
+  \frac{\rho^2}{2}
+  \int \bigl[ t(\vr) + 1 \bigr]^2 \,
+  (\vr \cdot \nabla f) \, d\vr.
+\end{align*}
+%
+Using this in \eqref{eq:pyPsimp1} yields \eqref{eq:pyPsimplified}.
+
+Similarly,
+for the derivative with respect to $\beta$, we have
+\begin{align*}
+  \partial_\beta (\beta \Pex)
+&=
+  -2 \, \partial_\beta \A
+%\\
+%&=
+=
+  -2 \int \frac{ \delta \A } { \delta f(\vr) } \,
+  \partial_\beta f(\vr) \, d\vr
+\\
+&=
+  \frac{\rho^2}{2}
+  \int \bigl[ t(\vr) + 1 \bigr]^2 \,
+  \big[ f(\vr) + 1 \bigr] \,
+  \phi(\vr) \, d\vr
+\\
+&=
+  \frac{\rho^2}{2}
+  \int
+  \bigl[ t(\vr) + 1 \bigr] \,
+  \phi(\vr) \,
+  g(\vr) \,
+  d\vr.
+\end{align*}
+%
+
+
+
+\subsection{\label{sec:vthnc}Virial-route nature of \eqref{eq:hncF} and \eqref{eq:hncmu} (HNC equation)}
 
 Here, we derive \eqref{eq:hncFexA} from the virial theorem.
 %
@@ -3360,7 +3643,7 @@ Differentiating $\A$ with respect to $\zeta$ yields
 &=
   -\frac{ \beta \, \rho^2}{2}
   \int (\vr \cdot \nabla \phi) \, g(\vr) \, d\vr
-= \beta \, \Pexv,
+= D \, \beta \, \Pexv,
 \end{align*}
 where we have used \eqref{eq:yrfunctional},
 \eqref{eq:dfdzeta}, and \eqref{eq:virialpressure}.
@@ -3412,7 +3695,14 @@ for it obtained from differentiating $\Fex$
 with respect to $\rho$
 [see \eqref{eq:muexdFex}].
 %
-Below we verify this algebraically.
+In other words,
+the virial coefficients computed from
+\eqref{eq:hncF} and \eqref{eq:hncmu}
+are the same as those computed from
+\eqref{eq:virialpressure}.
+%
+Below we verify this algebraically
+without using \eqref{eq:yrfunctional}.
 
 We now differentiate \eqref{eq:hncF} with respect to $\zeta$,
 \begin{align}
@@ -3491,7 +3781,7 @@ Thus, when the roots of a graph $H$ in $\log y(\vr)$
 
 
 Now consider a particular $G$,
-  which has $K$ vertices $v_1, \dots, v_K$ adjacent to the root.
+  in which $K$ vertices $v_1, \dots, v_K$ are adjacent to the root.
 %
 We collect all graphs $H$ that can be reduced to $G$
   by the above root merging (see below).
