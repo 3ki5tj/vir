@@ -247,7 +247,9 @@ Now applying the above formula to the $n = 2$ yields
 \begin{equation}
 B_2^{(v)}
 =
-y_0(1) S_D(1) = S_D(1).
+\frac{1}{2D} \, y_0(1) \, S_D(1)
+=
+\frac{1}{2D} \, S_D(1).
 \label{eq:B2v}
 \end{equation}
 Here we have used $y(r) = 1$, so $y_l(r) = \delta_{l, 0}$,
@@ -314,8 +316,6 @@ Using this in Eq. \eqref{eq:B2v} yields
   B_2^{(v)}
 =
 \frac{ \pi^{D/2} } { D \Gamma(D/2) }
-=
-\frac{ S_D(1) } { 2 \, D }.
 \]
 
 
@@ -323,7 +323,19 @@ Using this in Eq. \eqref{eq:B2v} yields
 \subsection{Baxter's pressure formula}
 
 Here, we will give some key steps, see also the supplemental material
-for missing steps
+for the missing steps.
+%
+The formula is
+\begin{align}
+\beta \, P
+=
+\int
+    \log(1-\rho\tilde{c})
+   \, \dvk
+  -
+    \frac{\rho \, t(\vct{0}) + \rho^2 \tilde{c}(\vct{0}) } {2}.
+  \label{eq:Pbaxter}
+\end{align}
 
 First,
 \[
@@ -336,60 +348,95 @@ First,
 \]
 Differentiating with respect to $\rho$ yields
 \begin{align*}
-\partial_\rho \log[1 - \rho \tilde{c}(\vk)]
+\partial_\rho \log[1 - \rho \, \tilde{c}(\vk)]
 &=
 -[1
-  + \rho \tilde{c}
-  + (\rho \tilde{c})^2
+  + \rho \, \tilde{c}
+  + (\rho \, \tilde{c})^2
   + \dots
-  ] \partial_\rho (\rho \tilde c)
+  ]
+  \,
+  \partial_\rho (\rho \, \tilde c)
   \notag \\
 &=
--(1 + \rho \tilde h) \partial_\rho \, (\rho \tilde c).
+-(1 + \rho \, \tilde h)
+\, \partial_\rho \, (\rho \, \tilde c).
 \end{align*}
 %
 Then integrating over $\vr$ yields
 \begin{align*}
-  & \int \partial_\rho \log[1 - \rho \tilde{c}(\vk)] \dvk \\
-  &= -\int [1 + \rho \tilde{h}(\vk)] \, \partial_\rho [\rho \tilde{c}(\vk)] \dvk \\
-  &= -\rho c(\vct 0)
-  - \rho \int h(\vr) \, \partial_\rho [\rho c(\vr)] \, d\vr \\
-  &= -\rho c(\vct 0)
+  & \int
+    \partial_\rho \log[1 - \rho \, \tilde{c}(\vk)] \dvk \\
+  &= -\int [1 + \rho \, \tilde{h}(\vk)] \,
+    \partial_\rho \bigl[ \rho \, \tilde{c}(\vk) \bigr] \dvk \\
+  &= -\partial_\rho[ \rho \, c(\vct 0) ]
+  - \rho \int h(\vr) \, \partial_\rho [\rho \, c(\vr)] \, d\vr \\
+  &= -\partial_\rho[ \rho \, c(\vct 0) ]
   - \rho \int
-  [h(\vr) \, c(\vr) + \rho h(\vr) \partial_\rho c(\vr)] \, d\vr.
+  [h(\vr) \, c(\vr) + \rho \, h(\vr) \, \partial_\rho c(\vr)] \, d\vr.
 \end{align*}
 %
 
 
-For the next piece, we have
-\[
-  \frac{1}{2} \int \rho \tilde{c}(\vk) \dvk = \frac{1}{2} \rho c(\vct{0}).
-\]
+%For the next piece, we have
+%\[
+%  \frac{1}{2} \int \rho \, \tilde{c}(\vk) \dvk
+%=
+%  \frac{1}{2} \rho \, c(\vct{0}).
+%\]
 
-Next, we will use the relation that
-$0 = g(\vct0) = 1 + c(\vct0) + t(\vct0)$.
-So
+Next,
+we will use the following relations.
+First,
+\[
+  0 = g(\vct0) = 1 + c(\vct0) + t(\vct0).
+\]
+Second,
 \begin{align*}
-   -\rho c(\vct{0}) - \rho
-  &= \rho t(\vct{0})
-  = \int \rho^2 c(\vk) h(\vk) \dvk \\
-  &= \int \rho^2 c(\vr) h(\vr) d\vr
+%   -\rho c(\vct{0}) - \rho
+%  &=
+  \frac{1}{2} \rho \, t(\vct{0})
+  %&= \frac{\rho^2}{2} \int c(\vk) \, h(\vk) \dvk
+   = \frac{\rho^2}{2} \int c(\vr) \, h(\vr) d\vr,
+\end{align*}
+whose derivative satisfies
+\begin{align*}
+  \frac{1}{2} \rho \, \partial_\rho t(\vct{0})
+  - \frac{1}{2} \, t(\vct{0})
+=
+  \frac{\rho^2}{2} \int \partial_\rho[ c(\vr) \, h(\vr)] \, d\vr,
 \end{align*}
 
 Using the above results, we get
 \begin{align}
-  &  \partial_\rho \int \left[
-    \log(1-\rho\tilde{c}) + \frac{ \rho \tilde{c} }{2}
-  \right] \, \dvk
-  +\partial_\rho \left[
-    \frac{\rho - \rho^2 \tilde{c}(\vct{0}) } {2}
+  &\hphantom{=}  \partial_\rho \int
+    \log(1-\rho \, \tilde{c})
+   \, \dvk
+  -\partial_\rho \left[
+    \frac{\rho \, t(\vct 0) + \rho^2 \, \tilde{c}(\vct{0}) } {2}
   \right] \notag \\
-  &= 1 -\int ( \rho \, h \, c + \rho^2 \, h \, \partial_\rho c ) \, d\vr
-  + \frac{1}{2} \partial_\rho \int \rho^2 (c \, h - c) \, d\vr \notag \\
-  &= 1
-  - \frac{1}{2} \int \rho^2 (h \, \partial_\rho c - c \, \partial_\rho h + \partial_\rho c) d\vr
+&= -\partial_\rho [\rho \, c(\vct 0)+ \tfrac{ \rho }{2} \, t(\vct 0) ]
+  -\int ( \rho \, h \, c + \rho^2 \, h \, \partial_\rho c ) \, d\vr
+  - \partial_\rho [\tfrac{\rho^2}{2} \, \tilde{c}(\vct 0)]
+\notag \\
+&= \partial_\rho [\rho + \tfrac{ \rho }{2} \, t(\vct 0)]
+  -t(\vct 0)
+  -\rho^2 \int h \, \partial_\rho c \, d\vr
+  - \tfrac{\rho^2}{2} \, \partial_\rho \tilde{c}(\vct 0)
+  - \rho \, \tilde{c}(\vct 0)
+\notag \\
+&= 1 + \tfrac{\rho}{2} \partial_\rho t(\vct 0)
+  - \tfrac{1}{2} t(\vct 0)
+  - \tfrac{\rho^2}{2} \int (2 h \, \partial_\rho c + \partial_\rho c) \, d\vr
   - \rho \int c \, d\vr \notag \\
-  &= 1
+&= 1 +
+  \tfrac{\rho^2}{2} \int \partial_\rho( c\, h) \, d\vr
+  - \tfrac{\rho^2}{2} \int (2 h \, \partial_\rho c + \partial_\rho c) \, d\vr
+  - \rho \int c \, d\vr \notag \\
+&= 1
+  - \tfrac{\rho^2}{2} \int (h \, \partial_\rho c - c \, \partial_\rho h + \partial_\rho c) \, d\vr
+  - \rho \int c \, d\vr \notag \\
+&= 1
   - \rho \int c \, d\vr.
   \label{eq:dPbaxter}
 \end{align}
@@ -401,13 +448,16 @@ Since
 \]
 we have
 \begin{align*}
-  h \partial_\rho c - c \partial_\rho h + \partial_\rho c
-&= t \partial_\rho c - c \partial_\rho t + \partial_\rho c \\
-&= (1 + t) f \partial_\rho t - f (1 + t) \partial_\rho t = 0.
+  h \, \partial_\rho c - c \, \partial_\rho h + \partial_\rho c
+&= t \, \partial_\rho c - c \, \partial_\rho t + \partial_\rho c \\
+&= (1 + t) \, f \, \partial_\rho t - f \, (1 + t) \, \partial_\rho t = 0.
 \end{align*}
 
 Equation \eqref{eq:dPbaxter} shows that Baxter's pressure
 formula is consistent with the compressibility route formula.
+
+For the second line, see the supplemental material
+and the notes for that part.
 
 
 
@@ -2215,6 +2265,10 @@ Using \eqref{eq:dcdzeta},
 \end{align*}
 
 
+\subsection{Simplified PY pressure, hard-sphere simplification}
+
+The relation $S_D/(2D) = B_2$ comes from \eqref{eq:B2v}.
+
 
 \subsection{$\partial_\zeta c$ in the HNC equation}
 
@@ -2241,6 +2295,7 @@ So
 &= (c + t) \, \partial_\zeta t
 + y \, \partial_\zeta f.
 \end{align*}
+
 
 %\bibliography{liquid}
 \end{document}

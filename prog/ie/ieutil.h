@@ -7,6 +7,17 @@
 
 
 
+/* define the default dimension */
+#ifndef D
+#ifdef DHT
+#define D 2
+#else
+#define D 3
+#endif
+#endif
+
+
+
 /* in case xdouble hasn't been included, include it here */
 #include "xdouble.h"
 
@@ -55,25 +66,6 @@
   FREE1DARR((arr)[0][0], (n1) * (n2) * (n3)); \
   FREE1DARR((arr)[0], (n1) * (n2)); \
   free(arr); }
-
-
-
-__inline static xdouble adjustrmax(xdouble rmax, int npt,
-    xdouble *dr, int *dm, int ffttype)
-{
-  /* fix dr such that r = 1 at the middle of bins dm - 1 and dm */
-  if ( ffttype ) { /* r(i) = dr * (i + .5) */
-    *dm = (int) (npt / rmax + 1e-8); /* number of bins in the core */
-    *dr = (xdouble) 1 / *dm;
-  } else {
-    *dm = (int) (npt / rmax + .5 + 1e-8);
-    *dr = (xdouble) 2 / (*dm*2 - 1);
-  }
-  rmax = *dr * npt;
-  printf("%d bins, %d within the hard core (dr %g), rmax %g\n",
-      npt, *dm, (double) *dr, (double) rmax);
-  return rmax;
-}
 
 
 
@@ -1608,121 +1600,60 @@ __inline static void snapshot_take(int l, int npt,
 
 
 
-
-
-#ifdef FFT
-/* get the coefficient c_l of spherical Bessel function jn(x)
- *  jn(x) = Sum_{l = 0 to n} c_l [sin(x) or cos(x)] / x^{n + l + 1},
- * where the l'th term is sin(x) if n + l is even, or cos(x) otherwise */
-static void getjn(long *c, int n)
+/* return the potential phi(r), and -r*phi'(r)*/
+static xdouble potlj(xdouble r, xdouble sig, xdouble eps, xdouble *ndphir)
 {
-  int i, k;
-  const char *fs[2] = {"sin(x)", "cos(x)"};
+  xdouble invr6 = (sig*sig)/(r*r), u;
 
-  c[0] = 1; /* j0 = sin(x)/x; */
-  if ( n == -1 ) c[0] = 2; /* if n == -1 (dim == 1), 2 cos(x) */
-  /* j_n(x)/x^n = (-1/x d/dx)^n j_0(x) */
-  for ( k = 1; k <= n; k++ ) { /* k'th round */
-    c[k] = 0;
-    for ( i = k - 1; i >= 0; i-- ) {
-      c[i + 1] += c[i] * (k + i);
-      c[i] *= 1 - (k + i) % 2 * 2;
-    }
-  }
-  printf("j%d(x) =", n);
-  for ( i = 0; i <= n; i++ )
-    printf(" %+ld*%s/x^%d", c[i], fs[(i+n+2)%2], n + i + 1);
-  printf("\n");
+  invr6 = invr6*invr6*invr6;
+  u = 4*invr6*(invr6 - 1);
+  if (u > 1000) u = 1000;
+  *ndphir = invr6*(48*invr6 - 24);
+  if (*ndphir > 12000) *ndphir = 12000;
+  *ndphir *= eps;
+  return eps*u;
 }
 
 
 
-/* compute
- *    out(k) = 2 fac Int {from 0 to infinity} dr
- *             r^(2K) in(r) j_{D-1}(k r)/(k r)^{D - 1}
- * `arr' are used in the intermediate steps by the FFTW plans `p'
- * */
-static void sphr_fft(int K, int npt, xdouble *in, xdouble *out, xdouble fac,
-    FFTWPFX(plan) p[2], xdouble *arr, long *coef,
-    xdouble **r2p, xdouble **k2q, int ffttype)
+/* compute f(r) */
+__inline static void mkfr(int npt, xdouble beta, xdouble *bphi,
+    xdouble *fr, xdouble *rdfr, xdouble *ri, int dm,
+    xdouble gaussf, int invexp, int dolj)
 {
-  int i, l, iscos;
+  int i;
 
-  (void) p;
-
-  if ( ffttype != 0 && ffttype != 1 ) return;
-
-  /* clear the output */
-  for ( i = 0; i < npt; i++ ) out[i] = 0;
-
-  /* several rounds of transforms */
-  for ( l = 0; l < K || l == 0; l++ ) {
-    /* decide if we want to do a sine or cosine transform */
-    iscos = (K + l + 1) % 2;
-
-    for ( i = 0; i < npt; i++ ) {
-      /* arr[i] = in[i] * pow(dx*(2*i + 1)/2, K - l) * coef[l]; */
-      arr[i] = in[i] * ( K > 0 ? coef[l] * r2p[l][i] : 1);
-    }
-
-    /* NOTE: a factor of two is included in the cosine/sine transform */
-#ifdef FFTW /* use FFTW */
-    FFTWPFX(execute)(p[iscos]);
-#else /* use the home-made FFT */
-    if ( iscos ) {
-      if ( ffttype == 1 ) {
-        cost11(arr, npt);
-      } else {
-        cost00(arr, npt);
-      }
-    } else {
-      if ( ffttype == 1 ) {
-        sint11(arr, npt);
-      } else {
-        sint00(arr, npt);
-      }
-    }
-#endif /* !defined(FFTW) */
-
-    if ( iscos && ffttype == 0 ) arr[npt] = 0;
-    for ( i = 0; i < npt; i++ ) {
-      /* out[i] += arr[i] * fac / pow(dk*(2*i + 1)/2, K + l); */
-      out[i] += arr[i] * fac * (K > 0 ? k2q[l][i] : 1);
+  /* compute f(r) */
+  for ( i = 0; i < npt; i++ ) { /* compute f(r) = exp(-beta u(r)) - 1 */
+    if ( gaussf ) { /* f(r) = exp(-r^2) */
+      xdouble r2 = pow_si(ri[i], 2);
+      fr[i] = -EXP(-r2);
+      rdfr[i] = -2*r2*fr[i];
+    } else if ( invexp > 0 ) { /* inverse potential r^(-invexp) */
+      xdouble pot = POW(ri[i], -invexp);
+      fr[i] = EXP(-pot) - 1;
+      rdfr[i] = pot * invexp * (fr[i] + 1);
+    } else if ( dolj ) {
+      xdouble x, bph;
+      bph = beta * potlj(ri[i], 1, 1, &rdfr[i]);
+      if (bphi != NULL) bphi[i] = bph;
+      x = EXP(-bph);
+      fr[i] = x - 1;
+      rdfr[i] *= beta * x;
+    } else { /* hard-sphere */
+      fr[i] = (i < dm) ? -1 : 0;
     }
   }
 }
-
-/* convenience macros */
-#define sphr_r2k(in, out) sphr_fft(K, npt, in, out, facr2k, plans, arr, coef, r2pow, invk2pow, ffttype)
-#define sphr_k2r(in, out) sphr_fft(K, npt, in, out, fack2r, plans, arr, coef, k2pow, invr2pow, ffttype)
-
-#endif /* defined(FFT) */
 
 
 
 #ifdef DHT
-/* compute
- *  out(k) = fac Int {from 0 to infinity} dr
- *           r^(D/2) in(r) J_{D/2-1}(k r) */
-INLINE void sphr_dht(xdouble *in, xdouble *out, xdouble fac,
-    xdht *dht, xdouble *arr, xdouble *r2p, xdouble *k2p)
-{
-  int i, npt = dht->size;
 
-  for ( i = 0; i < npt; i++ ) arr[i] = in[i] * r2p[i];
-  XDHT(apply)(dht, arr, out);
-  for ( i = 0; i < npt; i++ ) out[i] *= fac / k2p[i];
-}
-
-
-/* convenience macros */
-#define sphr_r2k(in, out) sphr_dht(in, out, facr2k, dht, arr, r2p, k2p)
-#define sphr_k2r(in, out) sphr_dht(in, out, fack2r, dht, arr, k2p, r2p)
-
-
-
+/* this function is kept for old programs,
+ * new programs should use sphr_jadjustrmax() in fftx.h instead */
 /* adjust rmax such that r = 1 lies at the middle of the dm'th and dm+1'th bins */
-static xdouble jadjustrmax(double rmax0, int npt, int dim)
+__inline static xdouble jadjustrmax(double rmax0, int npt, int dim)
 {
   xdouble dr, km, kp, kM, rmax;
   double nu = dim*.5 - 1;
@@ -1746,10 +1677,7 @@ static xdouble jadjustrmax(double rmax0, int npt, int dim)
   return rmax;
 }
 
-
-
-#endif /* defined(DHT) */
-
+#endif
 
 
 

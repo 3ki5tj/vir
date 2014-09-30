@@ -12,28 +12,16 @@
 #define ZCOM_PICK
 #define ZCOM_ARGOPT
 #include "zcom.h"
+#include "fftx.h"
 
 
 
-#include "xdouble.h"
-
-#ifdef NOFFTW
-#define XDOUBLE xdouble
-#include "fft.h"
-typedef void *FFTWPFX(plan);
-#else
-#include <fftw3.h>
-#endif
-
-#include "ieutil.h"
-
-
-
+int dim = D;
 int nmax = 10;
-xdouble rmax = 0;
-int numpt = 4096;
 xdouble T = 1;
 xdouble beta = 1;
+xdouble rmax = 0;
+int numpt = 4096;
 int ffttype = 1;
 int dohnc = 0;
 int ring = 0;
@@ -53,6 +41,7 @@ static void doargs(int argc, char **argv)
 {
   argopt_t *ao = argopt_open(0);
   ao->desc = "computing the virial coefficients from the PY/HNC closure for the 3D hard-sphere fluid";
+  argopt_add(ao, "-D", "%d", &dim, "dimension");
   argopt_add(ao, "-n", "%d", &nmax, "maximal order");
   argopt_add(ao, "-T", "%" XDBLSCNF "f", &T, "temperature");
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &rmax, "maximal r");
@@ -84,29 +73,6 @@ static void doargs(int argc, char **argv)
   printf("rmax = %f, T %lf, HNC %d\n", (double) rmax, (double) T, dohnc);
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
-}
-
-
-
-/* compute
- *    out(k) = 2*fac/k Int {from 0 to infinity} in(r) r sin(k r) dr */
-static void sphr(int npt, xdouble *in, xdouble *out, xdouble fac,
-    FFTWPFX(plan) p, xdouble *arr, xdouble *ri, xdouble *ki, int ffttype)
-{
-  int i, im = ffttype ? 0 : 1;
-
-  for ( i = im; i < npt; i++ ) /* form in(x) * x */
-    arr[i] = in[i] * ri[i];
-#ifdef NOFFTW
-  if ( ffttype )
-    sint11(arr, npt);
-  else
-    sint00(arr, npt);
-#else
-  FFTWPFX(execute)(p);
-#endif
-  for ( i = im; i < npt; i++ ) /* form out(k) / k */
-    out[i] = arr[i] * fac / ki[i];
 }
 
 
@@ -158,41 +124,17 @@ __inline static char *LJsavevirhead(const char *fn,
 /* compute the virial coefficients from the Percus-Yevick closure */
 static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
 {
-  xdouble dr, dk, facr2k, fack2r, surfr, surfk;
   xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, B2, B2tail = 0, fcorr;
   xdouble *fr, *rdfr, *swr = NULL, *fr1 = NULL, *rdfr1 = NULL, *phi2 = NULL;
   xdouble *crl, *trl, **ck, *tkl, **cr = NULL, **tr = NULL, **tk = NULL;
-  xdouble *yrl, **yr = NULL, *arr, *vc = NULL;
-  xdouble *ri, *ki, *ri2, *ki2, rm;
-  int i, dm, l;
-  FFTWPFX(plan) plan = NULL;
+  xdouble *yrl, **yr = NULL, *vc = NULL;
+  xdouble rm;
+  int i, l;
   clock_t t0 = clock(), t1;
+  sphr_t *sphr;
 
-  rmax = adjustrmax(rmax, npt, &dr, &dm, ffttype);
-  dk = PI/dr/npt;
+  sphr = sphr_open(dim, npt, rmax, 0, ffttype);
   rm = POW(2, (xdouble) 1 / 6);
-
-  MAKE1DARR(arr, npt);
-  MAKE1DARR(ri, npt);
-  MAKE1DARR(ki, npt);
-  MAKE1DARR(ri2, npt);
-  MAKE1DARR(ki2, npt);
-
-#ifndef NOFFTW
-  if ( ffttype ) {
-    plan = FFTWPFX(plan_r2r_1d)(npt, arr, arr, FFTW_RODFT11, FFTW_ESTIMATE);
-  } else {
-    /* we only use npt - 1 points in this case */
-    plan = FFTWPFX(plan_r2r_1d)(npt - 1, arr + 1, arr + 1, FFTW_RODFT00, FFTW_ESTIMATE);
-  }
-#endif
-  for ( i = 0; i < npt; i++ ) {
-    ri[i] = dr * (i*2 + (ffttype ? 1 : 0))/2;
-    ki[i] = dk * (i*2 + (ffttype ? 1 : 0))/2;
-  }
-
-  facr2k = PI*2 * dr;
-  fack2r = pow_si(PI*2, -2) * dk;
 
   MAKE1DARR(fr, npt);
   MAKE1DARR(rdfr, npt);
@@ -211,8 +153,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
 
   for ( i = 0; i < npt; i++ ) { /* compute f(r) = exp(-beta u(r)) - 1 */
     xdouble nrdphi, phi1, xp1;
-    xdouble phi = pot(ri[i], &nrdphi);
-    if ( ri[i] < rm ) {
+    xdouble phi = pot(sphr->ri[i], &nrdphi);
+    if ( sphr->ri[i] < rm ) {
       phi1 = phi + 1;
       phi2[i] = -1;
     } else {
@@ -232,19 +174,13 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     }
   }
 
-  surfr = PI*4;
-  surfk = surfr * pow_si(PI*2, -3);
-  for ( i = 0; i < npt; i++ ) {
-    ri2[i] = surfr * ri[i] * ri[i] * dr;
-    ki2[i] = surfk * ki[i] * ki[i] * dk;
-  }
-  B2 = -integr(npt, fr, ri2)/2;
+  B2 = -integr(npt, fr, sphr->rDm1)/2;
   B2tail = -PI*8*pow_si(rmax, -3)/3;
   B2 += B2tail;
 
   printf("beta %g, dr %f, dm %d, rmax %f, ffttype %d, HNC %d, B2 %g %g\n",
-      (double) beta, (double) dr, dm, (double) rmax, ffttype, dohnc,
-      (double) B2, (double) B2tail);
+      (double) beta, (double) sphr->dr, sphr->dm, (double) sphr->rmax,
+      ffttype, dohnc, (double) B2, (double) B2tail);
 
   if ( singer ) {
     MAKE2DARR(cr, nmax - 1, npt);
@@ -258,7 +194,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     for ( i = 0; i < npt; i++ ) {
       swr[i] = 1;
       if ( hncalpha >= 0 )
-        swr[i] = 1 - EXP( -hncalpha * ri[i] );
+        swr[i] = 1 - EXP( -hncalpha * sphr->ri[i] );
     }
     for ( i = 0; i < npt; i++ ) {
       yr[0][i] = hncamp / swr[i] * EXP( -beta * phi2[i] );
@@ -274,11 +210,11 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
 
   for ( l = 1; l < nmax - 1; l++ ) {
     /* c(r) --> c(k) for the previous l */
-    sphr(npt, crl, ck[l-1], facr2k, plan, arr, ri, ki, ffttype);
+    sphr_r2k(sphr, crl, ck[l-1]);
 
     /* compute the ring sum based on ck */
     if ( ring ) {
-      Bh = get_BhBrk(l, npt, dohnc, ck, ki2, ki, &Br);
+      Bh = get_BhBrk(l, npt, dohnc, ck, sphr->kDm1, sphr->ki, &Br);
     }
 
     /* compute t_l(k) from c_0(k), ... c_{l-1}(k) */
@@ -290,7 +226,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
     }
 
     /* t_l(k) --> t_l(r) */
-    sphr(npt, tkl, trl, fack2r, plan, arr, ki, ri, ffttype);
+    sphr_k2r(sphr, tkl, trl);
 
     if ( tr != NULL ) {
       COPY1DARR(tr[l], trl, npt); /* tr[l] = trl; */
@@ -312,24 +248,24 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
       /* hypernetted-chain approximation: c(r) = (f(r) + 1) y(r) - (1 + t(r)) */
       for ( i = 0; i < npt; i++ )
         crl[i] = (fr1[i] + 1) * yrl[i] - trl[i];
-      Bv = integr2(npt, rdfr1, yrl, ri2) / 6;
+      Bv = integr2(npt, rdfr1, yrl, sphr->rDm1) / (2*dim);
     } else {
       /* MSA approximation */
       for ( i = 0; i < npt; i++ )
         crl[i] = fr1[i] * trl[i];
-      Bv = integr2(npt, rdfr1, trl, ri2) / 6;
+      Bv = integr2(npt, rdfr1, trl, sphr->rDm1) / (2*dim);
     }
 
     /* B_{l+2}^c = -[1/(l+2)] Int c_l(r) 4 pi r^2 dr */
-    Bc = -integr(npt, crl, ri2) / (l + 2);
+    Bc = -integr(npt, crl, sphr->rDm1) / (l + 2);
 
     if ( cr != NULL ) {
       COPY1DARR(cr[l], crl, npt); /* cr[l] = crl */
       if ( dohnc ) {
-        Bm = get_Bm_singer(l, npt, cr, tr, ri2);
-        Bh += get_Bh_singer(l, npt, cr, tr, ri2);
+        Bm = get_Bm_singer(l, npt, cr, tr, sphr->rDm1);
+        Bh += get_Bh_singer(l, npt, cr, tr, sphr->rDm1);
       } else {
-        Bm = get_Bx_py(l, npt, cr, tr, ri2);
+        Bm = get_Bx_py(l, npt, cr, tr, sphr->rDm1);
       }
     } else {
       Bm = Bh = 0;
@@ -337,23 +273,16 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype, int dohnc)
 
     if ( mkcorr ) {
       if (l > 1) Bv *= 1 + shift;
-      Bm = get_corr1(l, npt, crl, fr1, rdfr1, ri2, 3,
+      Bm = get_corr1(l, npt, crl, fr1, rdfr1, sphr->rDm1, 3,
           vc, 1, &Bc, &Bv, &fcorr);
     }
 
     savevir(fnvir, 3, l+2, Bc, Bv, Bm, Bh, Br, 0, B2, mkcorr, fcorr);
-    savecrtr(fncrtr, l, npt, ri, crl, trl, vc, yrl);
+    savecrtr(fncrtr, l, npt, sphr->ri, crl, trl, vc, yrl);
   }
   savevirtail(fnvir, clock() - t1);
 
-#ifndef NOFFTW
-  FFTWPFX(destroy_plan)(plan);
-#endif
-  FREE1DARR(arr, npt);
-  FREE1DARR(ri, npt);
-  FREE1DARR(ki, npt);
-  FREE1DARR(ri2, npt);
-  FREE1DARR(ki2, npt);
+  sphr_close(sphr);
   FREE1DARR(fr, npt);
   FREE1DARR(rdfr, npt);
   FREE1DARR(fr1, npt);
@@ -379,9 +308,6 @@ int main(int argc, char **argv)
 {
   doargs(argc, argv);
   intgeq(nmax, numpt, rmax, ffttype, dohnc);
-#ifndef NOFFTW
-  FFTWPFX(cleanup)();
-#endif
   return 0;
 }
 

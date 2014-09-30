@@ -1,35 +1,26 @@
 /* free energy related quantities from the HNC closure */
 #include <stdio.h>
 #include <math.h>
-#include <fftw3.h>
 #define ZCOM_PICK
 #define ZCOM_ARGOPT
 #include "zcom.h"
+#include "fftx.h"
 
 
 
-#include "xdouble.h"
-
-#ifdef NOFFTW
-#define XDOUBLE xdouble
-#include "fft.h"
-typedef void *FFTWPFX(plan);
-#else
-#include <fftw3.h>
-#endif
-
-
-
-int numpt = 8192;
-xdouble rmax = (xdouble) 20.48L;
-xdouble T = (xdouble) 10;
+int dim = D;
+int numpt = 32768;
+int ffttype = 1;
+xdouble rmax = (xdouble) 81.92L;
+xdouble T = (xdouble) 3;
 xdouble beta;
-xdouble rho = (xdouble) 0.8L;
+xdouble rhomax = (xdouble) 0.8L;
+xdouble rhodel = (xdouble) 0.05L;
 int itermax = 10000;
-xdouble tol = (xdouble) 1e-12L;
-xdouble delta = (xdouble) 0.0005L;
-xdouble sigvv = 1;
-xdouble siguv = 2;
+xdouble tol = (xdouble) 1e-8L;
+xdouble damp = 1;
+xdouble delta = (xdouble) 0.0001L;
+int savecr = 0;
 int verbose = 0;
 
 
@@ -38,83 +29,48 @@ static void doargs(int argc, char **argv)
 {
   argopt_t *ao = argopt_open(0);
   ao->desc = "computing free energy related quantities from the HNC closure";
+  argopt_add(ao, "-D", "%d", &dim, "dimension");
   argopt_add(ao, "-T", "%" XDBLSCNF "f", &T, "temperature");
-  argopt_add(ao, "-r", "%" XDBLSCNF "f", &rho, "rho");
+  argopt_add(ao, "--rho", "%" XDBLSCNF "f", &rhomax, "maximal rho");
+  argopt_add(ao, "--drho", "%" XDBLSCNF "f", &rhodel, "step size of rho");
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &rmax, "maximal r");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
-  argopt_add(ao, "-d", "%" XDBLSCNF "f", &delta, "delta lambda");
+  argopt_add(ao, "--damp", "%" XDBLSCNF "f", &damp, "damping factor of solving integral equations");
+  argopt_add(ao, "--del", "%" XDBLSCNF "f", &delta, "delta for numeric differentiation");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "-h");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
   beta = 1/T;
   printf("rmax %f, rho %g, T %f\n",
-      (double) rmax, (double) rho, (double) T);
+      (double) rmax, (double) rhomax, (double) T);
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }
 
 
 
-/* compute
- *    out(k) = 2*fac/k Int {from 0 to infinity} in(r) r sin(k r) dr */
-static void sphr(int npt, xdouble *in, xdouble *out, xdouble fac,
-    FFTWPFX(plan) p, xdouble *arr, xdouble *ri, xdouble *ki)
-{
-  int i;
-
-  for ( i = 0; i < npt; i++ ) /* form in(x) * x */
-    arr[i] = in[i] * ri[i];
-#ifdef NOFFTW
-  sint11(arr, npt);
-#else
-  FFTWPFX(execute)(p);
-#endif
-  for ( i = 0; i < npt; i++ ) /* form out(k) / k */
-    out[i] = arr[i] * fac / ki[i];
-}
-
-
-
-/* return the potential phi(r), and -r*phi'(r)*/
-static xdouble pot(xdouble r, xdouble sig, xdouble eps, xdouble *ndphir)
-{
-  xdouble invr6 = (sig*sig)/(r*r), u;
-  invr6 = invr6*invr6*invr6;
-  u = 4*invr6*(invr6 - 1);
-  if (u > 1000) u = 1000;
-  *ndphir = invr6*(48*invr6 - 24);
-  if (*ndphir > 12000) *ndphir = 12000;
-  *ndphir *= eps;
-  return eps*u;
-}
-
-
-
-static void iter(int npt, xdouble rho, xdouble *ri, xdouble *ki,
+static void iter(sphr_t *sphr, xdouble rho,
     xdouble *cr, xdouble *tr, xdouble *ck, xdouble *tk,
-    xdouble *fr, xdouble facr2k, xdouble fack2r,
-    FFTWPFX(plan) plan, xdouble *arr, int itermax)
+    xdouble *fr, int itmax)
 {
-  int i, iter;
+  int i, it, npt = sphr->npt;
   xdouble x, err, errmax;
 
-  for ( i = 0; i < npt; i++ ) cr[i] = fr[i];
-  for ( iter = 0; iter < itermax; iter++ ) {
-    sphr(npt, cr, ck, facr2k, plan, arr, ri, ki);
+  for ( it = 0; it < itmax; it++ ) {
+    sphr_r2k(sphr, cr, ck);
     for ( i = 0; i < npt; i++ ) {
       tk[i] = rho * ck[i] * ck[i] / (1 - rho * ck[i]);
     }
-    sphr(npt, tk, tr, fack2r, plan, arr, ki, ri);
+    sphr_k2r(sphr, tk, tr);
     for ( errmax = 0, i = 0; i < npt; i++ ) {
-      x = (1 + fr[i]) * EXP(tr[i]) - 1 - tr[i];
-      //x = (1 + fr[i]) * (1 + tr[i] + tr[i]*tr[i]/2) - 1 - tr[i];
+      x = (fr[i] + 1) * EXP(tr[i]) - tr[i] - 1;
       if ((err = FABS(cr[i] - x)) > errmax) errmax = err;
-      cr[i] = x;
+      cr[i] += damp * (x - cr[i]);
     }
-    if ( errmax < 1e-8 ) break;
+    if ( errmax < tol ) break;
   }
-  //printf("iter %d errmax %g\n", iter, (double) errmax);
+  //printf("iter %d errmax %g\n", it, (double) errmax);
 }
 
 
@@ -138,10 +94,12 @@ static void output(int npt, xdouble *ri,
 static xdouble getfe_hnc(int npt, xdouble rho,
     xdouble *cr, xdouble *tr, xdouble *ri2,
     xdouble *ck, xdouble *tk, xdouble *ki2,
-    xdouble *mu, xdouble *compr, xdouble *ddmu)
+    xdouble *rdfr,
+    xdouble *mu, xdouble *compr, xdouble *ddmu,
+    xdouble *pres, xdouble *pres1)
 {
   int i;
-  xdouble fe, x;
+  xdouble fe, x, vir = 0;
 
   fe = 0;
   *mu = 0;
@@ -159,7 +117,8 @@ static xdouble getfe_hnc(int npt, xdouble rho,
     *mu -= (cr[i] - tr[i] * (cr[i] + tr[i])*.5) * ri2[i];
     /* compr = d(beta mu) / drho = -Int c(r) dr */
     *compr -= cr[i] * ri2[i];
-    *ddmu -= tr[i]*(tr[i] + cr[i]) * ri2[i];
+    *ddmu -= tr[i] * (tr[i] + cr[i]) * ri2[i];
+    vir += EXP(tr[i]) * rdfr[i] * ri2[i];
   }
   fe *= rho * rho;
   *mu *= rho;
@@ -175,113 +134,78 @@ static xdouble getfe_hnc(int npt, xdouble rho,
     x = tk[i];
     //*ddmu -= x*x*x*ki2[i];
   }
-  return fe * .5;
+  fe *= 0.5;
+  *pres = rho + rho * (*mu) - fe;
+  *pres1 = rho + rho * rho * vir / (2 * dim);
+  return fe;
 }
 
 
 
-static void integ(int npt, xdouble rmax, xdouble rho)
+static void integ(int npt, xdouble rmax)
 {
-  xdouble dr, dk, facr2k, fack2r, surfr, surfk, *bphi, x;
+  xdouble rho, *bphi;
   xdouble fe1, fe2, mu1, mu2, compr1, compr2, ddmu1, ddmu2;
-  xdouble *fr, *dfr, *cr, *tr, *ck, *tk;
-  xdouble *arr, *ri, *ki, *ri2, *ki2;
-  int i;
-  FFTWPFX(plan) plan = NULL;
+  xdouble P1, P2, P1a, P2a;
+  xdouble *fr, *rdfr, *cr, *tr, *ck, *tk;
+  sphr_t *sphr;
 
-  dr = rmax / npt;
-  dk = PI / (dr * npt);
-
-  xnew(arr, npt);
-  xnew(ri, npt);
-  xnew(ki, npt);
-  xnew(ri2, npt);
-  xnew(ki2, npt);
-  plan = FFTWPFX(plan_r2r_1d)(npt, arr, arr, FFTW_RODFT11, FFTW_ESTIMATE);
-
-  for ( i = 0; i < npt; i++ ) {
-    ri[i] = dr * (i * 2 + 1) / 2;
-    ki[i] = dk * (i * 2 + 1) / 2;
-  }
-
-  facr2k = PI*2 * dr;
-  fack2r = pow_si(PI*2, -2) * dk;
-
-  surfr = PI*4;
-  surfk = surfr * pow_si(PI*2, -3);
-  for ( i = 0; i < npt; i++ ) {
-    ri2[i] = surfr * ri[i] * ri[i] * dr;
-    ki2[i] = surfk * ki[i] * ki[i] * dk;
-  }
+  sphr = sphr_open(dim, npt, rmax, 0, ffttype);
 
   xnew(bphi, npt);
   xnew(fr, npt);
-  xnew(dfr, npt);
+  xnew(rdfr, npt);
   xnew(cr, npt);
   xnew(tr, npt);
   xnew(ck, npt);
   xnew(tk, npt);
 
-  /* solvent-solvent interaction */
-  for ( i = 0; i < npt; i++ ) {
-    bphi[i] = beta * pot(ri[i], sigvv, 1, &dfr[i]);
-    x = EXP(-bphi[i]);
-    fr[i] = x - 1;
-    dfr[i] *= beta * x;
+  mkfr(npt, beta, bphi, fr, rdfr, sphr->ri, sphr->dm, 0, 0, 1);
+  COPY1DARR(cr, fr, npt);
+
+  for ( rho = rhodel; rho <= rhomax + 1e-8; rho += rhodel ) {
+    iter(sphr, rho - delta, cr, tr, ck, tk, fr, itermax);
+    if ( savecr )
+      output(npt, sphr->ri, cr, tr, bphi, "vv1.dat");
+    fe1 = getfe_hnc(npt, rho - delta, cr, tr, sphr->rDm1, ck, tk, sphr->kDm1,
+        rdfr, &mu1, &compr1, &ddmu1, &P1, &P1a);
+
+    iter(sphr, rho, cr, tr, ck, tk, fr, itermax);
+    if ( savecr )
+      output(npt, sphr->ri, cr, tr, bphi, "vv2.dat");
+    fe2 = getfe_hnc(npt, rho, cr, tr, sphr->rDm1, ck, tk, sphr->kDm1,
+        rdfr, &mu2, &compr2, &ddmu2, &P2, &P2a);
+
+    printf("rho %5.3f, T %6.3f: F1 %9.6f, F2 %9.6f, "
+           "mu1 %9.6f, mu2 %9.6f, dF %9.6f; "
+           "compr1 %9.6f, compr2 %9.6f, dmu(diff) %9.6f\n",
+        (double) rho, (double) (1/beta),
+        (double) fe1, (double) fe2, (double) mu1, (double) mu2,
+        (double) ((fe2 - fe1)/delta),
+        (double) compr1, (double) compr2,
+        (double) ((mu2 - mu1)/delta) );
+    printf("ddmu1 %9.6f, ddmu2 %9.6f, ddmu(diff) %9.6f, P %9.6f %9.6f\n",
+        (double) ddmu1, (double) ddmu2,
+        (double) ((compr2 - compr1)/delta),
+        (double) P2, (double) P2a);
   }
 
-  iter(npt, rho, ri, ki, cr, tr, ck, tk,
-      fr, facr2k, fack2r, plan, arr, itermax);
-  output(npt, ri, cr, tr, bphi, "vv1.dat");
-  fe1 = getfe_hnc(npt, rho, cr, tr, ri2, ck, tk, ki2,
-      &mu1, &compr1, &ddmu1);
-
-  iter(npt, rho + delta, ri, ki, cr, tr, ck, tk,
-      fr, facr2k, fack2r, plan, arr, itermax);
-  output(npt, ri, cr, tr, bphi, "vv2.dat");
-  fe2 = getfe_hnc(npt, rho + delta, cr, tr, ri2, ck, tk, ki2,
-      &mu2, &compr2, &ddmu2);
-
-  printf("rho %5.3f, T %6.3f: F1 %9.6f, F2 %9.6f, "
-         "mu1 %9.6f, mu2 %9.6f, dF %9.6f; "
-         "compr1 %9.6f, compr2 %9.6f, dmu(diff) %9.6f\n",
-      (double) rho, (double) (1/beta),
-      (double) fe1, (double) fe2, (double) mu1, (double) mu2,
-      (double) ((fe2 - fe1)/delta),
-      (double) compr1, (double) compr2,
-      (double) ((mu2 - mu1)/delta) );
-  printf("ddmu1 %9.6f, ddmu2 %9.6f, ddmu(diff) %9.6f\n",
-      (double) ddmu1, (double) ddmu2,
-      (double) ((compr2 - compr1)/delta) );
-
+  sphr_close(sphr);
   free(bphi);
   free(fr);
-  free(dfr);
+  free(rdfr);
   free(cr);
   free(tr);
   free(ck);
   free(tk);
-
-  free(arr);
-  free(ri);
-  free(ki);
-  free(ri2);
 }
 
 
 
 int main(int argc, char **argv)
 {
-  double den;
-
   doargs(argc, argv);
-
-  for (den = 0.05; den <= rho; den += 0.05) {
-    integ(numpt, rmax, den);
-  }
-#ifndef NOFFTW
-  FFTWPFX(cleanup)();
-#endif
+  integ(numpt, rmax);
   return 0;
 }
 

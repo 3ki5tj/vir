@@ -25,7 +25,7 @@ LMQ = -lm $(LQ)
 
 # source code that uses GMP and MPFR
 csrc            = $(filter-out \
-                    ievir.c ozcrtr.c, muhs.c \
+                    ievir.c ozcrtr.c muhs.c, \
                     $(wildcard *.c))
 csrc_fftw       = $(wildcard *fftw*.c)
 csrc_mpfr       = $(wildcard *mpfr*.c)
@@ -35,7 +35,7 @@ csrc_extra      = $(filter-out \
 		    $(csrc_fftw) $(csrc_mpfr) $(csrc_gmp) $(csrc_gsl), \
 		    $(csrc))
 
-deps = ieutil.h ieutilmpfr.h fft.h fftmpfr.h xdouble.h ievir.c
+deps = ieutil.h ieutilmpfr.h fft.h fftmpfr.h xdouble.h slowdht.h fftx.h ievir.c
 bins_fftw       = $(patsubst %.c, %,   $(csrc_fftw))
 bins_fftw_l     = $(patsubst %,   %_l, $(bins_fftw))
 bins_fftw_q     = $(patsubst %,   %_q, $(bins_fftw))
@@ -126,8 +126,8 @@ usb:
 pack:
 	$(MAKE) -C ../.. $@
 
-$(prj)code.zip: fft.h fftmpfr.h xdouble.h slowdht.h zcom.h \
-  		ievir.c iegsl.c ieodfftw.c ieutil.h \
+$(prj)code.zip: fft.h fftmpfr.h xdouble.h slowdht.h fftx.h zcom.h \
+  		ievir.c ieutil.h \
 		ieodmpfr.c ieutilmpfr.h \
 		ybgvir.c kirkvir.c \
 		ozcrtr.c \

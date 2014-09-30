@@ -15,50 +15,15 @@
 #define ZCOM_PICK
 #define ZCOM_ARGOPT
 #include "zcom.h"
+#include "fftx.h"
 
 
-
-#include "xdouble.h"
-
-#if !defined(FFT0) && !defined(FFTW) && !defined(DHT)
-#define FFT0 /* default branch, no external library */
-#endif
-
-#ifdef FFT0  /* home-made FFT */
-#define XDOUBLE xdouble
-#include "fft.h"
-typedef void *FFTWPFX(plan);
-#endif
-
-#ifdef FFTW /* for odd dimensions */
-#include <fftw3.h>
-#endif
-
-#if defined(FFT0) || defined(FFTW)
-#define FFT
-#endif
-
-#ifdef DHT /* for even and odd dimensions */
-#include "slowdht.h"
-int dhtdisk = SLOWDHT_USEDISK;
-#endif
-
-
-#include "ieutil.h"
-
-
-
-#ifndef D
-#ifndef DHT
-#define D 3
-#else
-#define D 2
-#endif
-#endif
 
 int dim = D;
 int K; /* (dim - 1) / 2 for an odd dimension */
 int nmax = 12;
+xdouble T = 1;
+xdouble beta = 1;
 double rmax = 0;
 xdouble Rmax = 0;
 int numpt = 32768;
@@ -75,24 +40,13 @@ enum { CORR_HNC = 1, CORR_HC = 2,
 int smoothpot = 0; /* smooth potential */
 int gaussf = 0; /* Gaussian model */
 int invexp = 0; /* inverse potential */
+int dolj = 0; /* Lennard-Jones potential */
 char systitle[32];
 
 xdouble hcs = 0.56;
 
 
-xdouble facr2k, fack2r, surfr, surfk;
-xdouble *arr;
-
-#ifdef FFT /* for odd dimensions */
-xdouble **r2pow = NULL, **invr2pow = NULL, **k2pow = NULL, **invk2pow = NULL;
-long *coef = NULL;
-FFTWPFX(plan) plans[2] = {NULL, NULL};
-#endif /* defined(FFT) */
-
-#ifdef DHT /* for even dimensions */
-xdouble *r2p, *k2p;
-xdht *dht = NULL;
-#endif /* defined(DHT) */
+sphr_t *sphr;
 
 
 
@@ -127,21 +81,11 @@ static void doargs(int argc, char **argv)
   if ( dim < 1 ) argopt_help(ao);
   K = (dim - 1)/2;
   if ( dim % 2 == 0 ) {
-#ifndef DHT
-    fprintf(stderr, "cannot do even dimensions %d, define DHT\n", dim);
-    exit(1);
-#endif
     if ( !argopt_isset(ao, numpt) ) /* adjust the default number of points */
       numpt = 1024;
   }
 
   if ( rmax <= 0 ) rmax = nmax + 2;
-#ifdef FFT
-  if ( Rmax <= 0) Rmax = rmax; /* we will adjust it later */
-#endif
-#ifdef DHT
-  if ( Rmax <= 0 ) Rmax = jadjustrmax(rmax, numpt);
-#endif
 
   /* models */
   if ( gaussf || invexp > 0 ) smoothpot = 1;
@@ -210,7 +154,7 @@ __inline static void mkcorrfunc0(int l, int npt,
   if (l < 2) return;
   for ( i = 0; i < npt; i++ )
     vck[i] = (hk[1][i] - wk[1][i] - fk[i]*yd[1]) * hk[0][i];
-  sphr_k2r(vck, vcr); /* compute vcr */
+  sphr_k2r(sphr, vck, vcr); /* compute vcr */
 }
 
 
@@ -223,7 +167,7 @@ __inline static void mkcorrfunc1(int l, int npt,
   for ( i = 0; i < npt; i++ )
     for ( vck[i] = -wk[l][i], u = 0; u < l; u++ )
       vck[i] += (hk[u][i] - wk[u][i]) * hk[l - u - 1][i];
-  sphr_k2r(vck, vcr); /* compute vcr */
+  sphr_k2r(sphr, vck, vcr); /* compute vcr */
 }
 
 
@@ -246,7 +190,7 @@ __inline static void mkcorrfunc2(int l, int npt,
         a[v] += (hk[u][i] - a[u]) * hk[v-1-u][i];
     vck[i] = a[l];
   }
-  sphr_k2r(vck, tr[l]); /* compute tr */
+  sphr_k2r(sphr, vck, tr[l]); /* compute tr */
   for ( i = 0; i < npt; i++ ) {
     /* form 1 + t */
     for ( a[0] = 1, u = 1; u <= l; u++ )
@@ -255,7 +199,7 @@ __inline static void mkcorrfunc2(int l, int npt,
     log_series(l+1, a, b);
     vcr[i] = b[l]/s - wrl[i];
   }
-  sphr_r2k(vcr, vck); /* vc(r) */
+  sphr_r2k(sphr, vcr, vck); /* vc(r) */
   free(a);
   free(b);
 }
@@ -282,146 +226,24 @@ __inline static void mkcorrfunc2(int l, int npt,
 
 
 /* compute virial coefficients from integral equations */
-static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
+static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
 {
   xdouble Bc, Bv, Bm = 0, By = 0, B2, fcorr = 0;
   xdouble *fr, *fk, *rdfr = NULL;
   xdouble **wr, *hrl, *yrl, *yd;
   xdouble *vcr = NULL, *vck = NULL, **tr = NULL, *lambda = NULL;
   xdouble **wk = NULL, *wkl = NULL, **hk = NULL, *hk0;
-  xdouble *ri, *ki, *rDm1, *kDm1;
-  int i, dm, l, l0 = 1;
+  int i, l, l0 = 1;
   clock_t t0 = clock(), t1;
 
-
-#ifdef FFT /* for odd dimensions */
-  xdouble dr, dk, rl, invrl, kl, invkl;
-
-  rmax = adjustrmax(rmax, numpt, &dr, &dm, ffttype);
-  dk = PI/dr/npt;
-  facr2k = pow_si(PI*2, K) *  dr;
-  fack2r = pow_si(PI*2, -K-1) * dk;
-#endif /* defined(FFT) */
-
-
-#ifdef DHT /* for even dimensions */
-  xdouble tmp1, tmp2;
-
-  dht = XDHT(newx)(npt, (xdouble) dim/2 - 1, rmax, dhtdisk);
-
-  for ( tmp1 = 0, dm = 0; dm < npt; dm++, tmp1 = tmp2 )
-    if ((tmp2 = XDHT(x_sample)(dht, dm)) > 1) {
-      printf("r %g, %g, dm %d. \n", (double) tmp1, (double) tmp2, dm);
-      break;
-    }
-
-  facr2k = POW(PI*2, (xdouble) dim/2);
-  /* the factor (kmax/xmax)^2 is adapted for the inverse
-   * discrete hankel transform using gsl_dht */
-  fack2r = pow_si(dht->kmax / dht->xmax, 2);
-  fack2r /= POW(PI*2, (xdouble) dim/2);
-#endif /* defined(DHT) */
-
-
-  /* B2 = (1/2) (PI*2)^(dim/2) / dim!! for an even dim
-   *    = (PI*2)^((dim - 1)/2) / dim!! for an odd dim */
-  B2 = dim % 2 ? 1 : 0.5;
-  for ( i = 2 + dim % 2; i <= dim; i += 2 ) B2 *= PI*2/i;
-  surfr = B2 * 2 * dim;
-  surfk = surfr / pow_si(PI*2, dim);
-#ifdef DHT
-  surfk *= pow_si(dht->kmax / dht->xmax, 2);
-#endif /* defined(DHT) */
-  if ( gaussf ) B2 = SQRT(pow_si(PI, dim))/2;
+  (void) Rmax;
+  sphr = sphr_open(dim, npt, rmax, Rmax, ffttype);
+  B2 = gaussf ? sphr->B2g : sphr->B2hs;
   /* TODO: compute B2 for inverse potential */
   if ( invexp > 0 ) B2 = 0;
   printf("D %d, dr %f, dm %d, rmax %f, ffttype %d, B2 %.10e\n",
-      dim, (double) rmax/npt, dm, (double) rmax, ffttype, (double) B2);
-
-  MAKE1DARR(ri, npt);
-  MAKE1DARR(ki, npt);
-  MAKE1DARR(rDm1, npt); /* r^(D - 1) dr */
-  MAKE1DARR(kDm1, npt); /* k^(D - 1) dk */
-
-
-#ifdef FFT
-  if ( K > 0 ) {
-    MAKE2DARR(r2pow, K, npt) /* r^{K - l} for l = 0, ..., K */
-    MAKE2DARR(k2pow, K, npt) /* k^{K - l} for l = 0, ..., K */
-    MAKE2DARR(invr2pow, K, npt) /* r^{-K-l} for l = 0, ..., K */
-    MAKE2DARR(invk2pow, K, npt) /* k^{-K-l} for l = 0, ..., K */
-  }
-  for ( i = 0; i < npt; i++ ) {
-    ri[i]  = dr * (i*2 + (ffttype ? 1 : 0))/2;
-    ki[i]  = dk * (i*2 + (ffttype ? 1 : 0))/2;
-    rl = 1;
-    kl = 1;
-    for ( l = 1; l <= K; l++ ) {
-      r2pow[K - l][i] = (rl *= ri[i]);
-      k2pow[K - l][i] = (kl *= ki[i]);
-    }
-
-    if ( ffttype == 0 && i == 0 ) continue;
-
-    invrl = 1/rl;
-    invkl = 1/kl;
-    for ( l = 0; l < K; l++ ) {
-      invr2pow[l][i] = invrl;
-      invk2pow[l][i] = invkl;
-      invrl /= ri[i];
-      invkl /= ki[i];
-    }
-
-    rDm1[i] = surfr * pow_si(ri[i], dim - 1) * dr;
-    kDm1[i] = surfk * pow_si(ki[i], dim - 1) * dk;
-  }
-#endif /* defined(FFT) */
-
-
-#ifdef DHT
-  MAKE1DARR(r2p,  npt);
-  MAKE1DARR(k2p,  npt);
-  for ( i = 0; i < npt; i++ ) {
-    ri[i]   = XDHT(x_sample)(dht, i);
-    r2p[i]  = POW(ri[i], (xdouble) dim/2 - 1);
-    ki[i]   = XDHT(k_sample)(dht, i);
-    k2p[i]  = POW(ki[i], (xdouble) dim/2 - 1);
-
-    /* compute r^(dim - 1) dr, used for integration
-     *   \int r dr / xmax^2
-     * ==>
-     *   2/(j_{nu,M})^2 * 1/[J_{nu+1}(j_{nu,k})]^2
-     * r = j_{nu,k} / j_{nu,M} */
-    tmp1 = pow_si(ri[i], dim - 2) * surfr;
-    rDm1[i] = tmp1 * 2 / (dht->kmax * dht->kmax * dht->J2[i+1]);
-    tmp1 = pow_si(ki[i], dim - 2) * surfk;
-    kDm1[i] = tmp1 * 2 / (dht->kmax * dht->kmax * dht->J2[i+1]);
-  }
-#endif /* defined(DHT) */
-
-
-  /* auxiliary array for FFTW or DHT
-   * needs npt + 1 elements for FFTW_REDFT00 */
-  MAKE1DARR(arr, npt + 1);
-
-#ifdef FFT
-  /* compute the coefficients of the spherical Bessel function */
-  if ( K > 0 ) {
-    MAKE1DARR(coef, K);
-    getjn(coef, K - 1);
-  }
-#endif
-
-#ifdef FFTW
-  /* plans[0] is the sine transform, plans[1] is the cosine transform */
-  if ( ffttype ) {
-    plans[0] = FFTWPFX(plan_r2r_1d)(npt, arr, arr, FFTW_RODFT11, FFTW_ESTIMATE);
-    plans[1] = FFTWPFX(plan_r2r_1d)(npt, arr, arr, FFTW_REDFT11, FFTW_ESTIMATE);
-  } else {
-    plans[0] = FFTWPFX(plan_r2r_1d)(npt - 1, arr + 1, arr + 1, FFTW_RODFT00, FFTW_ESTIMATE);
-    plans[1] = FFTWPFX(plan_r2r_1d)(npt + 1, arr, arr, FFTW_REDFT00, FFTW_ESTIMATE);
-  }
-#endif
+      dim, (double) sphr->rmax/npt, sphr->dm, (double) sphr->rmax,
+      ffttype, (double) B2);
 
   MAKE1DARR(fr, npt);
   MAKE1DARR(fk, npt);
@@ -438,22 +260,10 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
   hk0[0] = -2*B2;
 
   /* compute f(r) */
-  for ( i = 0; i < npt; i++ ) { /* compute f(r) = exp(-beta u(r)) - 1 */
-    if ( gaussf ) { /* f(r) = exp(-r^2) */
-      xdouble r2 = ri[i] * ri[i];
-      fr[i] = -EXP(-r2);
-      rdfr[i] = -2*r2*fr[i];
-    } else if ( invexp > 0 ) { /* inverse potential r^(-invexp) */
-      xdouble pot = POW(ri[i], -invexp);
-      fr[i] = EXP(-pot) - 1;
-      rdfr[i] = pot * invexp * (fr[i] + 1);
-    } else { /* hard-sphere */
-      fr[i] = (i < dm) ? -1 : 0;
-    }
-    hrl[i] = fr[i];
-  }
+  mkfr(npt, beta, NULL, fr, rdfr, sphr->ri, sphr->dm, gaussf, invexp, dolj);
+  COPY1DARR(hrl, fr, npt);
   /* compute fk */
-  sphr_r2k(fr, fk);
+  sphr_r2k(sphr, fr, fk);
   COPY1DARR(hk[0], fk, npt); /* hk[0] = fk */
 
   if ( mkcorr ) {
@@ -484,7 +294,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
     }
 
     /* w_l(k) --> w_l(r) */
-    sphr_k2r(wkl, wr[l]);
+    sphr_k2r(sphr, wkl, wr[l]);
 
     /* y_l(r) = [exp w(r)]_l */
     get_yr_hnc(l, npt, yrl, wr);
@@ -495,10 +305,10 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
     }
 
     /* h_l(r) --> h_l(k) */
-    sphr_r2k(hrl, hk[l]);
+    sphr_r2k(sphr, hrl, hk[l]);
 
-    Bv = get_Bv(npt, yrl, smoothpot, rdfr, rDm1, dim, dm, B2);
-    Bc = get_Bc_hr(l, npt, hrl, hk0, rDm1);
+    Bv = get_Bv(npt, yrl, smoothpot, rdfr, sphr->rDm1, dim, sphr->dm, B2);
+    Bc = get_Bc_hr(l, npt, hrl, hk0, sphr->rDm1);
 
     if ( mkcorr ) {
       if ( mkcorr == 1 ) {
@@ -512,7 +322,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
       if (  mkcorr <= CORR_RHODEP ||
            (mkcorr == CORR_RHODEPB4 && l <= 2) ||
            (mkcorr == CORR_RHODEPB5 && l <= 3) ) {
-        Bm = get_ybgcorr1_hs(l, npt, dm, hrl, fr, rDm1,
+        Bm = get_ybgcorr1_hs(l, npt, sphr->dm, hrl, fr, sphr->rDm1,
             B2, vcr, 1, &Bc, &Bv, &fcorr);
         if (l >= 2) lambda[l - 2] = fcorr;
       } else {
@@ -520,7 +330,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
         fcorr = 0;
         Bm = Bc;
       }
-      sphr_r2k(hrl, hk[l]);
+      sphr_r2k(sphr, hrl, hk[l]);
       /* additional corrections */
       for ( i = 0; i < npt; i++ ) {
         vck[i] *= fcorr;
@@ -529,23 +339,19 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
         wr[l][i] += vcr[i];
         yrl[i] += vcr[i];
       }
-      hk0[l] += integre(npt, vcr, fr, rDm1);
+      hk0[l] += integre(npt, vcr, fr, sphr->rDm1);
     }
 
     /* only for the hard-sphere model */
-    yd[l] = (yrl[dm-1] + yrl[dm])/2;
+    yd[l] = (yrl[sphr->dm-1] + yrl[sphr->dm])/2;
 
-    By = get_zerosep(wr[l], ri)*l/(l+1);
+    By = get_zerosep(wr[l], sphr->ri)*l/(l+1);
 
     savevir(fnvir, dim, l+2, Bc, Bv, Bm, 0, 0, By, B2, mkcorr, fcorr);
   }
   savevirtail(fnvir, clock() - t1);
 
-  FREE1DARR(arr,  npt);
-  FREE1DARR(ri,   npt);
-  FREE1DARR(ki,   npt);
-  FREE1DARR(rDm1, npt);
-  FREE1DARR(kDm1, npt);
+  sphr_close(sphr);
   FREE1DARR(fr,   npt);
   FREE1DARR(fk,   npt);
   FREE1DARR(rdfr, npt);
@@ -564,24 +370,6 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
   FREE2DARR(tr, nmax - 1, npt);
   FREE1DARR(lambda, nmax - 1);
 
-#ifdef FFT
-  FREE1DARR(coef, K);
-#ifdef FFTW
-  FFTWPFX(destroy_plan)(plans[0]);
-  FFTWPFX(destroy_plan)(plans[1]);
-#endif /* defined FFTW */
-  FREE2DARR(r2pow, K, npt);
-  FREE2DARR(k2pow, K, npt);
-  FREE2DARR(invr2pow, K, npt);
-  FREE2DARR(invk2pow, K, npt);
-#endif /* defined(FFT) */
-
-#ifdef DHT
-  FREE1DARR(r2p,  npt);
-  FREE1DARR(k2p,  npt);
-  XDHT(free)(dht);
-#endif /* defined(DHT) */
-
   return 0;
 }
 
@@ -590,9 +378,6 @@ static int intgeq(int nmax, int npt, xdouble rmax, int ffttype)
 int main(int argc, char **argv)
 {
   doargs(argc, argv);
-  intgeq(nmax, numpt, Rmax, ffttype);
-#ifdef FFTW
-  FFTWPFX(cleanup)();
-#endif
+  intgeq(nmax, numpt, rmax, Rmax, ffttype);
   return 0;
 }

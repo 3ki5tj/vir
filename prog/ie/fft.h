@@ -291,3 +291,5 @@ __inline static int fft3dsphr11(xdouble a[], int n,
     a[i] *= fac / (dk * (i*2 + 1)/2); /* form a(k) / k */
   return err;
 }
+
+

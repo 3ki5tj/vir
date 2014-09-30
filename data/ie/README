@@ -5,6 +5,7 @@ Directories
   o pyhc          a set of data with the cavity route computed (mainly for HNC, Fig. 1)
   o kappa         effect of the shift, applied on hard spheres
   o LJ            Lennard-Jones data set
+  o thermo        unsorted thermodynamic data
 
 
 

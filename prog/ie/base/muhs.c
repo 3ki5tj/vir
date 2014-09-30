@@ -3,34 +3,20 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <math.h>
-#include <fftw3.h>
 #define ZCOM_PICK
 #define ZCOM_ARGOPT
 #include "zcom.h"
+#include "fftx.h"
 
-
-
-//#if !defined(QUAD) && !defined(LDBL)
-//#define LDBL /* use long double by default */
-//#endif
-
-#include "xdouble.h"
-
-#ifdef NOFFTW
-#define XDOUBLE xdouble
-#include "fft.h"
-typedef void *FFTWPFX(plan);
-#else
-#include <fftw3.h>
-#endif
 
 /* warning: routines in this file may not be stable */
 //#include "nlfit.h"
 
 
 
-int dim = 3; /* currently default to 3 */
+int dim = D; /* currently default to 3 */
 int numpt = 8192;
+int ffttype = 1;
 xdouble rmax = (xdouble) 20.48L;
 xdouble T = (xdouble) 10;
 xdouble beta;
@@ -56,8 +42,10 @@ xdouble hcs = 0.83436;
 char *fnBr; /* bridge function */
 xdouble slope = 0.1;
 
-enum { SYS_HS, SYS_LJ };
-int sys = 0;
+int dohs = 1;
+int gaussf = 0;
+int invexp = 0;
+int dolj = 0;
 
 
 
@@ -65,7 +53,8 @@ static void doargs(int argc, char **argv)
 {
   argopt_t *ao = argopt_open(0);
   ao->desc = "computing chemical potential from integral equations";
-  argopt_add(ao, "-r", "%" XDBLSCNF "f", &rho, "maximal density rho");
+  argopt_add(ao, "-D", "%d", &dim, "dimension");
+  argopt_add(ao, "--rho", "%" XDBLSCNF "f", &rho, "maximal density rho");
   argopt_add(ao, "--drho", "%" XDBLSCNF "f", &drho, "rho step size");
   argopt_add(ao, "-T", "%" XDBLSCNF "f", &T, "temperature");
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &rmax, "maximal r");
@@ -82,7 +71,9 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--SC", "%b", &doSC, "do the self-consistent closure based on mu");
   argopt_add(ao, "--Br", NULL, &fnBr, "file for the bridge function");
   argopt_add(ao, "-k", "%" XDBLSCNF "f", &slope, "k in gamma = 2/3 - k * rho");
-  argopt_add(ao, "--lj", "%b", &sys, "do the Lennard-Jones fluid");
+  argopt_add(ao, "-G", "%b", &gaussf, "do the Gaussian fluid");
+  argopt_add(ao, "--invexp", "%d", &invexp, "exponent e of the r^{-e} fluid");
+  argopt_add(ao, "--lj", "%b", &dolj, "do the Lennard-Jones fluid");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "-h");
   argopt_addhelp(ao, "--help");
@@ -91,26 +82,11 @@ static void doargs(int argc, char **argv)
   if ( dopy ) sqrs = 0;
   if ( doir ) irs = sqrs;
   if ( dohc ) hcs = sqrs;
+  if ( gaussf || invexp || dolj ) dohs = 0;
   printf("T %g, rmax %f, rho %g, delta %g\n", (double) T,
       (double) rmax, (double) rho, (double) delta);
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
-}
-
-
-
-/* return the potential phi(r), and -r*phi'(r)*/
-static xdouble potlj(xdouble r, xdouble sig, xdouble eps, xdouble *ndphir)
-{
-  xdouble invr6 = (sig*sig)/(r*r), u;
-
-  invr6 = invr6*invr6*invr6;
-  u = 4*invr6*(invr6 - 1);
-  if (u > 1000) u = 1000;
-  *ndphir = invr6*(48*invr6 - 24);
-  if (*ndphir > 12000) *ndphir = 12000;
-  *ndphir *= eps;
-  return eps*u;
 }
 
 
@@ -176,8 +152,8 @@ __inline static int getBrs(const char *fn, int lmax, int npt,
         goto EXIT;
       }
     }
-    fgets(buf, sizeof buf, fp);
-    if ( !isspace(buf[0]) ) {
+    if ( fgets(buf, sizeof buf, fp) == NULL
+      || !isspace(buf[0]) ) {
       fprintf(stderr, "error at the end of %s\n", fn);
       break;
     }
@@ -216,28 +192,6 @@ __inline static int combBr(int lmax, int npt, xdouble *Br, xdouble *dBr,
     }
   }
   return 0;
-}
-
-
-
-/* get the value at zero separation
- * compute y(x) at x = 0 */
-/* compute
- *    out(k) = 2*fac/k Int {from 0 to infinity} in(r) r sin(k r) dr */
-static void sphr(int npt, xdouble *in, xdouble *out, xdouble fac,
-    FFTWPFX(plan) p, xdouble *arr, xdouble *ri, xdouble *ki)
-{
-  int i;
-
-  for ( i = 0; i < npt; i++ ) /* form in(x) * x */
-    arr[i] = in[i] * ri[i];
-#ifdef NOFFTW
-  sint11(arr, npt);
-#else
-  FFTWPFX(execute)(p);
-#endif
-  for ( i = 0; i < npt; i++ ) /* form out(k) / k */
-    out[i] = arr[i] * fac / ki[i];
 }
 
 
@@ -287,20 +241,19 @@ __inline static xdouble updates(xdouble ds)
 
 
 /* solve the integral equation */
-static void iter(int npt, xdouble rho, xdouble *ri, xdouble *ki,
+static void iter(sphr_t *sphr, xdouble rho,
     xdouble *cr, xdouble *tr, xdouble *ck, xdouble *tk,
-    xdouble *Br, xdouble *fr, xdouble facr2k, xdouble fack2r,
-    FFTWPFX(plan) plan, xdouble *arr, int itmax)
+    xdouble *Br, xdouble *fr, int itmax)
 {
-  int i, it;
+  int i, npt = sphr->npt, it;
   xdouble x, err, errmax, yr;
 
   for ( it = 0; it < itmax; it++ ) {
-    sphr(npt, cr, ck, facr2k, plan, arr, ri, ki); /* c(r) --> c(k) */
+    sphr_r2k(sphr, cr, ck); /* c(r) --> c(k) */
     for ( i = 0; i < npt; i++ ) {
       tk[i] = rho * ck[i] * ck[i] / (1 - rho * ck[i]);
     }
-    sphr(npt, tk, tr, fack2r, plan, arr, ki, ri);
+    sphr_k2r(sphr, tk, tr);
     for ( errmax = 0, i = 0; i < npt; i++ ) {
       if ( Br != 0 ) {
         yr = EXP(tr[i] + Br[i]);
@@ -319,23 +272,22 @@ static void iter(int npt, xdouble rho, xdouble *ri, xdouble *ki,
 
 
 /* solve d/d(rho) functions */
-static void iterd(int npt, xdouble rho, xdouble *ri, xdouble *ki,
+static void iterd(sphr_t *sphr, xdouble rho,
     xdouble *dcr, xdouble *dtr, xdouble *dck, xdouble *dtk,
     const xdouble *tr, const xdouble *ck, const xdouble *tk,
     const xdouble *Br, const xdouble *dBr, const xdouble *fr,
-    xdouble facr2k, xdouble fack2r,
-    FFTWPFX(plan) plan, xdouble *arr, int itmax)
+    int itmax)
 {
-  int i, it;
+  int i, npt = sphr->npt, it;
   xdouble x, hk, dydt, err, errmax;
 
   for ( it = 0; it < itmax; it++ ) {
-    sphr(npt, dcr, dck, facr2k, plan, arr, ri, ki);
+    sphr_r2k(sphr, dcr, dck);
     for ( i = 0; i < npt; i++ ) {
       hk = ck[i] + tk[i];
       dtk[i] = hk*hk + rho*hk*(2 + rho*hk)*dck[i];
     }
-    sphr(npt, dtk, dtr, fack2r, plan, arr, ki, ri);
+    sphr_r2k(sphr, dtk, dtr);
     for ( errmax = 0, i = 0; i < npt; i++ ) {
       /* dc = (1 + f) dy - dt = [(1 + f) Y' - 1] dt */
       if (Br) {
@@ -359,7 +311,7 @@ static void iterd(int npt, xdouble rho, xdouble *ri, xdouble *ki,
 static xdouble correct(int npt, xdouble rho, int dm,
     xdouble *cr, xdouble *tr, xdouble *fr, xdouble *ri2,
     xdouble *dcr, xdouble *dtr,
-    xdouble surfr, xdouble *rdfr)
+    xdouble B2, xdouble *rdfr)
 {
   int i;
   xdouble num = 0, den = 0, y, dydt, w, dwdt, ds;
@@ -375,20 +327,20 @@ static xdouble correct(int npt, xdouble rho, int dm,
     //w = 0.5 * tr[i] * tr[i];
     num += cr[i] * ri2[i];
     den += (1 + fr[i]) * w * ri2[i]; /* d_xi c = (1 + f) d_xi y */
-    if ( sys != SYS_HS ) {
+    if ( !dohs ) {
       num += rdfr[i] * (y + .5 * rho * dydt * dtr[i]) / dim;
       den += rdfr[i] * (w + .5 * rho * dwdt * dtr[i]) / dim;
     }
   }
-  if ( sys == SYS_HS ) {
+  if ( dohs ) {
     // checking code
     //y = 1+tr[dm]+.5*sqrs*tr[dm]*tr[dm];
     //dydt = 1 + sqrs*tr[dm];
     //w = 0.5*tr[dm]*tr[dm];
     //dwdt = tr[dm];
     y = getyr(tr[dm], &dydt, &w, &dwdt);
-    num += (y + dydt * dtr[dm] * rho * .5) * surfr / dim;
-    den += (w + dwdt * dtr[dm] * rho * .5) * surfr / dim;
+    num += (y + dydt * dtr[dm] * rho * .5) * 2 * B2;
+    den += (w + dwdt * dtr[dm] * rho * .5) * 2 * B2;
   }
   ds = -num/den;
   //printf("num %g, den %g, dm %d, y %g, %g, w %g, %g, s %g\n", (double) num, (double) den, dm,
@@ -435,24 +387,23 @@ static xdouble correct2(int npt, xdouble rho,
 
 
 /* solve the xi != 1 case, xi is the charging parameter */
-static void iterc(int npt, xdouble rho, xdouble *ri, xdouble *ki,
+static void iterc(sphr_t *sphr, xdouble rho,
     xdouble *Cr, xdouble *Tr, xdouble *Ck, xdouble *Tk,
     xdouble *Br, xdouble xi,
     const xdouble *ck, const xdouble *tk,
-    xdouble *Fr, xdouble facr2k, xdouble fack2r,
-    FFTWPFX(plan) plan, xdouble *arr, int itmax)
+    xdouble *Fr, int itmax)
 {
-  int i, it;
+  int i, npt = sphr->npt, it;
   xdouble x, err, errmax, Yr;
 
   for ( it = 0; it < itmax; it++ ) {
     /* get C(k) from C(r) */
-    sphr(npt, Cr, Ck, facr2k, plan, arr, ri, ki);
+    sphr_r2k(sphr, Cr, Ck);
     /* T(k) = rho C(k) h(k) */
     for ( i = 0; i < npt; i++ )
       Tk[i] = rho*Ck[i]*(ck[i] + tk[i]);
     /* get T(r) from T(k) */
-    sphr(npt, Tk, Tr, fack2r, plan, arr, ki, ri);
+    sphr_k2r(sphr, Tk, Tr);
     for ( errmax = 0, i = 0; i < npt; i++ ) {
       /* C(r) = (1 + F(r)) Y(r) - T(r) - 1 */
       if ( Br != NULL ) {
@@ -473,25 +424,24 @@ static void iterc(int npt, xdouble rho, xdouble *ri, xdouble *ki,
 
 
 /* solve d/d(rho) functions with xi != 1 */
-static void itercd(int npt, xdouble rho, xdouble *ri, xdouble *ki,
+static void itercd(sphr_t *sphr, xdouble rho,
     xdouble *dCr, xdouble *dTr, xdouble *dCk, xdouble *dTk,
     const xdouble *dck, const xdouble *dtk,
     const xdouble *Ck, const xdouble *Tr,
     const xdouble *ck, const xdouble *tk,
-    xdouble *Fr, xdouble facr2k, xdouble fack2r,
-    FFTWPFX(plan) plan, xdouble *arr, int itmax)
+    xdouble *Fr, int itmax)
 {
-  int i, it;
+  int i, npt = sphr->npt, it;
   xdouble x, hk, dhk, dY, err, errmax;
 
   for ( it = 0; it < itmax; it++ ) {
-    sphr(npt, dCr, dCk, facr2k, plan, arr, ri, ki);
+    sphr_r2k(sphr, dCr, dCk);
     for ( i = 0; i < npt; i++ ) {
       hk = ck[i] + tk[i];
       dhk = dck[i] + dtk[i];
       dTk[i] = Ck[i]*hk + rho*hk*dCk[i] + rho*Ck[i]*dhk;
     }
-    sphr(npt, dTk, dTr, fack2r, plan, arr, ki, ri);
+    sphr_k2r(sphr, dTk, dTr);
     for ( errmax = 0, i = 0; i < npt; i++ ) {
       /* dC = (1 + F) dY - dT = [(1 + F) Y' - 1] dT */
       getyr(Tr[i], &dY, NULL, NULL);
@@ -509,24 +459,23 @@ static void itercd(int npt, xdouble rho, xdouble *ri, xdouble *ki,
 
 /* solve d/d(xi) functions, where xi is the charging parameter
  * which can be 1 or not 1 */
-static void itercD(int npt, xdouble rho, xdouble *ri, xdouble *ki,
+static void itercD(sphr_t *sphr, xdouble rho,
     xdouble *Dcr, xdouble *Dtr, xdouble *Dck, xdouble *Dtk,
     const xdouble *cr, const xdouble *tr, const xdouble *ck, const xdouble *tk,
-    xdouble *fr, xdouble *Dfr, xdouble facr2k, xdouble fack2r,
-    FFTWPFX(plan) plan, xdouble *arr, int itmax)
+    xdouble *fr, xdouble *Dfr, int itmax)
 {
-  int i, it;
+  int i, npt = sphr->npt, it;
   xdouble x, err, errmax, yr, Dyr;
 
   (void) cr;
   for ( it = 0; it < itmax; it++ ) {
     /* Dc(r) --> Dc(k) */
-    sphr(npt, Dcr, Dck, facr2k, plan, arr, ri, ki);
+    sphr_r2k(sphr, Dcr, Dck);
     /* Dt(k) = rho Dc(k) h(k) */
     for ( i = 0; i < npt; i++ )
       Dtk[i] = rho*Dck[i]*(ck[i] + tk[i]);
     /* Dt(k) --> Dt(r) */
-    sphr(npt, Dtk, Dtr, fack2r, plan, arr, ki, ri);
+    sphr_k2r(sphr, Dtk, Dtr);
     for ( errmax = 0, i = 0; i < npt; i++ ) {
       /* Dc(r) = -Dt(r) + (1 + f(r)) Dy(r) + Df(r) y(r)
        * for the hard sphere we assume that Df(r) = f(r) */
@@ -581,7 +530,7 @@ static xdouble getmu(int npt, xdouble rho, xdouble *fr,
   xdouble sDc = 0, stDt = 0, scDt = 0, stDc = 0, sDB = 0, shDB = 0, sBDh = 0;
   xdouble sdc = 0, stdc = 0, scdt = 0, stdt = 0, sdB = 0, shdB = 0, sBdh = 0;
   xdouble corr1 = 0, Dcorr1 = 0, dcorr1 = 0, corr2 = 0, Dcorr2 = 0, dcorr2 = 0;
-  xdouble numD, denD1, denD2, numd, dend1, dend2, det;
+  xdouble numD, denD1, denD2, numd = 0, dend1 = 0, dend2 = 0, det;
   int ctype = dohnc ? 1 : 0;
 
   mu0 = 0;
@@ -851,7 +800,7 @@ static xdouble getpres(int npt, xdouble rho, int dm, xdouble B2,
 
 static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
 {
-  xdouble dr, dk, facr2k, fack2r, surfr, surfk, B2, *bphi;
+  xdouble *bphi;
   xdouble mu0, mu0a, mu0b, mu0br, dmu0, mu1, mu1a, mu1b, dmu1;
   xdouble mu0c, mu1c, mu0d, mu1d, mu0e, mu1e, mu0f, mu1f;
   xdouble mueth, mufr1, mufr2;
@@ -863,38 +812,15 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
   xdouble *dCr, *dTr, *dCk, *dTk;
   xdouble *DCr, *DTr, *DCk, *DTk;
   xdouble pres0, pres0a, pres0b, rpres0 = 0, pres0c, pres0d;
-  xdouble *arr, *ri, *ki, *ri2, *ki2, s = sqrs, ds;
-  int i, dm, sci;
-  FFTWPFX(plan) plan = NULL;
+  xdouble s = sqrs, ds;
+  int i, sci;
   char fnout[80] = "iemu.dat", buf[80] = "";
   FILE *fp;
   int Brlmax = -1;
   xdouble *Br = NULL, *dBr = NULL, **Brs = NULL;
+  sphr_t *sphr;
 
-  xnew(arr, npt);
-  xnew(ri, npt);
-  xnew(ki, npt);
-  xnew(ri2, npt);
-  xnew(ki2, npt);
-  plan = FFTWPFX(plan_r2r_1d)(npt, arr, arr, FFTW_RODFT11, FFTW_ESTIMATE);
-
-  dr = rmax / npt;
-  dk = PI / (dr * npt);
-
-  facr2k = PI*2 * dr;
-  fack2r = pow_si(PI*2, -2) * dk;
-  for ( i = 0; i < npt; i++ ) {
-    ri[i] = dr * (i * 2 + 1) / 2;
-    ki[i] = dk * (i * 2 + 1) / 2;
-  }
-
-  surfr = PI*4;
-  surfk = surfr * pow_si(PI*2, -3);
-  B2 = surfr / (2*dim);
-  for ( i = 0; i < npt; i++ ) {
-    ri2[i] = surfr * ri[i] * ri[i] * dr;
-    ki2[i] = surfk * ki[i] * ki[i] * dk;
-  }
+  sphr = sphr_open(dim, npt, rmax, 0, ffttype);
 
   xnew(bphi, npt);
   xnew(fr, npt);
@@ -930,35 +856,25 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
   xnew(ffr, npt);
   xnew(Ffr, npt);
 
-  for ( dm = -1, i = 0; i < npt; i++ ) {
-    if ( sys == SYS_HS ) {
-      fr[i] = (ri[i] < 1) ? -1 : 0;
-    } else {
-      xdouble x;
-      bphi[i] = beta * potlj(ri[i], 1, 1, &rdfr[i]);
-      x = EXP(-bphi[i]);
-      fr[i] = x - 1;
-      rdfr[i] *= beta * x;
-    }
+  mkfr(npt, beta, bphi, fr, rdfr, sphr->ri, sphr->dm, gaussf, invexp, dolj);
+  for ( i = 0; i < npt; i++ ) {
     Fr[i] = fr[i] * (1 - delta);
     rdFr[i] = rdfr[i] * (1 - delta);
-    /* find the hard-core boundary */
-    if ( dm < 0 && ri[i] > 1) dm = i;
   }
 
   /* compute the fff */
-  sphr(npt, fr, tk, facr2k, plan, arr, ri, ki); /* f(r) --> t(k) */
+  sphr_r2k(sphr, fr, tk); /* f(r) --> t(k) */
   for ( i = 0; i < npt; i++ ) tk[i] = tk[i] * tk[i];
-  sphr(npt, tk, ffr, fack2r, plan, arr, ki, ri); /* t(k) --> t(r) */
-  sphr(npt, Fr, Tk, facr2k, plan, arr, ri, ki); /* F(r) --> T(k) */
+  sphr_k2r(sphr, tk, ffr); /* t(k) --> t(r) */
+  sphr_r2k(sphr, Fr, Tk); /* F(r) --> T(k) */
   for ( i = 0; i < npt; i++ ) Tk[i] = Tk[i] * Tk[i];
-  sphr(npt, Tk, Ffr, fack2r, plan, arr, ki, ri); /* T(k) --> T(r) */
+  sphr_k2r(sphr, Tk, Ffr); /* T(k) --> T(r) */
 
   /* open the report file */
-  if ( sys != SYS_HS ) sprintf(buf, "T%g", (double) T);
+  if ( !dohs ) sprintf(buf, "T%g", (double) T);
   else buf[0] = '\0';
   sprintf(fnout, "iemu%s%s%s%s.dat",
-      sys?"lj":"hs", buf,
+      dolj?"lj":gaussf?"gauss":invexp?"invexp":"hs", buf,
       fnBr?"Br":dohnc?"hnc":dopy?"py":dohc?"hc":doir?"ir":"sqr",
       dosc?"scp":doSC?"scmu":"");
   if ((fp = fopen(fnout, "w")) == NULL) {
@@ -975,7 +891,7 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
     xnew(Brs[0], Brlmax * npt);
     for ( i = 0; i < 2*npt; i++ ) Brs[0][i] = 0;
     for ( i = 1; i < Brlmax; i++ ) Brs[i] = Brs[0] + npt*i;
-    Brlmax = getBrs(fnBr, Brlmax, npt, ri, Brs);
+    Brlmax = getBrs(fnBr, Brlmax, npt, sphr->ri, Brs);
     if (Brlmax > 0) {
       fprintf(stderr, "loaded the bridge function from %s\n", fnBr);
     } else {
@@ -993,23 +909,19 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
     if (Br != NULL) combBr(Brlmax, npt, Br, dBr, Brs, rho);
 
     /* 1. solve the case of xi = 1 */
-    iter(npt, rho, ri, ki, cr, tr, ck, tk, Br,
-        fr, facr2k, fack2r, plan, arr, itmax);
+    iter(sphr, rho, cr, tr, ck, tk, Br, fr, itmax);
 
     /* 2. differentiating with respect to rho */
-    iterd(npt, rho, ri, ki, dcr, dtr, dck, dtk, tr, ck, tk, Br, dBr,
-          fr, facr2k, fack2r, plan, arr, itmax);
+    iterd(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, Br, dBr, fr, itmax);
 
     /* self-consistently determine s based on the pressure
      * it appears that this only makes the result slightly worse */
     if (dosc) {
       for (sci = 1; ; sci++) {
         /* differentiating with respect to rho */
-        iterd(npt, rho, ri, ki, dcr, dtr, dck, dtk, tr, ck, tk, Br, dBr,
-              fr, facr2k, fack2r, plan, arr, itmax);
-        ds = correct(npt, rho, dm, cr, tr, fr, ri2, dcr, dtr, surfr, rdfr);
-        iter(npt, rho, ri, ki, cr, tr, ck, tk, Br,
-            fr, facr2k, fack2r, plan, arr, itmax);
+        iterd(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, Br, dBr, fr, itmax);
+        ds = correct(npt, rho, sphr->dm, cr, tr, fr, sphr->rDm1, dcr, dtr, sphr->B2hs, rdfr);
+        iter(sphr, rho, cr, tr, ck, tk, Br, fr, itmax);
         s = updates(ds);
         //printf("s %g, ds %g\n", (double) s, (double) ds); getchar();
         if (FABS(ds) < 1e-4) break;
@@ -1019,19 +931,15 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
     }
 
     /* 3. compute Dc(r), Dt(r), differentiation w.r.t. xi, at xi = 1 */
-    itercD(npt, rho, ri, ki, Dcr, Dtr, Dck, Dtk, cr, tr, ck, tk,
-        fr, fr, facr2k, fack2r, plan, arr, itmax);
+    itercD(sphr, rho, Dcr, Dtr, Dck, Dtk, cr, tr, ck, tk, fr, fr, itmax);
 
     if (doSC) {
       for (sci = 1; ; sci++) {
         /* differentiating with respect to rho */
-        iterd(npt, rho, ri, ki, dcr, dtr, dck, dtk, tr, ck, tk, Br, dBr,
-              fr, facr2k, fack2r, plan, arr, itmax);
-        ds = correct2(npt, rho, cr, tr, fr, ri2, Dcr, Dtr, dcr, dtr);
-        iter(npt, rho, ri, ki, cr, tr, ck, tk, Br,
-            fr, facr2k, fack2r, plan, arr, itmax);
-        itercD(npt, rho, ri, ki, Dcr, Dtr, Dck, Dtk, cr, tr, ck, tk,
-            fr, fr, facr2k, fack2r, plan, arr, itmax);
+        iterd(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, Br, dBr, fr, itmax);
+        ds = correct2(npt, rho, cr, tr, fr, sphr->rDm1, Dcr, Dtr, dcr, dtr);
+        iter(sphr, rho, cr, tr, ck, tk, Br, fr, itmax);
+        itercD(sphr, rho, Dcr, Dtr, Dck, Dtk, cr, tr, ck, tk, fr, fr, itmax);
         s = updates(ds);
         if (FABS(ds) < 1e-4) break;
       }
@@ -1041,33 +949,31 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
     /* compute thermodynamic quantities */
     mu0br = (Br != NULL) ? (2./3 - slope * rho) : 0;
     mufr1 = mufr2 = mueth = 0;
-    mu0 = getmu(npt, rho, fr, cr, tr, Dcr, Dtr, dcr, dtr, Br, dBr, ffr, ri2,
+    mu0 = getmu(npt, rho, fr, cr, tr, Dcr, Dtr, dcr, dtr, Br, dBr, ffr, sphr->rDm1,
         &mu0a, &mu0b, &mu0br, &dmu0,
         &mu0c, &mu0d, &mu0e, &mueth, &mu0f, &mufr1, &mufr2);
-    pres0 = getpres(npt, rho, dm, B2, fr, cr, tr, dcr, dtr, ri2, ck, ki2,
+    pres0 = getpres(npt, rho, sphr->dm, sphr->B2hs, fr, cr, tr, dcr, dtr,
+        sphr->rDm1, ck, sphr->kDm1,
         &pres0a, &pres0b, &rpres0, &pres0c, &pres0d, ffr);
 
     if ( savecr )
-      output(npt, ri, cr, tr, Dcr, Dtr, fr, bphi, "cr.dat");
+      output(npt, sphr->ri, cr, tr, Dcr, Dtr, fr, bphi, "cr.dat");
 
     /* 4. solve the case of xi = 1 - delta  */
-    iterc(npt, rho, ri, ki, Cr, Tr, Ck, Tk, Br, 1-delta, ck, tk,
-        Fr, facr2k, fack2r, plan, arr, itmax);
+    iterc(sphr, rho, Cr, Tr, Ck, Tk, Br, 1-delta, ck, tk, Fr, itmax);
 
     /* 5. solve derivatives w.r.t. density, rho */
-    itercd(npt, rho, ri, ki, dCr, dTr, dCk, dTk, dck, dtk, Ck, Tr, ck, tk,
-        Fr, facr2k, fack2r, plan, arr, itmax);
+    itercd(sphr, rho, dCr, dTr, dCk, dTk, dck, dtk, Ck, Tr, ck, tk, Fr, itmax);
 
     /* 6. compute DC(r), DT(r), derivatives w.r.t. xi, at xi = 1 - delta */
-    itercD(npt, rho, ri, ki, DCr, DTr, DCk, DTk, Cr, Tr, Ck, Tk,
-        Fr, fr, facr2k, fack2r, plan, arr, itmax);
+    itercD(sphr, rho, DCr, DTr, DCk, DTk, Cr, Tr, Ck, Tk, Fr, fr, itmax);
 
-    mu1 = getmu(npt, rho, Fr, Cr, Tr, DCr, DTr, dCr, dTr, Br, dBr, Ffr, ri2,
+    mu1 = getmu(npt, rho, Fr, Cr, Tr, DCr, DTr, dCr, dTr, Br, dBr, Ffr, sphr->rDm1,
         &mu1a, &mu1b, &mu0br, &dmu1,
         &mu1c, &mu1d, &mu1e, &mueth, &mu1f, &mufr1, &mufr2);
 
     if ( savecr )
-      output(npt, ri, Cr, Tr, DCr, DTr, Fr, bphi, "Cr.dat");
+      output(npt, sphr->ri, Cr, Tr, DCr, DTr, Fr, bphi, "Cr.dat");
 
     printf("rho %5.3f, muv%9.4f,%9.4f,%9.4f rab %6.4f "
            "dmu%9.4f,%9.4f,%9.4f;%9.4f s%8.5f\n",
@@ -1114,6 +1020,7 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
            (double) pres0c, (double) pres0d);
   }
 
+  sphr_close(sphr);
   free(bphi);
   free(fr);
   free(rdfr);
@@ -1141,11 +1048,6 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
   free(DCk);
   free(DTk);
 
-  free(arr);
-  free(ri);
-  free(ki);
-  free(ri2);
-
   free(Br);
   free(dBr);
   if (Brs != NULL) {
@@ -1163,11 +1065,7 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
 int main(int argc, char **argv)
 {
   doargs(argc, argv);
-
   integ(numpt, rmax, rho, drho);
-#ifndef NOFFTW
-  FFTWPFX(cleanup)();
-#endif
   return 0;
 }
 

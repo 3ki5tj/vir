@@ -11,15 +11,11 @@
 #endif
 #include "slowdht.h"
 #include "ieutil.h"
+#include "gsl/gsl_sf_bessel.h"
 
 
 
-#ifdef D
 int dim = D;
-#else
-int dim = 2;
-#endif
-
 int nmax = 10;
 double rmax = 0;
 int numpt = 1024;

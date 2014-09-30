@@ -12,10 +12,10 @@ C programs (native datatypes family)
 -------------------------------------
     ievir.c         GSL/FFTW3   actual code of iegsl.c and ieodfftw.c
 
-    iegsl.c         GSL         alias of ievir.c
+    iegsl.c         GSL         alias of ievir.c as a symbolic link
                     slowdht.h   an arbitrary even or odd dimension
 
-    ieodfftw.c      FFTW3       alias of ievir.c
+    ieodfftw.c      FFTW3       alias of ievir.c as a symbolic link
                     fft.h       arbitrary odd-dimensional case
 
     snapfixgsl.c    GSL         fix the snapshotXXX_.dat output of iegsl.c
@@ -24,7 +24,7 @@ C programs (native datatypes family)
 
     ozcrtr.c        GSL/FFTW3   given c(r), compute t(r) from the OZ relation
 
-    ljie3dfftw.c    FFTW3       3-dimensional case for the LJ potential
+    ljievir.c       GSL/FFTW3   for the LJ potential
 
     ieutil.h        none        common routines for the above programs
 
