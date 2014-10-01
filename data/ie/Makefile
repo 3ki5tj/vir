@@ -7,6 +7,7 @@ $(zipfile): *.dat Makefile
 	zip -9 $@ *.dat \
 	  hnc/*.dat py/*.dat pyhnc/*.dat \
 	  cr/*.dat err/*.dat iebenchmark/*.dat \
+	  thermo/*.dat lamc/*.dat \
 	  Makefile
 
 #host=cz1@he.host.utmb.edu

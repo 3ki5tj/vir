@@ -18,8 +18,15 @@
 
 
 
+#include <time.h>
 /* in case xdouble hasn't been included, include it here */
 #include "xdouble.h"
+
+#if !defined(ZCOM_UTIL)
+#define ZCOM_PICK
+#define ZCOM_UTIL
+#include "zcom.h"
+#endif
 
 
 
@@ -180,11 +187,23 @@ __inline static void div_series(int n, const xdouble *c, const xdouble *a,
 
 
 
-/* power the series y = Sum_{i = 0 to n-1} a_i x^i
- * as y^p = Sum_{j = 0 to n-1} b_j x^j */
-__inline static void pow_series(xdouble p, int n, const xdouble *a, xdouble *b)
+/* from a = Sum_{i = 0 to n-1} a_i x^i
+ * compute a^p = b = Sum_{j = 0 to n-1} b_j x^j */
+__inline static void pow_series(int n, const xdouble *a, xdouble p, xdouble *b)
 {
   int i, j;
+
+  for ( i = 0; i < n; i++ )
+    if (FABS(a[i]) > 0) break;
+
+  /* if the leading term a0 is zero
+   * compute the reduced series */
+  if (i != 0) {
+    for ( j = 0; j < i*2 && j < n; j++ ) b[j] = 0;
+    if ( j == n ) return;
+    pow_series(n - i*2, a + i, p, b + i*2);
+    return;
+  }
 
   b[0] = POW(a[0], p);
   for ( i = 1; i < n; i++ ) {
@@ -195,8 +214,11 @@ __inline static void pow_series(xdouble p, int n, const xdouble *a, xdouble *b)
   }
 }
 /* test of the above function
-  xdouble a[7] = {1, 2, 1}, b[7]; int i = 0;
-  pow_series(3, 7, a, b); for ( i = 0; i < 7; i++ ) printf("%g ", b[i]); printf("\n");
+  xdouble a[5] = {1, 2, 1, 2, 3}, b[5]; int i;
+  pow_series(5, a, 3, b); for ( i = 0; i < 5; i++ ) printf("%g ", b[i]); printf("\n");
+  another test
+  double a[7] = {0, 0, 1, 1, 0, 0}, b[7] = {9,3,5,6,5,3}; int i;
+  pow_series(7, a, 5, b); for ( i = 0; i < 7; i++) printf("%g ", b[i]);
 */
 
 
@@ -242,6 +264,25 @@ __inline static xdouble log_series(int n, const xdouble *b, xdouble *a)
   exp_series(7, a, b); for ( i = 0; i < 7; i++ ) printf("%g ", b[i]); printf("\n");
   log_series(7, b, a); for ( i = 0; i < 7; i++ ) printf("%g ", a[i]); printf("\n");
 */
+
+
+
+/* from a = Sum_{i = 0 to n-1} a_i x^i
+ * and  p = Sum_{i = 0 to n-1} p_i x^j
+ * compute a^p = b = Sum_{j = 0 to n-1} b_k x^k
+ * assuming a[0] != 0 */
+__inline static void pow2_series(int n, const xdouble *a, const xdouble *p,
+    xdouble *b, xdouble *logb)
+{
+  die_if (FABS(a[0]) <= 0 || FABS(p[0]) <= 0,
+      "cannot take the power of %g^%g, n %d\n", (double)a[0], (double)p[0], n);
+
+  xnew(logb, n);
+  log_series(n, a, b); /* b = log a */
+  mul_series(n, p, b, logb); /* logb = p * log a */
+  exp_series(n, logb, b); /* b = exp( log b ) */
+  free(logb);
+}
 
 
 
@@ -411,6 +452,35 @@ __inline static void get_yr_hnc_br(int l, int npt, xdouble *yrl,
 
 
 
+/* compute the cavity function y(r)
+ * for a rho-dependent lambda */
+__inline static void get_yr_hnc_lam(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble *lam)
+{
+  int i, u;
+  xdouble *x, *y;
+
+  xnew(x, l + 1);
+  xnew(y, l + 1);
+  /* y(r) = 1 + t + lam * [exp(t) - t - 1] */
+  for ( i = 0; i < npt; i++) {
+    /* form the exponent */
+    for ( x[0] = 0, u = 1; u <= l; u++ )
+      x[u] = tr[u][i];
+    exp_series(l+1, x, y);
+    /* y_l = t_l + Sum {from u = 3 to l} lam_{l-u} (e^t - 1 - t)_{u}
+     * the u = 2 term, corresponding to lam_{l-2}
+     * are to be determined */
+    yrl[i] = tr[l][i];
+    for ( u = 3; u <= l; u++ )
+      yrl[i] += (y[u] - tr[u][i]) * lam[l-u];
+  }
+  free(x);
+  free(y);
+}
+
+
+
 /* compute the expential correction function ln(1 + t(r)) - t(r) */
 __inline static void get_exp_corr(int l, int npt, xdouble *br,
     xdouble **tr)
@@ -446,6 +516,30 @@ __inline static void get_yr_sqr(int l, int npt, xdouble *yrl,
     yrl[i] = tr[l][i]; /* t(r) */
     for ( j = 1; j < l; j++ ) /* do t(r)^2 */
       yrl[i] += s * tr[j][i] * tr[l-j][i];
+  }
+}
+
+
+
+/* compute the cavity distribution function y(r)
+ * for a rho-dependent lambda */
+__inline static void get_yr_sqr_lam(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble *lam)
+{
+  int i, u, v;
+  xdouble y;
+
+  /* y(r) = 1 + t + lam * (t*t/2) */
+  for ( i = 0; i < npt; i++) {
+    /* y_l = t_l + Sum {from u = 3 to l} lam_{l-u} (t^2)_{u}
+     * the u = 2 term, corresponding to lam_{l-2}
+     * are to be determined */
+    yrl[i] = tr[l][i];
+    for ( u = 3; u <= l; u++ ) {
+      for ( y = 0, v = 1; v <= u - 1; v++ )
+        y += tr[v][i] * tr[u-v][i];
+      yrl[i] += y * lam[l-u];
+    }
   }
 }
 
@@ -571,7 +665,7 @@ __inline static void get_yr_hc(int l, int npt, xdouble *yrl,
     /* y(r) = (1 + s t(r))^(1/s) */
     for ( a[0] = 1, u = 1; u <= l; u++ )
       a[u] = s * tr[u][i];
-    pow_series(1/s, l+1, a, b);
+    pow_series(l+1, a, 1/s, b);
     yrl[i] = b[l];
   }
   free(a);
@@ -580,8 +674,56 @@ __inline static void get_yr_hc(int l, int npt, xdouble *yrl,
 
 
 
-/* compute y(r) for the BBPG closure */
-__inline static void get_yr_bbpg(int l, int npt, xdouble *yrl,
+/* compute y(r) for the Hutchinson-Conkie closure */
+__inline static void get_yr_hc_lam(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble *lam)
+{
+  int i, u, v, vm;
+  xdouble *a, *b, *s, *invs;
+
+  xnew(a, l + 1);
+  xnew(b, l + 1);
+  xnew(s, l + 1);
+  xnew(invs, l + 1);
+  for ( i = 0; i < npt; i++ ) {
+    if ( l <= 2 ) {
+      yrl[i] = tr[l][i];
+      continue;
+    }
+    //if (l== 4){lam[0]=lam[2]=0; lam[1]=10000; tr[0][i] = 0; tr[1][i] = 1; tr[2][i] = 0, tr[3][i] = 0; tr[4][i] = 0; }
+    /* y(r) = (1 + s t(r))^(1/s)
+     * s = 1-lam
+     * */
+    /* form s = {s_0, ..., s_{l-3}} */
+    for ( s[0] = 1 - lam[0], u = 1; u < l - 2; u++ )
+      s[u] = -lam[u];
+    /* compute 1/s */
+    if ( l >= 3 ) {
+      pow_series(l+1, s, -1, invs);
+    }
+    /* form 1 + s t(r) */
+    for ( a[0] = 1, u = 1; u <= l; u++ ) {
+      vm = u - 1;
+      if (vm > l - 3) vm = l - 3;
+      for ( a[u] = 0, v = 0; v <= vm; v++ )
+        a[u] += s[v] * tr[u-v][i];
+    }
+    //if (l == 4) printf("a %g %g %g %g\n", a[0],a[1],a[2],a[3]);
+    pow2_series(l+1, a, invs, b, s);
+    //if (l==3) { xdouble t1=tr[1][i],t2=tr[2][i]; printf("l %d, %g, %g",l, b[l], tr[l][i]+lam[0]*t1*t2+lam[0]*(lam[0]*2-1)/6*pow_si(t1,3)); getchar(); }
+    //if (l==4) { xdouble t1=tr[1][i],t2=tr[2][i],t3=tr[3][i],t4=tr[4][i]; printf("l %d, %g, %g, t1 %g, t2 %g, t3 %g, t4 %g",l, b[l], t4 + lam[0]*(t1*t3+t2*t2/2) + lam[1]*t1*t2 + lam[0]*(lam[0]*2-1)*t1*t1*t2/2 + lam[1]*(lam[0]*4-1)*t1*t1*t1/6 + lam[0]*(lam[0]*2-1)*(lam[0]*3-2)*pow_si(t1,4)/24, t1, t2, t3, t4); getchar(); }
+    yrl[i] = b[l];
+  }
+  free(a);
+  free(b);
+  free(s);
+  free(invs);
+}
+
+
+
+/* compute y(r) for the BPGG closure */
+__inline static void get_yr_bpgg(int l, int npt, xdouble *yrl,
     xdouble **tr, xdouble s)
 {
   int i, u;
@@ -593,7 +735,7 @@ __inline static void get_yr_bbpg(int l, int npt, xdouble *yrl,
     /* y(r) = exp[(1 + s t(r))^(1/s) - 1] */
     for ( a[0] = 1, u = 1; u <= l; u++ )
       a[u] = s * tr[u][i];
-    pow_series(1/s, l+1, a, b);
+    pow_series(l+1, a, 1/s, b);
     b[0] = 0;
     exp_series(l+1, b, a);
     yrl[i] = a[l];
@@ -670,7 +812,7 @@ __inline static void get_yr_hurst(int l, int npt, xdouble *yrl,
     for ( u = 2; u <= l; u++ ) {
       /* plug the u - 1 solution of y(r) into the r.h.s. */
       a[u] = 0;
-      pow_series(m, u+1, a, b);
+      pow_series(u+1, a, m, b);
       log_series(u+1, a, c);
       mul_series(u+1, b, c, d);
       a[u] = tr[u][i] - d[u];
@@ -776,6 +918,7 @@ __inline static xdouble get_corr1_hs(int l, int npt, int dm,
     return *Bv0;
   }
   *eps = -(*Bv0 * shift1 - *Bc0) / (dBv * shift1 - dBc);
+  //printf("l %d, eps %g, Bc %g, Bv %g,  %g %g, vc %g, cr %g\n", l, *eps, *Bc0, *Bv0, dBc, dBv, vc[0], cr[0]);
   for ( i = 0; i < npt; i++ ) {
     vc[i] *= *eps;
     cr[i] += (fr[i] + 1) * vc[i];
@@ -876,7 +1019,7 @@ __inline static xdouble get_inv1mrc(int l, int npt,
     /* form 1 - rho c(k) */
     for ( a[0] = 1, j = 0; j <= l; j++ ) a[j+1] = -ck[j][i];
     a[l+2] = 0;
-    pow_series(-1, l+3, a, b);
+    pow_series(l+3, a, -1, b);
     s += w[i] * b[l+2];
   }
   FREE1DARR(a, l + 3);
@@ -898,7 +1041,7 @@ __inline static xdouble get_Bc_hr(int l, int npt, const xdouble *hrl,
   xnew(b, l + 2);
   a[0] = 1;
   for ( i = 0; i <= l; i++ ) a[i+1] = hk0[i];
-  pow_series(-1, l+2, a, b); /* b = 1/a */
+  pow_series(l+2, a, -1, b); /* b = 1/a */
   x = b[l+1]/(l+2);
   free(a);
   free(b);
@@ -997,7 +1140,7 @@ enum {
   IETYPE_INVROWLINSON = 11, /* Rowlinson, 1966 */
   IETYPE_HURST = 12, /* Hurst, 1965 */
   IETYPE_HC = 20, /* Hutchinson and Conkie, 1971, Molecular Physics, Vol. 21, No. 5, 881-890 */
-  IETYPE_BBPG = 30, /* Ballon, Pastore, Galli, and Gazzillo */
+  IETYPE_BPGG = 30, /* Ballon, Pastore, Galli, and Gazzillo */
   IETYPE_VERLET = 40, /* Verlet, 1980 */
   IETYPE_GEO  = 100,
   IETYPE_EXP  = 110,
@@ -1023,10 +1166,10 @@ __inline static void init_hccoef(xdouble *a, int lmax, xdouble s)
 
 
 
-/* initialize the coefficients of the Ballon-Pastore-Galli-Gazzillo (BBPG) closure
+/* initialize the coefficients of the Ballon-Pastore-Galli-Gazzillo (BPGG) closure
  * y(r) = exp[ (1 + s t(r))^1/s - 1 ]
  *      = Sum_{l = 0 to lmax - 1} a_l t(r)^l */
-__inline static void init_bbpgcoef(xdouble *a, int lmax, xdouble s)
+__inline static void init_bpggcoef(xdouble *a, int lmax, xdouble s)
 {
   int l;
   xdouble *b;
@@ -1076,7 +1219,7 @@ __inline static void init_hurstcoef(xdouble *a, int lmax, xdouble m)
   xnew(d, lmax);
   b[0] = 1;
   b[1] = 1;
-  pow_series(m, lmax, b, c);
+  pow_series(lmax, b, m, c);
   log_series(lmax, b, d);
   mul_series(lmax, c, d, b);
   inverse_series(lmax, b, a);
@@ -1220,13 +1363,14 @@ __inline static void print_yrcoef(xdouble *a, int lmax)
 
 
 
-#define savevirhead(fn, title, dim, l0, nmax, dohnc, mkcorr, npt, rmax, inittime) \
-  savevirheadx(fn, title, dim, l0, nmax, dohnc, mkcorr, 0, npt, rmax, inittime, \
+#define savevirhead(fn, title, dim, l0, nmax, ietype, mkcorr, npt, rmax, inittime) \
+  savevirheadx(fn, title, dim, l0, nmax, ietype, mkcorr, 0, 0, npt, rmax, inittime, \
       1, 1, -1, 0, 0, 0)
 
 /* save the header for the virial file */
 __inline static char *savevirheadx(const char *fn, const char *title,
-    int dim, int l0, int nmax, int ietype, int mkcorr, int expcorr,
+    int dim, int l0, int nmax, int ietype,
+    int mkcorr, int expcorr, int lamcorr,
     int npt, xdouble rmax, clock_t inittime,
     xdouble hncamp, xdouble hncq, xdouble hncalpha,
     xdouble shift, xdouble shiftinc, int shiftl0)
@@ -1247,11 +1391,13 @@ __inline static char *savevirheadx(const char *fn, const char *title,
   else if ( ietype == IETYPE_GEO)   strcpy(sietype, "GEO");
   else if ( ietype == IETYPE_EXP)   strcpy(sietype, "EXP");
   else if ( ietype == IETYPE_LOG)   strcpy(sietype, "LOG");
-  else if ( ietype == IETYPE_BBPG)  strcpy(sietype, "BBPG");
+  else if ( ietype == IETYPE_BPGG)  strcpy(sietype, "BPGG");
   else if ( ietype == IETYPE_YBG)   strcpy(sietype, "YBG");
   else if ( ietype == IETYPE_KIRKWOOD) strcpy(sietype, "K");
+
   if ( mkcorr ) strcat(sietype, "c");
   else if ( expcorr ) strcat(sietype, "x");
+  else if ( lamcorr ) strcat(sietype, "l");
 
   if ( fn == NULL ) {
     char shncamp[80] = "", shncq[80] = "", shncalpha[80] = "";
@@ -1298,9 +1444,9 @@ __inline static void printB(const char *name, int dim, int n,
   xdouble x;
   int px = 0;
 
-  if ( B == 0 ) return;
+  if ( FABS(B) <= XDBL_MIN ) return;
   printf("%s(%3d) = %15.7" XDBLPRNF "e", name, n, B);
-  if ( B2p != 0 ) {
+  if ( FABS(B2p) > XDBL_MIN ) {
     printf(" (%15.8" XDBLPRNF "e", B/B2p/B2q);
     x = B/volp/volq;
     px = ( FABS(x) < 10000 && dim % 2 == 1);
@@ -1315,8 +1461,8 @@ __inline static void printB(const char *name, int dim, int n,
 /* save a virial coefficient to file */
 __inline static void saveB(FILE *fp, xdouble B, xdouble B2p, xdouble B2q)
 {
-  if ( B == 0 ) fprintf(fp, " 0");
-  else fprintf(fp, " " XDBLPRNE, (B2p != 0 ? B/B2p/B2q : B));
+  if ( FABS(B) <= XDBL_MIN ) fprintf(fp, " 0");
+  else fprintf(fp, " " XDBLPRNE, (FABS(B2p) > XDBL_MIN ? B/B2p/B2q : B));
 }
 
 
@@ -1333,7 +1479,7 @@ __inline static int savevir(const char *fn, int dim, int n,
 
   /* print the result on screen */
   B2p = pow_si(B2, np);
-  if ( B2p == 0 ) { /* underflow */
+  if ( FABS(B2p) <= XDBL_MIN ) { /* underflow */
     nq = np / 2;
     np -= nq;
     B2p = pow_si(B2, np);
@@ -1351,7 +1497,7 @@ __inline static int savevir(const char *fn, int dim, int n,
   if ( mkcorr ) {
     printf(", %9.6f", (double) fcorr);
   } else { /* the following are useless when making corrections */
-    if ( Bm != 0 ) printf("\n");
+    if ( FABS(Bm) > XDBL_MIN ) printf("\n");
     printB("Bh", dim, n, Bh, B2p, B2q, volp, volq, ", ");
     printB("Br", dim, n, Br, B2p, B2q, volp, volq, ", ");
     printB("By", dim, n-1, By, B2p, B2y, volp, volr, "");

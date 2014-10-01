@@ -45,6 +45,7 @@ int singer = 0;
 int ring = 0;
 int mkcorr = 0;
 int expcorr = 0; /* exponential correction */
+int lamcorr = 0;
 int fast = 0;
 int verbose = 0;
 char *fnvir = NULL;
@@ -66,7 +67,7 @@ xdouble rowphi = 0; /* Rowlinson's Phi */
 xdouble invphi = 0; /* inverse Rowlinson's Phi */
 xdouble hurstm = 0; /* Hurst's m */
 xdouble verleta = 0, verletb = 0; /* Verlet modified */
-xdouble bbpgs = 15./8; /* MS/BBPG s */
+xdouble bpggs = 15./8; /* MS/BPGG s */
 xdouble sqrs = 0.5;
 xdouble xsqrs = 0;
 xdouble cubs = 0.5;
@@ -103,7 +104,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--hm", "%" XDBLSCNF "f", &hurstm, "m of the Hurst approximation, t(r) = [y(r)]^m log y(r)");
   argopt_add(ao, "--va", "%" XDBLSCNF "f", &verleta, "A of the Verlet approximation, y(r) = exp[t(r) - A t(r)^2 /2 / (1 + B t(r) / 2) ]");
   argopt_add(ao, "--vb", "%" XDBLSCNF "f", &verletb, "B of the Verlet approximation");
-  argopt_add(ao, "--bbpgs", "%" XDBLSCNF "f", &bbpgs, "s of the BBPG approximation, y(r) = exp[ (1 + s t(r))^(1/s) - 1 ]");
+  argopt_add(ao, "--bpggs", "%" XDBLSCNF "f", &bpggs, "s of the BPGG approximation, y(r) = exp[ (1 + s t(r))^(1/s) - 1 ]");
   argopt_add(ao, "--ms", "%b", &usems, "Martynov-Sarkisov approximation, y(r) = exp[ (1 + 2 t(r))^(1/2) - 1 ]");
   argopt_add(ao, "--sqrs", "%" XDBLSCNF "f", &sqrs, "s of the quadratic approximation, y(r) = 1 + t(r) + s t(r)^2 / 2");
   argopt_add(ao, "--xsqrs", "%" XDBLSCNF "f", &xsqrs, "s of the exponential quadratic approximation, y(r) = exp[ t(r) + s t(r)^2 ]");
@@ -115,6 +116,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted-chain (HNC) like approximation");
   argopt_add(ao, "--corr", "%b", &mkcorr, "linearly correct the closure");
   argopt_add(ao, "--expc", "%b", &expcorr, "exponentially correct the closure");
+  argopt_add(ao, "--lamc", "%b", &lamcorr, "correction by a rho-dependent lambda");
   argopt_add(ao, "--ring", "%b", &ring, "use the ring-sum formula");
   argopt_add(ao, "--sing", "%b", &singer, "use the Singer-Chandler formula for HNC");
   argopt_add(ao, "--fast", "%b", &fast, "save tk and yr to accelerate the calculation");
@@ -132,7 +134,7 @@ static void doargs(int argc, char **argv)
 #endif
   argopt_add(ao, "-s", "%b", &snapshot, "save intermediate snapshots");
   argopt_add(ao, "-G", "%b", &gaussf, "Gaussian model instead of hard spheres");
-  argopt_add(ao, "-I", "%d", &invexp, "exponent of the inverse potential r^(-n)");
+  argopt_add(ao, "--invexp", "%d", &invexp, "exponent of the inverse potential r^(-n)");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
@@ -163,8 +165,8 @@ static void doargs(int argc, char **argv)
   if ( argopt_isset(ao, invphi) ) ietype = IETYPE_INVROWLINSON;
   if ( argopt_isset(ao, hurstm) ) ietype = IETYPE_HURST;
   if ( argopt_isset(ao, verleta) || argopt_isset(ao, verletb) ) ietype = IETYPE_VERLET;
-  if ( argopt_isset(ao, usems) ) { ietype = IETYPE_BBPG; bbpgs = 2; }
-  if ( argopt_isset(ao, bbpgs) ) ietype = IETYPE_BBPG;
+  if ( argopt_isset(ao, usems) ) { ietype = IETYPE_BPGG; bpggs = 2; }
+  if ( argopt_isset(ao, bpggs) ) ietype = IETYPE_BPGG;
   if ( argopt_isset(ao, sqrs) ) ietype = IETYPE_SQR;
   if ( argopt_isset(ao, xsqrs) ) ietype = IETYPE_XSQR;
   if ( argopt_isset(ao, cubs) || argopt_isset(ao, cubt) ) ietype = IETYPE_CUB;
@@ -182,7 +184,8 @@ static void doargs(int argc, char **argv)
   if ( argopt_isset(ao, shift) || argopt_isset(ao, shiftn) || argopt_isset(ao, shiftinc) )
     mkcorr = 1;
 
-  if ( mkcorr || ietype > IETYPE_HNC ) /* Singer and ring formulas are inapplicable to corrections */
+  if ( mkcorr || ietype > IETYPE_HNC || expcorr || lamcorr )
+    /* Singer and ring formulas are inapplicable to corrections */
     singer = ring = 0;
   if ( singer ) ring = 1;
 
@@ -223,6 +226,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
   xdouble *yrcoef = NULL;
   xdouble *vc = NULL, *brl = NULL, **br = NULL; /* correction functions */
   xdouble *yr0, *lnyr0;
+  xdouble *lam = NULL, *br2 = NULL;
   int i, l, l0 = 1;
   clock_t t0 = clock(), t1;
   sphr_t *sphr;
@@ -256,7 +260,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
     COPY1DARR(cr[0], fr, npt);
   }
 
-  if ( ietype != IETYPE_PY || mkcorr || expcorr || singer ) {
+  if ( ietype != IETYPE_PY || mkcorr || expcorr || lamcorr || singer ) {
     MAKE2DARR(tr, nmax - 1, npt);
   }
 
@@ -271,8 +275,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
     MAKE1DARR(yrcoef, nmax - 1);
     if ( ietype == IETYPE_HC ) {
       init_hccoef(yrcoef, nmax - 1, hcs);
-    } else if ( ietype == IETYPE_BBPG ) {
-      init_bbpgcoef(yrcoef, nmax - 1, bbpgs);
+    } else if ( ietype == IETYPE_BPGG ) {
+      init_bpggcoef(yrcoef, nmax - 1, bpggs);
     } else if ( ietype == IETYPE_ROWLINSON ) {
       init_rowlinsoncoef(yrcoef, nmax - 1, rowphi);
     } else if ( ietype == IETYPE_INVROWLINSON ) {
@@ -308,12 +312,23 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
     for ( i = 0; i < npt; i++ ) yr[0][i] = 1;
   }
 
-  if ( mkcorr ) {
+  if ( mkcorr || lamcorr ) {
     MAKE1DARR(brl, npt);
   }
 
   if ( expcorr ) { /* allocate space for the bridge function */
     MAKE2DARR(br, nmax - 1, npt);
+  }
+
+  if ( lamcorr ) {
+    MAKE1DARR(lam, nmax - 1);
+    MAKE1DARR(br2, npt);
+    sphr_r2k(sphr, fr, ck[0]);
+    for ( i = 0; i < npt; i++ )
+      tkl[i] = ck[0][i] * ck[0][i];
+    sphr_k2r(sphr, tkl, br2);
+    for ( i = 0; i < npt; i++ )
+      br2[i] = br2[i] * br2[i] / 2;
   }
 
   t1 = clock();
@@ -323,7 +338,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
         npt, ck, tk, cr, tr, crl, trl, yr);
 
   fnvir = savevirheadx(fnvir, systitle, dim, l0, nmax,
-      ietype, mkcorr, expcorr, npt, rmax, t1 - t0,
+      ietype, mkcorr, expcorr, lamcorr, npt, rmax, t1 - t0,
       hncamp, hncq, hncalpha, shift, shiftinc, shiftl0);
 
   for ( l = l0; l < nmax - 1; l++ ) {
@@ -350,9 +365,12 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
       COPY1DARR(tr[l], trl, npt);
     }
 
-    /* compute the cavity function y(r) */
+    /* compute the cavity distribution function y(r) */
     if ( expcorr ) {
       get_yr_hnc_br(l, npt, yrl, tr, br);
+    } else if ( lamcorr &&
+        (ietype == IETYPE_PY || ietype == IETYPE_HNC) ) { /* rho-dependent lambda */
+      get_yr_hnc_lam(l, npt, yrl, tr, lam);
     } else
     if ( ietype == IETYPE_PY && !mkcorr ) { /* PY closure */
       for ( i = 0; i < npt; i++ )
@@ -365,15 +383,23 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
         get_yr_hncx(l, npt, yrl, tr, hncamp, hncq, swr);
       }
     } else if ( ietype == IETYPE_HC ) {
-      get_yr_hc(l, npt, yrl, tr, hcs);
-    } else if ( ietype == IETYPE_BBPG ) {
-      get_yr_bbpg(l, npt, yrl, tr, bbpgs);
+      if ( lamcorr ) {
+        get_yr_hc_lam(l, npt, yrl, tr, lam);
+      } else {
+        get_yr_hc(l, npt, yrl, tr, hcs);
+      }
+    } else if ( ietype == IETYPE_BPGG ) {
+      get_yr_bpgg(l, npt, yrl, tr, bpggs);
     } else if ( ietype == IETYPE_INVROWLINSON ) {
       get_yr_invrowlinson(l, npt, yrl, tr, invphi);
     } else if ( ietype == IETYPE_VERLET ) {
       get_yr_verlet(l, npt, yrl, tr, verleta, verletb);
     } else if ( ietype == IETYPE_SQR ) {
-      get_yr_sqr(l, npt, yrl, tr, sqrs);
+      if ( lamcorr ) {
+        get_yr_sqr_lam(l, npt, yrl, tr, lam);
+      } else {
+        get_yr_sqr(l, npt, yrl, tr, sqrs);
+      }
     } else if ( ietype == IETYPE_XSQR ) {
       get_yr_xsqr(l, npt, yrl, tr, xsqrs);
     } else if ( ietype == IETYPE_CUB ) {
@@ -416,16 +442,20 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
       Bm = Bh = 0;
     }
 
-    if ( mkcorr || expcorr ) {
+    if ( mkcorr || expcorr || lamcorr ) {
       xdouble shift1 = 1;
 
-      vc = mkcorr ? brl : br[l];
-
       if ( mkcorr ) {
+        vc = brl;
         /* construct the linear correction function */
         for ( i = 0; i < npt; i++ )
           vc[i] = yrl[i] - trl[i];
+      } else if ( lamcorr ) {
+        vc = brl;
+        for ( i = 0; i < npt; i++ )
+          vc[i] = br2[i];
       } else {
+        vc = br[l];
         /* construct the exponential correction function */
         get_exp_corr(l, npt, vc, tr);
       }
@@ -435,11 +465,13 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
 
       Bm = get_corr1x(l, npt, sphr->dm, crl, fr, rdfr, sphr->rDm1,
                       dim, B2, vc, shift1, &Bc, &Bv, &fcorr);
+      if ( lamcorr && l >= 2 ) lam[l-2] = fcorr;
       yr0[l] += get_zerosep(vc, sphr->ri);
     }
 
     By = update_lnyr0(l, yr0, lnyr0);
-    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, By, B2, mkcorr|expcorr, fcorr);
+    savevir(fnvir, dim, l+2, Bc, Bv, Bm, Bh, Br, By, B2,
+        mkcorr|expcorr|lamcorr, fcorr);
     savecrtr(fncrtr, l, npt, sphr->ri, crl, trl, vc, yrl);
     if ( snapshot )
       snapshot_take(l, npt, ck[l-1], tk[l], crl, trl, nmax, yr);
@@ -464,7 +496,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
   FREE1DARR(yrcoef, nmax - 1);
   FREE1DARR(yr0, nmax - 1);
   FREE1DARR(lnyr0, nmax - 1);
-
+  FREE1DARR(lam, nmax - 1);
+  FREE1DARR(br2, npt);
   return 0;
 }
 

@@ -1,0 +1,5 @@
+#!/bin/bash
+#host=he.host.utmb.edu
+host=129.109.88.204
+rsync -avz --exclude="DHT*.dat" --exclude="snapshot*" \
+  cz1@$host:lwork/vir/ie/lamc/*PYl*.dat .

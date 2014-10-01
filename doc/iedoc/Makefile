@@ -13,9 +13,9 @@ $(prj)doc.pdf: $(prj)doc.tex $(prj)text.pdf \
 	pdflatex $<
 
 iegraph.pdf: iegraph.tex liquid.bib Makefile
-	latex $<
+	pdflatex $<
 	bibtex iegraph
-	latex $<
+	pdflatex $<
 	pdflatex $<
 
 $(prj)notes.pdf: $(prj)notes.tex Makefile

@@ -2,6 +2,9 @@
 #define XDOUBLE_H__
 
 
+
+#include <float.h>
+
 #if (defined(QUAD) || defined(F128))
 
 /* support __float128 for GCC
@@ -32,11 +35,16 @@ typedef __float128 xdouble;
 #define XDBLPRNF "Q"
 #define XDBLPRNE "%41.32Qe" /* full precision print */
 #define STRPREC "f128"
+#define XDBL_MIN  FLT128_MIN
 #define PI M_PIq
 #define SQRT(x)   sqrtq(x)
 #define EXP(x)    expq(x)
 #define SIN(x)    sinq(x)
 #define COS(x)    cosq(x)
+#define TAN(x)    tanq(x)
+#define ASIN(x)   asinq(x)
+#define ACOS(x)   acosq(x)
+#define ATAN(x)   atanq(x)
 #define LOG(x)    logq(x)
 #define POW(x, y) powq(x, y)
 #define J0(x)     j0q(x)
@@ -59,11 +67,16 @@ typedef long double xdouble;
 #define XDBLPRNF "L"
 #define XDBLPRNE "%27.18Le"
 #define STRPREC "ldbl"
+#define XDBL_MIN LDBL_MIN
 #define PI (xdouble) 3.1415926535897932384626433832795L
 #define SQRT(x)   sqrtl(x)
 #define EXP(x)    expl(x)
 #define SIN(x)    sinl(x)
 #define COS(x)    cosl(x)
+#define TAN(x)    tanl(x)
+#define ASIN(x)   asinl(x)
+#define ACOS(x)   acosl(x)
+#define ATAN(x)   atanl(x)
 #define LOG(x)    logl(x)
 #define POW(x, y) powl(x, y)
 #define J0(x)     j0l(x)
@@ -88,11 +101,16 @@ typedef double xdouble;
 #define XDBLPRNF ""
 #define XDBLPRNE "%22.14e"
 #define STRPREC ""
+#define XDBL_MIN DBL_MIN
 #define PI 3.1415926535897932384626433832795
 #define SQRT(x)   sqrt(x)
 #define EXP(x)    exp(x)
 #define SIN(x)    sin(x)
 #define COS(x)    cos(x)
+#define TAN(x)    tan(x)
+#define ASIN(x)   asin(x)
+#define ACOS(x)   acos(x)
+#define ATAN(x)   atan(x)
 #define LOG(x)    log(x)
 #define POW(x, y) pow(x, y)
 #define J0(x)     j0(x)

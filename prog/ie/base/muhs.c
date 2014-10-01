@@ -18,7 +18,7 @@ int dim = D; /* currently default to 3 */
 int numpt = 8192;
 int ffttype = 1;
 xdouble rmax = (xdouble) 20.48L;
-xdouble T = (xdouble) 10;
+xdouble T = (xdouble) 2;
 xdouble beta;
 xdouble rho = (xdouble) 0.7L;
 xdouble drho = (xdouble) 0.05L;
@@ -232,6 +232,8 @@ __inline static xdouble getyr(xdouble tr, xdouble *dy, xdouble *w, xdouble *dw)
 
 __inline static xdouble updates(xdouble ds)
 {
+  if ( ds > 0.1 ) ds = 0.1;
+  else if ( ds < -0.1 ) ds = -0.1;
   if ( dohnc || dopy ) return 0;
   else if ( doir ) return irs += ds;
   else if ( dohc ) return hcs += ds;
@@ -287,7 +289,7 @@ static void iterd(sphr_t *sphr, xdouble rho,
       hk = ck[i] + tk[i];
       dtk[i] = hk*hk + rho*hk*(2 + rho*hk)*dck[i];
     }
-    sphr_r2k(sphr, dtk, dtr);
+    sphr_k2r(sphr, dtk, dtr);
     for ( errmax = 0, i = 0; i < npt; i++ ) {
       /* dc = (1 + f) dy - dt = [(1 + f) Y' - 1] dt */
       if (Br) {
@@ -871,7 +873,7 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
   sphr_k2r(sphr, Tk, Ffr); /* T(k) --> T(r) */
 
   /* open the report file */
-  if ( !dohs ) sprintf(buf, "T%g", (double) T);
+  if ( dolj ) sprintf(buf, "T%g", (double) T);
   else buf[0] = '\0';
   sprintf(fnout, "iemu%s%s%s%s.dat",
       dolj?"lj":gaussf?"gauss":invexp?"invexp":"hs", buf,
@@ -923,7 +925,9 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
         ds = correct(npt, rho, sphr->dm, cr, tr, fr, sphr->rDm1, dcr, dtr, sphr->B2hs, rdfr);
         iter(sphr, rho, cr, tr, ck, tk, Br, fr, itmax);
         s = updates(ds);
-        //printf("s %g, ds %g\n", (double) s, (double) ds); getchar();
+        if ( sci % 1 == 0 ) {
+          printf("s %g, ds %g\n", (double) s, (double) ds); getchar();
+        }
         if (FABS(ds) < 1e-4) break;
       }
       if (verbose)

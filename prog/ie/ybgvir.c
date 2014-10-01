@@ -278,8 +278,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
 
   t1 = clock();
 
-  fnvir = savevirheadx(fnvir, systitle, dim, l0, nmax,
-      IETYPE_YBG, 0, 0, npt, rmax, t1 - t0, 1, 1, -1, 0, 0, 0);
+  fnvir = savevirhead(fnvir, systitle, dim, l0, nmax,
+      IETYPE_YBG, 0, npt, rmax, t1 - t0);
 
   for ( l = l0; l < nmax - 1; l++ ) {
     /* get w_l(k) */

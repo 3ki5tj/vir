@@ -65,7 +65,7 @@ static int fft(xdouble a[], int n, int sign)
   while (n > gspan)
   {
     bs = bsh;
-    bsh = sin(0.5 * bth);
+    bsh = SIN(bth / 2);
     bcb = 2*bsh*bsh;
     c = 1;
     s = 0;
@@ -149,11 +149,11 @@ __inline static int sint11(xdouble a[], int n)
   }
 
   th = PI/(2*n);
-  c1 = cos(th);
-  s1 = sin(th);
+  c1 = COS(th);
+  s1 = SIN(th);
   th /= 2;
-  c = cos(th);
-  s = sin(th);
+  c = COS(th);
+  s = SIN(th);
   for (i = 0; i < n; i++) {
     /* c = cos(PI*(i+.5)/(2*n)); s = sin(PI*(i+.5)/(2*n)); */
     arr[i*2] = a[i] * c;
@@ -219,11 +219,11 @@ __inline static int cost11(xdouble a[], int n)
   }
 
   th = PI/(2*n);
-  c1 = cos(th);
-  s1 = sin(th);
+  c1 = COS(th);
+  s1 = SIN(th);
   th /= 2;
-  c = cos(th);
-  s = sin(th);
+  c = COS(th);
+  s = SIN(th);
   for (i = 0; i < n; i++) {
     /* c = cos(PI*(i+.5)/(2*n)); s = sin(PI*(i+.5)/(2*n)); */
     arr[i*2] = a[i] * c;
@@ -260,11 +260,11 @@ __inline static int fft3dsphr00(xdouble a[], int n,
     xdouble dx, xdouble dk, int sgn)
 {
   int i, err;
-  xdouble fac = 2 * PI * dx, x;
+  xdouble fac = 2 * PI * dx;
 
   if (sgn <= 0) fac /= 8 * PI * PI * PI;
   for (i = 1; i < n; i++)
-    a[i] *= x = dx * i; /* form r * a(r) */
+    a[i] *= dx * i; /* form r * a(r) */
   err = sint00(a, n);
   for (i = 1; i < n; i++)
     a[i] *= fac / (dk * i); /* form a(k) / k */
@@ -281,11 +281,11 @@ __inline static int fft3dsphr11(xdouble a[], int n,
     xdouble dx, xdouble dk, int sgn)
 {
   int i, err;
-  xdouble fac = 2 * PI * dx, x;
+  xdouble fac = 2 * PI * dx;
 
   if (sgn <= 0) fac /= 8 * PI * PI * PI;
   for (i = 0; i < n; i++)
-    a[i] *= x = dx * (i*2 + 1)/2; /* form r * a(r) */
+    a[i] *= dx * (i*2 + 1)/2; /* form r * a(r) */
   err = sint11(a, n);
   for (i = 0; i < n; i++)
     a[i] *= fac / (dk * (i*2 + 1)/2); /* form a(k) / k */

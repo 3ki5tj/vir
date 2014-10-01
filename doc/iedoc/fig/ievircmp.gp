@@ -16,6 +16,8 @@ theylabel='{/Arial-Italic B_n} /{/Arial-Italic B}_2^{{/Arial-Italic n}-1}'
 
 titledsc = "DSC"
 
+titledscl = "DSC_{/Symbol-Oblique l}"
+
 # height of the very bottom panels
 bbh = 0.14
 
@@ -57,14 +59,19 @@ color4b = "#666666"  # "#ccaa44"
 color5a = "#666666"  # "#608080"
 color5b = "#666666"  # "#44cccc"
 
+color9b = "#000044"
+
 # line styles for the small panels
 set style line 1  lc rgb "#aaaaaa" lt 1 lw 1
 
-set style line 2  lc rgb color1a lt 1 lw 4.0 pt 4  ps 1.4 # empty square
-set style line 3  lc rgb color1a lt 1 lw 4.0 pt 5  ps 1.4 # full  square
+set style line 2  lc rgb color1a lt 1 lw 3.0 pt 4  ps 1.4 # empty square
+set style line 3  lc rgb color1a lt 1 lw 3.0 pt 5  ps 1.4 # full  square
 
-set style line 4  lc rgb color1b lt 2 lw 4.0 pt 12 ps 2.0 # empty diamond
-set style line 5  lc rgb color1b lt 2 lw 4.0 pt 13 ps 2.0 # full  diamond
+set style line 4  lc rgb color1b lt 2 lw 3.0 pt 12 ps 2.0 # empty diamond
+set style line 5  lc rgb color1b lt 2 lw 3.0 pt 13 ps 2.0 # full  diamond
+
+set style line 14 lc rgb color9b lt 4 lw 2.0 pt 3  ps 1.5 # thin `*'
+set style line 15 lc rgb color9b lt 4 lw 8.0 pt 3  ps 1.5 # bold `*'
 
 set style line 6  lc rgb color2a lt 4 lw 2.0 pt 10 ps 1.7 # empty inverted triangle
 set style line 7  lc rgb color2a lt 4 lw 2.0 pt 11 ps 1.7 # full  inverted triangle
@@ -78,14 +85,11 @@ set style line 11 lc rgb color3a lt 4 lw 2.0 pt 7  ps 1.4 # full  circle
 set style line 12 lc rgb color3b lt 4 lw 2.0 pt 14 ps 1.6 # empty pentagon
 set style line 13 lc rgb color3b lt 4 lw 2.0 pt 15 ps 1.6 # full  pentagon
 
-set style line 14 lc rgb color4a lt 4 lw 2.0 pt 3 ps 1.3 # empty pentagon
-set style line 15 lc rgb color4a lt 4 lw 6.0 pt 3 ps 1.3 # full  pentagon
+set style line 16 lc rgb color4b lt 4 lw 2.0 pt 2  ps 1.3 # empty diamond
+set style line 17 lc rgb color4b lt 4 lw 9.0 pt 2  ps 1.3 # full  diamond
 
-set style line 16 lc rgb color4b lt 4 lw 2.0 pt 2 ps 1.3 # empty diamond
-set style line 17 lc rgb color4b lt 4 lw 9.0 pt 2 ps 1.3 # full  diamond
-
-set style line 18 lc rgb color5a lt 4 lw 3.0 pt 1 ps 1.6 # empty diamond
-set style line 19 lc rgb color5a lt 4 lw 9.0 pt 1 ps 1.6 # full  diamond
+set style line 18 lc rgb color5a lt 4 lw 3.0 pt 1  ps 1.6 # thin `+'
+set style line 19 lc rgb color5a lt 4 lw 9.0 pt 1  ps 1.6 # bold `+'
 
 # for errors
 
@@ -162,6 +166,9 @@ plot [2:16][5e-5:1] \
 
 
 
+#  "iedata/lamc/xBnPYlD2n20.dat"           u ($1):(abs($2))                              w l  ls 14        notitle, \
+#  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)             w p  ls 14        notitle, \
+#  ""                                      u ($1):-1                                     w lp ls 14        t titledscl, \
 
 
 
@@ -219,6 +226,10 @@ plot [2:32][4e-6:4] \
   1e-100 lw 0 notitle
 
 
+#  "iedata/lamc/xBnPYlD7n36.dat"           u ($1):(abs($2))                              w l  ls 14        notitle, \
+#  ""                                      u ($1):(($2 > 0) ? abs($2) : 1/0)             w p  ls 14        notitle, \
+#  ""                                      u ($1):(($2 < 0) ? abs($2) : 1/0)             w p  ls 15        notitle, \
+#  ""                                      u ($1):-1                                     w lp ls 14        t titledscl, \
 
 
 

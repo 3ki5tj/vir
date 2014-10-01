@@ -3069,7 +3069,7 @@ We then recover \eqref{eq:hncmu}.
 We obtain the pressure from
   $\Pex = \rho \muex - \Fex/V$:
 %
-\begin{align*}
+\begin{align}
 2 \, \beta \Pex
 &=
 \sum_G \frac{ 2 \, [n(G) - 1] \, I(G) } { s(G) }
@@ -3080,7 +3080,33 @@ We obtain the pressure from
     \tfrac{1}{2} t^2(\vr) - c(\vr)
   \right] d\vr
   +\int \tilde T(\vk) \dvk.
-\end{align*}
+\label{eq:hncP}
+\end{align}
+%
+In Fig. \ref{fig:iepres},
+we show, in the three-dimensional hard-sphere fluid,
+that
+\eqref{eq:hncP}
+is equivalent to the virial-route pressure formula
+%
+the virial-route pressure formula:
+\begin{equation}
+  \beta \, \Pexv
+=
+  - \frac{\rho^2}{2D}
+  \int (\vr \cdot \nabla\phi) \, g(\vr) \, d\vr.
+\label{eq:virialpressure}
+\end{equation}
+
+\begin{figure}[h]
+  \makebox[\linewidth][c]{
+    \includegraphics[angle=0, width=\linewidth]{fig/iepres.pdf}
+  }%
+  \caption{\label{fig:iepres}
+  Comparison of the pressure formulae for the PY and HNC equations.}
+\end{figure}
+
+
 
 
 
@@ -3093,15 +3119,7 @@ and use it
 (a) to simplify Baxter's pressure formula,
 and
 (b) to show that \eqref{eq:hncF} and \eqref{eq:hncmu}
-produce the same virial coefficients as
-the virial-route pressure formula:
-\begin{equation}
-  \beta \, \Pexv
-=
-  - \frac{\rho^2}{2D}
-  \int (\vr \cdot \nabla\phi) \, g(\vr) \, d\vr.
-\label{eq:virialpressure}
-\end{equation}
+produce the same virial coefficients as \eqref{eq:virialpressure}.
 
 
 
@@ -3335,7 +3353,7 @@ $f'(r) = \delta(r - 1)$, and
   \bigl[
     \tilde{c}(0)
   +
-    c^2(1^-) \, B_2
+    g^2(1^+) \, B_2
   \bigr]
 \notag \\
 &=
@@ -3343,7 +3361,7 @@ $f'(r) = \delta(r - 1)$, and
   \bigl[
     \tilde{c}(0)
   +
-    g^2(1^+) \, B_2
+    c^2(1^-) \, B_2
   \bigr],
   \label{eq:pyPsimplifiedhs}
 \end{align}
@@ -3355,11 +3373,20 @@ and $B_2 = S_D / (2D)$.
 On the last line, we have also used the identity
 $0 = g(\vr) = c(\vr) + t(\vr) + 1$
 for $|\vr| < 1$.
-
+%
+In Fig. \ref{fig:iepres},
+we show that
+\eqref{eq:baxterpressure},
+\eqref{eq:pyPsimplified},
+and
+\eqref{eq:pyPsimplifiedhs}
+yielded the same results
+in the three-dimensional hard-sphere fluid.
 
 
 
 \subsection{Warning on derivatives with respect to $\zeta$}
+
 
 
 Note that although \eqref{eq:dfdzeta} is true,

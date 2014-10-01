@@ -14,14 +14,16 @@ from math import *
 dim = 9
 nstep = -1
 verbose = 0
-purepy = 0
-purehnc = 0
-pureir = 0
 errmax = 10  # error
 wreport = 0 # write a report
 scanall = 0 # scan all dimensions
 fitorder = 3
 resolmin = 200
+
+dopy = 0
+dohnc = 0
+doir = 0
+dolamc = 0
 
 refval = 0 # reference value, for debugging
 
@@ -41,7 +43,8 @@ def usage():
    -Q:     minimal resolution
    --py:   PY closure (default is the self-consistent closure)
    --hnc:  HNC closure
-   --ir:   Inverse Rowlinson closure
+   --ir:   inverse Rowlinson closure
+   --lamc: density-dependent lambda
    -v:     be verbose
    -vv:    be more verbose
   """
@@ -53,7 +56,9 @@ def doargs():
   ''' Handle common parameters from command line options '''
   try:
     opts, args = getopt.gnu_getopt(sys.argv[1:], "D:n:M:e:wQ:av",
-        [ "dim=", "order=", "errmax=", "py", "hnc", "ir", "report", "all",
+        [ "dim=", "order=", "errmax=",
+          "py", "hnc", "ir", "lamc",
+          "report", "all",
           "ref=", "resmin=",
           "verbose=", "help", ])
   except getopt.GetoptError, err:
@@ -61,7 +66,8 @@ def doargs():
     print str(err) # will print something like "option -a not recognized"
     usage()
 
-  global dim, nstep, nmax, wreport, purepy, purehnc, pureir, scanall, verbose, errmax
+  global dim, nstep, nmax, wreport, scanall, verbose, errmax
+  global dopy, dohnc, dolamc, doir
   global refval, resolmin
 
   for o, a in opts:
@@ -82,11 +88,13 @@ def doargs():
     elif o in ("--ref"):
       refval = float(a)
     elif o in ("--py",):
-      purepy = 1
+      dopy = 1
     elif o in ("--hnc",):
-      purehnc = 1
+      dohnc = 1
+    elif o in ("--lamc",):
+      dolamc = 1
     elif o in ("--ir",):
-      pureir = 1
+      doir = 1
     elif o in ("-v",):
       verbose += 1
     elif o in ("--verbose",):
@@ -389,12 +397,14 @@ def niceprint(x, err, dim = 0, n = 0, cnt = "", lsprec = ""):
 def doit(dim):
   fns = ""
   tag, cols = "PYc", ((3, "self-consistent"),)
-  if purepy:
+  if dopy:
     tag, cols = "PY", ((1, "compressibility"), (2, "virial"), (3, "ddP"), (-1, "cavity"))
-  elif purehnc:
+  elif dohnc:
     tag, cols = "HNC", ((1, "compressibility"), (2, "virial"), (-1, "cavity"))
-  elif pureir:
+  elif doir:
     tag, cols = "IR", ((1, "compressibility"), (2, "virial"))
+  elif dolamc:
+    tag, cols = "PYl", ((3, "self-consistent"),)
 
   nmin = nstep
   if nmin < 3: nmin = int((3 + nstep - 1)/nstep) * nstep
@@ -424,7 +434,7 @@ def doit(dim):
   print fns
 
   # write a report
-  if wreport:
+  if wreport and datarr:
     nmax = max(x[0] for x in datarr)
     src = ""
     for n in range(1, nmax + 1, nstep):
