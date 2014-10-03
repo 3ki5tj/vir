@@ -11,7 +11,6 @@
 
 
 int dim = D;
-int K; /* (dim - 1) / 2 for an odd dimension */
 int nmax = 12;
 xdouble T = 1;
 xdouble beta = 1;
@@ -58,7 +57,6 @@ static void doargs(int argc, char **argv)
   argopt_parse(ao, argc, argv);
 
   if ( dim < 1 ) argopt_help(ao);
-  K = (dim - 1)/2;
   if ( dim % 2 == 0 ) {
 #ifndef DHT
     fprintf(stderr, "cannot do even dimensions %d, define DHT\n", dim);

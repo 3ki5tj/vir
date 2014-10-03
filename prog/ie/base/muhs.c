@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <math.h>
 #define ZCOM_PICK
+#define ZCOM_LJ
 #define ZCOM_ARGOPT
 #include "zcom.h"
 #include "fftx.h"
@@ -815,6 +816,7 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
   xdouble *DCr, *DTr, *DCk, *DTk;
   xdouble pres0, pres0a, pres0b, rpres0 = 0, pres0c, pres0d;
   xdouble s = sqrs, ds;
+  double uref = 0, pref = 0, fref = 0, muref = 0;
   int i, sci;
   char fnout[80] = "iemu.dat", buf[80] = "";
   FILE *fp;
@@ -979,6 +981,7 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
     if ( savecr )
       output(npt, sphr->ri, Cr, Tr, DCr, DTr, Fr, bphi, "Cr.dat");
 
+    uref = lj_eos3d((double) rho, (double) T, &pref, &fref, &muref);
     printf("rho %5.3f, muv%9.4f,%9.4f,%9.4f rab %6.4f "
            "dmu%9.4f,%9.4f,%9.4f;%9.4f s%8.5f\n",
            (double) rho,
@@ -990,15 +993,15 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
            (double) dmu0,
            (double) s);
     printf("rho %5.3f, muc%9.4f,%9.4f,%9.4f th%+8.4f "
-           "mu %9.4f;%9.4f,%9.4f %9.4f\n",
+           "mu %9.4f;%9.4f,%9.4f %9.4f | %g\n",
            (double) rho,
            (double) mu0c, (double) mu0d, (double) mu0e, (double) mueth,
            (double) mu0f, (double) mufr1, (double) mufr2,
-           (double) ((mu0f - mu1f)/delta));
-    printf("rho %5.3f, P  %9.4f,%9.4f,%9.4f rP %7.4f Pcd%9.4f,%9.4f\n",
+           (double) ((mu0f - mu1f)/delta), (double) (muref/T));
+    printf("rho %5.3f, P  %9.4f,%9.4f,%9.4f rP %7.4f Pcd%9.4f,%9.4f | %g\n",
            (double) rho,
            (double) pres0, (double) pres0a, (double) pres0b, (double) rpres0,
-           (double) pres0c, (double) pres0d);
+           (double) pres0c, (double) pres0d, (double) (pref/T));
     fprintf(fp, "%8.6f "
                 "%10.6f %10.6f %10.6f %10.8f "
                 "%12.6f %12.6f %12.6f %12.6f "
@@ -1006,7 +1009,8 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
                 "%10.6f %10.8f %10.6f %10.6f "
                 "%10.6f %10.8f %10.8f "
                 "%12.6f %12.6f %12.6f %12.6f " /* 21 columns */
-                "%10.6f %10.6f %10.6f %10.8f %10.6f %10.6f\n",
+                "%10.6f %10.6f %10.6f %10.8f %10.6f %10.6f "
+                "%10.6f %10.6f\n",
            (double) rho,
            (double) mu0, (double) mu0a, (double) mu0b, (double) mu0br,
            (double) ((mu0 - mu1)/delta),
@@ -1021,7 +1025,8 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
            (double) ((mu0e - mu1e)/delta),
            (double) ((mu0f - mu1f)/delta),
            (double) pres0, (double) pres0a, (double) pres0b, (double) rpres0,
-           (double) pres0c, (double) pres0d);
+           (double) pres0c, (double) pres0d,
+           (double) (muref/T), (double) (pref/T));
   }
 
   sphr_close(sphr);

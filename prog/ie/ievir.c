@@ -94,7 +94,8 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &Rmax, "rmax (exact)");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type, 0: integral grid points, 1: half-integer grid points");
-  argopt_add(ao, "-T", "%d", &ietype, "type of closure, 0: PY, 1: HNC-like; set the respective parameters automatically sets the type");
+  argopt_add(ao, "-T", "%" XDBLSCNF "f", &T, "temperature");
+  argopt_add(ao, "--ie", "%d", &ietype, "type of closure, 0: PY, 1: HNC-like; set the respective parameters automatically sets the type");
   argopt_add(ao, "-q", "%" XDBLSCNF "f", &hncq,  "q of the hypernetted-chain (Marucho-Pettitt) approximation, y(r) = a0 exp(q t(r)) + (1-a0) + (1-a0 q) t(r)");
   argopt_add(ao, "-a", "%" XDBLSCNF "f", &hncamp, "a0 of the hypernetted-chain (Marucho-Pettitt) approximation, 0: to be set by 1/q");
   argopt_add(ao, "--rya", "%" XDBLSCNF "f", &hncalpha, "alpha, in the Roger-Young switch function [1 - exp(-alpha*r)]^m");
@@ -135,6 +136,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-s", "%b", &snapshot, "save intermediate snapshots");
   argopt_add(ao, "-G", "%b", &gaussf, "Gaussian model instead of hard spheres");
   argopt_add(ao, "--invexp", "%d", &invexp, "exponent of the inverse potential r^(-n)");
+  argopt_add(ao, "--lj", "%b", &dolj, "Lennard-Jones fluid");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
@@ -179,6 +181,8 @@ static void doargs(int argc, char **argv)
 
   if ( ietype > IETYPE_HNC ) dohnc = 0;
 
+  beta = 1/T;
+
   if ( dohnc ) ietype = IETYPE_HNC;
 
   if ( argopt_isset(ao, shift) || argopt_isset(ao, shiftn) || argopt_isset(ao, shiftinc) )
@@ -197,12 +201,13 @@ static void doargs(int argc, char **argv)
   if ( shiftl0 <= 0 ) shiftl0 = gaussf ? 3 : 2;
 
   /* models */
-  if ( gaussf || invexp > 0 ) smoothpot = 1;
+  if ( gaussf || invexp > 0 || dolj ) smoothpot = 1;
 
   { /* write the name of the system */
     char syst[16] = "";
     if ( gaussf ) strcpy(syst, "GF");
     else if ( invexp ) sprintf(syst, "INV%d", invexp);
+    else if ( dolj ) sprintf(syst, "LJT%g", T);
     sprintf(systitle, "%s%s", (dim % 2 ? "" : "h"), syst);
   }
 
@@ -300,6 +305,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
   }
 
   if ( dohnc ) { /* initialize the Rogers-Young switch function */
+    if ( hncalpha >= 0 && lamcorr )
+      hncalpha = 0.17014564823;
     for ( i = 0; i < npt; i++ ) {
       swr[i] = 1;
       if ( hncalpha >= 0 )
@@ -327,8 +334,11 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
     for ( i = 0; i < npt; i++ )
       tkl[i] = ck[0][i] * ck[0][i];
     sphr_k2r(sphr, tkl, br2);
-    for ( i = 0; i < npt; i++ )
+    for ( i = 0; i < npt; i++ ) {
       br2[i] = br2[i] * br2[i] / 2;
+      if ( hncalpha >= 0 )
+        br2[i] *= sphr->ri[i] * EXP(-hncalpha * sphr->ri[i]);
+    }
   }
 
   t1 = clock();
@@ -368,8 +378,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
     /* compute the cavity distribution function y(r) */
     if ( expcorr ) {
       get_yr_hnc_br(l, npt, yrl, tr, br);
-    } else if ( lamcorr &&
-        (ietype == IETYPE_PY || ietype == IETYPE_HNC) ) { /* rho-dependent lambda */
+    } else if ( lamcorr
+        && (ietype == IETYPE_PY || ietype == IETYPE_INVROWLINSON) ) { /* rho-dependent lambda */
       get_yr_hnc_lam(l, npt, yrl, tr, lam);
     } else
     if ( ietype == IETYPE_PY && !mkcorr ) { /* PY closure */
@@ -377,6 +387,13 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
         yrl[i] = trl[i];
     } else if ( ietype == IETYPE_HNC
             || (ietype == IETYPE_PY && mkcorr) ) { /* HNC closure */
+      if ( ietype == IETYPE_HNC && lamcorr ) {
+        if ( hncalpha >= 0 ) {
+          get_yr_ry_lam(l, npt, yrl, tr, lam, sphr->ri, hncalpha);
+        } else {
+          get_yr_mp_lam(l, npt, yrl, tr, lam);
+        }
+      } else
       if ( yr != NULL ) {
         get_yr_hncx_fast(l, npt, yrl, yr, tr, hncamp, hncq, swr);
       } else {
@@ -389,7 +406,11 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
         get_yr_hc(l, npt, yrl, tr, hcs);
       }
     } else if ( ietype == IETYPE_BPGG ) {
-      get_yr_bpgg(l, npt, yrl, tr, bpggs);
+      if ( lamcorr ) {
+        get_yr_bpgg_lam(l, npt, yrl, tr, lam);
+      } else {
+        get_yr_bpgg(l, npt, yrl, tr, bpggs);
+      }
     } else if ( ietype == IETYPE_INVROWLINSON ) {
       get_yr_invrowlinson(l, npt, yrl, tr, invphi);
     } else if ( ietype == IETYPE_VERLET ) {
@@ -401,17 +422,37 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
         get_yr_sqr(l, npt, yrl, tr, sqrs);
       }
     } else if ( ietype == IETYPE_XSQR ) {
-      get_yr_xsqr(l, npt, yrl, tr, xsqrs);
+      if ( lamcorr ) {
+        get_yr_xsqr_lam(l, npt, yrl, tr, lam);
+      } else {
+        get_yr_xsqr(l, npt, yrl, tr, xsqrs);
+      }
     } else if ( ietype == IETYPE_CUB ) {
       get_yr_cub(l, npt, yrl, tr, cubs, cubt);
     } else if ( ietype == IETYPE_GEO ) {
-      get_yr_geo(l, npt, yrl, tr, geos, geot);
+      if ( lamcorr ) {
+        get_yr_geo_lam(l, npt, yrl, tr, lam);
+      } else {
+        get_yr_geo(l, npt, yrl, tr, geos, geot);
+      }
     } else if ( ietype == IETYPE_LOG ) {
-      get_yr_log(l, npt, yrl, tr, logs);
+      if ( lamcorr ) {
+        get_yr_log_lam(l, npt, yrl, tr, lam);
+      } else {
+        get_yr_log(l, npt, yrl, tr, logs);
+      }
     } else if ( ietype == IETYPE_ROWLINSON ) {
-      get_yr_rowlinson(l, npt, yrl, tr, rowphi);
+      if ( lamcorr ) {
+        get_yr_rowlinson_lam(l, npt, yrl, tr, lam);
+      } else {
+        get_yr_rowlinson(l, npt, yrl, tr, rowphi);
+      }
     } else if ( ietype == IETYPE_HURST ) {
-      get_yr_hurst(l, npt, yrl, tr, hurstm);
+      if ( lamcorr ) {
+        get_yr_hurst_lam(l, npt, yrl, tr, lam);
+      } else {
+        get_yr_hurst(l, npt, yrl, tr, hurstm);
+      }
     } else { /* use it as the last resort or a check */
       get_yr_series(l, npt, yrl, tr, yrcoef);
     }
@@ -465,7 +506,13 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
 
       Bm = get_corr1x(l, npt, sphr->dm, crl, fr, rdfr, sphr->rDm1,
                       dim, B2, vc, shift1, &Bc, &Bv, &fcorr);
-      if ( lamcorr && l >= 2 ) lam[l-2] = fcorr;
+      if ( lamcorr && l >= 2 ) {
+        if ( l == 2 && hncalpha > 0 ) {
+          lam[l-2] = hncalpha;
+        } else {
+          lam[l-2] = fcorr;
+        }
+      }
       yr0[l] += get_zerosep(vc, sphr->ri);
     }
 

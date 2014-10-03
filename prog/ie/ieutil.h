@@ -178,6 +178,16 @@ __inline static void div_series(int n, const xdouble *c, const xdouble *a,
 {
   int i, j;
 
+  for ( i = 0; i < n; i++ )
+    if ( FABS(a[i]) > 0 ) break;
+
+  if ( i != 0 ) {
+    for ( j = 0; j < i && j < n; j++ ) b[j] = 0;
+    if ( j == n ) return;
+    div_series(n - i, c, a + i, b + i);
+    return;
+  }
+
   for ( i = 0; i < n; i++ ) {
     for ( b[i] = c[i], j = 1; j <= i; j++ )
       b[i] -= a[j] * b[i - j];
@@ -453,7 +463,7 @@ __inline static void get_yr_hnc_br(int l, int npt, xdouble *yrl,
 
 
 /* compute the cavity function y(r)
- * for a rho-dependent lambda */
+ * for a rho-dependent disribution lambda */
 __inline static void get_yr_hnc_lam(int l, int npt, xdouble *yrl,
     xdouble **tr, xdouble *lam)
 {
@@ -477,6 +487,88 @@ __inline static void get_yr_hnc_lam(int l, int npt, xdouble *yrl,
   }
   free(x);
   free(y);
+}
+
+
+
+/* compute the cavity distribution function y(r)
+ * for a rho-dependent lambda */
+__inline static void get_yr_mp_lam(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble *lam)
+{
+  int i, u;
+  xdouble *x, *y;
+
+  xnew(x, l + 1);
+  xnew(y, l + 1);
+  /* y(r) = 1 + [exp(lam * t) - 1] / lam */
+  for ( i = 0; i < npt; i++) {
+    if ( l <= 2 ) {
+      yrl[i] = tr[l][i];
+      continue;
+    }
+    //if (l == 4) {lam[2]=0;lam[1]=1000;}
+    for ( x[0] = 0, u = 1; u <= l; u++ )
+      x[u] = tr[u][i];
+    mul_series(l+1, x, lam, y); /* y = x * lam */
+    exp_series(l+1, y, x); /* x = exp y */
+    x[0] = 0;
+    div_series(l+1, x, lam, y);
+    //if (l==3) { xdouble t1=tr[1][i], t2=tr[2][i], t3=tr[3][i]; printf("l%d: y %g vs %g, t1 %g, t2 %g\n", l, y[l], t3 + lam[0]*t1*t2 + lam[1]*t1*t1/2 + lam[0]*lam[0]*t1*t1*t1/6, t1, t2); getchar();}
+    //if (l==4) { xdouble t1=tr[1][i], t2=tr[2][i], t3=tr[3][i], t4=tr[4][i]; printf("l%d: y %g vs %g, t1 %g, t2 %g, t3 %g, t4 %g\n", l, y[l], t4 + lam[0]*(t1*t3+t2*t2/2) + lam[1]*t1*t2 + lam[2]*t1*t1/2 + lam[0]*lam[0]*t1*t1*t2/2 + lam[0]*lam[1]*t1*t1*t1/3 + lam[0]*lam[0]*lam[0]*t1*t1*t1*t1/24, t1, t2, t3, t4); getchar();}
+    yrl[i] = y[l];
+  }
+  free(x);
+  free(y);
+}
+
+
+
+/* compute the cavity distribution function y(r)
+ * for a rho-dependent lambda */
+__inline static void get_yr_ry_lam(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble *lam, xdouble *ri, xdouble a0)
+{
+  int i, u;
+  xdouble r, *x, *y, *fsw;
+
+  xnew(x, l + 1);
+  xnew(y, l + 1);
+  xnew(fsw, l + 1);
+  /* y(r) = 1 + [exp(fsw * t) - 1] / fsw
+   * fsw = 1 - exp(-lam * r) */
+  for ( i = 0; i < npt; i++) {
+    if ( l <= 2 ) {
+      yrl[i] = tr[l][i];
+      if ( l == 2 ) {
+        yrl[i] += (1 - EXP(-a0*ri[i])) * tr[1][i]*tr[1][i]/2;
+      }
+      continue;
+    }
+    r = ri[i];
+
+    /* density expansion of fsw */
+    lam[0] = a0;
+    for ( u = 0; u < l - 2; u++ )
+      x[u] = -lam[u] * r;
+    x[l-2] = x[l-1] = x[l] = 0;
+    //x[1] = -0.2213087435 * r;
+    //x[2] = 0.0688339605 * r;
+    exp_series(l + 1, x, y);
+    for ( fsw[0] = 1 - y[0], u = 1; u <= l; u++ )
+      fsw[u] = -y[u];
+
+    for ( x[0] = 0, u = 1; u <= l; u++ )
+      x[u] = tr[u][i];
+    mul_series(l+1, fsw, x, y); /* y = fsw * x */
+    exp_series(l+1, y, x); /* x = exp y */
+    x[0] = 0;
+    div_series(l+1, x, fsw, y);
+    yrl[i] = y[l];
+  }
+  free(x);
+  free(y);
+  free(fsw);
 }
 
 
@@ -554,18 +646,53 @@ __inline static void get_yr_xsqr(int l, int npt, xdouble *yrl,
 
   xnew(a, l + 1);
   xnew(b, l + 1);
-  /* y(r) = exp[ t(r) + t(r)^2/2 ] */
+  /* y(r) = exp[ t(r) - s * t(r)^2/2 ] */
   for ( i = 0; i < npt; i++) {
     a[0] = 0;
     for ( u = 1; u <= l; u++ ) a[u] = tr[u][i];
     for ( u = 2; u <= l; u++ )
       for (v = 1; v < u; v++ )
-        a[u] += s * tr[v][i] * tr[u-v][i];
+        a[u] -= s * tr[v][i] * tr[u-v][i] / 2;
     exp_series(l+1, a, b);
     yrl[i] = b[l];
   }
   free(a);
   free(b);
+}
+
+
+
+/* compute y(r) for the exponential quadratic approximation */
+__inline static void get_yr_xsqr_lam(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble *lam)
+{
+  int i, u, v;
+  xdouble *a, *b, *s;
+
+  xnew(a, l + 1);
+  xnew(b, l + 1);
+  xnew(s, l + 1);
+  /* y(r) = exp[ t(r) - s * t(r)^2/2 ] */
+  for ( i = 0; i < npt; i++) {
+    if ( l <= 2 ) {
+      yrl[i] = tr[l][i];
+      continue;
+    }
+    for ( s[0] = 1 - lam[0], u = 1; u < l-2; u++ )
+      s[u] = -lam[u];
+    a[0] = a[1] = 0;
+    for ( u = 2; u <= l; u++ )
+      for (v = 1; v < u; v++ )
+        a[u] = tr[v][i] * tr[u-v][i]/2;
+    mul_series(l+1, a, s, b);
+    for ( b[0] = 0, u = 1; u <= l; u++ )
+      b[u] = tr[u][i] - b[u];
+    exp_series(l+1, b, a);
+    yrl[i] = a[l];
+  }
+  free(a);
+  free(b);
+  free(s);
 }
 
 
@@ -629,6 +756,36 @@ __inline static void get_yr_geo(int l, int npt, xdouble *yrl,
 
 
 
+/* compute y(r) for the geometric closure */
+__inline static void get_yr_geo_lam(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble *lam)
+{
+  int i, u;
+  xdouble *a, *b, *c;
+
+  xnew(a, l + 1);
+  xnew(b, l + 1);
+  xnew(c, l + 1);
+  for ( i = 0; i < npt; i++) {
+    if (l <= 2) {
+      yrl[i] = tr[l][i];
+      continue;
+    }
+    /* form b = 1 - (lam/2) t(r) */
+    for ( a[0] = 0, u = 1; u <= l; u++ ) a[u] = -tr[u][i]/2;
+    mul_series(l + 1, lam, a, b);
+    b[0] = 1;
+    /* y = 1 + t/(1 - lam*t/2) = 1 + (-2) * (-t/2) / (1 + lam (-t/2)); */
+    div_series(l + 1, a, b, c);
+    yrl[i] = -2*c[l];
+  }
+  free(a);
+  free(b);
+  free(c);
+}
+
+
+
 /* compute y(r) for the logarithmic closure */
 __inline static void get_yr_log(int l, int npt, xdouble *yrl,
     xdouble **tr, xdouble s)
@@ -645,6 +802,36 @@ __inline static void get_yr_log(int l, int npt, xdouble *yrl,
     for ( a[0] = 1, u = 1; u <= l; u++ ) a[u] = -s * tr[u][i];
     log_series(l + 1, a, b);
     yrl[i] = -b[l]/s;
+  }
+  free(a);
+  free(b);
+}
+
+
+
+/* compute y(r) for the logarithmic closure */
+__inline static void get_yr_log_lam(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble *lam)
+{
+  int i, u;
+  xdouble *a, *b;
+
+  xnew(a, l + 1);
+  xnew(b, l + 1);
+  /* y(r) = 1 + t(r) + s t(r)^2 + s^2 t(r)^3 + ...
+   *      = 1 - log(1 - s t(r)) / s */
+  for ( i = 0; i < npt; i++) {
+    if (l <= 2) {
+      yrl[i] = tr[l][i];
+      continue;
+    }
+    /* form b = 1 - s t(r) */
+    for ( a[0] = 0, u = 1; u <= l; u++ ) a[u] = -tr[u][i];
+    mul_series(l + 1, lam, a, b);
+    b[0] = 1;
+    log_series(l + 1, b, a); /* a = log(1 - s t) */
+    div_series(l + 1, a, lam, b);
+    yrl[i] = -b[l];
   }
   free(a);
   free(b);
@@ -708,7 +895,6 @@ __inline static void get_yr_hc_lam(int l, int npt, xdouble *yrl,
       for ( a[u] = 0, v = 0; v <= vm; v++ )
         a[u] += s[v] * tr[u-v][i];
     }
-    //if (l == 4) printf("a %g %g %g %g\n", a[0],a[1],a[2],a[3]);
     pow2_series(l+1, a, invs, b, s);
     //if (l==3) { xdouble t1=tr[1][i],t2=tr[2][i]; printf("l %d, %g, %g",l, b[l], tr[l][i]+lam[0]*t1*t2+lam[0]*(lam[0]*2-1)/6*pow_si(t1,3)); getchar(); }
     //if (l==4) { xdouble t1=tr[1][i],t2=tr[2][i],t3=tr[3][i],t4=tr[4][i]; printf("l %d, %g, %g, t1 %g, t2 %g, t3 %g, t4 %g",l, b[l], t4 + lam[0]*(t1*t3+t2*t2/2) + lam[1]*t1*t2 + lam[0]*(lam[0]*2-1)*t1*t1*t2/2 + lam[1]*(lam[0]*4-1)*t1*t1*t1/6 + lam[0]*(lam[0]*2-1)*(lam[0]*3-2)*pow_si(t1,4)/24, t1, t2, t3, t4); getchar(); }
@@ -742,6 +928,52 @@ __inline static void get_yr_bpgg(int l, int npt, xdouble *yrl,
   }
   free(a);
   free(b);
+}
+
+
+
+/* compute y(r) for the BPGG closure */
+__inline static void get_yr_bpgg_lam(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble *lam)
+{
+  int i, u, v, vm;
+  xdouble *a, *b, *s, *invs;
+
+  xnew(a, l + 1);
+  xnew(b, l + 1);
+  xnew(s, l + 1);
+  xnew(invs, l + 1);
+  for ( i = 0; i < npt; i++ ) {
+    if ( l <= 2 ) {
+      yrl[i] = tr[l][i];
+      continue;
+    }
+    /* y(r) = exp[(1 + s t(r))^(1/s)-1]
+     * s = 2-lam
+     * */
+    /* form s = {s_0, ..., s_{l-3}} */
+    for ( s[0] = 2 - lam[0], u = 1; u < l - 2; u++ )
+      s[u] = -lam[u];
+    /* compute 1/s */
+    if ( l >= 3 ) {
+      pow_series(l+1, s, -1, invs);
+    }
+    /* form 1 + s t(r) */
+    for ( a[0] = 1, u = 1; u <= l; u++ ) {
+      vm = u - 1;
+      if (vm > l - 3) vm = l - 3;
+      for ( a[u] = 0, v = 0; v <= vm; v++ )
+        a[u] += s[v] * tr[u-v][i];
+    }
+    pow2_series(l+1, a, invs, b, s);
+    b[0] = 0;
+    exp_series(l+1, b, a);
+    yrl[i] = a[l];
+  }
+  free(a);
+  free(b);
+  free(s);
+  free(invs);
 }
 
 
@@ -795,6 +1027,43 @@ __inline static void get_yr_rowlinson(int l, int npt, xdouble *yrl,
 
 
 
+/* compute y(r) for the Rowlinson closure */
+__inline static void get_yr_rowlinson_lam(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble *lam)
+{
+  int i, u, v;
+  xdouble *a, *b, *c;
+
+  xnew(a, l+1);
+  xnew(b, l+1);
+  xnew(c, l+1);
+  for ( i = 0; i < npt; i++ ) {
+    /*  t(r) = phi log(y(r)) + (1 - phi) (y(r) - 1)
+     *       = [y(r)-1] + phi [log(y(r)) - y(r) + 1] */
+    if ( l <= 2 ) {
+      yrl[i] = tr[l][i];
+      continue;
+    }
+    a[0] = 1;
+    a[1] = tr[1][i];
+    for ( u = 2; u <= l; u++ ) {
+      a[u] = 0;
+      /* plug the u - 1 solution of y(r) into the r.h.s. */
+      log_series(u+1, a, b);
+      for ( b[0] = 0, v = 1; v <= u; v++ )
+        b[v] -= a[v];
+      mul_series(u + 1, b, lam, c);
+      a[u] = tr[u][i] - c[u];
+    }
+    yrl[i] = a[l];
+  }
+  free(a);
+  free(b);
+  free(c);
+}
+
+
+
 /* compute y(r) for the Hurst closure */
 __inline static void get_yr_hurst(int l, int npt, xdouble *yrl,
     xdouble **tr, xdouble m)
@@ -823,6 +1092,48 @@ __inline static void get_yr_hurst(int l, int npt, xdouble *yrl,
   free(b);
   free(c);
   free(d);
+}
+
+
+
+/* compute y(r) for the Hurst closure */
+__inline static void get_yr_hurst_lam(int l, int npt, xdouble *yrl,
+    xdouble **tr, xdouble *lam)
+{
+  int i, u;
+  xdouble *a, *b, *c, *d, *m;
+
+  xnew(a, l+1);
+  xnew(b, l+1);
+  xnew(c, l+1);
+  xnew(d, l+1);
+  xnew(m, l+1);
+  for ( i = 0; i < npt; i++ ) {
+    if ( l <= 2 ) {
+      yrl[i] = tr[l][i];
+      continue;
+    }
+    /*  t(r) = y(r)^m log(y(r)) */
+    a[0] = 1; a[1] = tr[1][i];
+    /* m = (1-lam)/2 */
+    m[0] = (1 - lam[0])/2;
+    for ( u = 1; u <= l-2; u++ )
+      m[u] = -lam[u]/2;
+    for ( u = 2; u <= l; u++ ) {
+      /* plug the u - 1 solution of y(r) into the r.h.s. */
+      a[u] = 0;
+      pow2_series(u+1, a, m, b, c);
+      log_series(u+1, a, c);
+      mul_series(u+1, b, c, d);
+      a[u] = tr[u][i] - d[u];
+    }
+    yrl[i] = a[l];
+  }
+  free(a);
+  free(b);
+  free(c);
+  free(d);
+  free(m);
 }
 
 
@@ -1382,6 +1693,7 @@ __inline static char *savevirheadx(const char *fn, const char *title,
   if ( ietype == IETYPE_PY) strcpy(sietype, "PY");
   else if ( ietype == IETYPE_HNC) strcpy(sietype, "HNC");
   else if ( ietype == IETYPE_HC) strcpy(sietype, "HC");
+  else if ( ietype == IETYPE_HURST) strcpy(sietype, "H");
   else if ( ietype == IETYPE_ROWLINSON) strcpy(sietype, "R");
   else if ( ietype == IETYPE_INVROWLINSON) strcpy(sietype, "IR");
   else if ( ietype == IETYPE_VERLET) strcpy(sietype, "V");
@@ -1747,16 +2059,17 @@ __inline static void snapshot_take(int l, int npt,
 
 
 /* return the potential phi(r), and -r*phi'(r)*/
-static xdouble potlj(xdouble r, xdouble sig, xdouble eps, xdouble *ndphir)
+static xdouble potlj(xdouble r, xdouble sig, xdouble eps, xdouble *nrdphi)
 {
-  xdouble invr6 = (sig*sig)/(r*r), u;
+  xdouble invr6 = (sig*sig)/(r*r), u, v;
 
   invr6 = invr6*invr6*invr6;
   u = 4*invr6*(invr6 - 1);
   if (u > 1000) u = 1000;
-  *ndphir = invr6*(48*invr6 - 24);
-  if (*ndphir > 12000) *ndphir = 12000;
-  *ndphir *= eps;
+  if (nrdphi == NULL) nrdphi = &v;
+  *nrdphi = invr6*(48*invr6 - 24);
+  if (*nrdphi > 12000) *nrdphi = 12000;
+  *nrdphi *= eps;
   return eps*u;
 }
 

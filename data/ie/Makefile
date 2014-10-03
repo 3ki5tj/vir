@@ -8,6 +8,8 @@ $(zipfile): *.dat Makefile
 	  hnc/*.dat py/*.dat pyhnc/*.dat \
 	  cr/*.dat err/*.dat iebenchmark/*.dat \
 	  thermo/*.dat lamc/*.dat \
+	  hurst/*.dat ir/*.dat rowlinson/*.dat \
+	  bpgg/*.dat mp/*.dat ry/*.dat \
 	  Makefile
 
 #host=cz1@he.host.utmb.edu

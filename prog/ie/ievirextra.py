@@ -22,7 +22,10 @@ resolmin = 200
 
 dopy = 0
 dohnc = 0
+dohurst = 0
+dor = 0
 doir = 0
+dobpgg = 0
 dolamc = 0
 
 refval = 0 # reference value, for debugging
@@ -43,7 +46,8 @@ def usage():
    -Q:     minimal resolution
    --py:   PY closure (default is the self-consistent closure)
    --hnc:  HNC closure
-   --ir:   inverse Rowlinson closure
+   --r:    the Rowlinson closure
+   --ir:   the inverse Rowlinson closure
    --lamc: density-dependent lambda
    -v:     be verbose
    -vv:    be more verbose
@@ -57,7 +61,7 @@ def doargs():
   try:
     opts, args = getopt.gnu_getopt(sys.argv[1:], "D:n:M:e:wQ:av",
         [ "dim=", "order=", "errmax=",
-          "py", "hnc", "ir", "lamc",
+          "py", "hnc", "hurst", "r", "ir", "bpgg", "lamc",
           "report", "all",
           "ref=", "resmin=",
           "verbose=", "help", ])
@@ -67,7 +71,7 @@ def doargs():
     usage()
 
   global dim, nstep, nmax, wreport, scanall, verbose, errmax
-  global dopy, dohnc, dolamc, doir
+  global dopy, dohnc, dolamc, dohurst, dor, doir, dobpgg
   global refval, resolmin
 
   for o, a in opts:
@@ -85,7 +89,7 @@ def doargs():
       scanall = 1
     elif o in ("-Q", "--resmin"):
       resolmin = float(a)
-    elif o in ("--ref"):
+    elif o in ("--ref",):
       refval = float(a)
     elif o in ("--py",):
       dopy = 1
@@ -93,8 +97,14 @@ def doargs():
       dohnc = 1
     elif o in ("--lamc",):
       dolamc = 1
+    elif o in ("--hurst",):
+      dohurst = 1
+    elif o in ("--r",):
+      dor = 1
     elif o in ("--ir",):
       doir = 1
+    elif o in ("--bpgg",):
+      dobpgg = 1
     elif o in ("-v",):
       verbose += 1
     elif o in ("--verbose",):
@@ -401,8 +411,14 @@ def doit(dim):
     tag, cols = "PY", ((1, "compressibility"), (2, "virial"), (3, "ddP"), (-1, "cavity"))
   elif dohnc:
     tag, cols = "HNC", ((1, "compressibility"), (2, "virial"), (-1, "cavity"))
+  elif dohurst:
+    tag, cols = "H", ((1, "compressibility"), (2, "virial"))
+  elif dor:
+    tag, cols = "R", ((1, "compressibility"), (2, "virial"))
   elif doir:
     tag, cols = "IR", ((1, "compressibility"), (2, "virial"))
+  elif dobpgg:
+    tag, cols = "BPGG", ((1, "compressibility"), (2, "virial"))
   elif dolamc:
     tag, cols = "PYl", ((3, "self-consistent"),)
 
