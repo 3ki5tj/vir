@@ -207,7 +207,7 @@ static void doargs(int argc, char **argv)
     char syst[16] = "";
     if ( gaussf ) strcpy(syst, "GF");
     else if ( invexp ) sprintf(syst, "INV%d", invexp);
-    else if ( dolj ) sprintf(syst, "LJT%g", T);
+    else if ( dolj ) sprintf(syst, "LJT%g", (double) T);
     sprintf(systitle, "%s%s", (dim % 2 ? "" : "h"), syst);
   }
 

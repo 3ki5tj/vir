@@ -27,8 +27,10 @@ int itmax = 10000;
 xdouble damp = 1;
 xdouble tol = (xdouble) 1e-8L;
 xdouble delta = (xdouble) 0.0001L;
-int savecr = 0;
+char *fncrtr = "crtr.dat";
 int verbose = 0;
+
+int usemuc2 = 0;
 
 int dopy = 0;
 int dohnc = 0;
@@ -40,13 +42,30 @@ xdouble sqrs = 0.16564;
 xdouble irs = 0.16464;
 xdouble hcs = 0.83436;
 
-char *fnBr; /* bridge function */
+char *fnBrs; /* bridge function */
 xdouble slope = 0.1;
+
+char *fngr; /* file of the radial distribution function */
+xdouble sdr = 0.0; /* shell thickness to determine the scaling factor */
+//xdouble smin = -1;
+//xdouble sdel = 0.1;
+//xdouble smax = 1;
+
+/* experimental options */
+xdouble Bscale = 1; /* scaling for the bridge function */
+xdouble rmaxB = 1e9; /* for r > rmax, B(r) = 0 */
+
+char *fnpmf; /* file of the potential of mean force */
+char *fnBrout = "Brout.dat";
+xdouble grmin = 0.3; /* minimal g(r) for direct Br construction */
+xdouble rcore = 1.3; /* maximal radius for Br extrapolation */
 
 int dohs = 1;
 int gaussf = 0;
 int invexp = 0;
 int dolj = 0;
+
+double bmu_ref = 0;
 
 
 
@@ -61,8 +80,9 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &rmax, "maximal r");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-d", "%" XDBLSCNF "f", &delta, "delta xi");
-  argopt_add(ao, "-p", "%" XDBLSCNF "f", &damp, "damping factor for iteration");
-  argopt_add(ao, "-O", "%b", &savecr, "save cr and tr");
+  argopt_add(ao, "--itmax", "%d", &itmax, "maximal number of iterations");
+  argopt_add(ao, "--damp", "%" XDBLSCNF "f", &damp, "damping factor for iteration");
+  argopt_add(ao, "--crtr", NULL, &fncrtr, "file for saving cr and tr");
   argopt_add(ao, "-s", "%" XDBLSCNF "f", &sqrs, "parameter of the quadratic closure");
   argopt_add(ao, "--py", "%b", &dopy, "do the PY closure");
   argopt_add(ao, "--hnc", "%b", &dohnc, "do the HNC closure");
@@ -70,7 +90,20 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--hc", "%b", &dohc, "Hutchinson-Conkie closure");
   argopt_add(ao, "--sc", "%b", &dosc, "do the self-consistent closure based on P");
   argopt_add(ao, "--SC", "%b", &doSC, "do the self-consistent closure based on mu");
-  argopt_add(ao, "--Br", NULL, &fnBr, "file for the bridge function");
+  argopt_add(ao, "--muc2", "%b", &usemuc2, "use h(r) B(r) instead of B(r) for the compressibility route");
+  argopt_add(ao, "--Br", NULL, &fnBrs, "file for the input bridge function (density components)");
+  argopt_add(ao, "--gr", NULL, &fngr, "file for the radial distribution function");
+  argopt_add(ao, "--sdr", "%" XDBLSCNF "f", &sdr, "shell thickness for determining the scaling factor of g(r)");
+  //argopt_add(ao, "--smin", "%" XDBLSCNF "f", &smin, "minimal parameter");
+  //argopt_add(ao, "--sdel", "%" XDBLSCNF "f", &sdel, "delta parameter");
+  //argopt_add(ao, "--smax", "%" XDBLSCNF "f", &smax, "maximal parameter");
+  argopt_add(ao, "--Bscale", "%" XDBLSCNF "f", &Bscale, "scaling for the bridge function");
+  argopt_add(ao, "--rmaxB", "%" XDBLSCNF "f", &rmaxB, "for r > rmax, B(r) = 0");
+  argopt_add(ao, "--pmf", NULL, &fnpmf, "file for the excess potential of mean force");
+  argopt_add(ao, "--Brout", NULL, &fnBrout, "file for the output bridge function");
+  argopt_add(ao, "--grmin", "%" XDBLSCNF "f", &grmin, "minimal g(r) for logarithm");
+  argopt_add(ao, "--rcore", "%" XDBLSCNF "f", &rcore, "maximal radius to start extrapolation");
+  argopt_add(ao, "--bmuref", "%lf", &bmu_ref, "reference value for beta * mu");
   argopt_add(ao, "-k", "%" XDBLSCNF "f", &slope, "k in gamma = 2/3 - k * rho");
   argopt_add(ao, "-G", "%b", &gaussf, "do the Gaussian fluid");
   argopt_add(ao, "--invexp", "%d", &invexp, "exponent e of the r^{-e} fluid");
@@ -79,7 +112,7 @@ static void doargs(int argc, char **argv)
   argopt_addhelp(ao, "-h");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
-  beta = 1./T;
+  beta = 1/T;
   if ( dopy ) sqrs = 0;
   if ( doir ) irs = sqrs;
   if ( dohc ) hcs = sqrs;
@@ -92,6 +125,8 @@ static void doargs(int argc, char **argv)
 
 
 
+#ifndef INTERP
+#define INTERP
 /* given the array (xi, yi), evaluate the value at x */
 __inline static double interp(double x, double *xi, double *yi,
     int imin, int imax, int cutimin, int cutimax)
@@ -111,7 +146,7 @@ __inline static double interp(double x, double *xi, double *yi,
   gam = (xi[i] - x) / (xi[i] - xi[i-1]);
   return gam * yi[i-1] + (1 - gam) * yi[i];
 }
-
+#endif
 
 
 /* load components of the bridge function */
@@ -216,6 +251,7 @@ __inline static xdouble getyr(xdouble tr, xdouble *dy, xdouble *w, xdouble *dw)
     return 1 + tr + irs * (z - 1 - tr);
   } else if ( dohc ) { /* Hutchinson-Conkie */
     u = 1 + hcs * tr;
+    if (u < 1e-300) u = 1e-300;
     z = POW(u, 1./hcs);
     if (dy) *dy = z/u;
     if (w) *w = (-LOG(u) + 1 - 1/u) * z / (hcs * hcs);
@@ -249,7 +285,7 @@ static void iter(sphr_t *sphr, xdouble rho,
     xdouble *Br, xdouble *fr, int itmax)
 {
   int i, npt = sphr->npt, it;
-  xdouble x, err, errmax, yr;
+  xdouble x, err, errmax = 0, yr;
 
   for ( it = 0; it < itmax; it++ ) {
     sphr_r2k(sphr, cr, ck); /* c(r) --> c(k) */
@@ -269,7 +305,8 @@ static void iter(sphr_t *sphr, xdouble rho,
     }
     if ( errmax < tol ) break;
   }
-  //printf("iter %d errmax %g\n", it, (double) errmax);
+  if ( it >= itmax )
+    fprintf(stderr, "iter %d failed to converge, errmax %g\n", it, (double) errmax);
 }
 
 
@@ -293,7 +330,7 @@ static void iterd(sphr_t *sphr, xdouble rho,
     sphr_k2r(sphr, dtk, dtr);
     for ( errmax = 0, i = 0; i < npt; i++ ) {
       /* dc = (1 + f) dy - dt = [(1 + f) Y' - 1] dt */
-      if (Br) {
+      if (Br != NULL && dBr != NULL) {
         x = (1 + fr[i]) * EXP(tr[i] + Br[i]) * (dtr[i] + dBr[i]) - dtr[i];
       } else {
         getyr(tr[i], &dydt, NULL, NULL);
@@ -303,7 +340,7 @@ static void iterd(sphr_t *sphr, xdouble rho,
       dcr[i] += damp * (x - dcr[i]);
     }
     //printf("round %d, errmax %g\n", it, errmax); getchar();
-    if ( errmax < 1e-7 ) break;
+    if ( errmax < tol ) break;
   }
   //printf("it %d errmax %g\n", it, (double) errmax);
 }
@@ -453,7 +490,7 @@ static void itercd(sphr_t *sphr, xdouble rho,
       dCr[i] += damp * (x - dCr[i]);
     }
     //printf("round %d, errmax %g\n", it, errmax); getchar();
-    if ( errmax < 1e-7 ) break;
+    if ( errmax < tol ) break;
   }
   //printf("it %d errmax %g\n", it, (double) errmax);
 }
@@ -497,7 +534,7 @@ static void itercD(sphr_t *sphr, xdouble rho,
 
 
 static void output(int npt, xdouble *ri,
-    xdouble *cr, xdouble *tr, xdouble *dcr, xdouble *dtr,
+    xdouble *cr, xdouble *tr, xdouble *Br, xdouble *dcr, xdouble *dtr,
     xdouble *fr, xdouble *bphi, char *fn)
 {
   int i;
@@ -505,9 +542,10 @@ static void output(int npt, xdouble *ri,
 
   xfopen(fp, fn, "w", return);
   for ( i = 0; i < npt; i++ ) {
-    fprintf(fp, "%8.6f %14.8f %14.8f %14.8f %14.8f %14.8f %g\n",
+    double Bri = (Br != NULL) ? (double) Br[i] : 0;
+    fprintf(fp, "%8.6f %14.8f %14.8f %14.8f %14.8f %14.8f %14.8f %g\n",
         (double) ri[i],
-        (double) cr[i], (double) tr[i],
+        (double) cr[i], (double) tr[i], Bri,
         (double) dcr[i], (double) dtr[i],
         (double) fr[i], (double) bphi[i]);
   }
@@ -535,16 +573,25 @@ static xdouble getmu(int npt, xdouble rho, xdouble *fr,
   xdouble corr1 = 0, Dcorr1 = 0, dcorr1 = 0, corr2 = 0, Dcorr2 = 0, dcorr2 = 0;
   xdouble numD, denD1, denD2, numd = 0, dend1 = 0, dend2 = 0, det;
   int ctype = dohnc ? 1 : 0;
+  double bpref = 0, bFref = 0, bmuref = bmu_ref;
+
+  if ( dolj && FABS(bmu_ref) < XDBL_MIN ) {
+    lj_eos3d((double) rho, (double) T, &bpref, &bFref, &bmuref);
+    bpref = (double) (bpref/T);
+    bFref = (double) (bFref/T);
+    bmuref = (double) (bmuref/T);
+  }
 
   mu0 = 0;
   *dmu = 0;
   for ( i = 0; i < npt; i++ ) {
-    if (br != 0) { /* explicit bridge function */
+    if (br != NULL) { /* explicit bridge function */
       B = br[i];
       DB = 2*B;
     } else {
       yr = getyr(tr[i], &dyr, NULL, NULL);
       dBdt = dyr/yr - 1;
+      if ( yr < 1e-300 ) yr = 1e-300;
       B = LOG(yr) - tr[i];
       DB = dBdt * Dtr[i];
     }
@@ -584,8 +631,12 @@ static xdouble getmu(int npt, xdouble rho, xdouble *fr,
 
     /* derivatives w.r.t. density */
     if ( dcr != NULL && dtr != NULL ) {
-      if (br != 0) {
-        dB = dbr[i];
+      if (br != NULL) {
+        if (dbr != NULL) {
+          dB = dbr[i];
+        } else {
+          dB = 2*br[i];
+        }
       } else {
         dB = dBdt * dtr[i];
       }
@@ -611,6 +662,11 @@ static xdouble getmu(int npt, xdouble rho, xdouble *fr,
   /* Differentation with respect to the charging parameter
    * beta dmu = Int ( -Dc + DB + h Dt h + h DB ) dr */
   *dmu = rho * (-sDc + sDB + scDt + stDt + shDB);
+  if ( verbose )
+    printf("rho %g, -rho c %g, rho (-c + th/2) %g, mu0 %g, rho sB %g, rho sBh %g\n",
+        (double) rho, (double) (-rho*sc), (double) (rho*(-sc + .5*sth)),
+        (double) (rho*(sB - sc + .5*sth)),
+        (double) (rho*sB), (double) (rho*sBh));
 
   if ( ctype == 0 ) {
     corr1 = sB;
@@ -640,8 +696,13 @@ static xdouble getmu(int npt, xdouble rho, xdouble *fr,
   numD = shDB; /* residue d/Di */
   denD1 = Dcorr1;
   denD2 = Dcorr2;
-  if ( FABS(*mu2r) < 1e-6 ) { /* if mu2r is not give */
-    *mu2r = dohnc ? 0: numD/Dcorr2;
+  if ( FABS(*mu2r) < XDBL_MIN ) { /* if mu2r is not given */
+    if ( fabs(bmuref) > DBL_MIN && br != NULL && dbr == NULL ) { /* reverse fitting */
+      *mu2r = (bmuref - mu0) / (rho * corr2);
+      //printf("muref %g, r %g\n", bmuref, (double) *mu2r); getchar();
+    } else {
+      *mu2r = dohnc ? 0: numD/Dcorr2;
+    }
   }
   *mu1 = mu0 + rho * corr2 * (dohnc ? 0 : 2./3); /* low density limit */
   *mu2 = mu0 + rho * corr2 * (*mu2r); /* virial-route consistent */
@@ -666,11 +727,15 @@ static xdouble getmu(int npt, xdouble rho, xdouble *fr,
      * = Int [ -cr + Br + (1/2) tr hr]
      *   + Int [ (1/2) (tr dcr - cr dtr) - hr dBr]
      * */
-    if ( FABS(*mu5th) < 1e-6 ) {
+    if ( FABS(*mu5th) < XDBL_MIN ) {
       numd = -(sB + 0.5*sth) + rho*(0.5*(scdt - stdc) + shdB); /* residue d/drho */
       dend1 = corr1 + rho * dcorr1;
       dend2 = corr2 + rho * dcorr2;
-      *mu5th = numd / dend1;
+      if ( usemuc2 ) {
+        *mu5th = numd / dend2;
+      } else {
+        *mu5th = numd / dend1;
+      }
     }
     /* local power expansion */
     /*
@@ -705,13 +770,20 @@ static xdouble getmu(int npt, xdouble rho, xdouble *fr,
   }
 
   /* compressibility-route consistent */
-  *mu5 = mu0 + rho * (*mu5th) * corr1;
+  if ( fabs(bmuref) > DBL_MIN && br != NULL && dbr == NULL ) { /* reverse fitting */
+    *mu5th = (bmuref - mu0) / (rho * corr1);
+    *mu5 = mu0 + rho * (*mu5th) * corr1;
+  } else if ( usemuc2 ) {
+    *mu5 = mu0 + rho * (*mu5th) * corr2;
+  } else {
+    *mu5 = mu0 + rho * (*mu5th) * corr1;
+  }
 
   /* consistent for both the compressibility and the virial routes
    *    r1 * denD1 + r2 * denD2 = numD
    *    r1 * dend1 + r2 * dend2 = numd
    * */
-  if ( FABS(*mu6r1) < 1e-6 && FABS(*mu6r2) < 1e-6 ) { /* if not give */
+  if ( FABS(*mu6r1) < XDBL_MIN && FABS(*mu6r2) < XDBL_MIN ) { /* if not give */
     det = denD1 * dend2 - dend1 * denD2 + 1e-8;
     *mu6r1 = (numD * dend2 - numd * denD2) / det;
     *mu6r2 = (numd * denD1 - numD * dend1) / det;
@@ -744,7 +816,9 @@ static xdouble getpres(int npt, xdouble rho, int dm, xdouble B2,
     if (FABS(x) < 1e-8) {
       spk += -x*x*x*(1./3 + x*.25) * ki2[i];
     } else {
-      spk += (LOG(1 - x) + x + x*x*.5) * ki2[i];
+      xdouble x1 = 1 - x;
+      if ( x1 < 1e-300 ) x1 = 1e-300;
+      spk += (LOG(x1) + x + x*x*.5) * ki2[i];
     }
   }
 
@@ -801,12 +875,293 @@ static xdouble getpres(int npt, xdouble rho, int dm, xdouble B2,
 
 
 
+/* radial distribution function from MC */
+#include "loadgr.h"
+
+
+
+__inline static int solve2(xdouble (*m)[3], xdouble *a, xdouble *b)
+{
+  xdouble det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+  if ( FABS(det) < XDBL_MIN ) {
+    printf("det %g\n", (double) det);
+    return -1;
+  }
+  a[0] = (m[1][1] * b[0] - m[0][1] * b[1]) / det;
+  a[1] = (m[0][0] * b[1] - m[1][0] * b[0]) / det;
+  return 0;
+}
+
+
+
+__inline static int solve3(xdouble (*m)[3], xdouble *a, xdouble *b)
+{
+  xdouble det, c[3][3];
+  int i;
+
+  c[0][0] =   m[1][1] * m[2][2] - m[2][1] * m[1][2];
+  c[0][1] = -(m[1][0] * m[2][2] - m[2][0] * m[1][2]);
+  c[0][2] =   m[1][0] * m[2][1] - m[2][0] * m[1][1];
+  c[1][0] = -(m[0][1] * m[2][2] - m[2][1] * m[0][2]);
+  c[1][1] =   m[0][0] * m[2][2] - m[2][0] * m[0][2];
+  c[1][2] = -(m[0][0] * m[2][1] - m[2][0] * m[0][1]);
+  c[2][0] =   m[0][1] * m[1][2] - m[1][1] * m[0][2];
+  c[2][1] = -(m[0][0] * m[1][2] - m[1][0] * m[0][2]);
+  c[2][2] =   m[0][0] * m[1][1] - m[1][0] * m[0][1];
+  det = m[0][0] * c[0][0] + m[0][1] * c[0][1] + m[0][2] * c[0][2];
+  if ( FABS(det) < XDBL_MIN ) {
+    fprintf(stderr, "det %g\n", (double) det);
+    return -1;
+  }
+  for ( i = 0; i < 3; i++ )
+    a[i] = (c[0][i] * b[0] + c[1][i] * b[1] + c[2][i] * b[2])/det;
+  return 0;
+}
+
+
+
+/* extract Br from the MC rdf */
+__inline static int extractBr(sphr_t *sphr, xdouble rho,
+    const xdouble *grmatch, const xdouble *wrinp,
+    xdouble *crmatch, xdouble *trmatch,
+    xdouble *ckmatch, xdouble *tkmatch,
+    xdouble *Brmatch, xdouble *bphi)
+{
+  int i, im, ip, npt = sphr->npt;
+  xdouble x, y;
+
+  /* compute the reference */
+  for ( i = 0; i < npt; i++ ) /* h(r) */
+    crmatch[i] = grmatch[i] - 1;
+  sphr_r2k(sphr, crmatch, ckmatch);
+  for ( i = 0; i < npt; i++ ) /* from hk to ck */
+    ckmatch[i] = ckmatch[i] / (1 + rho * ckmatch[i]);
+  sphr_k2r(sphr, ckmatch, crmatch);
+
+  /* compute the fitting range */
+  for ( im = ip = -1, i = 0; i < npt; i++ ) {
+    if ( grmatch[i] > grmin && im < 0 ) im = i;
+    if ( sphr->ri[i] > rcore && ip < 0 ) ip = i;
+  }
+
+  /* compute the indirect correlation function and bridge function */
+  for ( i = 0; i < npt; i++ ) {
+    trmatch[i] = grmatch[i] - 1 - crmatch[i];
+    if ( i >= im ) {
+      Brmatch[i] = LOG(grmatch[i]) + bphi[i] - trmatch[i];
+    } else {
+      Brmatch[i] = 0;
+    }
+  }
+  sphr_r2k(sphr, trmatch, tkmatch);
+
+  if ( wrinp != NULL ) {
+    /* if the explicit potential of mean force exists
+     * we try to glue it onto Brmatch
+     * to obtain the r < rcore part */
+    xdouble shift, sn = 0, sy = 0;
+
+    /* only for 20 bins */
+    for ( i = im; ; i++ ) {
+      sn += sphr->rDm1[i];
+      sy += (Brmatch[i] - (wrinp[i] - trmatch[i])) * sphr->rDm1[i];
+      if ( sphr->ri[i] > sphr->ri[im] + 0.1 ) break;
+    }
+    ip = i;
+    shift = sy / sn;
+
+    for ( i = 0; i < im; i++ ) {
+      Brmatch[i] = wrinp[i] - trmatch[i] + shift;
+    }
+    printf("im %d (r %g), ip %d (r %g), shift %g\n",
+        im, (double) sphr->ri[im], ip, (double) sphr->ri[ip],
+        (double) shift);
+  } else {
+    /* try to find a polynomial fitting for (im, ip)
+     * we'll use a + b*r + c*r^2 to avoid overfitting */
+    xdouble sn = 0, sx = 0, sxx = 0, sxxx = 0, sxxxx = 0, sy = 0, sxy = 0, sxxy = 0;
+    xdouble mat[3][3], a[3], b[3];
+
+    for ( i = im; i < ip; i++ ) {
+      x = sphr->ri[i];
+      y = Brmatch[i];
+
+      sn += 1;
+      sx += x;
+      sxx += x * x;
+      sxxx += x * x * x;
+      sxxxx += x * x * x * x;
+      sy += y;
+      sxy += x * y;
+      sxxy += x * x * y;
+    }
+    /* try the 3x3 matrix first */
+    mat[0][0] = sn;
+    mat[0][1] = mat[1][0] = sx;
+    mat[0][2] = mat[1][1] = mat[2][0] = sxx;
+    mat[1][2] = mat[2][1] = sxxx;
+    mat[2][2] = sxxxx;
+    b[0] = sy;
+    b[1] = sxy;
+    b[2] = sxxy;
+    solve3(mat, a, b);
+    printf("im %d (r %g), ip %d (r %g), %g %g %g %g %g\n",
+        im, (double) sphr->ri[im], ip, (double) sphr->ri[ip],
+        (double) sn, (double) sx, (double) sxx, (double) sxxx, (double) sxxxx);
+    if (a[0] > 0 || a[1] < 0 || a[2] > 0) {
+      /* go back to 2x2 matrix */
+      fprintf(stderr, "Warning: bad fitting %g%+gr%+gr^2\n", (double) a[0], (double) a[1], (double) a[2]);
+      a[2] = 0;
+      solve2(mat, a, b);
+    }
+    printf("%g%+gr%+gr^2\n", (double) a[0], (double) a[1], (double) a[2]);
+    for ( i = 0; i < im; i++ ) {
+      x = sphr->ri[i];
+      Brmatch[i] = a[0] + x * (a[1] + x * a[2]);
+    }
+  }
+
+  for ( i = 0; i < npt; i++ ) {
+    Brmatch[i] *= Bscale;
+    if ( sphr->ri[i] > rmaxB ) Brmatch[i] = 0;
+  }
+
+  /* print out the bridge function */
+  if ( verbose ) {
+    FILE *fp;
+
+    if ( (fp = fopen(fnBrout, "w")) != NULL ) {
+      for ( i = 0; i < npt; i++ )
+        fprintf(fp, "%8.6f %14.8f %14.8f %14.8f %14.8f\n",
+            (double) sphr->ri[i], (double) Brmatch[i],
+            (double) crmatch[i], (double) trmatch[i],
+            (double) bphi[i]);
+      fclose(fp);
+      fprintf(stderr, "bridge function saved %s, scale %g\n", fnBrout, (double) Bscale);
+    }
+  }
+
+  return 0;
+}
+
+
+
+#if 0
+__inline static xdouble sets(xdouble s)
+{
+  if ( dohnc || dopy ) return 0;
+  else if ( doir ) return irs = s;
+  else if ( dohc ) return hcs = s;
+  else return sqrs = s;
+}
+
+
+
+/* this function tries to choose the tunable parameter
+ * in the integral equation to achieve the best match
+ * with the explicit function */
+__inline static int matchrdf(sphr_t *sphr, xdouble rho,
+    xdouble *cr, xdouble *tr, xdouble *fr,
+    xdouble *ck, xdouble *tk,
+    xdouble *grmatch, xdouble *bphi)
+{
+  int i, npt = sphr->npt;
+  xdouble s, z, gr, yr, *Br, err, errmin = 1e9, sm = 0;
+  xdouble *crmatch, *trmatch, *Brmatch;
+  const int matchgr = 0;
+  const xdouble grmin = 0.1;
+
+  /* compute the reference */
+  xnew(crmatch, npt);
+  xnew(trmatch, npt);
+  xnew(Brmatch, npt);
+  xnew(Br, npt);
+  for ( i = 0; i < npt; i++ )
+    cr[i] = grmatch[i] - 1;
+  sphr_r2k(sphr, cr, ck);
+  for ( i = 0; i < npt; i++ )
+    ck[i] = ck[i] / (1 + rho * ck[i]);
+  sphr_k2r(sphr, ck, crmatch);
+  for ( i = 0; i < npt; i++ ) {
+    trmatch[i] = grmatch[i] - 1 - crmatch[i];
+    if ( grmatch[i] > grmin ) {
+      Brmatch[i] = LOG(grmatch[i]) + bphi[i] - trmatch[i];
+    } else {
+      Brmatch[i] = 0;
+    }
+  }
+
+  for ( s = smin; s <= smax + sdel*.5; s += sdel) {
+    sets(s);
+    for ( i = 0; i < npt; i++ ) cr[i] = fr[i];
+    iter(sphr, rho, cr, tr, ck, tk, NULL, fr, itmax);
+
+    /* compute the error against the reference g(r) */
+    err = 0;
+    for ( i = 0; i < npt; i++ ) {
+      if ( matchgr ) {
+        gr = cr[i] + tr[i] + 1;
+        z = FABS(gr - grmatch[i]); // * sphr->rDm1[i];
+      } else {
+        yr = getyr(tr[i], NULL, NULL, NULL);
+        if ( yr > 1e-30 ) {
+          Br[i] = LOG(yr) - tr[i];
+        } else {
+          Br[i] = 0;
+        }
+        //printf("r %g, tr %g, yr %g, Br %g, %g\n", (double) sphr->ri[i], (double) tr[i], (double) yr, (double) (LOG(1 + cr[i]+tr[i]) + bphi[i] - tr[i]), (double) Br[i]); getchar();
+        if ( grmatch[i] > grmin ) {
+          z = FABS(Br[i] - Brmatch[i]); // * sphr->rDm1[i];
+        }
+      }
+      if ( z > err ) err = z;
+    }
+    printf("s %g, err %g; smin %g, errmin %g\n",
+        (double) s, (double) err, (double) sm, (double) errmin); //getchar();
+    if ( err < errmin ) {
+      sm = s;
+      errmin = err;
+    }
+  }
+  sets(sm);
+  iter(sphr, rho, cr, tr, ck, tk, NULL, fr, itmax);
+  for ( i = 0; i < npt; i++ ) {
+    yr = getyr(tr[i], NULL, NULL, NULL);
+    if ( yr > 1e-30 ) {
+      Br[i] = LOG(yr) - tr[i];
+    } else {
+      Br[i] = 0;
+    }
+  }
+  if ( savecr ) {
+    FILE *fp;
+
+    if ( (fp = fopen("crmatch.dat", "w")) != NULL ) {
+      for ( i = 0; i < npt; i++ )
+        fprintf(fp, "%8.6f %14.8f %14.8f %14.8f %14.8f %14.8f %14.8f %14.8f %g\n",
+            (double) sphr->ri[i],
+            (double) cr[i], (double) tr[i], (double) Br[i],
+            (double) crmatch[i], (double) trmatch[i], (double) Brmatch[i],
+            (double) fr[i], (double) bphi[i]);
+      fclose(fp);
+    }
+  }
+  free(crmatch);
+  free(trmatch);
+  free(Brmatch);
+  free(Br);
+  return 0;
+}
+#endif
+
+
+
 static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
 {
-  xdouble *bphi;
-  xdouble mu0, mu0a, mu0b, mu0br, dmu0, mu1, mu1a, mu1b, dmu1;
-  xdouble mu0c, mu1c, mu0d, mu1d, mu0e, mu1e, mu0f, mu1f;
-  xdouble mueth, mufr1, mufr2;
+  xdouble *bphi = NULL;
+  xdouble mu0 = 0, mu0a = 0, mu0b = 0, mu0br = 0, dmu0 = 0, mu1 = 0, mu1a = 0, mu1b = 0, dmu1 = 0;
+  xdouble mu0c = 0, mu1c = 0, mu0d = 0, mu1d = 0, mu0e = 0, mu1e = 0, mu0f = 0, mu1f = 0;
+  xdouble mueth = 0, mufr1 = 0, mufr2 = 0;
   xdouble *fr, *rdfr, *cr, *tr, *ck, *tk;
   xdouble *dcr, *dtr, *dck, *dtk;
   xdouble *Dcr, *Dtr, *Dck, *Dtk;
@@ -814,9 +1169,10 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
   xdouble *ffr, *Ffr;
   xdouble *dCr, *dTr, *dCk, *dTk;
   xdouble *DCr, *DTr, *DCk, *DTk;
+  xdouble *grmatch = NULL, *wrmatch = NULL;
   xdouble pres0, pres0a, pres0b, rpres0 = 0, pres0c, pres0d;
   xdouble s = sqrs, ds;
-  double uref = 0, pref = 0, fref = 0, muref = 0;
+  double bpref = 0, bFref = 0, bmuref = bmu_ref;
   int i, sci;
   char fnout[80] = "iemu.dat", buf[80] = "";
   FILE *fp;
@@ -879,7 +1235,8 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
   else buf[0] = '\0';
   sprintf(fnout, "iemu%s%s%s%s.dat",
       dolj?"lj":gaussf?"gauss":invexp?"invexp":"hs", buf,
-      fnBr?"Br":dohnc?"hnc":dopy?"py":dohc?"hc":doir?"ir":"sqr",
+      fnBrs?"Br":fngr?(fnpmf?"grpmf":"gr"):
+      dohnc?"hnc":dopy?"py":dohc?"hc":doir?"ir":"sqr",
       dosc?"scp":doSC?"scmu":"");
   if ((fp = fopen(fnout, "w")) == NULL) {
     fprintf(stderr, "cannot open %s\n", fnout);
@@ -887,7 +1244,8 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
   }
   fprintf(fp, "# %g %g\n", (double) rho, (double) drho);
 
-  if ( fnBr != NULL ) {
+  /* the bridge function from the density components */
+  if ( fnBrs != NULL ) {
     xnew(Br, npt);
     xnew(dBr, npt);
     Brlmax = 7;
@@ -895,11 +1253,11 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
     xnew(Brs[0], Brlmax * npt);
     for ( i = 0; i < 2*npt; i++ ) Brs[0][i] = 0;
     for ( i = 1; i < Brlmax; i++ ) Brs[i] = Brs[0] + npt*i;
-    Brlmax = getBrs(fnBr, Brlmax, npt, sphr->ri, Brs);
+    Brlmax = getBrs(fnBrs, Brlmax, npt, sphr->ri, Brs);
     if (Brlmax > 0) {
-      fprintf(stderr, "loaded the bridge function from %s\n", fnBr);
+      fprintf(stderr, "loaded the bridge function from %s\n", fnBrs);
     } else {
-      fprintf(stderr, "failed to load the bridge function from %s\n", fnBr);
+      fprintf(stderr, "failed to load the bridge function from %s\n", fnBrs);
       exit(1);
     }
   }
@@ -909,8 +1267,28 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
     Cr[i] = DCr[i] = dCr[i] = cr[i] = Dcr[i] = dcr[i] = fr[i];
   }
 
-  for ( rho = rhodel; rho < rhomax + tol; rho += rhodel ) {
-    if (Br != NULL) combBr(Brlmax, npt, Br, dBr, Brs, rho);
+  if ( fngr != NULL ) { /* match explicit RDF */
+    xnew(Br, npt);
+    xnew(grmatch, npt);
+    die_if ( loadgr(fngr, npt, grmatch, sphr->ri, sdr) != 0,
+        "cannot load %s\n", fngr);
+
+    /* if there is a pmf from an explicit free energy calculation
+     * we load it here */
+    if ( fnpmf != NULL ) {
+      xnew(wrmatch, npt);
+      die_if ( loadwr(fnpmf, npt, wrmatch, sphr->ri) != 0,
+          "cannot load %s\n", fnpmf);
+    }
+
+    extractBr(sphr, rho, grmatch, wrmatch, cr, tr, ck, tk, Br, bphi);
+    rho = rhomax; /* do only one density */
+  } else {
+    rho = rhodel;
+  }
+
+  for ( ; rho < rhomax + tol; rho += rhodel ) {
+    if (Brs != NULL) combBr(Brlmax, npt, Br, dBr, Brs, rho);
 
     /* 1. solve the case of xi = 1 */
     iter(sphr, rho, cr, tr, ck, tk, Br, fr, itmax);
@@ -953,7 +1331,7 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
     }
 
     /* compute thermodynamic quantities */
-    mu0br = (Br != NULL) ? (2./3 - slope * rho) : 0;
+    mu0br = (Br != NULL && fngr == NULL) ? (2./3 - slope * rho) : 0;
     mufr1 = mufr2 = mueth = 0;
     mu0 = getmu(npt, rho, fr, cr, tr, Dcr, Dtr, dcr, dtr, Br, dBr, ffr, sphr->rDm1,
         &mu0a, &mu0b, &mu0br, &dmu0,
@@ -962,8 +1340,8 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
         sphr->rDm1, ck, sphr->kDm1,
         &pres0a, &pres0b, &rpres0, &pres0c, &pres0d, ffr);
 
-    if ( savecr )
-      output(npt, sphr->ri, cr, tr, Dcr, Dtr, fr, bphi, "cr.dat");
+    if ( fncrtr != NULL )
+      output(npt, sphr->ri, cr, tr, Br, Dcr, Dtr, fr, bphi, fncrtr);
 
     /* 4. solve the case of xi = 1 - delta  */
     iterc(sphr, rho, Cr, Tr, Ck, Tk, Br, 1-delta, ck, tk, Fr, itmax);
@@ -978,10 +1356,12 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
         &mu1a, &mu1b, &mu0br, &dmu1,
         &mu1c, &mu1d, &mu1e, &mueth, &mu1f, &mufr1, &mufr2);
 
-    if ( savecr )
-      output(npt, sphr->ri, Cr, Tr, DCr, DTr, Fr, bphi, "Cr.dat");
-
-    uref = lj_eos3d((double) rho, (double) T, &pref, &fref, &muref);
+    if ( dolj && FABS(bmu_ref) < XDBL_MIN ) {
+      lj_eos3d((double) rho, (double) T, &bpref, &bFref, &bmuref);
+      bpref = (double) (bpref/T);
+      bFref = (double) (bFref/T);
+      bmuref = (double) (bmuref/T);
+    }
     printf("rho %5.3f, muv%9.4f,%9.4f,%9.4f rab %6.4f "
            "dmu%9.4f,%9.4f,%9.4f;%9.4f s%8.5f\n",
            (double) rho,
@@ -997,11 +1377,11 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
            (double) rho,
            (double) mu0c, (double) mu0d, (double) mu0e, (double) mueth,
            (double) mu0f, (double) mufr1, (double) mufr2,
-           (double) ((mu0f - mu1f)/delta), (double) (muref/T));
+           (double) ((mu0f - mu1f)/delta), bmuref);
     printf("rho %5.3f, P  %9.4f,%9.4f,%9.4f rP %7.4f Pcd%9.4f,%9.4f | %g\n",
            (double) rho,
            (double) pres0, (double) pres0a, (double) pres0b, (double) rpres0,
-           (double) pres0c, (double) pres0d, (double) (pref/T));
+           (double) pres0c, (double) pres0d, bpref);
     fprintf(fp, "%8.6f "
                 "%10.6f %10.6f %10.6f %10.8f "
                 "%12.6f %12.6f %12.6f %12.6f "
@@ -1026,8 +1406,9 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
            (double) ((mu0f - mu1f)/delta),
            (double) pres0, (double) pres0a, (double) pres0b, (double) rpres0,
            (double) pres0c, (double) pres0d,
-           (double) (muref/T), (double) (pref/T));
+           bmuref, bpref);
   }
+  fprintf(stderr, "saved report to %s\n", fnout);
 
   sphr_close(sphr);
   free(bphi);
@@ -1064,8 +1445,10 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
     free(Brs);
   }
 
+  free(grmatch);
+  free(wrmatch);
+
   fclose(fp);
-  fprintf(stderr, "saved report to %s\n", fnout);
   return 0;
 }
 

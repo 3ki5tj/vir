@@ -8,6 +8,13 @@
 #define XDOUBLE double
 typedef double xdouble;
 #endif
+#ifndef SIN
+#define SIN sin
+#endif
+#ifndef COS
+#define COS cos
+#endif
+
 
 #ifndef PI
 #define PI (xdouble) 3.1415926535897932384626433832795L
