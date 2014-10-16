@@ -1,8 +1,8 @@
 %\documentclass{revtex4-1}
 % options: aip, jcp, reprint, preprint
-\documentclass[preprint]{revtex4-1}
+%\documentclass[preprint]{revtex4-1}
 %\documentclass[notitlepage,preprint]{revtex4-1}
-%\documentclass[aip,jcp,reprint,superscriptaddress]{revtex4-1}
+\documentclass[aip,jcp,reprint,superscriptaddress]{revtex4-1}
 %\documentclass[reprint]{revtex4-1}
 
 \usepackage{amsmath}
@@ -74,7 +74,7 @@
 %  Galveston, Texas 7755, USA
 %}
 \begin{abstract}
-We review a few classic formulae that compute thermodynamic quantities
+We review a few classic formulae that extract thermodynamic quantities
   and virial coefficients from correlation functions.
 %
 For the Percus-Yevick closure,
@@ -1343,7 +1343,7 @@ Note that the $n = 2$ case is special,
   for the $f$-graph does not form a polygon.
 Thus, we manually set $s(G) = 4$ in this case.
 
-We give two examples are below.
+We give two examples.
 For
 $G_1 = {\begin{tikzpicture}[baseline=-1mm]
       \newcommand{\hh}{2.0mm}
@@ -3150,8 +3150,8 @@ $I^*(G;\rho, \zeta)$ is a homogeneous function of $\rho$, and
 
 
 
-Now consider a scaling transform
-$\vr'_i = \rho^{1/D} \vr_i$
+Now consider the scaling
+$\vr'_i \equiv \rho^{1/D} \vr_i$
 as
 \begin{align*}
   I^*(G; \rho, \zeta)
@@ -3165,7 +3165,7 @@ It follows that
 \begin{align}
  \zeta \, \partial_\zeta I^*(G; \rho, \zeta)
 &= -D \, \rho \, \partial_\rho I^*(G; \rho, \zeta) \notag \\
-&= -D \, (n - 1) \, I^*(G; \rho, \zeta),
+&= -D \, [n(G) - 1] \, I^*(G; \rho, \zeta),
 \label{eq:drhodzeta}
 \end{align}
 where we have used \eqref{eq:Idrho} in the second step.
@@ -3184,7 +3184,7 @@ Using \eqref{eq:drhodzeta} yields,
   -D \, \rho \, \partial_\rho A^*(\rho, \zeta)
   \\
 &=
-  \sum_G w(G) \, \bigl[ n(G) - 1 \bigr] \, I^*(G; \rho, \zeta).
+  -\sum_G w(G) \, \bigl[ n(G) - 1 \bigr] \, I^*(G; \rho, \zeta).
 \end{align*}
 %or in terms of the graphic sums,
 %\begin{align*}
@@ -3212,7 +3212,7 @@ Finally, we multiply both sides by $\rho$, and
   %&=
   \zeta \, \partial_\zeta A(\rho, \zeta) %\notag \\
   &= -D \, \rho^2 \, \partial_\rho \big[ A(\rho, \zeta)/\rho \big] \notag \\
-  &= \sum_G -D \, (n - 1) \, w(G) \, I(G, \zeta),
+  &= -\sum_G D \, [n(G) - 1] \, w(G) \, I(G, \zeta),
   \label{eq:virialtheorem}
 \end{align}
 where
@@ -3248,7 +3248,7 @@ Then
   =
   \sum_G \frac{ 2 \, n(G) \, I(G) } { s(G) }
   + \frac{ \zeta \partial_\zeta }{ D }
-    \left. \left(
+    \mkern-8mu \left. \left(
     \sum_G \frac{ 2 \, I(G, \zeta) } { s(G) }
     \right) \right|_{\zeta = 1}.
 \end{align*}
@@ -3269,22 +3269,23 @@ For the second term on the right hand side,
 we differentiate \eqref{eq:baxterpressure} with respect to $\zeta$,
 and
 \begin{align*}
-  \partial_\zeta (-\beta \, \Pex) \Big|_{\zeta=1}
+&\hphantom{==}
+\partial_\zeta (-\beta \, \Pex) \Big|_{\zeta=1}
+\\
 &=
 \frac{\rho^2}{2}
 \int
   \partial_\zeta (c - t \, c)
   \Big|_{\zeta = 1} \, d\vr
-\notag \\
-&\hphantom{=}
 + \rho^2 \int t \, (\partial_\zeta c) \Big|_{\zeta = 1} \, d\vr
 \\
 &=
 \frac{\rho^2}{2}
-\int (1+t)^2 \, (\partial_\zeta f) \Big|_{\zeta = 1} \, d\vr \\
+\int (1+t)^2 \, (\partial_\zeta f) \Big|_{\zeta = 1} \, d\vr
+\\
 &=
 \frac{\rho^2}{2}
-\int (1+t)^2 \, (\vr \cdot \nabla f) \, d\vr.
+\int (1+t)^2 \, (\vr \cdot \nabla f) \, d\vr,
 \end{align*}
 %
 where we have used
@@ -3315,7 +3316,7 @@ where we have used
 \end{align}
 %
 Note that \eqref{eq:dTdzeta} and \eqref{eq:dfdzeta} are general,
-whereas the rest two are specific to the PY closure \eqref{eq:py},
+whereas the rest two equation are specific to the PY closure \eqref{eq:py},
 %
 Thus,
 \begin{equation}
@@ -3347,14 +3348,6 @@ $f'(r) = \delta(r - 1)$, and
   +
   \big[ t(1) + 1 \big]^2 \, B_2
   \Bigr\}
-\notag \\
-&=
-  \rho^2
-  \bigl[
-    \tilde{c}(0)
-  +
-    g^2(1^+) \, B_2
-  \bigr]
 \notag \\
 &=
   \rho^2
@@ -3481,11 +3474,50 @@ Thus, $J^*_1 \big|_{\zeta = 1} \ne J^*_2 \big|_{\zeta = 1}$. %, even with $\zeta
 Alternative derivation of \eqref{eq:pyPsimplified} (PY equation)}
 
 
-We now explain the origin of the term $(t+1)^2$ in \eqref{eq:pyPsimplified}.
+
+We now show that the term $[t(\vr)+1]^2/2$ in \eqref{eq:pyPsimplified}
+resembles the cavity distribution function $y(\vr)$ in the HNC case
+[cf. \eqref{eq:yrfunctional}].
 %
-We first define the \emph{extended polygon graph}
-to allow any intra-face pair, instead of one on a side,
+We first define an \emph{extended polygon graph}
+as a polygon graph that allows any intra-face pair,
+instead of an adjacent one on a side,
 as the roots.
+%
+Thus,
+$\newcommand{\hh}{1.6mm}
+  \begin{tikzpicture}[baseline=-0.8mm]
+    \node (r1) at (-\hh,  -\hh) [whitedot]{};
+    \node (r2) at ( \hh,  -\hh) [blackdot]{};
+    \node (r5) at (-\hh,   \hh) [blackdot]{};
+    \node (r6) at ( \hh,   \hh) [whitedot]{};
+    \draw[thick]
+          (r1) -- (r2) -- (r6)
+          (r1) -- (r5) -- (r6);
+  \end{tikzpicture}$
+and
+$\newcommand{\hh}{1.6mm}
+  \begin{tikzpicture}[baseline=-0.8mm]
+    \node (r1) at (-\hh,  -\hh) [whitedot]{};
+    \node (r2) at ( \hh,  -\hh) [blackdot]{};
+    \node (r5) at (-\hh,   \hh) [blackdot]{};
+    \node (r6) at ( \hh,   \hh) [whitedot]{};
+    \draw[thick] (r1) -- (r6)
+          (r1) -- (r2) -- (r6)
+          (r1) -- (r5) -- (r6);
+  \end{tikzpicture}$
+are extended polygon graphs, but
+$\newcommand{\hh}{1.6mm}
+  \begin{tikzpicture}[baseline=-0.8mm]
+    \node (r1) at (-\hh,  -\hh) [blackdot]{};
+    \node (r2) at ( \hh,  -\hh) [whitedot]{};
+    \node (r5) at (-\hh,   \hh) [whitedot]{};
+    \node (r6) at ( \hh,   \hh) [blackdot]{};
+    \draw[thick] (r1) -- (r6)
+          (r1) -- (r2) -- (r6)
+          (r1) -- (r5) -- (r6);
+  \end{tikzpicture}$
+is not.
 
 
 \begin{lemm}
@@ -3494,8 +3526,8 @@ $t^2(\vr)/2$
 is the weighted sum of all nonequivalent extended polygon graphs $G$
 with the roots being a nonadjacent intra-face pair,
 with the weight of $G$ given by $1/s(G)$;
-$\bigl[ t(\vr) + 1 \bigr]^2/2$
-is the responding sum of extended polygon graphs
+$f(\vr) \, \bigl[ t(\vr) + 1 \bigr]^2/2$
+is the corresponding weighted sum of extended polygon graphs
 with adjacent roots.
 \end{lemm}
 
@@ -3504,12 +3536,12 @@ If an extended polygon graph $G$ has a nonadjacent intra-face pair,
   it can be viewed as a parallel composition
   of two pie graphs joined at the pair.
 %
-Thus, $G$ exists in the expansion of $t^2(\vr)/2$
+Thus, $G$ is included in the expansion of $t^2(\vr)/2$
   by Lemma \ref{thm:pycrsum}.
 %
 Conversely,
   each graph $G$ in the expansion of $t^2(\vr)/2$
-  takes the form of $H_1 \cdot H_2$,
+  assumes the form of $H_1 \cdot H_2$,
   where $H_1$ and $H_2$ are pie graphs.
 %
 Now for the weight.
@@ -3534,13 +3566,13 @@ For the second part regarding adjacent pairs,
   then the sum gives $f(\vr) \, [1/2 + t(\vr)]$,
   by Lemma \ref{thm:pycrsum}
   (with the weight of the $f$-graph
-  modified by a factor of $1/2$).
+  modified by the factor of $1/s = 1/2$).
 %
 Otherwise,
   $G$ can be viewed as the parallel composition
-  of the $f$-graph and two pie graphs $H_1$ and $H_2$.
+  of the $f$-graph and two pie graphs $H_1$ and $H_2$,
 %
-The sum is $f(\vr) \, t^2(\vr)/2$,
+which yields the sum $f(\vr) \, t^2(\vr)/2$,
   following the above reasoning.
 %
 The sum the two cases gives
@@ -3580,7 +3612,8 @@ under two modifications:
 is carried over all polygon packs;
 (ii) $P(G)$ is replaced to the set of intra-face pairs.
 %
-Note that every edge is an unordered intra-face pair, so
+Since every edge is an unordered intra-face pair,
+we have
 %
 \begin{align*}
 \frac{\rho^2}{4} \, f(\vr) \, \bigl[ t(\vr) + 1 \bigr]^2
@@ -3588,7 +3621,20 @@ Note that every edge is an unordered intra-face pair, so
 \left.
 \frac{ \delta \A(\psi_0, \psi_1) } { \delta \psi_1(\vr) }
 \right|_{\psi_0 = \psi_1 = 0},
-\\
+\end{align*}
+which can be rewritten,
+in analogous to \eqref{eq:yrfunctional} in the HNC case,
+as
+\begin{equation}
+  \frac{ \delta \A } { \delta f(\vr)}
+=
+  \frac{ \rho^2 } {4}
+  \bigl[ t(\vr) + 1 \bigr]^2.
+  \label{eq:yrfunctionalpy}
+\end{equation}
+%
+Similarly, for a nonadjacent pair,
+\begin{align*}
 \frac{\rho^2}{4} \, t^2(\vr)
 &=
 \left.
@@ -3596,20 +3642,9 @@ Note that every edge is an unordered intra-face pair, so
 \right|_{\psi_0 = \psi_1 = 0}.
 \end{align*}
 %
-The first equation can also be written as
-\begin{equation}
-  \frac{ \delta \A } { \delta f(\vr)}
-=
-  \frac{ \rho^2 } {4}
-  \bigl[ t(\vr) + 1 \bigr]^2,
-  \label{eq:yrfunctionalhnc}
-\end{equation}
-%
-which is the counterpart of \eqref{eq:yrfunctional}
-in the HNC case.
 
 
-We now have a new derivation of \eqref{eq:pyPsimplified}:
+Equation \eqref{eq:yrfunctionalpy} provides a new derivation of \eqref{eq:pyPsimplified}:
 %
 \begin{align*}
   \partial_\zeta (-\beta \Pex) \big|_{\zeta = 1}
@@ -3676,7 +3711,7 @@ Differentiating $\A$ with respect to $\zeta$ yields
   \\
 &=
   -\frac{ \beta \, \rho^2}{2}
-  \int (\vr \cdot \nabla \phi) \, g(\vr) \, d\vr
+  \int (\vr \cdot \nabla \phi) \, g \, d\vr
 = D \, \beta \, \Pexv,
 \end{align*}
 where we have used \eqref{eq:yrfunctional},
@@ -3704,7 +3739,7 @@ But from thermodynamics, we have
 %
 Thus,
 $\partial_\rho (\A/\rho)  = -\partial_\rho( \beta \, \Fexv/N )$,
-and an integration $\rho$ from 0,
+and an integration of $\rho$ from 0,
 where $\A \big|_{\rho = 0} = \Fexv \big|_{\rho = 0} = 0$, yields
 \[
   \A/\rho = -\beta \, \Fexv/N.
@@ -3725,7 +3760,7 @@ is the virial-route result $\Fexv$.
 Further, the excess chemical potential
 $\muex$ in \eqref{eq:hncmugsum} and \eqref{eq:hncmu}
 is also the virial-route result,
-for it obtained from differentiating $\Fex$
+for it is obtained from differentiating $\Fex$
 with respect to $\rho$
 [see \eqref{eq:muexdFex}].
 %
@@ -3740,7 +3775,7 @@ without using \eqref{eq:yrfunctional}.
 
 We now differentiate \eqref{eq:hncF} with respect to $\zeta$,
 \begin{align}
-  \zeta \, \partial_\zeta (-\beta\,\Fex/V) \big|_{\zeta = 1}
+  \left. \zeta \, \partial_\zeta \left(-\frac{ \beta\,\Fex }{ V }\right) \right|_{\zeta = 1}
 &=
 \frac{\rho^2}{2} \int
   \zeta \, \bigl[
@@ -3767,7 +3802,7 @@ which is obtained from differentiating the closure \eqref{eq:hnc}.
 
 Now, by setting $A \rightarrow \Fex / V$ in \eqref{eq:virialtheorem}, we get
 \begin{align}
-  \zeta \, \partial_\zeta (\Fex/V)
+  \zeta \, \partial_\zeta (\Fex/V) \Big|_{\zeta = 1}
   = -D \, \rho^2 \, \partial_\rho (\Fex/N)
   %  \notag \\
   = D \, \partial_V (\Fex)_N.
@@ -3776,7 +3811,7 @@ Now, by setting $A \rightarrow \Fex / V$ in \eqref{eq:virialtheorem}, we get
 %    \label{eq:hncdFdzeta2}
 \end{align}
 Thus, $-\partial_V (\Fex)_N = \Pexv$,
-and hence $\Fex$ from \eqref{eq:hncmu} is the virial-route result.
+and hence $\Fex$ from \eqref{eq:hncF} is the virial-route result.
 %
 
 
