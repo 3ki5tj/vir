@@ -478,6 +478,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
         Bh += get_Bh_singer(l, npt, cr, tr, sphr->rDm1);
       } else {
         Bm = get_Bx_py(l, npt, cr, tr, sphr->rDm1);
+        Bh = get_Bg_py(l, npt, cr, tr, sphr->rDm1);
       }
     } else {
       Bm = Bh = 0;

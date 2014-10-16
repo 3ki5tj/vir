@@ -170,23 +170,37 @@ __inline static void mul_series(int n, const xdouble *a, const xdouble *b,
 
 
 
-/* divide the series w = Sum_{k = 0 to n-1} c_k x^k
- * y = Sum_{i = 0 to n-1} a_i x_i
- * as z = w/y = Sum_{j = 0 to n-1} b_j x^j */
+/* return the leading non-zero term of series a */
+__inline static int get_leading_term(int n, const xdouble *a)
+{
+  int i;
+
+  for ( i = 0; i < n; i++ )
+    if ( FABS(a[i]) > XDBL_MIN ) break;
+  return i;
+}
+
+
+
+__inline static void print_series(int n, const xdouble *a, const char *name)
+{
+  int i;
+
+  printf("%s (%d): ", name, n - 1);
+  for ( i = 0; i < n; i++ )
+    if ( FABS(a[i]) > XDBL_MIN ) printf("%+gx^%d ", a[i], i);
+  printf("\n");
+}
+
+
+
+/* divide the series c = Sum_{k = 0 to n-1} c_k x^k
+ * by the seires a = Sum_{i = 0 to n-1} a_i x_i
+ * return b = c/a = Sum_{j = 0 to n-1} b_j x^j */
 __inline static void div_series(int n, const xdouble *c, const xdouble *a,
     xdouble *b)
 {
   int i, j;
-
-  for ( i = 0; i < n; i++ )
-    if ( FABS(a[i]) > 0 ) break;
-
-  if ( i != 0 ) {
-    for ( j = 0; j < i && j < n; j++ ) b[j] = 0;
-    if ( j == n ) return;
-    div_series(n - i, c, a + i, b + i);
-    return;
-  }
 
   for ( i = 0; i < n; i++ ) {
     for ( b[i] = c[i], j = 1; j <= i; j++ )
@@ -197,14 +211,43 @@ __inline static void div_series(int n, const xdouble *c, const xdouble *a,
 
 
 
+/* divide the series c = Sum_{k = 0 to nc-1} c_k x^k
+ * by the seires a = Sum_{i = 0 to na-1} a_i x_i
+ * return b = c/a = Sum_{j = 0 to nb-1} b_j x^j */
+__inline static int div_series3(int nc, const xdouble *c,
+    int na, const xdouble *a, int nb, xdouble *b)
+{
+  int i, j, k;
+
+  /* find the leading term of c */
+  i = get_leading_term(nc, c);
+  j = get_leading_term(na, a);
+  die_if ( i < j, "Error: cannot divide series rho^%d / rho^%d\n", i, j);
+  //printf("i %d, j %d\n", i, j);
+  if ( j > 0 ) {
+    for ( k = 0; k < i - j; k++ ) b[k] = 0;
+    return div_series3(nc - i, c + i, na - j, a + j, nb - i + j, b + i - j);
+  }
+
+  for ( i = 0; i < nb; i++ ) {
+    b[i] = ( i < nc ) ? c[i] : 0;
+    for ( j = 1; j <= i && j < na; j++ )
+      b[i] -= a[j] * b[i - j];
+    b[i] /= a[0];
+  }
+  //print_series(nc, c, "c"); print_series(na, a, "a"); print_series(nb, b, "b = c/a"); getchar();
+  return 0;
+}
+
+
+
 /* from a = Sum_{i = 0 to n-1} a_i x^i
  * compute a^p = b = Sum_{j = 0 to n-1} b_j x^j */
 __inline static void pow_series(int n, const xdouble *a, xdouble p, xdouble *b)
 {
   int i, j;
 
-  for ( i = 0; i < n; i++ )
-    if (FABS(a[i]) > 0) break;
+  i = get_leading_term(n, a);
 
   /* if the leading term a0 is zero
    * compute the reduced series */
@@ -254,8 +297,8 @@ __inline static void exp_series(int n, const xdouble *a, xdouble *b)
 
 
 
-/* log the series y = Sum_{i = 0 to n-1} b_i x^i
- * as log(y) = Sum_{j = 0 to n-1} a_j y^j */
+/* compute the logarithm of the series b = Sum_{i = 0 to n-1} b_i x^i
+ * as a = log(b) = Sum_{j = 0 to n-1} a_j x^j */
 __inline static xdouble log_series(int n, const xdouble *b, xdouble *a)
 {
   int i, j;
@@ -745,6 +788,7 @@ __inline static void get_yr_geo(int l, int npt, xdouble *yrl,
     /* form 1 - th t(r) */
     for ( a[0] = 1, u = 1; u <= l; u++ )
       a[u] = -th * tr[u][i];
+    /* (s/th/th) / (1 - th t(r)) */
     div_series(l + 1, c, a, b);
     //printf("l %d, a[l] %g, b[l] %g\n", l, (double) a[l], (double) b[l]); getchar();
     yrl[i] = tr[l][i] * (1 - s/th) + b[l];
@@ -1437,6 +1481,38 @@ __inline static xdouble get_ht(int l, int npt,
     for ( x = 0, u = 0; u < l; u++ )
       x += tr[l-u][i] * (cr[u][i] + tr[u][i]);
   return -s/l/(l+2);
+}
+
+
+
+__inline static xdouble get_Bg_py(int l, int npt, xdouble **cr,
+    xdouble **tr, const xdouble *w)
+{
+  int i, u;
+  xdouble s = 0, x, *a, *b, *c;
+
+  xnew(a, l+2);
+  xnew(b, l+2);
+  xnew(c, l+2);
+  for ( i = 0; i < npt; i++ ) {
+    /* compute log(1 + t) */
+    for ( a[0] = 1, c[0] = 0, u = 1; u <= l; u++ )
+      c[u] = a[u] = tr[u][i];
+    c[l+1] = a[l+1] = 0; /* need a higher-order term */
+    log_series(l+2, a, b);
+
+    /* a = b/c */
+    div_series3(l+2, b, l+2, c, l+1, a);
+
+    /* compute c(r) * {log[1+t(r)]/t(r)} */
+    for ( x = 0, u = 0; u <= l; u++ )
+      x += cr[u][i] * a[l-u];
+    s += x * w[i];
+  }
+  free(a);
+  free(b);
+  free(c);
+  return -s * (l + 1) / (l + 2);
 }
 
 
