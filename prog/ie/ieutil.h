@@ -188,7 +188,8 @@ __inline static void print_series(int n, const xdouble *a, const char *name)
 
   printf("%s (%d): ", name, n - 1);
   for ( i = 0; i < n; i++ )
-    if ( FABS(a[i]) > XDBL_MIN ) printf("%+gx^%d ", a[i], i);
+    if ( FABS(a[i]) > XDBL_MIN )
+      printf("%+gx^%d ", (double) a[i], i);
   printf("\n");
 }
 

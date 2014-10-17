@@ -24,8 +24,10 @@ xdouble beta;
 xdouble rho = (xdouble) 0.7L;
 xdouble drho = (xdouble) 0.05L;
 int itmax = 10000;
-xdouble damp = 1;
 xdouble tol = (xdouble) 1e-8L;
+xdouble dampmax = 1;
+xdouble dampfac = 0.8;
+xdouble damprec = 0.9;
 xdouble delta = (xdouble) 0.0001L;
 char *fncrtr = "crtr.dat";
 int verbose = 0;
@@ -81,7 +83,9 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-d", "%" XDBLSCNF "f", &delta, "delta xi");
   argopt_add(ao, "--itmax", "%d", &itmax, "maximal number of iterations");
-  argopt_add(ao, "--damp", "%" XDBLSCNF "f", &damp, "damping factor for iteration");
+  argopt_add(ao, "--dampmax", "%" XDBLSCNF "f", &dampmax, "maximal damp");
+  argopt_add(ao, "--dampfac", "%" XDBLSCNF "f", &dampfac, "damping when error increases");
+  argopt_add(ao, "--damprec", "%" XDBLSCNF "f", &damprec, "the recovery (to 1) rate of the damping");
   argopt_add(ao, "--crtr", NULL, &fncrtr, "file for saving cr and tr");
   argopt_add(ao, "-s", "%" XDBLSCNF "f", &sqrs, "parameter of the quadratic closure");
   argopt_add(ao, "--py", "%b", &dopy, "do the PY closure");
@@ -109,6 +113,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--invexp", "%d", &invexp, "exponent e of the r^{-e} fluid");
   argopt_add(ao, "--lj", "%b", &dolj, "do the Lennard-Jones fluid");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
+  argopt_add(ao, "--verbose", "%d", &verbose, "set the verbose level");
   argopt_addhelp(ao, "-h");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
@@ -282,10 +287,10 @@ __inline static xdouble updates(xdouble ds)
 /* solve the integral equation */
 static void iter(sphr_t *sphr, xdouble rho,
     xdouble *cr, xdouble *tr, xdouble *ck, xdouble *tk,
-    xdouble *Br, xdouble *fr, int itmax)
+    xdouble *Br, xdouble *fr, xdouble *del, int itmax)
 {
   int i, npt = sphr->npt, it;
-  xdouble x, err, errmax = 0, yr;
+  xdouble yr, x, errmax = 0, errmaxp = 1e9, damp = dampmax;
 
   for ( it = 0; it < itmax; it++ ) {
     sphr_r2k(sphr, cr, ck); /* c(r) --> c(k) */
@@ -299,11 +304,20 @@ static void iter(sphr_t *sphr, xdouble rho,
       } else {
         yr = getyr(tr[i], NULL, NULL, NULL);
       }
-      x = (1 + fr[i]) * yr - (1 + tr[i]);
-      if ((err = FABS(cr[i] - x)) > errmax) errmax = err;
-      cr[i] += damp * (x - cr[i]);
+      del[i] = (1 + fr[i]) * yr - (1 + tr[i]) - cr[i];
+      if ( (x = FABS(del[i])) > errmax ) errmax = x;
     }
     if ( errmax < tol ) break;
+    if ( verbose >= 2 )
+      fprintf(stderr, "iter %d err %g <-- %g, damp %g\n", it, (double) errmax, (double) errmaxp, (double) damp);
+    if ( errmax > errmaxp ) { /* reduce the updating magnitude */
+      damp *= dampfac;
+    } else { /* recover the updating magnitude towards dampmax */
+      damp = damp * damprec + dampmax * (1 - damprec);
+    }
+    errmaxp = errmax;
+    for ( i = 0; i < npt; i++ )
+      cr[i] += damp * del[i];
   }
   if ( it >= itmax )
     fprintf(stderr, "iter %d failed to converge, errmax %g\n", it, (double) errmax);
@@ -316,10 +330,10 @@ static void iterd(sphr_t *sphr, xdouble rho,
     xdouble *dcr, xdouble *dtr, xdouble *dck, xdouble *dtk,
     const xdouble *tr, const xdouble *ck, const xdouble *tk,
     const xdouble *Br, const xdouble *dBr, const xdouble *fr,
-    int itmax)
+    xdouble *del, int itmax)
 {
   int i, npt = sphr->npt, it;
-  xdouble x, hk, dydt, err, errmax;
+  xdouble x, hk, dydt, errmax, errmaxp = 1e9, damp = dampmax;
 
   for ( it = 0; it < itmax; it++ ) {
     sphr_r2k(sphr, dcr, dck);
@@ -331,18 +345,27 @@ static void iterd(sphr_t *sphr, xdouble rho,
     for ( errmax = 0, i = 0; i < npt; i++ ) {
       /* dc = (1 + f) dy - dt = [(1 + f) Y' - 1] dt */
       if (Br != NULL && dBr != NULL) {
-        x = (1 + fr[i]) * EXP(tr[i] + Br[i]) * (dtr[i] + dBr[i]) - dtr[i];
+        del[i] = (1 + fr[i]) * EXP(tr[i] + Br[i]) * (dtr[i] + dBr[i]) - dtr[i] - dcr[i];
       } else {
         getyr(tr[i], &dydt, NULL, NULL);
-        x = ((1 + fr[i]) * dydt - 1) * dtr[i];
+        del[i] = ((1 + fr[i]) * dydt - 1) * dtr[i] - dcr[i];
       }
-      if ((err = FABS(dcr[i] - x)) > errmax) errmax = err;
-      dcr[i] += damp * (x - dcr[i]);
+      if ( (x = FABS(del[i])) > errmax ) errmax = x;
     }
-    //printf("round %d, errmax %g\n", it, errmax); getchar();
     if ( errmax < tol ) break;
+    if ( verbose >= 2 )
+      fprintf(stderr, "iterd %d, err %g, damp %g\n", it, (double) errmax, (double) damp);
+    if ( errmax > errmaxp ) { /* reduce the updating magnitude */
+      damp *= dampfac;
+    } else { /* recover the updating magnitude towards dampmax */
+      damp = damp * damprec + dampmax * (1 - damprec);
+    }
+    errmaxp = errmax;
+    for ( i = 0; i < npt; i++ )
+      dcr[i] += damp * del[i];
   }
-  //printf("it %d errmax %g\n", it, (double) errmax);
+  if ( verbose )
+    fprintf(stderr, "iterd %d errmax %g\n", it, (double) errmax);
 }
 
 
@@ -431,10 +454,10 @@ static void iterc(sphr_t *sphr, xdouble rho,
     xdouble *Cr, xdouble *Tr, xdouble *Ck, xdouble *Tk,
     xdouble *Br, xdouble xi,
     const xdouble *ck, const xdouble *tk,
-    xdouble *Fr, int itmax)
+    const xdouble *Fr, xdouble *del, int itmax)
 {
   int i, npt = sphr->npt, it;
-  xdouble x, err, errmax, Yr;
+  xdouble Yr, x, errmax, errmaxp = 1e9, damp = dampmax;
 
   for ( it = 0; it < itmax; it++ ) {
     /* get C(k) from C(r) */
@@ -451,14 +474,22 @@ static void iterc(sphr_t *sphr, xdouble rho,
       } else {
         Yr = getyr(Tr[i], NULL, NULL, NULL);
       }
-      x = (1 + Fr[i]) * Yr - (1 + Tr[i]);
-      if ((err = FABS(Cr[i] - x)) > errmax) errmax = err;
-      Cr[i] += damp * (x - Cr[i]);
+      del[i] = (1 + Fr[i]) * Yr - (1 + Tr[i]) - Cr[i];
+      if ( (x = FABS(del[i])) > errmax ) errmax = x;
     }
-    //printf("round %d, errmax %g, cr %g, %g\n", it, (double) errmax, (double) cr[0], (double) Cr[0]); getchar();
     if ( errmax < tol ) break;
+    if ( verbose >= 2 )
+      fprintf(stderr, "iterc %d: err %g, damp %g\n", it, (double) errmax, (double) damp);
+    if ( errmax > errmaxp ) { /* reduce the updating magnitude */
+      damp *= dampfac;
+    } else { /* recover the updating magnitude towards 1 */
+      damp = damp * damprec + dampmax * (1 - damprec);
+    }
+    errmaxp = errmax;
+    for ( i = 0; i < npt; i++ )
+      Cr[i] += damp * del[i];
   }
-  //printf("it %d errmax %g\n", it, (double) errmax);
+  if (verbose) fprintf(stderr, "iterc %d errmax %g\n", it, (double) errmax);
 }
 
 
@@ -469,10 +500,10 @@ static void itercd(sphr_t *sphr, xdouble rho,
     const xdouble *dck, const xdouble *dtk,
     const xdouble *Ck, const xdouble *Tr,
     const xdouble *ck, const xdouble *tk,
-    xdouble *Fr, int itmax)
+    const xdouble *Fr, xdouble *del, int itmax)
 {
   int i, npt = sphr->npt, it;
-  xdouble x, hk, dhk, dY, err, errmax;
+  xdouble x, hk, dhk, dY, errmax, errmaxp = 1e9, damp = dampmax;
 
   for ( it = 0; it < itmax; it++ ) {
     sphr_r2k(sphr, dCr, dCk);
@@ -485,14 +516,22 @@ static void itercd(sphr_t *sphr, xdouble rho,
     for ( errmax = 0, i = 0; i < npt; i++ ) {
       /* dC = (1 + F) dY - dT = [(1 + F) Y' - 1] dT */
       getyr(Tr[i], &dY, NULL, NULL);
-      x = ((1 + Fr[i]) * dY - 1) * dTr[i];
-      if ((err = FABS(dCr[i] - x)) > errmax) errmax = err;
-      dCr[i] += damp * (x - dCr[i]);
+      del[i] = ((1 + Fr[i]) * dY - 1) * dTr[i] - dCr[i];
+      if ((x = FABS(del[i])) > errmax) errmax = x;
     }
-    //printf("round %d, errmax %g\n", it, errmax); getchar();
     if ( errmax < tol ) break;
+    if ( verbose >= 2 )
+      fprintf(stderr, "itercd %d: err %g, damp %g\n", it, (double) errmax, (double) damp);
+    if ( errmax > errmaxp ) { /* reduce the updating magnitude */
+      damp *= dampfac;
+    } else { /* recover the updating magnitude towards dampmax */
+      damp = damp * damprec + dampmax * (1 - damprec);
+    }
+    errmaxp = errmax;
+    for ( i = 0; i < npt; i++ )
+      dCr[i] += damp * del[i];
   }
-  //printf("it %d errmax %g\n", it, (double) errmax);
+  if (verbose) fprintf(stderr, "itercd %d errmax %g\n", it, (double) errmax);
 }
 
 
@@ -501,11 +540,13 @@ static void itercd(sphr_t *sphr, xdouble rho,
  * which can be 1 or not 1 */
 static void itercD(sphr_t *sphr, xdouble rho,
     xdouble *Dcr, xdouble *Dtr, xdouble *Dck, xdouble *Dtk,
-    const xdouble *cr, const xdouble *tr, const xdouble *ck, const xdouble *tk,
-    xdouble *fr, xdouble *Dfr, int itmax)
+    const xdouble *cr, const xdouble *tr,
+    const xdouble *ck, const xdouble *tk,
+    const xdouble *fr, const xdouble *Dfr,
+    xdouble *del, int itmax)
 {
   int i, npt = sphr->npt, it;
-  xdouble x, err, errmax, yr, Dyr;
+  xdouble yr, Dyr, x, errmax, errmaxp = 1e9, damp = dampmax;
 
   (void) cr;
   for ( it = 0; it < itmax; it++ ) {
@@ -521,14 +562,23 @@ static void itercD(sphr_t *sphr, xdouble rho,
        * for the hard sphere we assume that Df(r) = f(r) */
       yr = getyr(tr[i], &Dyr, NULL, NULL);
       Dyr *= Dtr[i];
-      x = -Dtr[i] + (1 + fr[i]) * Dyr + Dfr[i] * yr;
-      if ((err = FABS(Dcr[i] - x)) > errmax) errmax = err;
-      Dcr[i] += damp * (x - Dcr[i]);
+      del[i] = -Dtr[i] + (1 + fr[i]) * Dyr + Dfr[i] * yr - Dcr[i];
+      if ( (x = FABS(del[i])) > errmax ) errmax = x;
     }
     //printf("round %d, errmax %g\n", it, (double) errmax); getchar();
-    if ( errmax < tol ) break;
+    if ( errmax < tol || errmax > 1e9 ) break;
+    if ( verbose >= 2 )
+      fprintf(stderr, "itercD %d err %g, damp %g\n", it, (double) errmax, (double) damp);
+    if ( errmax > errmaxp ) { /* reduce the updating magnitude */
+      damp *= dampfac;
+    } else { /* recover the updating magnitude towards dampmax */
+      damp = damp * damprec + dampmax * (1 - damprec);
+    }
+    errmaxp = errmax;
+    for ( i = 0; i < npt; i++ )
+      Dcr[i] += damp * del[i];
   }
-  //printf("it %d errmax %g\n", it, (double) errmax);
+  if (verbose) fprintf(stderr, "itercD %d errmax %g\n", it, (double) errmax);
 }
 
 
@@ -1169,6 +1219,7 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
   xdouble *ffr, *Ffr;
   xdouble *dCr, *dTr, *dCk, *dTk;
   xdouble *DCr, *DTr, *DCk, *DTk;
+  xdouble *delarr;
   xdouble *grmatch = NULL, *wrmatch = NULL;
   xdouble pres0, pres0a, pres0b, rpres0 = 0, pres0c, pres0d;
   xdouble s = sqrs, ds;
@@ -1216,6 +1267,7 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
   xnew(ffr, npt);
   xnew(Ffr, npt);
 
+  xnew(delarr, npt);
   mkfr(npt, beta, bphi, fr, rdfr, sphr->ri, sphr->dm, gaussf, invexp, dolj);
   for ( i = 0; i < npt; i++ ) {
     Fr[i] = fr[i] * (1 - delta);
@@ -1291,19 +1343,19 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
     if (Brs != NULL) combBr(Brlmax, npt, Br, dBr, Brs, rho);
 
     /* 1. solve the case of xi = 1 */
-    iter(sphr, rho, cr, tr, ck, tk, Br, fr, itmax);
+    iter(sphr, rho, cr, tr, ck, tk, Br, fr, delarr, itmax);
 
     /* 2. differentiating with respect to rho */
-    iterd(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, Br, dBr, fr, itmax);
+    iterd(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, Br, dBr, fr, delarr, itmax);
 
     /* self-consistently determine s based on the pressure
      * it appears that this only makes the result slightly worse */
     if (dosc) {
       for (sci = 1; ; sci++) {
         /* differentiating with respect to rho */
-        iterd(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, Br, dBr, fr, itmax);
+        iterd(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, Br, dBr, fr, delarr, itmax);
         ds = correct(npt, rho, sphr->dm, cr, tr, fr, sphr->rDm1, dcr, dtr, sphr->B2hs, rdfr);
-        iter(sphr, rho, cr, tr, ck, tk, Br, fr, itmax);
+        iter(sphr, rho, cr, tr, ck, tk, Br, fr, delarr, itmax);
         s = updates(ds);
         if ( sci % 1 == 0 ) {
           printf("s %g, ds %g\n", (double) s, (double) ds); getchar();
@@ -1315,15 +1367,15 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
     }
 
     /* 3. compute Dc(r), Dt(r), differentiation w.r.t. xi, at xi = 1 */
-    itercD(sphr, rho, Dcr, Dtr, Dck, Dtk, cr, tr, ck, tk, fr, fr, itmax);
+    itercD(sphr, rho, Dcr, Dtr, Dck, Dtk, cr, tr, ck, tk, fr, fr, delarr, itmax);
 
     if (doSC) {
       for (sci = 1; ; sci++) {
         /* differentiating with respect to rho */
-        iterd(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, Br, dBr, fr, itmax);
+        iterd(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, Br, dBr, fr, delarr, itmax);
         ds = correct2(npt, rho, cr, tr, fr, sphr->rDm1, Dcr, Dtr, dcr, dtr);
-        iter(sphr, rho, cr, tr, ck, tk, Br, fr, itmax);
-        itercD(sphr, rho, Dcr, Dtr, Dck, Dtk, cr, tr, ck, tk, fr, fr, itmax);
+        iter(sphr, rho, cr, tr, ck, tk, Br, fr, delarr, itmax);
+        itercD(sphr, rho, Dcr, Dtr, Dck, Dtk, cr, tr, ck, tk, fr, fr, delarr, itmax);
         s = updates(ds);
         if (FABS(ds) < 1e-4) break;
       }
@@ -1344,13 +1396,13 @@ static int integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
       output(npt, sphr->ri, cr, tr, Br, Dcr, Dtr, fr, bphi, fncrtr);
 
     /* 4. solve the case of xi = 1 - delta  */
-    iterc(sphr, rho, Cr, Tr, Ck, Tk, Br, 1-delta, ck, tk, Fr, itmax);
+    iterc(sphr, rho, Cr, Tr, Ck, Tk, Br, 1-delta, ck, tk, Fr, delarr, itmax);
 
     /* 5. solve derivatives w.r.t. density, rho */
-    itercd(sphr, rho, dCr, dTr, dCk, dTk, dck, dtk, Ck, Tr, ck, tk, Fr, itmax);
+    itercd(sphr, rho, dCr, dTr, dCk, dTk, dck, dtk, Ck, Tr, ck, tk, Fr, delarr, itmax);
 
     /* 6. compute DC(r), DT(r), derivatives w.r.t. xi, at xi = 1 - delta */
-    itercD(sphr, rho, DCr, DTr, DCk, DTk, Cr, Tr, Ck, Tk, Fr, fr, itmax);
+    itercD(sphr, rho, DCr, DTr, DCk, DTk, Cr, Tr, Ck, Tk, Fr, fr, delarr, itmax);
 
     mu1 = getmu(npt, rho, Fr, Cr, Tr, DCr, DTr, dCr, dTr, Br, dBr, Ffr, sphr->rDm1,
         &mu1a, &mu1b, &mu0br, &dmu1,

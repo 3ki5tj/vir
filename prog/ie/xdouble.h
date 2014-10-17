@@ -136,7 +136,9 @@ __inline static xdouble pow_si(xdouble x, int n)
   return sgn > 0 ? y : 1/y;
 }
 
+xdouble swptmp_;
 
+#define XDBL_SWAP(a, b) { swptmp_ = (a); (a) = (b); (b) = swptmp_; }
 
 #if HAVEF128
   #pragma GCC diagnostic pop

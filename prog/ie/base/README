@@ -10,6 +10,8 @@ ie3dref.c       uses fft.h instead of FFTW
 
 ie3dmpfr.c      prototype of ieodmpfr.c
 
+lmv.c           Labik-Malijevsky-Vonka integral equation solver
+
 
 Test code
 ==========

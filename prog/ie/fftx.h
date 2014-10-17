@@ -72,6 +72,18 @@ typedef struct {
 
 
 
+/*
+ * Interface:
+ *    sphr = sphr_open(dim, npt, rmax, Rmax, ffttype);
+ *    sphr_r2k(sphr, fr, fk);
+ *    sphr_k2r(sphr, fk, fr);
+ *    sphr_close(sphr);
+ **/
+
+
+
+/* low-level initialization
+ * use sphr_open() instead */
 __inline static sphr_t *sphr_init(int dim, int npt)
 {
   int i;
