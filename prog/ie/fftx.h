@@ -248,7 +248,7 @@ static void sphr_fft(int K, int npt, xdouble *in, xdouble *out,
 
 #define sphr_k2r(sphr, in, out) sphr_fft(sphr->K, sphr->npt, \
     in, out, sphr->fack2r, sphr->plans, sphr->arr, \
-    sphr->coef, sphr->k2pow, sphr->invr2pow, ffttype)
+    sphr->coef, sphr->k2pow, sphr->invr2pow, sphr->ffttype)
 
 
 

@@ -9,7 +9,6 @@ int numpt = 1024;
 int ffttype = 1;
 xdouble rmax = (xdouble) 20.48L;
 xdouble rhomax = (xdouble) 0.8L;
-xdouble rhodel = (xdouble) 0.05L;
 int itmax = 10000;
 xdouble tol = (xdouble) 1e-8L;
 int Mpt = -1;
@@ -40,7 +39,6 @@ static void doargs(int argc, char **argv)
 
   ao->desc = "solve integral equation";
   argopt_add(ao, "--rho", "%" XDBLSCNF "f", &rhomax, "maximal rho");
-  argopt_add(ao, "--dr", "%" XDBLSCNF "f", &rhodel, "rho step size");
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &rmax, "maximal r");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "--itmax", "%d", &itmax, "maximal number of iterations");
@@ -54,8 +52,8 @@ static void doargs(int argc, char **argv)
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
   if ( dohnc ) ietype = IETYPE_HNC;
-  printf("rmax %f, rho %g (%g), ietype %d\n",
-      (double) rmax, (double) rhomax, (double) rhodel, ietype);
+  printf("rmax %f, rho %g, ietype %d\n",
+      (double) rmax, (double) rhomax, ietype);
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }
@@ -113,11 +111,10 @@ static int linsolve(int n, xdouble *m, xdouble *x, xdouble *b)
   for ( i = 0; i < n; i++ ) {
     /* 1. select the pivot of the ith column
      * pivot: the maximal element m(j = i..n-1, i)  */
-    jm = i;
-    for ( j = i + 1; j < n; j++ ) {
-      if ( FABS(m[j*n+i]) > FABS(m[jm*n+i]) )
-        jm = j;
-    }
+    y = FABS(m[(jm = i)*n + i]);
+    for ( j = i + 1; j < n; j++ )
+      if ( FABS(m[j*n + i]) > y )
+        y = FABS(m[(jm = j)*n + i]);
 
     /* 2. swap the jm'th (pivot) row with the ith row */
     if ( jm != i ) {
@@ -158,6 +155,43 @@ static int linsolve(int n, xdouble *m, xdouble *x, xdouble *b)
 
 
 
+/* compute Cjk */
+static void getCjk(xdouble *Cjk, int npt, int M,
+    xdouble *der, xdouble *costab, xdouble *dp)
+{
+  int m, k, l;
+
+  for ( m = 1; m < 3*M - 1; m++ ) {
+    for ( dp[m] = 0, l = 0; l < npt; l++ )
+      dp[m] += der[l] * costab[m*npt + l];
+    dp[m] /= npt;
+  }
+
+  for ( m = 0; m < M; m++ )
+    for ( k = 0; k < M; k++ )
+      Cjk[m*M + k] = dp[k - m + M] - dp[k + m + M];
+}
+
+
+
+/* compute the Jacobian matrix for the Newton-Raphson method */
+static void getjacob(xdouble *mat, xdouble *b, int M,
+    xdouble *ck, xdouble *tk, xdouble *Cjk,
+    xdouble *ki, xdouble rho)
+{
+  int j, k;
+  xdouble y;
+
+  for ( j = 0; j < M; j++ ) {
+    y = rho * ck[j] / (1 - rho * ck[j]);
+    b[j] = ki[j] * (y * ck[j] - tk[j]);
+    for ( k = 0; k < M; k++ )
+      mat[j*M+k] = (k == j ? 1 : 0) - y * (2 + y) * Cjk[j*M+k];
+  }
+}
+
+
+
 /* Reference:
  * Stanislav Labik, Anatol Malijevsky, Petr Vonka
  * A rapidly convergent method of solving the OZ equation
@@ -168,9 +202,10 @@ static void iterlmv(sphr_t *sphr, xdouble rho,
     xdouble *cr, xdouble *ck, xdouble *tr, xdouble *tk,
     int itmax, xdouble tol, int Mpt)
 {
-  int i, j, k, it, npt = sphr->npt, M;
-  xdouble *Cjk = NULL, *mat = NULL, *a = NULL, *b = NULL, *costab = NULL;
-  xdouble y, damp = 1, errmax1, errmax2, errmax, errmaxp = 1e9;
+  int i, j, it, npt = sphr->npt, M;
+  xdouble *Cjk = NULL, *mat = NULL, *a = NULL, *b = NULL;
+  xdouble *dp = NULL, *costab = NULL;
+  xdouble y, dy, damp = 1, err1, err2, err, errp = 1e9;
 
   /* 1. initialize t(k) and t(r) */
   for ( i = 0; i < npt; i++ )
@@ -191,74 +226,61 @@ static void iterlmv(sphr_t *sphr, xdouble rho,
     xnew(mat, M*M);
     xnew(a, M);
     xnew(b, M);
-    xnew(costab, 4*M*npt);
-    for ( i = 0; i < npt; i++ )
-      for ( j = 0; j < 4*M; j++ )
-        costab[i*4*M + j] = cos(PI*(i+.5)*(j-2*M)/npt);
+    xnew(dp, 3*M);
+    xnew(costab, 3*M*npt);
+    for ( j = 0; j < 3*M; j++ )
+      for ( i = 0; i < npt; i++ )
+        costab[j*npt + i] = COS(PI*(i*2+1)*(j-M)/npt/2);
   }
 
   for ( it = 0; it < itmax; it++ ) {
     /* 2. compute c(r) and c(k) */
+    err = 0;
     for ( i = 0; i < npt; i++ ) {
-      xdouble y = 0, dy = 0;
+      dy = 0;
       y = getyr(tr[i], ietype, s, &dy, NULL, NULL);
-      cr[i] = (fr[i] + 1) * y - tr[i] - 1;
+      y = (fr[i] + 1) * y - cr[i] - tr[i] - 1;
+      if ( FABS(y) > err ) err = FABS(y);
+      cr[i] += y;
       der[i] = (fr[i] + 1) * dy - 1;
     }
     sphr_r2k(sphr, cr, ck);
 
     /* 4. compute Cjk */
-    for ( j = 0; j < M; j++ )
-      for ( k = 0; k < M; k++ ) {
-        for ( y = 0, i = 0; i < npt; i++ )
-          //y += der[i] * (cos(PI*(i+.5)*(k-j)/npt) - cos(PI*(i+.5)*(k+j)/npt));
-          y += der[i] * (costab[i*4*M+k-j+2*M] - costab[i*4*M+k+j+2*M]);
-        Cjk[j*M+k] = y / npt;
-      }
+    getCjk(Cjk, npt, M, der, costab, dp);
 
     /* 6. compute the matrix for the Newton-Raphson method */
-    for ( j = 0; j < M; j++ ) {
-      y = rho * ck[j] / (1 - rho * ck[j]);
-      b[j] = sphr->ki[j] * (y * ck[j] - tk[j]);
-      for ( k = 0; k < M; k++ )
-        mat[j*M+k] = (k == j ? 1 : 0) - y * (2 + y) * Cjk[j*M+k];
-    }
-    //for ( j = 0; j < M; j++ ) {
-    //  for ( k = 0; k < M; k++ )
-    //    printf("%+7.3f ", mat[j*M+k]);
-    //  printf("| %+7.3f\n", b[j]);
-    //}
-    //getchar();
+    getjacob(mat, b, M, ck, tk, Cjk, sphr->ki, rho);
+
     if ( linsolve(M, mat, a, b) != 0 )
       break;
 
     /* 7. Use the Newton-Raphson method to solve for t(k) of small k */
-    errmax1 = 0;
+    err1 = 0;
     for ( j = 0; j < M; j++ ) {
-      //printf("j %d: tk %g -> %g(a %g), %g\n", j, tk[j], tk[j]+a[j]/sphr->ki[j], a[j], rho*ck[i]*ck[i]/(1-rho*ck[i]));
       y = a[j] / sphr->ki[j];
-      if ( FABS(y) > errmax1 ) errmax1 = FABS(y);
+      if ( FABS(y) > err1 ) err1 = FABS(y);
       tk[j] += damp * y;
     }
 
     /* 8. Use the OZ relation to solve for t(k) of large k */
-    errmax2 = 0;
+    err2 = 0;
     for ( i = M; i < npt; i++ ) {
       y = rho * ck[i] * ck[i] / (1 - rho * ck[i]) - tk[i];
-      if ( FABS(y) > errmax2 ) errmax2 = FABS(y);
+      if ( FABS(y) > err2 ) err2 = FABS(y);
       tk[i] += damp * y;
     }
     sphr_k2r(sphr, tk, tr);
 
-    printf("it %d: M %d, errmax1 %g errmax2 %g, damp %g\n", it, M, errmax1, errmax2, damp);
-    errmax = errmax1 > errmax2 ? errmax1 : errmax2;
-    if (errmax < tol) break;
-    if (errmax > errmaxp) {
+    fprintf(stderr, "it %d: M %d, err %g -> %g, tkerr %g/%g, damp %g\n",
+        it, M, (double) errp, (double) err, (double) err1, (double) err2, (double) damp);
+    if (err < tol) break;
+    if (err > errp) {
       damp *= 0.8;
     } else { /* try to recover to damp = 1 */
       damp = damp * 0.9 + 0.1;
     }
-    errmaxp = errmax;
+    errp = err;
   }
 
   if ( verbose || it >= itmax )
@@ -268,6 +290,7 @@ static void iterlmv(sphr_t *sphr, xdouble rho,
   free(mat);
   free(a);
   free(b);
+  free(dp);
   free(costab);
 }
 
@@ -282,7 +305,8 @@ static int savecrtr1(const char *fn, sphr_t *sphr,
   xfopen(fp, fn, "w", return -1);
   for ( i = 0; i < npt; i++ ) {
     fprintf(fp, "%g %g %g %g %g %g\n",
-        sphr->ri[i], cr[i], tr[i], sphr->ki[i], ck[i], tk[i]);
+        (double) sphr->ri[i], (double) cr[i], (double) tr[i],
+        (double) sphr->ki[i], (double) ck[i], (double) tk[i]);
   }
   fclose(fp);
   return 0;
@@ -290,11 +314,10 @@ static int savecrtr1(const char *fn, sphr_t *sphr,
 
 
 
-static void integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
+static void integ(int npt, xdouble rmax, xdouble rhomax)
 {
   xdouble rho = rhomax;
   xdouble *bphi, *fr, *fk, *der, *cr, *ck, *tr, *tk;
-  xdouble *Cjk;
   int i;
   sphr_t *sphr;
 
@@ -334,7 +357,7 @@ static void integ(int npt, xdouble rmax, xdouble rhomax, xdouble rhodel)
 int main(int argc, char **argv)
 {
   doargs(argc, argv);
-  integ(numpt, rmax, rhomax, rhodel);
+  integ(numpt, rmax, rhomax);
   return 0;
 }
 

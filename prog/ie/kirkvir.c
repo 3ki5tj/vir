@@ -115,20 +115,20 @@ __inline static xdouble *summ(int l, int npt, xdouble **in, xdouble *out)
 
 
 
-/* compute w(k) from c(k) and h(k) */
+/* compute w(k) from K(k) and h(k) */
 __inline static void get_wk_kirk(int l, int npt, xdouble **wkl,
-    xdouble ***ck, xdouble **hk)
+    xdouble ***Kk, xdouble **hk)
 {
   int i, u, m;
 
   for ( m = 1; m <= l; m++ ) { /* ksi^m */
     for ( i = 0; i < npt; i++ )
       wkl[m][i] = 0;
-    /* w(k) = rho c(k) h(k)
-     * w_{l, m}(k) = Sum_{u from 0 to l - 1} c_{u, m}(k) h_{l - u - 1}(k) */
+    /* w(k) = rho K(k) h(k)
+     * w_{l, m}(k) = Sum_{u from 0 to l - 1} K_{u, m}(k) h_{l - u - 1}(k) */
     for ( u = 0; u < l; u++ )
       for ( i = 0; i < npt; i++ )
-        wkl[m][i] += ck[u][m-1][i] * hk[l - u - 1][i];
+        wkl[m][i] += Kk[u][m-1][i] * hk[l - u - 1][i];
   }
 }
 
@@ -252,8 +252,18 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
       for ( i = 0; i < npt; i++)
         crl[i] = wr[l][m][i] * fr[i];
 #else
-      for ( i = 0; i < npt; i++ )
+      for ( i = 0; i < npt; i++ ) {
         crl[i] = yr[l][m][i] * fr[i] / (m + 1);
+/*
+        Below is an attempt to achieve the consistence
+        of the virial and compressibility routes
+        if ( l == 1 ) crl[i] *= 1.56;
+        else if ( l == 2 ) crl[i] *= 1.49;
+        else if ( l == 3 ) crl[i] *= 1.08;
+        else if ( l == 4 ) crl[i] *= 0.495;
+        else if ( l == 5 ) crl[i] *= 0.425;
+        */
+      }
       /* c_{l, m+1}(r) --> c_{l, m+1}(k) */
 #endif
       sphr_r2k(sphr, crl, ck[l][m]);
