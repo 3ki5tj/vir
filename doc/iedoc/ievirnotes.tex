@@ -1,7 +1,7 @@
 %\documentclass{revtex4-1}
 % options: aip, jcp, reprint, preprint
-%\documentclass[notitlepage,preprint]{revtex4-1}
-\documentclass[aip,jcp,reprint,superscriptaddress]{revtex4-1}
+\documentclass[preprint]{revtex4-1}
+%\documentclass[aip,jcp,reprint,superscriptaddress]{revtex4-1}
 
 \usepackage{amsmath}
 \usepackage{amsthm}
@@ -61,34 +61,49 @@
 
 \begin{document}
 
-\title{Notes}
+\title{Notes on ``computation of virial coefficients from integral equations''}
+\author{Cheng Zhang, Chun-liang Lai, B. Montgomery Pettitt}
 
 \maketitle
 
-
+\tableofcontents
 
 \section{Main text: Methods}
 
 
 \subsection{Fourier-space OZ relation, from Eq. (2) to (3)}
 
+In the real space, the Ornstein-Zernike (OZ) relation
+is expressed as a convolution:
+\begin{align}
+  t(\vr)
+&= \rho \, (c*h)(\vr)
+= \rho \, \int c(\vr') \, h(\vr - \vr') \, d\vr'
+  \tag{2}
+  \label{eq:oz}
+\end{align}
 The convolution in the Fourier space is a product:
-\begin{align*}
+\begin{align}
   \tilde{t}(\vk)
-&= \int_\vr t(\vr) \, e^{-i\vk \cdot \vr} \, d\vr \\
-&= \rho \int_\vr \int_{\vr'} c(\vr') h(\vr - \vr') d\vr' e^{-i\vk \cdot \vr} \, d\vr \\
+&= \int_\vr t(\vr) \, e^{-i\vk \cdot \vr} \, d\vr
+  \notag \\
+&= \rho \int_\vr \int_{\vr'} c(\vr') h(\vr - \vr') d\vr' e^{-i\vk \cdot \vr} \, d\vr
+  \notag \\
 &= \rho \int_\vr' c(\vr') e^{-i\vk \cdot \vr'} \, d\vr'
-        \int_\vR h(\vR) e^{-i\vk \cdot \vR} \, d\vR \\
-&= \rho \tilde{c}(\vk) \, \tilde{h}(\vk).
-\end{align*}
+        \int_\vR h(\vR) e^{-i\vk \cdot \vR} \, d\vR
+  \notag \\
+&= \rho \, \tilde{c}(\vk) \, \tilde{h}(\vk).
+  \tag{3}
+  \label{eq:ozk}
+\end{align}
 %
 Here $\vR \equiv \vr - \vr'$.
 
 
 
-\subsection{OZ relation, Eq. (10)}
+\subsection{OZ relation, from Eq. (3) to Eq. (10)}
 
-Density components of the OZ relation:
+The density component form of \eqref{eq:ozk} satisfies
 \begin{align*}
   \sum_{l = 1}^{\infty} \tilde{t}_l \, \rho^l
   &=
@@ -105,32 +120,71 @@ Density components of the OZ relation:
 
 So
 \begin{equation}
-  \tilde{t}_l = \sum_{j = 0}^{l - 1}
-  \tilde{c}_{l-1-j} \tilde{h}_j
+  \tilde{t}_l(\vk)
+= \sum_{j = 0}^{l - 1}
+  \tilde{c}_{l-1-j}(\vk) \, \tilde{h}_j(\vk).
   \tag{10}
 \end{equation}
 
 
 
-\subsection{PY closure, Eq. (11)}
+\subsection{$c(\vr)$ from the closure, from Eq. (4) to Eq. (11)}
 
-The PY closure:
+From
+\begin{equation}
+  c(\vr) = [f(\vr) + 1] \, y(\vr) - 1 - t(\vr),
+  \tag{4}
+  \label{eq:closure}
+\end{equation}
+we have
+\[
+  \sum_{l = 0}^{\infty} c_l \rho^l
+= (f + 1) \sum_{l = 0}^{\infty} y_l \rho^l
+  - 1 - \sum_{l = 1}^{\infty} t_l \rho^l,
+\]
+which shows
+\begin{equation}
+  c_l(\vr) = [f(\vr) + 1] \, y_l(\vr) - t_l(\vr) - \delta_{l, 0},
+  \tag{11}
+  \label{eq:closurel}
+\end{equation}
+
+
+
+\subsection{PY closure, from Eq. (6) to Eq. (12)}
+
+
+
+The PY closure is
+\begin{equation}
+  y(\vr) = 1 + t(\vr).
+  \tag{6}
+  \label{eq:pyclosure}
+\end{equation}
+So
 \[
   \sum_{l = 0}^{\infty} y_l \rho^l = 1 + \sum_{l = 1}^{\infty} t_l \rho^l,
 \]
 which shows $y_l = t_l + \delta_{l, 0}$.
-
-\[
-  \sum_{l = 0}^{\infty} c_l \rho^l
-= (1 + f) \sum_{l = 0}^{\infty} y_l \rho^l
-  - 1 - \sum_{l = 1}^{\infty} t_l \rho^l,
-\]
-which shows
-$c_l = (1 + f) y_l - t_l - \delta_{l, 0}$.
+%
+Using this in \eqref{eq:closurel} yields
+\begin{equation}
+  c_l(\vr) = f(\vr) \, [t_l(\vr) + \delta_{l, 0}].
+  \tag{12}
+\end{equation}
 
 
 
 \subsection{Compressibility-route $B_n^{(c)}$, from Eq. (13) to Eq. (14)}
+
+
+
+The compressibility equation of state is
+\begin{equation}
+  \partial_\rho (\beta \, P) = 1 - \rho \int c(\vr) \, d\vr.
+  \tag{13}
+  \label{eq:compr}
+\end{equation}
 
 Compressibility-route virial coefficient
 \[
@@ -147,9 +201,11 @@ which means
 1 - \sum_{l = 0}^\infty \left( \int c_l(\vr) \, d\vr \right) \rho^{l+1}.
 \]
 Setting $l = n - 2$ yields
-\[
+\begin{equation}
   B_n = -\frac{1}{n} \int c_{n-2}(\vr) \, d\vr.
-\]
+  \tag{14}
+  \label{eq:Bncompr}
+\end{equation}
 
 
 
@@ -171,6 +227,8 @@ So
 
 
 \subsection{Virial-route $B_n^{(v)}$, Eq. (16)}
+
+
 
 Virial-route virial coefficient
 \[
@@ -206,7 +264,15 @@ So
   f'(r) = r f'(r).
 \]
 
-For the density expansion
+Now the density expansion of
+\begin{equation}
+  \beta \, P
+= \rho
+  + \frac{\rho^2 \, \beta } {2 D}
+  \int (\vr \cdot \nabla f) \, y(\vr) \, d\vr
+  \tag{15}
+\end{equation}
+is given by
 \[
   \sum_{n = 1}^\infty B_n \rho^n
 = \rho
@@ -217,14 +283,24 @@ For the density expansion
 \]
 %
 Setting $n = l + 2$ yields
-\[
+\begin{equation}
 B_n = \frac{1}{2D} \int r f'(r) y_{n-2}(r) \, d\vr.
-\]
+\tag{16}
+\end{equation}
 
 
 
 \subsection{Hard-sphere $B_n^{(v)}$, Eq. (17)}
 
+
+Eq. (17) states that
+\begin{equation}
+  B_n^{(v)} = B_2 \, y_{n-2}(1).
+  \tag{17}
+  \label{eq:BnB2y}
+\end{equation}
+%
+To show this, we start with
 \begin{align}
   B_n^{(v)}
 &=
@@ -241,7 +317,8 @@ B_n = \frac{1}{2D} \int r f'(r) y_{n-2}(r) \, d\vr.
 \end{align}
 %
 where $S_D(r)$ is the surface area,
-which is equal to $4\pi r^2$ in three dimensions.
+which is equal to $4\pi r^2$ in three dimensions,
+or Eq. \eqref{eq:surfareaD} in general.
 
 Now applying the above formula to the $n = 2$ yields
 \begin{equation}
@@ -259,11 +336,56 @@ Dividing Eq. \eqref{eq:Bnv} by Eq. \eqref{eq:B2v} yields
 \[
   B_n^{(v)} / B_2^{(v)} = y_{n-2}(1).
 \]
+which is \eqref{eq:BnB2y}.
 
 
 
 \subsection{Surface area $S_D(r)$}
 
+
+
+The most direct way of deriving the surface area
+is to integrate over all angular variables:
+%
+\begin{equation}
+  S_{D}(1)
+=
+\int_0^\pi \sin^{D-2} \theta_D d\theta_D \,
+\cdots \,
+\int_0^\pi \sin \theta_3 d\theta_3 \,
+\int_0^{2\pi} d\theta_2
+=
+\frac{2 \, \pi^{D/2} } { \Gamma\left( \frac{D} 2 \right) },
+\label{eq:SDintang}
+\end{equation}
+which can be readily evaluated using the beta function:
+\begin{equation}
+  I_{k}
+\equiv
+  \int_0^\pi \sin^k \theta \, d\theta
+=
+B\left(\frac {k + 1} 2, \; \frac 1 2 \right)
+=
+\frac{
+  \Gamma\left( \frac {k+1} 2 \right)
+  \sqrt\pi \,
+}
+{
+  \Gamma\left(  \frac {k + 2} 2 \right)
+}.
+\label{eq:intsink}
+\end{equation}
+Note also that definition Eq. \eqref{eq:SDintang} implies the recursion
+\begin{equation}
+  S_{D-2}(1)
+=
+  S_{D-3}(1) \, I_{D-2}.
+\end{equation}
+
+
+
+Below is another way to derive the result without using the beta function.
+%
 First it is clear that $S_D(r)$ is proportional to $r^{D-1}$.
 So we can write it as $S_D(r) = S_D(1) \, r^{D-1}$.
 To find $S_D(1)$, we consider the following integral.
@@ -275,19 +397,19 @@ I
 
 On the one hand, we have
 \begin{align}
-I
+  I
 &=
-\int \exp(-r^2) \, S_D(r) \, d r
-\notag \\
+  \int \exp(-r^2) \, S_D(r) \, d r
+  \notag \\
 &=
-\int \exp(-r^2) \, S_D(1) r^{D-1} \, dr
-\notag \\
+  \int \exp(-r^2) \, S_D(1) \, r^{D-1} \, dr
+  \notag \\
 &=
-[S_D(1)/2]
-\int \exp(-z) \, z^{D/2 - 1} \, dz
-\notag \\
+  [S_D(1)/2]
+  \int \exp(-z) \, z^{D/2 - 1} \, dz
+  \notag \\
 &=
-S_D(1) \Gamma(D/2)/2,
+  S_D(1) \, \Gamma(D/2)/2,
 \label{eq:gaussintsphere}
 \end{align}
 %
@@ -297,11 +419,12 @@ and we have used the definition of the gamma function in the last step.
 On the other hand, we have
 \begin{align}
   I
-  &=
-\left( \int \exp(-x_1^2) \, d x_1 \right)
-\dots
-\left( \int \exp(-x_D^2) \, d x_D \right) \notag \\
-&= \sqrt\pi^D.
+&=
+  \left( \int \exp(-x_1^2) \, d x_1 \right)
+  \dots
+  \left( \int \exp(-x_D^2) \, d x_D \right) \notag \\
+&=
+  \sqrt\pi^D.
 \label{eq:gaussintsphere2}
 \end{align}
 
@@ -315,7 +438,7 @@ Using this in Eq. \eqref{eq:B2v} yields
 \[
   B_2^{(v)}
 =
-\frac{ \pi^{D/2} } { D \Gamma(D/2) }
+  \frac{ \pi^{D/2} } { D \, \Gamma(D/2) }.
 \]
 
 
@@ -330,20 +453,21 @@ The formula is
 \beta \, P
 =
 \int
-    \log(1-\rho\tilde{c})
+    \log(1 - \rho \, \tilde c)
    \, \dvk
   -
     \frac{\rho \, t(\vct{0}) + \rho^2 \tilde{c}(\vct{0}) } {2}.
   \label{eq:Pbaxter}
 \end{align}
+We want to show that this pressure formula satisfies \eqref{eq:compr}.
 
 First,
 \[
-\log(1 - \rho \tilde{c})
+\log(1 - \rho \, \tilde{c})
 =
--\rho \tilde{c}
--(\rho \tilde{c})^2/2
--(\rho \tilde{c})^3/3
+-\rho \, \tilde{c}
+-\frac{ (\rho \, \tilde{c})^2 } 2
+-\frac{ (\rho \, \tilde{c})^3 } 3
 -\dots
 \]
 Differentiating with respect to $\rho$ yields
@@ -463,11 +587,21 @@ and the notes for that part.
 
 \subsection{Second derivative of pressure, Eq. (18)}
 
+
+
 From the unnumbered equation above Eq. (18),
 \begin{align*}
-&  -\rho^2 \sum_{n = 1}^\infty
-  n (n - 1) B_n \rho^{n - 2} \\
-&=
+  -\rho^2 \partial^2_\rho (\beta \Pex)
+=
+  \rho^2 \int \left[
+    c(\vr) + h(\vr) \, t(\vr)
+  \right] \, d\vr.
+\end{align*}
+we have
+\begin{align*}
+  -\rho^2 \sum_{n = 1}^\infty
+  n (n - 1) B_n \rho^{n - 2}
+=
   \rho^2 \int \left[
     \sum_{l = 0}^\infty c_l(\vr) \rho^l  \
     + \
@@ -477,7 +611,7 @@ From the unnumbered equation above Eq. (18),
 \end{align*}
 
 Setting $l = n - 2$ yields
-\[
+\begin{equation}
   B_n
 =
   \frac{-1}{n(n-1)}
@@ -486,7 +620,9 @@ Setting $l = n - 2$ yields
     + \
       \sum_{j=1}^{n-2} h_{n-2-j}(\vr) t_j(\vr)
   \right] \, d\vr.
-\]
+\tag{18}
+\label{eq:Bnxi}
+\end{equation}
 
 A few special cases are listed below.
 \begin{align*}
@@ -630,7 +766,10 @@ is due to that we have dropped
 interface pairs in the derivation (see supplemental material).
 
 
+
 \subsection{Shaul et al.'s formula for the cavity function}
+
+
 
 First, we have
 \begin{align*}
@@ -647,12 +786,16 @@ Taking the $l$th component yields the equation.
 
 
 
-\subsection{Eq. (20)}
+\subsection{Derivation of Eq. (20)}
+
+
 
 Since
-\[
+\begin{equation}
   y = y_0 + y_1 \rho + y_2 \rho^2 + \cdots,
-\]
+  \tag{19}
+\label{eq:yrseries}
+\end{equation}
 we have
 \[
   \partial_\rho y = y_1  + 2 y_2 \rho + \cdots
@@ -677,11 +820,18 @@ we get
   \sum_{j = 1}^l y_{l - j} j t_j
   \right) \rho^{l - 1}.
 \end{align*}
-Then take the coefficient before $\rho^{l-1}$.
+Then take the coefficient before $\rho^{l-1}$, and
+\begin{equation}
+  y_l = \frac{1}{l} \sum_{j = 1}^l y_{l - j} \, j \, t_j.
+  \tag{20}
+  \label{eq:ylexpseries}
+\end{equation}
 
 
 
-\subsection{Show that $\partial_\rho P = \rho \, \partial_\rho \mu$}
+\subsection{Pressure and chemical potential}
+
+
 
 From the first law,
 \[
@@ -694,19 +844,19 @@ So,
 \]
 It follows,
 \[
-  -\left. \frac{ \partial P } {V \partial \rho} \right|_{V}
-  = \left. \frac{ \partial \mu } {N \partial (1/\rho) } \right|_{N}.
+  -\left. \frac{ \partial P } {V \, \partial \rho} \right|_{V}
+  = \left. \frac{ \partial \mu } {N \, \partial (1/\rho) } \right|_{N}.
 \]
 So
 \begin{equation}
-  \frac{ \partial P } {\rho \partial \rho}
+  \frac{ \partial P } {\rho \, \partial \rho}
   = \frac{ \partial \mu } { \partial \rho }.
   \label{eq:Pmu}
 \end{equation}
 
 For the excess part
 \begin{equation}
-  \frac{ \partial  \Pex } {\rho \partial \rho}
+  \frac{ \partial  \Pex } {\rho \, \partial \rho}
   = \frac{ \partial \muex } { \partial \rho }.
   \label{eq:Pmu}
 \end{equation}
@@ -758,10 +908,21 @@ Next, we will use
   -\beta \muex
   = \rho \int_0^1 d\xi \int_\vr (\partial_\xi f) \, y \, d\vr \\
 \end{align*}
-where $\rho$ comes about such that
+where factor $\rho$ comes about because
 \[
-  \rho \int_\vr f \, y \, d \vr = \rho \int_\vr g \, d\vr = N
-  \approx N - 1,
+   N \, (N - 1)
+=
+  \int_{\vr'} \int_\vr \rho(\vr, \vr') \, d\vr \, d\vr'
+=
+  \rho^2 \int_{\vr'}  \int_\vr g(\vr, \vr') \, d\vr \, d\vr'
+=
+  \rho \, N \int_\vr g(\vr) \, d\vr,
+\]
+Thus,
+\[
+  N - 1
+  = \rho \int_\vr g \, d\vr
+  = \rho \int_\vr f \, y \, d \vr,
 \]
 which gives the number of particles interacting with particle 1.
 %
@@ -771,7 +932,7 @@ Then,
   &= \rho \int_0^1 d\xi \int d\vr \, (\partial_\xi g - g \, \partial_\xi t) \\
   &= \rho \int_0^1 d\xi \int d\vr \, (\partial_\xi c - h \, \partial_\xi t) \\
   &= \rho \int_0^1 d\xi \int d\vr \, \partial_\xi \left(c - \tfrac{1}{2} h \, t \right) \\
-  &= \rho \int d\vr \, \left(c - \tfrac{1}{2} h \, t \right)
+  &= \rho \int d\vr \, \left(c - \tfrac{1}{2} h \, t \right).
 \end{align*}
 We have assumed infinite dilution on the third line so that
 $t \, \partial_\xi h = h \, \partial_\xi t = \tfrac{1}{2} \partial_\xi (h t)$.
@@ -780,9 +941,10 @@ $t \, \partial_\xi h = h \, \partial_\xi t = \tfrac{1}{2} \partial_\xi (h t)$.
 Now for the virial coefficients,
 using \eqref{eq:expandmu},
 we get
-\begin{multline*}
+%\begin{multline*}
+\[
   \sum_{n = 2}^\infty \beta_{n - 1} \rho^{n - 1}
-\\
+%\\
 = \rho \int
   \left[
   \sum_{l = 0}^\infty c_l \, \rho^l
@@ -792,7 +954,8 @@ we get
   \sum_{j = 1}^l h_{l - j} t_j
   \right) \rho^l
   \right] d\vr.
-\end{multline*}
+\]
+%\end{multline*}
 Setting $l = n - 2$, we get
 \[
   \beta_{n - 1}
@@ -1050,39 +1213,43 @@ which leads to Eq. (26).
 
 
 
-\section{Main text: Results}
-
-\subsection{Geometric closure}
-
-The closure
-\begin{align*}
-  y
-&=
-1 + t/(1 - \eta \, t/2)
-\\
-&=
-1 + t  + \eta t^2/2 + \eta^2 t^3/4 + \eta^3 t^4/8 + \cdots
-\end{align*}
-
-
-
-\subsection{Logarithmic closure}
-
-The closure
-\begin{align*}
-  y
-&=
-1 - \log(1 - \eta t)/\eta
-\\
-&=
-1 + t  + \eta t^2/2 + \eta^2 t^3/3 + \eta^3 t^4/4 + \cdots
-\end{align*}
+%\section{Main text: Results}
+%
+%\subsection{Geometric closure}
+%
+%The closure
+%\begin{align*}
+%  y
+%&=
+%1 + t/(1 - \eta \, t/2)
+%\\
+%&=
+%1 + t  + \eta t^2/2 + \eta^2 t^3/4 + \eta^3 t^4/8 + \cdots
+%\end{align*}
+%
+%
+%
+%\subsection{Logarithmic closure}
+%
+%The closure
+%\begin{align*}
+%  y
+%&=
+%1 - \log(1 - \eta t)/\eta
+%\\
+%&=
+%1 + t  + \eta t^2/2 + \eta^2 t^3/3 + \eta^3 t^4/4 + \cdots
+%\end{align*}
 
 
 
 \section{Appendix A: Fourier transform in odd dimensions}
 
-\subsection{Remembering the Bessel function}
+
+
+\subsection{Basics of the Bessel function}
+
+
 
 A relatively easy way to remember the Bessel function
 is through the generating function
@@ -1095,26 +1262,196 @@ is through the generating function
 Expanding the left side yields
 \begin{align*}
 &
-  \sum_{l = 0}^\infty \frac{ (zt/2)^l } { l! }
-  \sum_{s = 0}^\infty (-)^s \frac{ (z/2/t)^s } { s! }
+  \sum_{l = 0}^\infty \frac{ 1 } { l! } \left( \frac {z \, t} 2\right)^l
+  \sum_{s = 0}^\infty \frac{ (-)^s } { s! }
+    \left( \frac z {2t} \right)^s
   \quad \mbox{(set $l \rightarrow s + \nu$)} \\
 &=
   \sum_{\nu = -\infty}^\infty
+  \left[
   \sum_{s = 0}^\infty
-  \frac { (z/2)^{\nu + 2s} } {s! (\nu + 2s)! } t^\nu
+  \frac { (-)^s } {s! (\nu + s)! }
+  \left( \frac z 2 \right)^{\nu + 2s}
+  \right]
+  \, t^\nu
 \end{align*}
 So,
 \begin{equation}
-  \frac{ J_\nu(z) }{ (z/2)^\nu }
+  J_\nu(z)
 =
   \sum_{s = 0}^\infty
-  \frac{ (z/2)^{2s} } { s! (\nu + 2s)! }
+  \frac{ (-)^s } { s! (\nu + s)! }
+  \left( \frac z 2 \right)^{\nu + 2s}.
   \label{eq:bessel}
 \end{equation}
 
 
 
-\subsection{Eq. (A1)}
+\subsection{Proof of Eq. (A1)}
+
+
+
+To show Eq. (A1), we start with
+%
+\begin{align}
+  \tilde A(k)
+&=
+  \int_0^\infty
+  \int_0^\pi
+  A(r) \, \exp(-ikr \cos \theta_D) \,
+    r^{D-1} \, dr \,
+    \sin^{D-2} \theta_D \,
+    d\theta_D \, S_{D-1}(1),
+\label{eq:Aksphr}
+\end{align}
+%
+where,
+$\theta_D$ is angle between vectors $\vk$ and $\vr$,
+and
+$S_{D-1}(1)$ comes from integrating over other angular variables,
+Eq. \eqref{eq:SDintang}:
+\[
+  S_{D-1}(1)
+=
+\int_0^\pi \sin^{D-3} \theta_{D-1} d\theta_{D-1} \,
+\cdots \,
+\int_0^\pi \sin \theta_3 d\theta_3 \,
+\int_0^{2\pi} d\theta_2
+=
+\frac{2 \, \pi^{(D-1)/2} } { \Gamma\left( \frac{D-1} 2 \right) }.
+\]
+%
+
+To evaluate \eqref{eq:Aksphr},
+we will use the following identity
+\begin{equation}
+  \int_0^\pi
+  \exp(-iz\cos\theta) \,
+  \sin^{2\nu} \theta \,
+  d \theta
+=
+  \frac{ \nu! }{ (z/2)^\nu } \,
+  I_{2 \nu} \, J_\nu(z),
+  \label{eq:intexpsin}
+\end{equation}
+%
+where $\nu = (D - 2)/2$,
+and
+\begin{equation}
+  I_{2\nu}
+=
+  I_{D-2}
+\equiv
+  \int_0^\infty \sin^{D-2} \theta \, d\theta
+=
+\frac{ S_{D}(1) }
+  { S_{D-1}(1) }.
+\end{equation}
+
+Thus, \eqref{eq:Aksphr} gives
+\begin{align*}
+  \tilde A(k)
+&=
+\int_0^\infty
+A(r)
+\frac{ \nu! } { (kr/2)^{\nu} } \, J_\nu(kr) \,
+S_D(1) \, r^{D-1} \, dr
+\\
+&=
+\int_0^\infty
+A(r)
+\frac{ \nu! } { (kr/2)^{\nu} } \, J_\nu(kr) \,
+\frac{ 2 \pi^{\nu+1} }{ \Gamma(\nu+1) }
+\, r^{2\nu+1} \, dr
+\\
+&=
+\frac{(2\pi)^{\nu+1}}{k^{\nu}}
+\int_0^\infty
+A(r) \, J_\nu(kr) \,
+r^{\nu+1} \, dr.
+\end{align*}
+which is Eq. (A1) upon $\nu \rightarrow D/2-1$.
+
+
+
+\subsection{Proof of Eq. \eqref{eq:intexpsin} }
+
+
+
+We now prove Eq. \eqref{eq:intexpsin}.
+%
+First, it is readily seen that
+the imaginary part of the integral is zero
+for the integral over $(0, \pi/2)$
+is canceled by that over $(\pi/2, pi)$.
+%
+Thus, we will show that
+\begin{equation}
+  \int_0^\pi
+  \cos(z\cos\theta) \,
+  \sin^{2\nu} \theta \,
+  d \theta
+=
+  \frac{ \nu! }{ (z/2)^\nu } \,
+  I_{2 \nu} \, J_\nu(z),
+  \label{eq:intccossin}
+\end{equation}
+
+Next, the left hand side can be expanded as
+%
+\begin{align*}
+& \;
+  \sum_{s = 0}^\infty
+  \frac{ (-)^s z^{2s} } { (2s)! }
+  \,
+  2 \, \int_0^{\pi/2} \cos^{2s} \theta \, \sin^{2\nu} \theta d \theta
+  \\
+&=
+  \sum_{s = 0}^\infty
+  \frac{ (-)^s z^{2s} } { (2s)! }
+  B(s+\tfrac 1 2, \nu + \tfrac 1 2)
+  \\
+&=
+  \sum_{s = 0}^\infty
+  \frac{ (-)^s z^{2s} } { (2s)! }
+  \frac{ (s-\tfrac 1 2)! (\nu - \tfrac 1 2)! }
+       {  (s + \nu)!    }
+  \\
+&=
+  \frac{1}{z^\nu}
+  \sum_{s = 0}^\infty
+  \frac{ (-)^s z^{2s + \nu} } { (2s)! }
+  \frac{ (2s-1)!! \, (\tfrac 1 2)! (\nu - \tfrac 1 2)! }
+      { 2^s \, (s + \nu)!    }
+\\
+&=
+  \frac{\nu!}{(z/2)^\nu}
+  \sum_{s = 0}^\infty
+  \frac{ (-)^s (z/2)^{2s + \nu} } { s! \, (s + \nu)! }
+  \frac{ (\tfrac 1 2)! (\nu - \tfrac 1 2)! }
+       { \nu!    }
+=
+\frac{\nu!}{(z/2)^\nu} \, J_\nu(z) \, I_{2\nu}
+\end{align*}
+Here, we have used the doubling formula:
+\begin{equation}
+  (s - \tfrac 1 2)! = \sqrt\pi \, (2 s - 1)!! / 2^s
+\end{equation}
+and
+\[
+  I_{2\nu}
+=
+B(\nu + \tfrac{1}{2}, \tfrac{1}{2})
+=
+\frac{ (\tfrac 1 2)! (\nu - \tfrac 1 2)! }
+       { \nu!    }.
+\]
+
+
+
+\subsection{Small $k$ limit of Eq. (A1)}
+
+
 
 One way to convince yourself of Eq. (A1) is to study the small $k$ limit.
 %
@@ -1340,18 +1677,19 @@ we want to know the expansion $y = \sum_j y_j \rho^j$.
 Define a partial sum $y^{(l)} = \sum_{j=0}^l y_j \, \rho^j$,
 then
 \begin{align*}
-  T[y^{(l)}]_l - T[y^{(l-1)}]_l
+  T\left[ y^{(l)} \right]_l
+- T\left[ y^{(l-1)} \right]_l
 &=
-  T_1 y_l
-+ T_2 2 y_0 y_l
-+ T_3 3 y_0^2 y_l
+  T_1 \, y_l
++ T_2 2 y_0 \, y_l
++ T_3 3 y_0^2 \, y_l
 + \cdots
 \\
 &=
   (T_1
 + T_2 2 y_0
 + T_3 3 y_0^2
-+ \cdots) y_l
++ \cdots) \, y_l
 \\
 &= T'(y_0) \, y_l.
 \end{align*}
@@ -1361,10 +1699,10 @@ and extracting the coefficient before $\rho^l$
 yields
 \begin{align*}
   t_l
-&= T[y^{(l)}]_l
-\\
 &=
-  T[y^{(l-1)}]_l + T'(y_0) \, y_l.
+  T\left[ y^{(l)} \right]_l
+=
+  T\left[ y^{(l-1)} \right]_l + T'(y_0) \, y_l.
 \end{align*}
 
 
@@ -1780,6 +2118,9 @@ which is usual OZ form.
 
 
 \subsection{Compressibility-route virial coefficients}
+
+
+
 Both sides of \eqref{eq:ozr}
 are equal to $\partial_\rho (\beta P)$.
 \begin{equation*}
@@ -1809,7 +2150,7 @@ So
 
 
 
-\section{Appendix F: Kirkwood equation}
+\section{Appendix F: Kirkwood's equation}
 
 \subsection{Expansion of correlation functions}
 
