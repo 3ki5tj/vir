@@ -211,8 +211,8 @@ static void doargs(int argc, char **argv)
     sprintf(systitle, "%s%s", (dim % 2 ? "" : "h"), syst);
   }
 
-  printf("D %d, npt %d, ietype %d, HNC %d, a0 %g, q %g, %s\n",
-      dim, numpt, ietype, dohnc,
+  printf("D %d, npt %d, ietype %d (%s), HNC %d, a0 %g, q %g, %s\n",
+      dim, numpt, ietype, ietype_names[ietype], dohnc,
       (double) hncamp, (double) hncq, systitle);
 
   if ( verbose ) argopt_dump(ao);
@@ -241,9 +241,9 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
   B2 = gaussf ? sphr->B2g : sphr->B2hs;
   /* TODO: compute B2 for inverse potential */
   if ( invexp > 0 ) B2 = 0;
-  printf("D %d, dr %f, dm %d, rmax %f, ffttype %d, ietype %d, B2 %.10e\n",
+  printf("D %d, dr %f, dm %d, rmax %f, ffttype %d, ietype %d (%s), B2 %.10e\n",
       dim, (double) sphr->rmax/npt, sphr->dm, (double) sphr->rmax,
-      ffttype, ietype, (double) B2);
+      ffttype, ietype, ietype_names[ietype], (double) B2);
 
   MAKE1DARR(fr, npt);
   if ( smoothpot ) MAKE1DARR(rdfr, npt);

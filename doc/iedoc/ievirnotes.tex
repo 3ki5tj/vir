@@ -24,6 +24,9 @@
 \numberwithin{equation}{subsection}
 \renewcommand{\theequation}{\thesection.\thesubsection.\arabic{equation}}
 
+\numberwithin{table}{section}
+\renewcommand{\thetable}{\thesection.\arabic{table}}
+
 \newtheorem{defn}{Definition}
 \newtheorem{thrm}{Theorem}
 \newtheorem{lemm}[thrm]{Lemma}
@@ -882,6 +885,8 @@ which means
 
 \subsection{Chemical potential for the HNC closure}
 
+
+
 The formula is
 \begin{equation}
   -\beta \muex = \rho \int \left( c - \tfrac{1}{2} h \, t\right) d\vr.
@@ -1064,7 +1069,10 @@ The above examples shows that the virial coefficients
 are identical to the virial-route results.
 
 
+
 \subsection{Eq. (21)}
+
+
 
 Diagrammatically, $\log y$ collects all diagrams
 such that the two roots are nonadjacent
@@ -1173,6 +1181,8 @@ which are both correct.
 
 \subsection{Eq. (26)}
 
+
+
 For $l \ge 1$, the compressibility- and virial- route
 results are given by
 \begin{align*}
@@ -1213,8 +1223,10 @@ which leads to Eq. (26).
 
 
 
-%\section{Main text: Results}
-%
+\section{Main text: Results}
+
+
+
 %\subsection{Geometric closure}
 %
 %The closure
@@ -1240,6 +1252,205 @@ which leads to Eq. (26).
 %&=
 %1 + t  + \eta t^2/2 + \eta^2 t^3/3 + \eta^3 t^4/4 + \cdots
 %\end{align*}
+
+
+
+\subsection{Table II}
+
+
+Table \ref{tab:reprod_TableII}
+shows how to reproduce Table II of the main text.
+%
+The source code,
+\texttt{ievir.c}, \texttt{ybgvir.c}, and \texttt{kirkvir.c}, etc.,
+is located under the directory
+\texttt{prog/ie}.
+%
+For each row of the table,
+we recompile the corresponding source code
+and run the listed command.
+%
+No extrapolation is needed for the presented precision.
+%
+We used \texttt{long double},
+and \texttt{\_\_float128} appears to be unnecessary.
+%
+
+\begin{table}\footnotesize
+  \begin{tabular}{p{3cm} p{11cm} p{2cm}}
+  Closure
+  &
+  Command
+  &
+  Notes \\
+  \hline
+  YBG
+  &
+  \texttt{
+    gcc -O3 -Wall -DLDBL ybgvir.c -lfftw3l -lm
+    \newline
+    \&\& ./a.out -n 14 -M 1048576
+  }
+  &
+  \\
+  Kirkwood
+  &
+  \texttt{
+    gcc -O3 -Wall -DLDBL kirkvir.c -lfftw3l -lm
+    \newline
+    \&\& ./a.out -n 14 -M 1048576
+  }
+  &
+  \\
+  PY
+  &
+  \texttt{
+    gcc -O3 -Wall -DLDBL -DFFTW ievir.c -lfftw3l -lm
+    \newline
+    \&\& ./a.out -n 14 -M 4194304
+  }
+  &
+  \\
+  HNC
+  &
+  \texttt{
+    gcc -O3 -Wall -DLDBL -DFFTW ievir.c -lfftw3l -lm
+    \newline
+    \&\& ./a.out -n 14 -M 4194304 --hnc
+  }
+  &
+  \\
+  Hurst, \newline
+    $m = 0.41718$
+  &
+  \texttt{
+    gcc -O3 -Wall -DLDBL -DFFTW ievir.c -lfftw3l -lm
+    \newline
+    \&\& ./a.out -n 14 -M 4194304 --hm 0.41718
+  }
+  &
+  \\
+  Rowlinson 1, \newline
+    $\eta = 0.16564$
+  &
+  \texttt{
+    gcc -O3 -Wall -DLDBL -DFFTW ievir.c -lfftw3l -lm
+    \newline
+    \&\& ./a.out -n 14 -M 8388608 --rphi 0.16564
+  }
+  &
+  \\
+  Rowlinson 2, \newline
+    $\eta = 0.16564$
+  &
+  \texttt{
+    gcc -O3 -Wall -DLDBL -DFFTW ievir.c -lfftw3l -lm
+    \newline
+    \&\& ./a.out -n 14 -M 8388608 --iphi 0.16564
+  }
+  &
+  \\
+  HC, \newline
+    $s = 0.83436$
+  &
+  \texttt{
+    gcc -O3 -Wall -DLDBL -DFFTW ievir.c -lfftw3l -lm
+    \newline
+    \&\& ./a.out -n 14 -M 8388608 --hcs 0.83436
+  }
+  &
+  \\
+  MS
+  &
+  \texttt{
+    gcc -O3 -Wall -DLDBL -DFFTW ievir.c -lfftw3l -lm
+    \newline
+    \&\& ./a.out -n 14 -M 8388608 --ms
+  }
+  &
+  \\
+  BPGG, \newline
+  $s = 1.83436$
+  &
+  \texttt{
+    gcc -O3 -Wall -DLDBL -DFFTW ievir.c -lfftw3l -lm
+    \newline
+    \&\& ./a.out -n 14 -M 8388608 --bpggs 1.83436
+  }
+  &
+  \\
+  Verlet, \newline
+  $A = 0.83436$, \newline
+  $B = 1.54751$
+  &
+  \texttt{
+    gcc -O3 -Wall -DLDBL -DFFTW ievir.c -lfftw3l -lm
+    \newline
+    \&\& ./a.out -n 14 -M 8388608 --va 0.83436 --vb 1.54751
+  }
+  &
+  \\
+  MP, \newline
+  $\eta = 0.16564$
+  &
+  \texttt{
+    gcc -O3 -Wall -DLDBL -DFFTW ievir.c -lfftw3l -lm
+    \newline
+    \&\& ./a.out -n 14 -M 8388608 -q 0.16564
+  }
+  &
+  \\
+  RY, \newline
+  $\alpha = 0.17015$
+  &
+  \texttt{
+    gcc -O3 -Wall -DLDBL -DFFTW ievir.c -lfftw3l -lm
+    \newline
+    \&\& ./a.out -n 14 -M 8388608 --rya 0.17015
+  }
+  &
+  \\
+  Square, \newline
+  $\alpha = 0.16564$
+  &
+  \texttt{
+    gcc -O3 -Wall -DLDBL -DFFTW ievir.c -lfftw3l -lm
+    \newline
+    \&\& ./a.out -n 14 -M 8388608 --sqrs 0.16564
+  }
+  &
+  \\
+  \hline
+  \end{tabular}
+  \caption{
+    \label{tab:reprod_TableII}
+    Reproduction of Table II in the main text.
+  }
+\end{table}
+
+
+
+\subsection{Table V}
+
+
+
+\subsubsection{Reference values}
+
+
+
+To reproduce the reference value (last value) of
+each cell in Table V,
+first go to the directory
+\texttt{data/gaussf}.
+For each cell, $D_n$,
+run the command
+
+\qquad\texttt{python gaussfextra.py D n}
+
+For example, for the cell $8_{13}$,
+run
+
+\qquad\texttt{python gaussfextra.py 8 13}
 
 
 

@@ -1520,22 +1520,44 @@ __inline static xdouble get_Bg_py(int l, int npt, xdouble **cr,
 
 enum {
   IETYPE_PY = 0,
-  IETYPE_HNC = 1,
-  IETYPE_SQR = 2,
-  IETYPE_XSQR = 3,
-  IETYPE_CUB = 4,
-  IETYPE_ROWLINSON = 10, /* Rowlinson, 1965 */
-  IETYPE_INVROWLINSON = 11, /* Rowlinson, 1966 */
-  IETYPE_HURST = 12, /* Hurst, 1965 */
-  IETYPE_HC = 20, /* Hutchinson and Conkie, 1971, Molecular Physics, Vol. 21, No. 5, 881-890 */
-  IETYPE_BPGG = 30, /* Ballon, Pastore, Galli, and Gazzillo */
-  IETYPE_VERLET = 40, /* Verlet, 1980 */
-  IETYPE_GEO  = 100,
-  IETYPE_EXP  = 110,
-  IETYPE_LOG  = 120,
-  IETYPE_YBG = 1000, /* Yvon-Green-Born */
-  IETYPE_KIRKWOOD = 1100,
+  IETYPE_HNC,
+  IETYPE_SQR,
+  IETYPE_XSQR,
+  IETYPE_CUB,
+  IETYPE_ROWLINSON, /* Rowlinson, 1965 */
+  IETYPE_INVROWLINSON, /* Rowlinson, 1966 */
+  IETYPE_HURST, /* Hurst, 1965 */
+  IETYPE_HC, /* Hutchinson and Conkie, 1971, Molecular Physics, Vol. 21, No. 5, 881-890 */
+  IETYPE_BPGG, /* Ballon, Pastore, Galli, and Gazzillo */
+  IETYPE_VERLET, /* Verlet, 1980 */
+  IETYPE_GEO,
+  IETYPE_EXP,
+  IETYPE_LOG,
+  IETYPE_YBG, /* Yvon-Green-Born */
+  IETYPE_KIRKWOOD,
   IETYPE_LAST
+};
+
+
+
+const char *ietype_names[] = {
+  "PY",
+  "HNC",
+  "Square",
+  "XSquare",
+  "Cubic",
+  "Rowlinson",
+  "Inverse Rowlinson",
+  "Hurst",
+  "Hutchinson-Conkie",
+  "Ballon-Pastore-Galli-Gazzillo",
+  "Verlet",
+  "Geometric",
+  "Exponential",
+  "Logarithmic",
+  "Yvon-Green-Born",
+  "Kirkwood",
+  "LAST"
 };
 
 
