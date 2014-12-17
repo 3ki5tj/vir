@@ -7,12 +7,13 @@
 /* test the permutation routine */
 static void testperm(int n)
 {
-  int *p, np, i, j;
+  char (*p)[DGMAP_NMAX];
+  int np, i, j;
 
   np = dgmap_getperm(n, &p);
   for (i = 0; i < np; i++) {
     printf("%4d: ", i);
-    for (j = 0; j < n; j++) printf("%d ", p[n*i+j]);
+    for (j = 0; j < n; j++) printf("%d ", p[i][j]);
     printf("\n");
   }
   free(p);

@@ -1,7 +1,13 @@
 #ifndef DGCRYR_H__
 #define DGCRYR_H__
+
+
+
 /* compute the direct correlation function
- * and the cavity function */
+ * and the cavity distribution function and the variants */
+
+
+
 #include "dg.h"
 #include "dgrjw.h"
 #include "dgmap.h"
@@ -213,11 +219,13 @@ static void dgrjw_yrprepare(const dg_t *g, int a, int b, int type,
     unsigned *vsbysize, dgrjw_ap_t *aparr)
 {
   dgrjw_fb_t fc;
-  dgword_t vsab, vs, vs1, ms, ms1, ms2, b1, id, vsmax;
+  dgword_t vsab, vs, vs1, ms, ms1, ms2, b1, id, vsmax = 0;
   int holdab = (type == YRTYPE_YR || type == YRTYPE_LNYR);
   DG_DEFN_(g)
 
-  vsmax = 1u << DG_N_; /* 2^n */
+#if !defined(N) || N < 32
+  vsmax = ((dgword_t) 1u << DG_N_); /* 2^n */
+#endif
 
   vsab = MKBIT(a) | MKBIT(b);
 
@@ -298,10 +306,12 @@ static dgrjw_fb_t dgrjw_yriter(const dg_t *g, int a, int b, int type,
   int v, iold, inew, holdab = (type == YRTYPE_YR || type == YRTYPE_LNYR);
   size_t idold, idnew, jdold, jdnew;
   dgrjw_fb_t fa;
-  dgword_t vs, vsab, vsnew, ms, ms1, ms2, b1, bv, id, vsmax;
+  dgword_t vs, vsab, vsnew, ms, ms1, ms2, b1, bv, id, vsmax = 0;
   DG_DEFN_(g)
 
-  vsmax = 1u << DG_N_; /* 2^n */
+#if !defined(N) || N < 32
+  vsmax = ((dgword_t) 1u << DG_N_); /* 2^n */
+#endif
   vsab = MKBIT(a) | MKBIT(b);
 
   /* one- and two-vertex subsets, biconnected == connected */
@@ -364,10 +374,12 @@ static dgrjw_fb_t dgrjw_yrrmseppr(const dg_t *g, int a, int b, int sgn,
     dgrjw_fb_t *fbarr, dgrjw_fb_t *fdarr, unsigned *vsbysize)
 {
   dgrjw_fb_t fa;
-  dgword_t vs, vsab, ms, ms1, ms2, b1, id, vsmax;
+  dgword_t vs, vsab, ms, ms1, ms2, b1, id, vsmax = 0;
   DG_DEFN_(g)
 
-  vsmax = 1u << DG_N_; /* 2^n */
+#if !defined(N) || N < 32
+  vsmax = ((dgword_t) 1u << DG_N_); /* 2^n */
+#endif
   vsab = MKBIT(a) | MKBIT(b);
 
   if ( sgn < 0 ) for ( id = 0; id < vsmax; id++ ) fbarr[id] = -fbarr[id];
@@ -611,6 +623,10 @@ INLINE double *dg_yrfball(double *fb, dg_t *g, int type)
 
 
 
+#ifdef DGMAP_EXISTS
+
+
+
 /* yrfb of unique diagrams */
 static double (*dgmap_yrfb_[3][DGMAP_NMAX + 1])[DGMAP_NMAX*DGMAP_NMAX];
 #pragma omp threadprivate(dgmap_yrfb_)
@@ -719,6 +735,9 @@ INLINE double dgmap_yrfb(dg_t *g, int ia, int ib, int type)
   }
   return 0;
 }
+
+
+#endif /* defined(DGMAP_EXISTS) */
 
 
 

@@ -167,7 +167,7 @@ set label 302 "{/Arial-Italic D} = 3, {/Symbol-Oblique k} = (0.335)_{{/Arial-Ita
 set label 103 "{/Arial-Italic D} = 4" \
   at  5.0, 5.5e-3 rotate by -78  textcolor rgb color3b font lbfont
 
-#set label 203 "{/Arial-Italic D} = 4, DSC_{/Symbol-Oblique l}" \
+#set label 203 "{/Arial-Italic D} = 4, {/Symbol-Oblique l}-DSC" \
 #  at  7.5, 0.5e-4 rotate by -85  textcolor rgb color3b1 font lbfont
 
 plot [2:22][8e-6:2] \
@@ -215,7 +215,7 @@ set rmargin 1.5
 set lmargin 5.0
 unset ylabel
 
-set label 101 "{/Arial-Italic D} = 5, DSC_{/Symbol-Oblique l}" \
+set label 101 "{/Arial-Italic D} = 5, {/Symbol-Oblique l}-DSC" \
     at   9.5, 2.5e-4   rotate by -55  textcolor rgb color1b1 font lbfont
 
 set label 102 "{/Arial-Italic D} = 6, {/Symbol-Oblique k} = 0" \
@@ -224,7 +224,7 @@ set label 102 "{/Arial-Italic D} = 6, {/Symbol-Oblique k} = 0" \
 set label 202 "{/Arial-Italic D} = 6, {/Symbol-Oblique k} = (0.352)_{{/Arial-Italic n} {/Symbol \263} 4}" \
     at  24.0, 2.5e-4 rotate by 10  textcolor rgb color2b2 font lbfontsm
 
-set label 302 "{/Arial-Italic D} = 6, DSC_{/Symbol-Oblique l}" \
+set label 302 "{/Arial-Italic D} = 6, {/Symbol-Oblique l}-DSC" \
     at  24.5, 1.2e-4 rotate by -20 textcolor rgb color2b1 font lbfont
 
 set label 103 "{/Arial-Italic D} = 7" at  22, 5e-3   rotate by 30 textcolor rgb color3b font lbfont

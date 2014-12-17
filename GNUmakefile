@@ -10,19 +10,25 @@ $(prj)pack.zip::
 	  	prog/samp/*.py prog/samp/bak/*.c \
 		prog/java/*.java prog/java/*.html prog/java/Makefile \
 		prog/java/default* \
+		prog/ie/*.[ch] prog/ie/*.py \
+		prog/ie/README prog/ie/NOTES \
 		data/Bring.dat data/Z.dat data/*.py \
 		data/bcacc.txt \
 		deploy/stampede/* \
 		doc/README doc/Makefile \
-		doc/vir.enl \
+		doc/vir.enl doc/vir.Data \
 		doc/*.tex doc/*.doc \
 		doc/fig/Makefile doc/fig/ergo.cdr \
 		doc/fig/*.gp \
+		iedoc/README iedoc/Makefile \
+		iedoc/ievir.enl iedoc/ievir.Data \
+		iedoc/*.tex iedoc/*.doc \
+		iedoc/fig/Makefile \
+		iedoc/fig/*.gp \
 		--exclude="*~"
 	zip --symlinks $@ \
 	  	prog/samp/*.h prog/intg/*.h \
 	  	doc/fig/bcacc.txt doc/fig/data
-	zip -r $@ doc/vir.Data
 
 
 pack: $(prj)pack.zip

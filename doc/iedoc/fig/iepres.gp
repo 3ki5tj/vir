@@ -1,4 +1,14 @@
 #!/usr/bin/env gnuplot
+
+
+
+# Comparison of exact formulae for pressure
+# in the PY and HNC closures
+# This figure is used in the supplemental material, iegraph.tex
+# Remember to check the equation numbers
+
+
+
 unset multiplot
 reset
 

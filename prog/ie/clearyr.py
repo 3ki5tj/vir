@@ -2,7 +2,18 @@
 
 
 
-''' clear yr files '''
+'''
+clean up snapshot files for y(r), snapshot_yr*.dat,
+produced by ievir.c (or iegsl.c) with -DDHT
+
+Since the discrete Hankel transform (DHT) for even dimensions
+  is slow, snapshots are used for restartable runs.
+The snapshot files for different correlation functions,
+  e.g., c(r) and y(r), however, may not be synchronized.
+By default, for each order n, a file for y(r) is produced,
+  although usually only those for the last two orders are needed
+  and this script clears these files for low orders.
+'''
 
 
 

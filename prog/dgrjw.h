@@ -93,10 +93,12 @@ static void dgrjw_prepare(const dg_t *g,
     unsigned *vsbysize, dgrjw_ap_t *aparr)
 {
   dgrjw_fb_t fc;
-  dgword_t vs, vs1, ms, ms1, ms2, b1, id, vsmax;
+  dgword_t vs, vs1, ms, ms1, ms2, b1, id, vsmax = 0;
   DG_DEFN_(g)
 
-  vsmax = 1u << DG_N_; /* 2^n */
+#if !defined(N) || N < 32
+  vsmax = ((dgword_t) 1u << DG_N_); /* 2^n */
+#endif
 
   /* we loop from smaller subsets to larger ones */
   /* diagrams with zero or one vertex */
@@ -159,10 +161,12 @@ static dgrjw_fb_t dgrjw_iter(const dg_t *g,
   int v, iold, inew;
   size_t idold, idnew, jdold, jdnew;
   dgrjw_fb_t fa;
-  dgword_t vs, vsnew, ms, ms1, ms2, b1, bv, id, vsmax;
+  dgword_t vs, vsnew, ms, ms1, ms2, b1, bv, id, vsmax = 0;
   DG_DEFN_(g)
 
-  vsmax = 1u << DG_N_; /* 2^n */
+#if !defined(N) || N < 32
+  vsmax = ((dgword_t) 1u << DG_N_); /* 2^n */
+#endif
 
   /* one- and two-vertex subsets, biconnected == connected */
   for ( id = 0; id <= (dgword_t) (DG_N_ * (DG_N_ + 1) / 2); id++ ) {

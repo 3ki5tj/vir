@@ -1,5 +1,24 @@
 #!/usr/bin/env python
 
+
+
+'''
+automate the process of visualizing high-dimensional clusters
+calls mcrat0.c for sampling,
+mds.c for multidimensional scaling
+and draw.c for the visualization
+
+The basic usage is
+  python mdsdraw.py -D 50 -n 64 -d 3
+This command computes 50 dimensional virial coefficients
+of the 64th order.  The resulting clusters are visualized
+in three dimensions.  The command took several minutes to finish.
+
+Cf. README.mds for details.
+'''
+
+
+
 import os, sys, re, getopt
 
 
@@ -68,7 +87,9 @@ if __name__ == "__main__":
   if not os.path.exists(fnmds) or forceMDS:
     fnpos = "D%sn%s.pos" % (D, n)
     if not os.path.exists(fnpos):
-      os.system("icc -DD=%s -DN=%s mcrat0.c && ./a.out -L0 --nstpos=1000000 -w100000000 --hash-mode=0" % (D, n))
+      cmd = ("icc -DD=%s -DN=%s mcrat0.c " % (D, n)
+          + "&& ./a.out -L0 --nstpos=1000000 -w100000000 --hash-mode=0")
+      os.system( cmd )
     os.system("./mds %s -d %s -1 %s -a %s -t %s" % (fnpos, d, nsteps, ampMDS, dtMDS))
   os.system("./draw %s -w %s -h %s" % (fnmds, width, height))
 

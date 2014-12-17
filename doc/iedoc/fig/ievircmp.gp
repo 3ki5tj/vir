@@ -16,7 +16,7 @@ theylabel='{/Arial-Italic B_n} /{/Arial-Italic B}_2^{{/Arial-Italic n}-1}'
 
 titledsc = "DSC"
 
-titledscl = "DSC_{/Symbol-Oblique l}"
+titledscl = "{/Symbol-Oblique l}-DSC"
 
 # height of the very bottom panels
 bbh = 0.14

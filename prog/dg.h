@@ -1,6 +1,9 @@
 #ifndef DG_H__
 #define DG_H__
-/* handling diagrams in the virial expansion
+
+
+
+/* basic graph/diagram operations
  * using bitwise operations */
 
 

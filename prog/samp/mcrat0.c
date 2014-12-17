@@ -484,9 +484,11 @@ static void saveyr(hscr_t *hs, rvn_t *x, dg_t *g)
   for (i = 0; i < DG_N_; i++)
     for (j = i + 1; j < DG_N_; j++) {
       real r = rvn_dist(x[i], x[j]);
+#ifdef DGMAP_EXISTS
       if ( lookup )
         fb = dgmap_yrfb(g, i, j, yrtype);
       else
+#endif
         fb = dg_yrfb0(g, i, j, yrtype, &ned, degs);
       hscr_add0(hs, r, fb);
     }
