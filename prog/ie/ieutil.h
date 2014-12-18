@@ -2180,27 +2180,33 @@ __inline static void mkfr(int npt, xdouble beta, xdouble *bphi,
     xdouble gaussf, int invexp, int dolj)
 {
   int i;
+  double r;
 
   /* compute f(r) */
   for ( i = 0; i < npt; i++ ) { /* compute f(r) = exp(-beta u(r)) - 1 */
+    r = ri[i];
     if ( gaussf ) { /* f(r) = exp(-r^2) */
-      xdouble r2 = pow_si(ri[i], 2);
+      xdouble r2 = pow_si(r, 2);
       fr[i] = -EXP(-r2);
       rdfr[i] = -2*r2*fr[i];
     } else if ( invexp > 0 ) { /* inverse potential r^(-invexp) */
-      xdouble pot = POW(ri[i], -invexp);
+      xdouble pot = POW(r, -invexp);
       fr[i] = EXP(-pot) - 1;
       rdfr[i] = pot * invexp * (fr[i] + 1);
     } else if ( dolj ) {
       xdouble x, bph;
-      bph = beta * potlj(ri[i], 1, 1, &rdfr[i]);
+      bph = beta * potlj(r, 1, 1, &rdfr[i]);
       if (bphi != NULL) bphi[i] = bph;
       x = EXP(-bph);
       fr[i] = x - 1;
       rdfr[i] *= beta * x;
     } else { /* hard-sphere */
       fr[i] = (i < dm) ? -1 : 0;
+      rdfr[i] = 0;
     }
+#ifdef RCUTOFF
+    if ( r > RCUTOFF ) fr[i] = rdfr[i] = 0;
+#endif
   }
 }
 
