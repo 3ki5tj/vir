@@ -10,7 +10,8 @@ Summary of programs
 
 C programs (native datatypes family)
 -------------------------------------
-    ievir.c         GSL/FFTW3   actual code of iegsl.c and ieodfftw.c
+    ievir.c         GSL/FFTW3   compute virial coefficients of integral equations
+                                actual code of iegsl.c and ieodfftw.c
 
     iegsl.c         GSL         alias of ievir.c as a symbolic link
                     slowdht.h   an arbitrary even or odd dimension
@@ -36,6 +37,9 @@ C programs (native datatypes family)
 
  ~  fft.h           none        home-made code for FFT
                                 (supports xdouble.h, used as a reference)
+
+    ie.c            none        integral equation solver
+
 
 C programs (MPFR family)
 -------------------------

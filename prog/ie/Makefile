@@ -25,7 +25,7 @@ LMQ = -lm $(LQ)
 
 # source code that uses GMP and MPFR
 csrc            = $(filter-out \
-                    ievir.c ozcrtr.c muhs.c, \
+                    ievir.c ie.c ozcrtr.c muhs.c, \
                     $(wildcard *.c))
 csrc_fftw       = $(wildcard *fftw*.c)
 csrc_mpfr       = $(wildcard *mpfr*.c)
