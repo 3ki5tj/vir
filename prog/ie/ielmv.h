@@ -220,7 +220,7 @@ static void iterlmv(sphr_t *sphr, xdouble rho,
     if ( verbose >= 3 ) getchar();
   }
 
-  /* use the best cr discovered so far */  
+  /* use the best cr discovered so far */
   COPY1DARR(cr, crbest, npt);
   /* compute ck, tr, tk */
   iterpicard(sphr, rho, cr, tr, ck, tk, fr, 0, 1);

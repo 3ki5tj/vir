@@ -135,7 +135,7 @@ $(prj)code.zip: fft.h fftmpfr.h xdouble.h slowdht.h fftx.h zcom.h \
 		base/lmv.c \
 		scifmt.py ieoptparam.py ievirextra.py \
 		iebenchmark.sh \
-		README Makefile
+		README.md Makefile
 	zip -r $@ $^
 
 zip: $(prj)code.zip
@@ -143,3 +143,4 @@ zip: $(prj)code.zip
 Bossman: zip
 	rsync -avL $(prj)code.zip \
 	  cz1@129.109.88.204:/Bossman/cz1/vir/prog
+

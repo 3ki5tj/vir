@@ -20,7 +20,7 @@ $(prj)pack.zip::
 		doc/*.tex doc/*.doc \
 		doc/fig/Makefile doc/fig/ergo.cdr \
 		doc/fig/*.gp \
-		iedoc/README iedoc/Makefile \
+		iedoc/README.md iedoc/Makefile \
 		iedoc/ievir.enl iedoc/ievir.Data \
 		iedoc/*.tex iedoc/*.doc \
 		iedoc/fig/Makefile \
