@@ -1,4 +1,4 @@
-/* pressure related quantities from the PY closure */
+/* integral equation */
 #include <stdio.h>
 #include <math.h>
 #define ZCOM_PICK
@@ -17,7 +17,7 @@ xdouble beta;
 xdouble rhomax = (xdouble) 0.8L;
 xdouble rhodel = (xdouble) 0.05L;
 int itmax = 10000;
-xdouble tol = (xdouble) 1e-12L;
+xdouble tol = (xdouble) 1e-10L;
 xdouble damp = 1;
 xdouble delta = (xdouble) 0.001L;
 int savecr = 0;
@@ -28,10 +28,10 @@ int verbose = 0;
 static void doargs(int argc, char **argv)
 {
   argopt_t *ao = argopt_open(0);
-  ao->desc = "computing pressure and its derivatives from the PY closure";
+  ao->desc = "solving an integral equation";
   argopt_add(ao, "-D", "%d", &dim, "dimension");
   argopt_add(ao, "-T", "%" XDBLSCNF "f", &T, "temperature");
-  argopt_add(ao, "--rho", "%" XDBLSCNF "f", &rhomax, "maxial rho");
+  argopt_add(ao, "--rho", "%" XDBLSCNF "f", &rhomax, "maximal rho");
   argopt_add(ao, "--drho", "%" XDBLSCNF "f", &rhodel, "step size of rho");
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &rmax, "maximal r");
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
@@ -43,10 +43,24 @@ static void doargs(int argc, char **argv)
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
   beta = 1/T;
-  printf("rmax %f, rho %g (%g), T %f\n",
+  fprintf(stderr, "rmax %f, rho %g (%g), T %f\n",
       (double) rmax, (double) rhomax, (double) delta, (double) T);
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
+}
+
+
+
+static double getcr(double tr, double fr, int ietype)
+{
+  if ( ietype == IETYPE_PY ) {
+    return fr * (1 + tr);
+  } else if ( ietype == IETYPE_HNC ) {
+    return (1 + fr) * EXP( tr ) - 1 - tr;
+  } else {
+    fprintf(stderr, "unknown closure\n");
+    exit(1);
+  }
 }
 
 
@@ -65,8 +79,8 @@ static void iter(sphr_t *sphr, xdouble rho,
     }
     sphr_k2r(sphr, tk, tr);
     for ( errmax = 0, i = 0; i < npt; i++ ) {
-      x = fr[i] * (1 + tr[i]);
-      if ((err = FABS(cr[i] - x)) > errmax) errmax = err;
+      x = getcr(tr[i], fr[i], ietype);
+      if ((err = FABS(x - cr[i])) > errmax) errmax = err;
       cr[i] += damp * (x - cr[i]);
     }
     if ( errmax < tol ) break;
@@ -184,6 +198,57 @@ static xdouble getpres_py(int npt, xdouble rho,
     *comprb += rdfr[i] * (rho/3 * (1 + tr[i]) + (rho*rho/6) * dtr[i]) * ri2[i];
   }
   return pres;
+}
+
+
+
+static xdouble getfe_hnc(int npt, xdouble rho,
+    xdouble *cr, xdouble *tr, xdouble *ri2,
+    xdouble *ck, xdouble *tk, xdouble *ki2,
+    xdouble *rdfr,
+    xdouble *mu, xdouble *compr, xdouble *ddmu,
+    xdouble *pres, xdouble *pres1)
+{
+  int i;
+  xdouble fe, x, vir = 0;
+
+  fe = 0;
+  *mu = 0;
+  *compr = 0;
+  *ddmu = 0;
+  for ( i = 0; i < npt; i++ ) {
+    /* 2 beta F = - rho^2 Int [c(r) - h(r)^2/2] dr
+     *            + Int [log(1 - rho c(k)) + rho c(k)] dk/(2pi)^3
+     *          = - rho^2 Int [c(r) - t(r)^2/2 - t(r) c(r)] dr
+     *            + Int [log(1 - rho c(k)) + rho c(k) + rho^2 c^2(k)/2] dk/(2pi)^3
+     *          = - Sum_G I(G) / s(G) */
+    fe -= (cr[i] - tr[i] * (tr[i]*.5 + cr[i])) * ri2[i];
+    /* mu = beta mu = -rho^2 Int [c(r) - t(r) h(r)/2] dr
+     *    = - Sum_G I(G) n(G) / s(G) */
+    *mu -= (cr[i] - tr[i] * (cr[i] + tr[i])*.5) * ri2[i];
+    /* compr = d(beta mu) / drho = -Int c(r) dr */
+    *compr -= cr[i] * ri2[i];
+    *ddmu -= tr[i] * (tr[i] + cr[i]) * ri2[i];
+    vir += EXP(tr[i]) * rdfr[i] * ri2[i];
+  }
+  fe *= rho * rho;
+  *mu *= rho;
+  *ddmu /= rho;
+  /* the k-space part of the free-energy formula */
+  for ( i = 0; i < npt; i++ ) {
+    x = rho * ck[i];
+    if ( FABS(x) < 1e-8 ) {
+      fe += -x*x*x/3 * ki2[i];
+    } else {
+      fe += (LOG(1 - x) + x + x*x/2) * ki2[i];
+    }
+    x = tk[i];
+    //*ddmu -= x*x*x*ki2[i];
+  }
+  fe *= 0.5;
+  *pres = rho + rho * (*mu) - fe;
+  *pres1 = rho + rho * rho * vir / (2 * dim);
+  return fe;
 }
 
 
