@@ -2180,11 +2180,10 @@ __inline static void mkfr(int npt, xdouble beta, xdouble *bphi,
     xdouble gaussf, int invexp, int dolj)
 {
   int i;
-  double r;
 
   /* compute f(r) */
   for ( i = 0; i < npt; i++ ) { /* compute f(r) = exp(-beta u(r)) - 1 */
-    r = ri[i];
+    xdouble r = ri[i];
     if ( gaussf ) { /* f(r) = exp(-r^2) */
       xdouble r2 = pow_si(r, 2);
       fr[i] = -EXP(-r2);
@@ -2242,6 +2241,75 @@ __inline static xdouble jadjustrmax(double rmax0, int npt, int dim)
 }
 
 #endif
+
+
+
+/* solve A x = b by L U decomposition
+ * the matrix `a' will be destroyed
+ * the vector `b' will be replaced by `x' on return */
+__inline static int lusolve(xdouble *a, xdouble *b, int n, xdouble tiny)
+{
+  int i, j, k, ip = 0;
+  xdouble x, max;
+
+  for (i = 0; i < n; i++) {  /* normalize each equation */
+    for (max = 0.0, j = 0; j < n; j++)
+      if ((x = FABS(a[i*n + j])) > max)
+        max = x;
+    if ( max <= 0 ) return -1;
+    for (x = 1./max, j = 0; j < n; j++)
+      a[i*n + j] *= x;
+    b[i] *= x;
+  }
+
+  /* step 1: A = L U, column by column */
+  for (j = 0; j < n; j++) {
+    /* matrix U */
+    for (i = 0; i < j; i++) {
+      for (x = a[i*n + j], k = 0; k < i; k++)
+        x -= a[i*n + k] * a[k*n + j];
+      a[i*n + j] = x;
+    }
+
+    /* matrix L, diagonal of L are 1 */
+    max = 0.0;
+    ip = j;
+    for (i = j; i < n; i++) {
+      for (x = a[i*n + j], k = 0; k < j; k++)
+        x -= a[i*n + k] * a[k*n + j];
+      a[i*n + j] = x;
+      if ( FABS(x) > max ) {
+        max = FABS(x);
+        ip = i;
+      }
+    }
+
+    if (j != ip) { /* swap the pivot row with the jth row */
+      for (k = 0; k < n; k++)
+        x = a[ip*n + k], a[ip*n + k] = a[j*n + k], a[j*n + k] = x;
+      x = b[ip], b[ip] = b[j], b[j] = x;
+    }
+    if ( FABS(a[j*n + j]) < tiny )
+      a[j*n + j] = tiny;
+    /* divide by the pivot element, for the L matrix */
+    if (j != n - 1)
+      for (x = 1./a[j*n + j], i = j + 1; i < n; i++)
+        a[i*n + j] *= x;
+  }
+
+  /* step 2: solve the equation L U x = b */
+  for (i = 0; i < n; i++) { /* L y = b */
+    x = b[i];
+    for (j = 0; j < i; j++) x -= a[i*n + j] * b[j];
+    b[i] = x;
+  }
+  for (i = n - 1; i >= 0; i--) { /* U x = y. */
+    x = b[i];
+    for (j = i + 1; j < n; j++) x -= a[i*n + j] * b[j];
+    b[i] = x / a[i*n + i];
+  }
+  return 0;
+}
 
 
 

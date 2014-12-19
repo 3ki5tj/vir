@@ -7,6 +7,238 @@
 
 
 
+typedef struct {
+  int npt;
+  int mnb; /* maximal number of bases */
+  int nb; /* number of functions in the basis */
+  double **cr; /* basis */
+  double **res; /* residues */
+  double *mat; /* correlations of residues */
+  double *mat2; /* temporary matrix for the LU decomposition */
+  double *coef; /* coefficients */
+  double *crbest;
+  double resmin;
+} mdiis_t;
+
+
+
+/* open an mdiis object */
+static mdiis_t *mdiis_open(int npt, int mnb)
+{
+  mdiis_t *m;
+  int mnb1;
+
+  xnew(m, 1);
+  m->npt = npt;
+  m->mnb = mnb;
+  m->nb = 0;
+  mnb1 = mnb + 1;
+  MAKE2DARR(m->cr, mnb1, npt);
+  MAKE2DARR(m->res, mnb1, npt);
+  MAKE1DARR(m->mat, mnb1 * mnb1);
+  MAKE1DARR(m->mat2, mnb1 * mnb1);
+  MAKE1DARR(m->coef, mnb1);
+  MAKE1DARR(m->crbest, npt);
+  m->resmin = 1e300;
+  return m;
+}
+
+
+
+/* close the mdiis object */
+static void mdiis_close(mdiis_t *m)
+{
+  int mnb1 = m->mnb + 1, npt = m->npt;
+  if ( m == NULL ) return;
+  FREE2DARR(m->cr,   mnb1, npt);
+  FREE2DARR(m->res,  mnb1, npt);
+  FREE1DARR(m->mat, mnb1 * mnb1);
+  FREE1DARR(m->mat2, mnb1 * mnb1);
+  FREE1DARR(m->coef, mnb1);
+  FREE1DARR(m->crbest, npt);
+  free(m);
+}
+
+
+
+static int mdiis_solve(mdiis_t *m)
+{
+  int nb = m->nb, nb1 = m->nb + 1, mnb1 = m->mnb + 1, i, j;
+
+  for ( i = 0; i < nb; i++ ) m->coef[i] = 0;
+  m->coef[nb] = -1;
+  /* copy the matrix, for the content is to be destroyed */
+  for ( i = 0; i < nb1; i++ )
+    for ( j = 0; j < nb1; j++ )
+      m->mat2[i*nb1 + j] = m->mat[i*mnb1 + j];
+  for ( i = 0; i < nb1; i++ )
+    m->mat2[i*nb1 + nb] = m->mat2[nb*nb1 + i] = -1;
+  m->mat2[nb*nb1 + nb] = 0;
+  if ( lusolve(m->mat2, m->coef, nb1, 1e-20) != 0 ) {
+    fprintf(stderr, "MDIIS lusolve failed\n");
+    exit(1);
+  }
+  return 0;
+}
+
+
+
+/* construct the new c(r) */
+static void mdiis_gencr(mdiis_t *m, double *cr, double damp)
+{
+  int npt = m->npt, nb = m->nb;
+  int k, il;
+
+  for ( il = 0; il < npt; il++ )
+    m->cr[nb][il] = 0;
+  for ( k = 0; k < nb; k++ ) {
+    double coef = m->coef[k];
+    for ( il = 0; il < npt; il++ )
+      m->cr[nb][il] += coef * (m->cr[k][il] + damp * m->res[k][il]);
+  }
+
+  /* save m->cr[nb] to c(r) */
+  COPY1DARR(cr, m->cr[nb], npt);
+}
+
+
+
+/* compute the dot product */
+static double getdot(double *a, double *b, int n)
+{
+  int i;
+  double x = 0;
+
+  for ( i = 0; i < n; i++ ) x += a[i] * b[i];
+  return x / n;
+}
+
+
+
+/* build the residue correlation matrix */
+static int mdiis_build(mdiis_t *m, double *cr, double *res)
+{
+  int ib, mnb, mnb1, npt = m->npt;
+
+  m->nb = 1;
+  mnb = m->mnb;
+  mnb1 = m->mnb + 1;
+
+  COPY1DARR(m->cr[0], cr, npt);
+  COPY1DARR(m->res[0], res, npt);
+
+  m->mat[0] = getdot(m->res[0], m->res[0], npt);
+  for ( ib = 0; ib < mnb; ib++ )
+    m->mat[ib*mnb1 + mnb] = m->mat[mnb*mnb1 + ib] = -1;
+  m->mat[mnb*mnb1 + mnb] = 0;
+  return 0;
+}
+
+
+
+/* replace base ib by cr */
+static int mdiis_update(mdiis_t *m, double *cr, double *res)
+{
+  int i, ib, nb, mnb1, npt = m->npt;
+  double dot, max;
+
+  nb = m->nb;
+  mnb1 = m->mnb + 1;
+
+  if ( nb < m->mnb ) {
+    ib = nb;
+    m->nb = ++nb;
+  } else {
+    /* choose the base with the largest residue */
+    ib = 0;
+    for ( i = 1; i < nb; i++ )
+      /* the diagonal represents the error */
+      if ( m->mat[i*mnb1+i] > m->mat[ib*mnb1 + ib] )
+        ib = i;
+    max = m->mat[ib*mnb1 + ib];
+
+    dot = getdot(res, res, npt);
+    if ( dot > max ) {
+#ifndef MDIIS_THRESHOLD
+#define MDIIS_THRESHOLD 1.0
+#endif
+      int reset = ( SQRT(dot) < MDIIS_THRESHOLD );
+      if ( verbose ) {
+        fprintf(stderr, "MDIIS: bad basis, %g is greater than %g, %s, error:",
+          dot, max, reset ? "reset" : "accept");
+        for ( i = 0; i < nb; i++ )
+          fprintf(stderr, " %g", m->mat[i*mnb1+i]);
+        fprintf(stderr, "\n");
+      }
+      if ( reset ) {
+        mdiis_build(m, cr, res);
+        return 1;
+      }
+    }
+  }
+
+  /* replace base ib by cr */
+  COPY1DARR(m->cr[ib], cr, npt);
+  COPY1DARR(m->res[ib], res, npt);
+
+  /* update the residue correlation matrix
+   * note: we do not need to update the last row & column */
+  for ( i = 0; i < nb; i++ )
+    m->mat[i*mnb1 + ib] = m->mat[ib*mnb1 + i]
+      = getdot(m->res[i], res, npt);
+  return ib;
+}
+
+
+
+static double iter_mdiis(sphr_t *sphr, double rho,
+    double *cr, double *tr, double *ck, double *tk,
+    double *fr, int nbases, double dmp, int itmax, xdouble tol)
+{
+  mdiis_t *mdiis;
+  int it, ibp = 0, ib, npt = sphr->npt;
+  double err, errp, errinf, *res;
+
+  /* open the mdiis object if needed */
+  mdiis = mdiis_open(npt, nbases);
+  /* use the space of the last array for `res' */
+  res = mdiis->res[mdiis->mnb];
+
+  /* construct the initial base set */
+  COPY1DARR(mdiis->crbest, cr, npt);
+  step_picard(sphr, rho, cr, tr, ck, tk, fr, res, 0);
+  mdiis_build(mdiis, cr, res);
+
+  err = errp = errinf = 1e300;
+  for ( it = 0; it < itmax; it++ ) {
+    mdiis_solve(mdiis);
+    mdiis_gencr(mdiis, cr, dmp);
+    err = step_picard(sphr, rho, cr, tr, ck, tk, fr, res, 0);
+    ib = mdiis_update(mdiis, cr, res);
+
+    /* save this function */
+    if ( err < mdiis->resmin ) {
+      COPY1DARR(mdiis->crbest, mdiis->cr[mdiis->nb], npt);
+      mdiis->resmin = err;
+    }
+
+    if ( verbose >= 2 )
+      fprintf(stderr, "it %d, err %g -> %g, ib %d -> %d\n",
+          it, errp, err, ibp, ib);
+    if ( err < tol ) break;
+    ibp = ib;
+    errp = err;
+  }
+  /* use the best cr discovered so far */
+  COPY1DARR(cr, mdiis->crbest, npt);
+  /* compute ck, tr, tk */
+  step_picard(sphr, rho, cr, tr, ck, tk, fr, NULL, 0);
+
+  mdiis_close(mdiis);
+  return err;
+}
+
+
 
 #endif /* defined(IEMDIIS_H__) */
 

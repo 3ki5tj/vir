@@ -35,7 +35,7 @@ csrc_extra      = $(filter-out \
 		    $(csrc_fftw) $(csrc_mpfr) $(csrc_gmp) $(csrc_gsl), \
 		    $(csrc))
 
-deps = ieutil.h ieutilmpfr.h fft.h fftmpfr.h xdouble.h slowdht.h fftx.h ievir.c
+deps = $(wildcard *.h)
 bins_fftw       = $(patsubst %.c, %,   $(csrc_fftw))
 bins_fftw_l     = $(patsubst %,   %_l, $(bins_fftw))
 bins_fftw_q     = $(patsubst %,   %_q, $(bins_fftw))

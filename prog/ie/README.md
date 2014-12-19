@@ -265,13 +265,12 @@ For D = 30, n = 128, M = 3072 (sampling points)
 ## ieodmpfr ##
 
 
-Overview
----------
-High precision version of ieodfftw.c (ievir.c), currently with limited features.
+### Overview ###
+
+Arbitrary precision version of ieodfftw.c (ievir.c), currently with limited features.
 
 
-Compilation
-------------
+### Compilation ###
 
 When `ieodfftw` (`ievir.c` compiled with `-DFFTW` fails,
 switch to the mpfr version to enable higher precisions.

@@ -11,75 +11,6 @@
 
 
 
-/* solve A x = b by L U decomposition
- * the matrix `a' will be destroyed
- * the vector `b' will be replaced by `x' on return */
-static int lusolve(xdouble *a, xdouble *b, int n, xdouble tiny)
-{
-  int i, j, k, ip = 0;
-  xdouble x, max;
-
-  for (i = 0; i < n; i++) {  /* normalize each equation */
-    for (max = 0.0, j = 0; j < n; j++)
-      if ((x = FABS(a[i*n + j])) > max)
-        max = x;
-    if ( max <= 0 ) return -1;
-    for (x = 1./max, j = 0; j < n; j++)
-      a[i*n + j] *= x;
-    b[i] *= x;
-  }
-
-  /* step 1: A = L U, column by column */
-  for (j = 0; j < n; j++) {
-    /* matrix U */
-    for (i = 0; i < j; i++) {
-      for (x = a[i*n + j], k = 0; k < i; k++)
-        x -= a[i*n + k] * a[k*n + j];
-      a[i*n + j] = x;
-    }
-
-    /* matrix L, diagonal of L are 1 */
-    max = 0.0;
-    ip = j;
-    for (i = j; i < n; i++) {
-      for (x = a[i*n + j], k = 0; k < j; k++)
-        x -= a[i*n + k] * a[k*n + j];
-      a[i*n + j] = x;
-      if ( FABS(x) > max ) {
-        max = FABS(x);
-        ip = i;
-      }
-    }
-
-    if (j != ip) { /* swap the pivot row with the jth row */
-      for (k = 0; k < n; k++)
-        x = a[ip*n + k], a[ip*n + k] = a[j*n + k], a[j*n + k] = x;
-      x = b[ip], b[ip] = b[j], b[j] = x;
-    }
-    if ( FABS(a[j*n + j]) < tiny )
-      a[j*n + j] = tiny;
-    /* divide by the pivot element, for the L matrix */
-    if (j != n - 1)
-      for (x = 1./a[j*n + j], i = j + 1; i < n; i++)
-        a[i*n + j] *= x;
-  }
-
-  /* step 2: solve the equation L U x = b */
-  for (i = 0; i < n; i++) { /* L y = b */
-    x = b[i];
-    for (j = 0; j < i; j++) x -= a[i*n + j] * b[j];
-    b[i] = x;
-  }
-  for (i = n - 1; i >= 0; i--) { /* U x = y. */
-    x = b[i];
-    for (j = i + 1; j < n; j++) x -= a[i*n + j] * b[j];
-    b[i] = x / a[i*n + i];
-  }
-  return 0;
-}
-
-
-
 /* compute Cjk */
 static void getCjk(xdouble *Cjk, int npt, int M,
     xdouble *der, xdouble *costab, xdouble *dp)
@@ -117,25 +48,25 @@ static void getjacob(xdouble *mat, xdouble *b, int M,
 
 
 
-static void iterlmv(sphr_t *sphr, xdouble rho,
-    xdouble *fr, xdouble *der,
+static void iter_lmv(sphr_t *sphr, xdouble rho,
     xdouble *cr, xdouble *ck,
     xdouble *tr, xdouble *tk,
-    xdouble *tr1, xdouble *tk1,
-    int itmax, xdouble tol, xdouble dmp, int Mpt)
+    xdouble *fr, xdouble *der,
+    int Mpt, xdouble dmp, int itmax, xdouble tol)
 {
   int i, j, it, npt = sphr->npt, M;
   xdouble *Cjk = NULL, *mat = NULL, *a = NULL;
   xdouble *dp = NULL, *costab = NULL;
   xdouble c, dc, del, err1, err2, err, errp = 1e9;
-  xdouble *crbest, errmin = 1e9;
+  xdouble *crbest, *tr1, *tk1, errmin = 1e9;
 
+  MAKE1DARR(tr1, npt);
+  MAKE1DARR(tk1, npt);
   MAKE1DARR(crbest, npt);
   COPY1DARR(crbest, cr, npt);
 
   /* 1. initialize t(k) and t(r) */
-  iterpicard(sphr, rho, cr, tr, ck, tk, fr, 0, 1);
-  COPY1DARR(tr1, tr, npt);
+  step_picard(sphr, rho, cr, tr, ck, tk, fr, NULL, 0.0);
 
   /* 3. set M */
   if ( Mpt >= 0 ) {
@@ -158,6 +89,10 @@ static void iterlmv(sphr_t *sphr, xdouble rho,
   }
 
   for ( it = 0; it < itmax; it++ ) {
+    /* compute the error of the current c(r) and c(k) */
+    for ( i = 0; i < npt; i++ )
+      tk1[i] = rho * ck[i] * ck[i] / (1 - rho * ck[i]);
+    sphr_k2r(sphr, tk1, tr1);
     err = 0;
     for ( i = 0; i < npt; i++ ) {
       c = getcr(tr1[i], fr[i], ietype, params, &dc, NULL, NULL);
@@ -203,10 +138,6 @@ static void iterlmv(sphr_t *sphr, xdouble rho,
     }
     sphr_k2r(sphr, tk, tr);
 
-    for ( i = 0; i < npt; i++ )
-      tk1[i] = rho * ck[i] * ck[i] / (1 - rho * ck[i]);
-    sphr_k2r(sphr, tk1, tr1);
-
     if (verbose)
       fprintf(stderr, "it %d: M %d, err %g -> %g, tkerr %g/%g, damp %g\n",
           it, M, (double) errp, (double) err,
@@ -223,8 +154,10 @@ static void iterlmv(sphr_t *sphr, xdouble rho,
   /* use the best cr discovered so far */
   COPY1DARR(cr, crbest, npt);
   /* compute ck, tr, tk */
-  iterpicard(sphr, rho, cr, tr, ck, tk, fr, 0, 1);
+  step_picard(sphr, rho, cr, tr, ck, tk, fr, NULL, 0.0);
 
+  FREE1DARR(tr1, npt);
+  FREE1DARR(tk1, npt);
   FREE1DARR(crbest, npt);
   free(Cjk);
   free(mat);

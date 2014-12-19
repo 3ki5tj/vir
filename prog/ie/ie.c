@@ -6,7 +6,7 @@
 
 
 
-enum { SOLVER_PICARD, SOLVER_LMV, SOLVER_COUNT };
+enum { SOLVER_PICARD, SOLVER_LMV, SOLVER_MDIIS, SOLVER_COUNT };
 
 
 
@@ -24,6 +24,7 @@ xdouble tol = (xdouble) 1e-10L;
 xdouble damp = 1;
 const xdouble errmax = 1000;
 int Mpt = 20;
+int nbases = 5;
 char *fncrout = NULL;
 char *fncrinp = NULL;
 int verbose = 0;
@@ -45,7 +46,8 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--itmax", "%d", &itmax, "maximal number of iterations");
   argopt_add(ao, "--tol", "%" XDBLSCNF "f", &tol, "error tolerance");
   argopt_add(ao, "-S", "%d", &solver, "integral equation solver");
-  argopt_add(ao, "-M", "%d", &Mpt, "number of points for LMV");
+  argopt_add(ao, "-M", "%d", &Mpt, "number of points for the LMV solver");
+  argopt_add(ao, "-B", "%d", &nbases, "number of bases for the MDIIS solver");
   argopt_add(ao, "--cr", NULL, &fncrout, "output file for c(r)");
   argopt_add(ao, "--inp", NULL, &fncrinp, "input file for c(r)");
   argopt_add(ao, "-v", "%b", &verbose, "be verbose");
@@ -105,28 +107,41 @@ static xdouble getcr(xdouble tr, xdouble fr, int ietype, xdouble s,
 
 
 
+/* a step of direct (Picard) iteration
+ * compute residue vector if needed */
+static xdouble step_picard(sphr_t *sphr, xdouble rho,
+    xdouble *cr, xdouble *tr, xdouble *ck, xdouble *tk,
+    xdouble *fr, xdouble *res, xdouble dmp)
+{
+  int i, npt = sphr->npt;
+  xdouble x, dx, err;
+
+  sphr_r2k(sphr, cr, ck);
+  for ( i = 0; i < npt; i++ )
+    tk[i] = rho * ck[i] * ck[i] / (1 - rho * ck[i]);
+  sphr_k2r(sphr, tk, tr);
+  for ( err = 0, i = 0; i < npt; i++ ) {
+    x = getcr(tr[i], fr[i], ietype, 0, NULL, NULL, NULL);
+    dx = x - cr[i];
+    if ( res != NULL ) res[i] = dx;
+    if ( FABS(dx) > err ) err = FABS(dx);
+    cr[i] += dmp * dx;
+  }
+  return err;
+}
 
 
 
 /* direct (Picard iteration) */
-static double iterpicard(sphr_t *sphr, xdouble rho,
+static xdouble iter_picard(sphr_t *sphr, xdouble rho,
     xdouble *cr, xdouble *tr, xdouble *ck, xdouble *tk,
-    xdouble *fr, double dmp, int itmax)
+    xdouble *fr, xdouble dmp, int itmax, xdouble tol)
 {
-  int i, it, npt = sphr->npt;
-  xdouble x, dx, err;
+  int it;
+  xdouble err;
 
   for ( it = 0; it < itmax; it++ ) {
-    sphr_r2k(sphr, cr, ck);
-    for ( i = 0; i < npt; i++ )
-      tk[i] = rho * ck[i] * ck[i] / (1 - rho * ck[i]);
-    sphr_k2r(sphr, tk, tr);
-    for ( err = 0, i = 0; i < npt; i++ ) {
-      x = getcr(tr[i], fr[i], ietype, 0, NULL, NULL, NULL);
-      dx = x - cr[i];
-      if ( FABS(dx) > err ) err = FABS(dx);
-      cr[i] += dmp * dx;
-    }
+    err = step_picard(sphr, rho, cr, tr, ck, tk, fr, NULL, dmp);
     if ( err < tol || err > errmax ) break;
     if ( verbose >= 2 ) fprintf(stderr, "it %d, err %g\n", it, (double) err);
   }
@@ -169,6 +184,7 @@ static void iterd(sphr_t *sphr, xdouble rho,
 
 
 #include "ielmv.h"
+#include "iemdiis.h"
 
 
 
@@ -179,7 +195,7 @@ static int loadcr(int npt, xdouble *ri, xdouble *cr, xdouble *tr,
   int i;
   FILE *fp;
   char ln[40960];
-  double r, c, t, dc, dt;
+  xdouble r, c, t, dc, dt;
 
   xfopen(fp, fn, "r", return -1);
   for ( i = 0; i < npt; i++ ) {
@@ -355,7 +371,7 @@ static void integ(int npt, xdouble rmax)
   xdouble pres, presa, presb;
   xdouble compr, dcompr, comprb, dcomprb;
   xdouble *bphi, *der, *fr, *rdfr, *fk;
-  xdouble *cr, *tr, *tr1, *ck, *tk, *tk1;
+  xdouble *cr, *ck, *tr, *tk;
   xdouble *dcr, *dtr, *dck, *dtk;
   sphr_t *sphr;
 
@@ -367,11 +383,9 @@ static void integ(int npt, xdouble rmax)
   xnew(rdfr, npt);
   xnew(cr, npt);
   xnew(tr, npt);
-  xnew(tr1, npt);
   xnew(fk, npt);
   xnew(ck, npt);
   xnew(tk, npt);
-  xnew(tk1, npt);
   xnew(dcr, npt);
   xnew(dtr, npt);
   xnew(dck, npt);
@@ -387,9 +401,11 @@ static void integ(int npt, xdouble rmax)
   }
 
   if ( solver == SOLVER_LMV ) {
-    iterlmv(sphr, rho, fr, der, cr, ck, tr, tk, tr1, tk1, itmax, tol, damp, Mpt);
+    iter_lmv(sphr, rho, cr, ck, tr, tk, fr, der, Mpt, damp, itmax, tol);
+  } else if ( solver == SOLVER_MDIIS ) {
+    iter_mdiis(sphr, rho, cr, tr, ck, tk, fr, nbases, damp, itmax, tol);
   } else {
-    iterpicard(sphr, rho, cr, tr, ck, tk, fr, damp, itmax);
+    iter_picard(sphr, rho, cr, tr, ck, tk, fr, damp, itmax, tol);
   }
   iterd(sphr, rho, dcr, dtr, dck, dtk, ck, tk, fr, itmax);
   if ( fncrout != NULL )
@@ -411,11 +427,9 @@ EXIT:
   free(rdfr);
   free(cr);
   free(tr);
-  free(tr1);
   free(fk);
   free(ck);
   free(tk);
-  free(tk1);
   free(dcr);
   free(dtr);
   free(dck);
