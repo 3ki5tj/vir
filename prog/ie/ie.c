@@ -41,7 +41,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--rho", "%" XDBLSCNF "f", &rho, "maximal rho");
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &rmax, "maximal r");
   argopt_add(ao, "-N", "%d", &numpt, "number of points along r");
-  argopt_add(ao, "-s", "%" XDBLSCNF "s", &params, "parameter of the integral equation");
+  argopt_add(ao, "-s", "%" XDBLSCNF "f", &params, "parameter of the integral equation");
   argopt_add(ao, "--damp", "%" XDBLSCNF "f", &damp, "damping factor of solving integral equations");
   argopt_add(ao, "--itmax", "%d", &itmax, "maximal number of iterations");
   argopt_add(ao, "--tol", "%" XDBLSCNF "f", &tol, "error tolerance");
@@ -64,7 +64,7 @@ static void doargs(int argc, char **argv)
 
 
 
-/* compute the cavity distribution function
+/* compute the new indirect correlation function
  * *dcr = partial cr / partial tr  */
 static xdouble getcr(xdouble tr, xdouble fr, int ietype, xdouble s,
     xdouble *dcr, xdouble *w, xdouble *dw)
@@ -107,8 +107,35 @@ static xdouble getcr(xdouble tr, xdouble fr, int ietype, xdouble s,
 
 
 
-/* a step of direct (Picard) iteration
- * compute residue vector if needed */
+/* compute the new dcr = d c(r) / d(rho)
+ * *d_dcr = partial dcr / partial dtr  */
+static xdouble getdcr(xdouble dtr, xdouble tr, xdouble fr,
+    int ietype, xdouble s, xdouble *d_dcr)
+{
+  xdouble z;
+
+  if ( ietype == IETYPE_PY ) { /* PY */
+    z = fr;
+  } else if ( ietype == IETYPE_HNC ) { /* HNC */
+    z = (1 + fr) * EXP(tr) - 1;
+  } else if ( ietype == IETYPE_INVROWLINSON ) { /* inverse Rowlinson */
+    z = (1 + fr) * s * (EXP(tr) - 1) + fr;
+  } else if ( ietype == IETYPE_HC ) { /* Hutchinson-Conkie */
+    z = (1 + fr) * POW(1 + s * tr, 1./s - 1) - 1;
+  } else if ( ietype == IETYPE_SQR ) { /* quadratic */
+    z = (1 + fr) * s * tr + fr;
+  } else {
+    fprintf(stderr, "unknown closure %d\n", ietype);
+    exit(1);
+  }
+  if ( d_dcr ) *d_dcr = z;
+  return z * dtr;
+}
+
+
+
+/* do a step of direct (Picard) iteration
+ * compute the residue vector `res' if needed */
 static xdouble step_picard(sphr_t *sphr, xdouble rho,
     xdouble *cr, xdouble *tr, xdouble *ck, xdouble *tk,
     xdouble *fr, xdouble *res, xdouble dmp)
@@ -121,11 +148,39 @@ static xdouble step_picard(sphr_t *sphr, xdouble rho,
     tk[i] = rho * ck[i] * ck[i] / (1 - rho * ck[i]);
   sphr_k2r(sphr, tk, tr);
   for ( err = 0, i = 0; i < npt; i++ ) {
-    x = getcr(tr[i], fr[i], ietype, 0, NULL, NULL, NULL);
+    x = getcr(tr[i], fr[i], ietype, params, NULL, NULL, NULL);
     dx = x - cr[i];
     if ( res != NULL ) res[i] = dx;
     if ( FABS(dx) > err ) err = FABS(dx);
     cr[i] += dmp * dx;
+  }
+  return err;
+}
+
+
+
+/* do a step of direct (Picard) iteration for d/d(rho) functions
+ * compute the residue vector `res' if needed */
+static xdouble stepd_picard(sphr_t *sphr, xdouble rho,
+    xdouble *dcr, xdouble *dtr, xdouble *dck, xdouble *dtk,
+    const xdouble *tr, const xdouble *ck, const xdouble *tk,
+    const xdouble *fr, xdouble *res, xdouble dmp)
+{
+  int i, npt = sphr->npt;
+  xdouble x, dx, hk, err;
+
+  sphr_r2k(sphr, dcr, dck);
+  for ( i = 0; i < npt; i++ ) {
+    hk = ck[i] + tk[i];
+    dtk[i] = hk * hk + rho * hk * (2 + rho * hk) * dck[i];
+  }
+  sphr_k2r(sphr, dtk, dtr);
+  for ( err = 0, i = 0; i < npt; i++ ) {
+    x = getdcr(dtr[i], tr[i], fr[i], ietype, params, NULL);
+    dx = x - dcr[i];
+    if ( res != NULL ) res[i] = dx;
+    if ( FABS(dx) > err ) err = FABS(dx);
+    dcr[i] += dmp * dx;
   }
   return err;
 }
@@ -146,43 +201,34 @@ static xdouble iter_picard(sphr_t *sphr, xdouble rho,
     if ( verbose >= 2 ) fprintf(stderr, "it %d, err %g\n", it, (double) err);
   }
   if ( verbose || err > tol )
-    fprintf(stderr, "main Picard finished in %d steps, err %g\n", it, (double) err);
+    fprintf(stderr, "iter_picard finished in %d steps, err %g\n", it, (double) err);
   return err;
 }
 
 
 
 /* solve d/d(rho) functions by direct iteration */
-static void iterd(sphr_t *sphr, xdouble rho,
+static void iterd_picard(sphr_t *sphr, xdouble rho,
     xdouble *dcr, xdouble *dtr, xdouble *dck, xdouble *dtk,
-    const xdouble *ck, const xdouble *tk,
-    xdouble *fr, int itmax)
+    const xdouble *tr, const xdouble *ck, const xdouble *tk,
+    xdouble *fr, xdouble dmp, int itmax, xdouble tol)
 {
-  int i, it, npt = sphr->npt;
-  xdouble x, dx, hk, err;
+  int it;
+  xdouble err;
 
   for ( it = 0; it < itmax; it++ ) {
-    sphr_r2k(sphr, dcr, dck);
-    for ( i = 0; i < npt; i++ ) {
-      hk = ck[i] + tk[i];
-      dtk[i] = hk*hk + rho*hk*(2 + rho*hk)*dck[i];
-    }
-    sphr_k2r(sphr, dtk, dtr);
-    for ( err = 0, i = 0; i < npt; i++ ) {
-      x = fr[i] * dtr[i];
-      dx = x - dcr[i];
-      if ( FABS(dx) > err ) err = FABS(dx);
-      dcr[i] += damp * dx;
-    }
+    err = stepd_picard(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, NULL, dmp);
     if ( err < tol || err > errmax ) break;
     if ( verbose >= 2 ) fprintf(stderr, "it %d, err %g\n", it, (double) err);
   }
   if ( verbose || err > tol )
-    fprintf(stderr, "der Picard finished in %d steps, err %g\n", it, (double) err);
+    fprintf(stderr, "iterd_picard finished in %d steps, err %g\n", it, (double) err);
 }
 
 
 
+/* advanced integral equation solvers */
+const xdouble errinf = 1e300;
 #include "ielmv.h"
 #include "iemdiis.h"
 
@@ -407,7 +453,7 @@ static void integ(int npt, xdouble rmax)
   } else {
     iter_picard(sphr, rho, cr, tr, ck, tk, fr, damp, itmax, tol);
   }
-  iterd(sphr, rho, dcr, dtr, dck, dtk, ck, tk, fr, itmax);
+  iterd_picard(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, damp, itmax, tol);
   if ( fncrout != NULL )
     savecr(npt, sphr->ri, cr, tr, dcr, dtr, fr, bphi, fncrout);
   pres = getpres_py(npt, rho, cr, tr, dcr, dtr, rdfr,

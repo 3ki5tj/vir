@@ -11,13 +11,13 @@ typedef struct {
   int npt;
   int mnb; /* maximal number of bases */
   int nb; /* number of functions in the basis */
-  double **cr; /* basis */
-  double **res; /* residues */
-  double *mat; /* correlations of residues */
-  double *mat2; /* temporary matrix for the LU decomposition */
-  double *coef; /* coefficients */
-  double *crbest;
-  double resmin;
+  xdouble **cr; /* basis */
+  xdouble **res; /* residues */
+  xdouble *mat; /* correlations of residues */
+  xdouble *mat2; /* temporary matrix for the LU decomposition */
+  xdouble *coef; /* coefficients */
+  xdouble *crbest;
+  xdouble errmin;
 } mdiis_t;
 
 
@@ -39,7 +39,7 @@ static mdiis_t *mdiis_open(int npt, int mnb)
   MAKE1DARR(m->mat2, mnb1 * mnb1);
   MAKE1DARR(m->coef, mnb1);
   MAKE1DARR(m->crbest, npt);
-  m->resmin = 1e300;
+  m->errmin = errinf;
   return m;
 }
 
@@ -84,7 +84,7 @@ static int mdiis_solve(mdiis_t *m)
 
 
 /* construct the new c(r) */
-static void mdiis_gencr(mdiis_t *m, double *cr, double damp)
+static void mdiis_gencr(mdiis_t *m, xdouble *cr, xdouble damp)
 {
   int npt = m->npt, nb = m->nb;
   int k, il;
@@ -92,7 +92,7 @@ static void mdiis_gencr(mdiis_t *m, double *cr, double damp)
   for ( il = 0; il < npt; il++ )
     m->cr[nb][il] = 0;
   for ( k = 0; k < nb; k++ ) {
-    double coef = m->coef[k];
+    xdouble coef = m->coef[k];
     for ( il = 0; il < npt; il++ )
       m->cr[nb][il] += coef * (m->cr[k][il] + damp * m->res[k][il]);
   }
@@ -104,10 +104,10 @@ static void mdiis_gencr(mdiis_t *m, double *cr, double damp)
 
 
 /* compute the dot product */
-static double getdot(double *a, double *b, int n)
+static xdouble getdot(xdouble *a, xdouble *b, int n)
 {
   int i;
-  double x = 0;
+  xdouble x = 0;
 
   for ( i = 0; i < n; i++ ) x += a[i] * b[i];
   return x / n;
@@ -116,7 +116,7 @@ static double getdot(double *a, double *b, int n)
 
 
 /* build the residue correlation matrix */
-static int mdiis_build(mdiis_t *m, double *cr, double *res)
+static int mdiis_build(mdiis_t *m, xdouble *cr, xdouble *res)
 {
   int ib, mnb, mnb1, npt = m->npt;
 
@@ -137,10 +137,10 @@ static int mdiis_build(mdiis_t *m, double *cr, double *res)
 
 
 /* replace base ib by cr */
-static int mdiis_update(mdiis_t *m, double *cr, double *res)
+static int mdiis_update(mdiis_t *m, xdouble *cr, xdouble *res)
 {
   int i, ib, nb, mnb1, npt = m->npt;
-  double dot, max;
+  xdouble dot, max;
 
   nb = m->nb;
   mnb1 = m->mnb + 1;
@@ -191,36 +191,39 @@ static int mdiis_update(mdiis_t *m, double *cr, double *res)
 
 
 
-static double iter_mdiis(sphr_t *sphr, double rho,
-    double *cr, double *tr, double *ck, double *tk,
-    double *fr, int nbases, double dmp, int itmax, xdouble tol)
+static xdouble iter_mdiis(sphr_t *sphr, xdouble rho,
+    xdouble *cr, xdouble *tr, xdouble *ck, xdouble *tk,
+    xdouble *fr, int nbases, xdouble dmp, int itmax, xdouble tol)
 {
   mdiis_t *mdiis;
   int it, ibp = 0, ib, npt = sphr->npt;
-  double err, errp, errinf, *res;
+  xdouble err, errp, *res;
 
-  /* open the mdiis object if needed */
+  /* open an mdiis object */
   mdiis = mdiis_open(npt, nbases);
   /* use the space of the last array for `res' */
   res = mdiis->res[mdiis->mnb];
 
-  /* construct the initial base set */
+  /* construct the initial basis */
   COPY1DARR(mdiis->crbest, cr, npt);
   step_picard(sphr, rho, cr, tr, ck, tk, fr, res, 0);
   mdiis_build(mdiis, cr, res);
 
-  err = errp = errinf = 1e300;
+  err = errp = errinf;
   for ( it = 0; it < itmax; it++ ) {
+    /* compute a set of coefficients of combining basic functions */
     mdiis_solve(mdiis);
+    /* construct a new cr from the combination */
     mdiis_gencr(mdiis, cr, dmp);
+    /* compute the residue vector and error */
     err = step_picard(sphr, rho, cr, tr, ck, tk, fr, res, 0);
-    ib = mdiis_update(mdiis, cr, res);
-
-    /* save this function */
-    if ( err < mdiis->resmin ) {
+    if ( err < mdiis->errmin ) { /* save this function */
       COPY1DARR(mdiis->crbest, mdiis->cr[mdiis->nb], npt);
-      mdiis->resmin = err;
+      mdiis->errmin = err;
     }
+
+    /* add the new cr into the basis */
+    ib = mdiis_update(mdiis, cr, res);
 
     if ( verbose >= 2 )
       fprintf(stderr, "it %d, err %g -> %g, ib %d -> %d\n",
@@ -231,8 +234,10 @@ static double iter_mdiis(sphr_t *sphr, double rho,
   }
   /* use the best cr discovered so far */
   COPY1DARR(cr, mdiis->crbest, npt);
-  /* compute ck, tr, tk */
-  step_picard(sphr, rho, cr, tr, ck, tk, fr, NULL, 0);
+  /* update the corresponding ck, tr, tk */
+  err = step_picard(sphr, rho, cr, tr, ck, tk, fr, NULL, 0);
+  if ( verbose )
+    fprintf(stderr, "iter_mdiis finished in %d steps, err %g\n", it, err);
 
   mdiis_close(mdiis);
   return err;

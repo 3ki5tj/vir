@@ -131,8 +131,8 @@ $(prj)code.zip: fft.h fftmpfr.h xdouble.h slowdht.h fftx.h zcom.h \
 		ieodmpfr.c ieutilmpfr.h \
 		ybgvir.c kirkvir.c \
 		ozcrtr.c \
-		ie.c base/muhs.c \
-		base/lmv.c \
+		ie.c ielmv.h iemdiis.h \
+		base/muhs.c \
 		scifmt.py ieoptparam.py ievirextra.py \
 		iebenchmark.sh \
 		README.md Makefile
