@@ -48,14 +48,16 @@ static mdiis_t *mdiis_open(int npt, int mnb)
 /* close the mdiis object */
 static void mdiis_close(mdiis_t *m)
 {
-  int mnb1 = m->mnb + 1, npt = m->npt;
+  int mnb1, npt;
   if ( m == NULL ) return;
-  FREE2DARR(m->cr,   mnb1, npt);
-  FREE2DARR(m->res,  mnb1, npt);
-  FREE1DARR(m->mat, mnb1 * mnb1);
-  FREE1DARR(m->mat2, mnb1 * mnb1);
-  FREE1DARR(m->coef, mnb1);
-  FREE1DARR(m->crbest, npt);
+  mnb1 = m->mnb + 1;
+  npt = m->npt;
+  FREE2DARR(m->cr,      mnb1, npt);
+  FREE2DARR(m->res,     mnb1, npt);
+  FREE1DARR(m->mat,     mnb1 * mnb1);
+  FREE1DARR(m->mat2,    mnb1 * mnb1);
+  FREE1DARR(m->coef,    mnb1);
+  FREE1DARR(m->crbest,  npt);
   free(m);
 }
 
@@ -104,7 +106,7 @@ static void mdiis_gencr(mdiis_t *m, xdouble *cr, xdouble damp)
 
 
 /* compute the dot product */
-static xdouble getdot(xdouble *a, xdouble *b, int n)
+static xdouble mdiis_getdot(xdouble *a, xdouble *b, int n)
 {
   int i;
   xdouble x = 0;
@@ -127,7 +129,7 @@ static int mdiis_build(mdiis_t *m, xdouble *cr, xdouble *res)
   COPY1DARR(m->cr[0], cr, npt);
   COPY1DARR(m->res[0], res, npt);
 
-  m->mat[0] = getdot(m->res[0], m->res[0], npt);
+  m->mat[0] = mdiis_getdot(m->res[0], m->res[0], npt);
   for ( ib = 0; ib < mnb; ib++ )
     m->mat[ib*mnb1 + mnb] = m->mat[mnb*mnb1 + ib] = -1;
   m->mat[mnb*mnb1 + mnb] = 0;
@@ -142,14 +144,14 @@ static int mdiis_update(mdiis_t *m, xdouble *cr, xdouble *res, xdouble err)
   int i, ib, nb, mnb1, npt = m->npt;
   xdouble dot, max;
 
-  /* save this function if it achieves the minimal error so far */
-  if ( err < m->errmin ) {
-    COPY1DARR(m->crbest, m->cr[m->nb], npt);
-    m->errmin = err;
-  }
-  
   nb = m->nb;
   mnb1 = m->mnb + 1;
+
+  /* save this function if it achieves the minimal error so far */
+  if ( err < m->errmin ) {
+    COPY1DARR(m->crbest, m->cr[nb], npt);
+    m->errmin = err;
+  }
 
   if ( nb < m->mnb ) {
     ib = nb;
@@ -163,10 +165,10 @@ static int mdiis_update(mdiis_t *m, xdouble *cr, xdouble *res, xdouble err)
         ib = i;
     max = m->mat[ib*mnb1 + ib];
 
-    dot = getdot(res, res, npt);
+    dot = mdiis_getdot(res, res, npt);
     if ( dot > max ) {
 #ifndef MDIIS_THRESHOLD
-#define MDIIS_THRESHOLD 1.0
+#define MDIIS_THRESHOLD 10.0
 #endif
       int reset = ( SQRT(dot) < MDIIS_THRESHOLD );
       if ( verbose ) {
@@ -191,7 +193,7 @@ static int mdiis_update(mdiis_t *m, xdouble *cr, xdouble *res, xdouble err)
    * note: we do not need to update the last row & column */
   for ( i = 0; i < nb; i++ )
     m->mat[i*mnb1 + ib] = m->mat[ib*mnb1 + i]
-      = getdot(m->res[i], res, npt);
+      = mdiis_getdot(m->res[i], res, npt);
   return ib;
 }
 

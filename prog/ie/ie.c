@@ -13,7 +13,7 @@ enum { SOLVER_PICARD, SOLVER_LMV, SOLVER_MDIIS, SOLVER_COUNT };
 int dim = D;
 int numpt = 8192;
 int ffttype = 1;
-xdouble rmax = (xdouble) 20.48L;
+xdouble rmax = (xdouble) 40.96L;
 xdouble T = (xdouble) 1.35;
 xdouble beta;
 xdouble rho = (xdouble) 0.279L;
@@ -60,6 +60,17 @@ static void doargs(int argc, char **argv)
       (double) rmax, (double) rho, (double) T);
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
+}
+
+
+
+/* compute tk from ck */
+static void oz(xdouble *ck, xdouble *tk, int npt, xdouble rho)
+{
+  int i;
+
+  for ( i = 0; i < npt; i++ )
+    tk[i] = rho * ck[i] * ck[i] / (1 - rho * ck[i]);
 }
 
 
@@ -134,27 +145,36 @@ static xdouble getdcr(xdouble dtr, xdouble tr, xdouble fr,
 
 
 
+static xdouble closure(xdouble *cr, xdouble *tr, xdouble *fr,
+    xdouble *res, xdouble *der, int npt,
+    int ietype, xdouble params, xdouble dmp)
+{
+  int i;
+  xdouble err, x, dx, dc;
+
+  for ( err = 0, i = 0; i < npt; i++ ) {
+    x = getcr(tr[i], fr[i], ietype, params, &dc, NULL, NULL);
+    dx = x - cr[i];
+    if ( der != NULL ) der[i] = dc;
+    if ( res != NULL ) res[i] = dx;
+    if ( FABS(dx) > err ) err = FABS(dx);
+    cr[i] += dmp * dx;
+  }
+  return err;
+}
+
+
+
 /* do a step of direct (Picard) iteration
  * compute the residue vector `res' if needed */
 static xdouble step_picard(sphr_t *sphr, xdouble rho,
     xdouble *cr, xdouble *tr, xdouble *ck, xdouble *tk,
     xdouble *fr, xdouble *res, xdouble dmp)
 {
-  int i, npt = sphr->npt;
-  xdouble x, dx, err;
-
   sphr_r2k(sphr, cr, ck);
-  for ( i = 0; i < npt; i++ )
-    tk[i] = rho * ck[i] * ck[i] / (1 - rho * ck[i]);
+  oz(ck, tk, sphr->npt, rho);
   sphr_k2r(sphr, tk, tr);
-  for ( err = 0, i = 0; i < npt; i++ ) {
-    x = getcr(tr[i], fr[i], ietype, params, NULL, NULL, NULL);
-    dx = x - cr[i];
-    if ( res != NULL ) res[i] = dx;
-    if ( FABS(dx) > err ) err = FABS(dx);
-    cr[i] += dmp * dx;
-  }
-  return err;
+  return closure(cr, tr, fr, res, NULL, sphr->npt, ietype, params, dmp);
 }
 
 

@@ -11,38 +11,144 @@
 
 
 
-/* compute Cjk */
-static void getCjk(xdouble *Cjk, int npt, int M,
-    xdouble *der, xdouble *costab, xdouble *dp)
+typedef struct {
+  int npt;
+  int M;
+  xdouble *ki;
+  xdouble *Cjk; /* d ck / d tk */
+  xdouble *mat; /* M x M matrix */
+  xdouble *a; /* M array */
+  xdouble *dp; /* 3*M array */
+  xdouble *costab; /* 3*M*npt */
+  xdouble *tr1;
+  xdouble *tk1;
+  xdouble *crbest;
+  xdouble errmin;
+  xdouble err1; /* error of tk[i] for i < M */
+  xdouble err2; /* error of tk[i] for i >= M */
+} lmv_t;
+
+
+
+/* open an lmv object */
+static lmv_t *lmv_open(int npt, int M, xdouble dr, xdouble *ki)
 {
-  int m, k, l;
+  int i, j;
+  lmv_t *lmv;
+
+  if ( M < 0 ) M = (int) (4 * npt * dr);
+  if ( M >= npt ) M = npt;
+  if ( verbose ) fprintf(stderr, "select M = %d\n", M);
+
+  xnew(lmv, 1);
+  lmv->npt = npt;
+  lmv->M = M;
+  lmv->ki = ki;
+  MAKE1DARR(lmv->tr1,     npt);
+  MAKE1DARR(lmv->tk1,     npt);
+  MAKE1DARR(lmv->crbest,  npt);
+  lmv->errmin = errinf;
+
+  if ( M > 0 ) {
+    xnew(lmv->Cjk, M*M);
+    xnew(lmv->mat, M*M);
+    xnew(lmv->a,  M);
+    xnew(lmv->dp, 3*M);
+    xnew(lmv->costab, 3*M*npt);
+    for ( j = 0; j < 3*M; j++ )
+      for ( i = 0; i < npt; i++ )
+        lmv->costab[j*npt + i] = COS(PI*(i*2+1)*(j-M)/npt/2);
+  }
+
+  return lmv;
+}
+
+
+
+static void lmv_close(lmv_t *lmv)
+{
+  if ( lmv == NULL ) return;
+  FREE1DARR(lmv->tr1,     lmv->npt);
+  FREE1DARR(lmv->tk1,     lmv->npt);
+  FREE1DARR(lmv->crbest,  lmv->npt);
+  if ( lmv->M > 0 ) {
+    free(lmv->Cjk);
+    free(lmv->mat);
+    free(lmv->a);
+    free(lmv->dp);
+    free(lmv->costab);
+  }
+  free(lmv);
+}
+
+
+
+/* register a good cr */
+static void lmv_savebest(lmv_t *lmv, xdouble *cr, xdouble err)
+{
+  if ( err < lmv->errmin ) {
+    COPY1DARR(lmv->crbest, cr, lmv->npt);
+    lmv->errmin = err;
+  }
+}
+
+
+
+/* compute Cjk */
+static void lmv_getCjk(lmv_t *lmv, xdouble *der)
+{
+  int m, k, l, npt = lmv->npt, M = lmv->M;
 
   for ( m = 1; m < 3*M - 1; m++ ) {
-    for ( dp[m] = 0, l = 0; l < npt; l++ )
-      dp[m] += der[l] * costab[m*npt + l];
-    dp[m] /= npt;
+    for ( lmv->dp[m] = 0, l = 0; l < npt; l++ )
+      lmv->dp[m] += der[l] * lmv->costab[m*npt + l];
+    lmv->dp[m] /= npt;
   }
 
   for ( m = 0; m < M; m++ )
     for ( k = 0; k < M; k++ )
-      Cjk[m*M + k] = dp[k - m + M] - dp[k + m + M];
+      lmv->Cjk[m*M + k] = lmv->dp[k - m + M] - lmv->dp[k + m + M];
 }
 
 
 
 /* compute the Jacobian matrix for the Newton-Raphson method */
-static void getjacob(xdouble *mat, xdouble *b, int M,
-    xdouble *ck, xdouble *tk, xdouble *Cjk,
-    xdouble *ki, xdouble rho)
+static void lmv_getjacob(lmv_t *lmv, xdouble *ck, xdouble *tk,
+    xdouble rho)
 {
-  int j, k;
+  int j, k, M = lmv->M;
   xdouble y;
 
   for ( j = 0; j < M; j++ ) {
     y = rho * ck[j] / (1 - rho * ck[j]);
-    b[j] = ki[j] * (y * ck[j] - tk[j]);
+    lmv->a[j] = lmv->ki[j] * (y * ck[j] - tk[j]);
     for ( k = 0; k < M; k++ )
-      mat[j*M+k] = (k == j ? 1 : 0) - y * (2 + y) * Cjk[j*M+k];
+      lmv->mat[j*M+k] = (k == j ? 1 : 0) - y * (2 + y) * lmv->Cjk[j*M+k];
+  }
+}
+
+
+
+/* update tk */
+static void lmv_update(lmv_t *lmv, xdouble *tk, xdouble dmp)
+{
+  int i, npt = lmv->npt, M = lmv->M;
+  xdouble del;
+
+  /* use the Newton-Raphson method to solve for t(k) of small k */
+  lmv->err1 = 0;
+  for ( i = 0; i < M; i++ ) {
+    del = lmv->a[i] / lmv->ki[i];
+    if ( FABS(del) > lmv->err1 ) lmv->err1 = FABS(del);
+    tk[i] += dmp * del;
+  }
+
+  /* use the OZ relation to solve for t(k) of large k */
+  lmv->err2 = 0;
+  for ( i = M; i < npt; i++ ) {
+    del = lmv->tk1[i] - tk[i];
+    if ( FABS(del) > lmv->err2 ) lmv->err2 = FABS(del);
+    tk[i] += dmp * del;
   }
 }
 
@@ -54,116 +160,59 @@ static void iter_lmv(sphr_t *sphr, xdouble rho,
     xdouble *fr, xdouble *der,
     int Mpt, xdouble dmp, int itmax, xdouble tol)
 {
-  int i, j, it, npt = sphr->npt, M;
-  xdouble *Cjk = NULL, *mat = NULL, *a = NULL;
-  xdouble *dp = NULL, *costab = NULL;
-  xdouble c, dc, del, err1, err2, err, errp = 1e9;
-  xdouble *crbest, *tr1, *tk1, errmin = 1e9;
+  int it, npt = sphr->npt;
+  xdouble err, errp = errinf;
+  lmv_t *lmv;
 
-  MAKE1DARR(tr1, npt);
-  MAKE1DARR(tk1, npt);
-  MAKE1DARR(crbest, npt);
-  COPY1DARR(crbest, cr, npt);
+  /* open an lmv object */
+  lmv = lmv_open(npt, Mpt, sphr->dr, sphr->ki);
+  COPY1DARR(lmv->crbest, cr, npt);
 
-  /* 1. initialize t(k) and t(r) */
+  /* initialize t(k) and t(r) */
   step_picard(sphr, rho, cr, tr, ck, tk, fr, NULL, 0.0);
-
-  /* 3. set M */
-  if ( Mpt >= 0 ) {
-    M = Mpt;
-  } else { /* default value */
-    M = (int) (4 * npt * sphr->dr);
-  }
-  if ( M >= npt ) M = npt;
-
-  if ( verbose ) fprintf(stderr, "select M = %d\n", M);
-  if ( M > 0 ) {
-    xnew(Cjk, M*M);
-    xnew(mat, M*M);
-    xnew(a, M);
-    xnew(dp, 3*M);
-    xnew(costab, 3*M*npt);
-    for ( j = 0; j < 3*M; j++ )
-      for ( i = 0; i < npt; i++ )
-        costab[j*npt + i] = COS(PI*(i*2+1)*(j-M)/npt/2);
-  }
+  COPY1DARR(lmv->tk1, tk, npt);
 
   for ( it = 0; it < itmax; it++ ) {
     /* compute the error of the current c(r) and c(k) */
-    for ( i = 0; i < npt; i++ )
-      tk1[i] = rho * ck[i] * ck[i] / (1 - rho * ck[i]);
-    sphr_k2r(sphr, tk1, tr1);
-    err = 0;
-    for ( i = 0; i < npt; i++ ) {
-      c = getcr(tr1[i], fr[i], ietype, params, &dc, NULL, NULL);
-      del = c - cr[i];
-      if ( FABS(del) > err ) err = FABS(del);
-    }
-    if ( err < errmin ) {
-      COPY1DARR(crbest, cr, npt);
-      errmin = err;
-    }
+    sphr_k2r(sphr, lmv->tk1, lmv->tr1);
+    err = closure(cr, lmv->tr1, fr, NULL, NULL, npt, ietype, params, 0.0);
+    lmv_savebest(lmv, cr, err);
 
-    /* 2. compute c(r) and c(k) */
-    for ( i = 0; i < npt; i++ ) {
-      dc = 0;
-      cr[i] = getcr(tr[i], fr[i], ietype, params, &dc, NULL, NULL);
-      der[i] = dc;
-    }
+    /* compute c(r) and c(k) */
+    closure(cr, tr, fr, NULL, der, npt, ietype, params, 1.0);
     sphr_r2k(sphr, cr, ck);
 
-    /* 4. compute Cjk */
-    getCjk(Cjk, npt, M, der, costab, dp);
+    /* compute Cjk */
+    lmv_getCjk(lmv, der);
 
-    /* 6. compute the matrix for the Newton-Raphson method */
-    getjacob(mat, a, M, ck, tk, Cjk, sphr->ki, rho);
+    /* compute the matrix for the Newton-Raphson method */
+    lmv_getjacob(lmv, ck, tk, rho);
 
-    if ( lusolve(mat, a, M, 1e-10) != 0 )
+    if ( lusolve(lmv->mat, lmv->a, lmv->M, 1e-10) != 0 )
       break;
 
-    /* 7. Use the Newton-Raphson method to solve for t(k) of small k */
-    err1 = 0;
-    for ( j = 0; j < M; j++ ) {
-      del = a[j] / sphr->ki[j];
-      if ( FABS(del) > err1 ) err1 = FABS(del);
-      tk[j] += dmp * del;
-    }
-
-    /* 8. Use the OZ relation to solve for t(k) of large k */
-    err2 = 0;
-    for ( i = M; i < npt; i++ ) {
-      del = rho * ck[i] * ck[i] / (1 - rho * ck[i]) - tk[i];
-      if ( FABS(del) > err2 ) err2 = FABS(del);
-      tk[i] += dmp * del;
-    }
+    oz(ck, lmv->tk1, npt, rho);
+    lmv_update(lmv, tk, dmp);
     sphr_k2r(sphr, tk, tr);
 
     if (verbose)
       fprintf(stderr, "it %d: M %d, err %g -> %g, tkerr %g/%g, damp %g\n",
-          it, M, (double) errp, (double) err,
-          (double) err1, (double) err2, (double) dmp);
+          it, lmv->M, (double) errp, (double) err,
+          (double) lmv->err1, (double) lmv->err2, (double) dmp);
     if ( err < tol || err > errmax ) break;
     errp = err;
   }
 
   if ( verbose || err > tol ) {
-    fprintf(stderr, "LMV stops after %d iterations, err %g/%g\n", it, err, errmin);
+    fprintf(stderr, "LMV stops after %d iterations, err %g/%g\n", it, err, lmv->errmin);
     if ( verbose >= 3 ) getchar();
   }
 
   /* use the best cr discovered so far */
-  COPY1DARR(cr, crbest, npt);
+  COPY1DARR(cr, lmv->crbest, npt);
   /* compute ck, tr, tk */
   step_picard(sphr, rho, cr, tr, ck, tk, fr, NULL, 0.0);
-
-  FREE1DARR(tr1, npt);
-  FREE1DARR(tk1, npt);
-  FREE1DARR(crbest, npt);
-  free(Cjk);
-  free(mat);
-  free(a);
-  free(dp);
-  free(costab);
+  lmv_close(lmv);
 }
 
 
