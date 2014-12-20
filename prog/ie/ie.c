@@ -20,7 +20,7 @@ xdouble rho = (xdouble) 0.279L;
 int ietype = IETYPE_PY;
 int solver = SOLVER_LMV;
 int itmax = 10000;
-xdouble tol = (xdouble) 1e-10L;
+xdouble tol = (xdouble) 1e-8L;
 xdouble damp = 1;
 const xdouble errmax = 1000;
 int Mpt = 20;
@@ -448,12 +448,14 @@ static void integ(int npt, xdouble rmax)
 
   if ( solver == SOLVER_LMV ) {
     iter_lmv(sphr, rho, cr, ck, tr, tk, fr, der, Mpt, damp, itmax, tol);
+    iterd_picard(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, damp, itmax, tol);
   } else if ( solver == SOLVER_MDIIS ) {
     iter_mdiis(sphr, rho, cr, tr, ck, tk, fr, nbases, damp, itmax, tol);
+    iterd_mdiis(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, nbases, damp, itmax, tol);
   } else {
     iter_picard(sphr, rho, cr, tr, ck, tk, fr, damp, itmax, tol);
+    iterd_picard(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, damp, itmax, tol);
   }
-  iterd_picard(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, damp, itmax, tol);
   if ( fncrout != NULL )
     savecr(npt, sphr->ri, cr, tr, dcr, dtr, fr, bphi, fncrout);
   pres = getpres_py(npt, rho, cr, tr, dcr, dtr, rdfr,
