@@ -65,12 +65,33 @@ static void doargs(int argc, char **argv)
 
 
 /* compute tk from ck */
-static void oz(xdouble *ck, xdouble *tk, int npt, xdouble rho)
+static void oz(xdouble *ck, xdouble *tk,
+    xdouble *der, int npt, xdouble rho)
 {
   int i;
 
-  for ( i = 0; i < npt; i++ )
-    tk[i] = rho * ck[i] * ck[i] / (1 - rho * ck[i]);
+  for ( i = 0; i < npt; i++ ) {
+    xdouble y = rho * ck[i] / (1 - rho * ck[i]);
+    tk[i] = ck[i] * y;
+    if ( der != NULL ) der[i] = y * (2 + y);
+  }
+}
+
+
+
+/* compute dtk from dck */
+static void ozd(xdouble *dck, xdouble *dtk,
+    const xdouble *ck, const xdouble *tk,
+    xdouble *der, int npt, xdouble rho)
+{
+  int i;
+
+  for ( i = 0; i < npt; i++ ) {
+    xdouble hk = ck[i] + tk[i], dtdc;
+    dtdc = rho * hk * (2 + rho * hk);
+    dtk[i] = hk * hk + dtdc * dck[i];
+    if ( der != NULL ) der[i] = dtdc;
+  }
 }
 
 
@@ -145,6 +166,7 @@ static xdouble getdcr(xdouble dtr, xdouble tr, xdouble fr,
 
 
 
+/* closure for correlation functions */
 static xdouble closure(xdouble *cr, xdouble *tr, xdouble *fr,
     xdouble *res, xdouble *der, int npt,
     int ietype, xdouble params, xdouble dmp)
@@ -165,6 +187,28 @@ static xdouble closure(xdouble *cr, xdouble *tr, xdouble *fr,
 
 
 
+/* closure for d/d(rho) functions */
+static xdouble closured(xdouble *dcr, xdouble *dtr,
+    const xdouble *tr, const xdouble *fr,
+    xdouble *res, xdouble *der, int npt,
+    int ietype, xdouble params, xdouble dmp)
+{
+  int i;
+  xdouble err, x, dx, dc;
+
+  for ( err = 0, i = 0; i < npt; i++ ) {
+    x = getdcr(dtr[i], tr[i], fr[i], ietype, params, &dc);
+    dx = x - dcr[i];
+    if ( der != NULL ) der[i] = dc;
+    if ( res != NULL ) res[i] = dx;
+    if ( FABS(dx) > err ) err = FABS(dx);
+    dcr[i] += dmp * dx;
+  }
+  return err;
+}
+
+
+
 /* do a step of direct (Picard) iteration
  * compute the residue vector `res' if needed */
 static xdouble step_picard(sphr_t *sphr, xdouble rho,
@@ -172,7 +216,7 @@ static xdouble step_picard(sphr_t *sphr, xdouble rho,
     xdouble *fr, xdouble *res, xdouble dmp)
 {
   sphr_r2k(sphr, cr, ck);
-  oz(ck, tk, sphr->npt, rho);
+  oz(ck, tk, NULL, sphr->npt, rho);
   sphr_k2r(sphr, tk, tr);
   return closure(cr, tr, fr, res, NULL, sphr->npt, ietype, params, dmp);
 }
@@ -186,23 +230,10 @@ static xdouble stepd_picard(sphr_t *sphr, xdouble rho,
     const xdouble *tr, const xdouble *ck, const xdouble *tk,
     const xdouble *fr, xdouble *res, xdouble dmp)
 {
-  int i, npt = sphr->npt;
-  xdouble x, dx, hk, err;
-
   sphr_r2k(sphr, dcr, dck);
-  for ( i = 0; i < npt; i++ ) {
-    hk = ck[i] + tk[i];
-    dtk[i] = hk * hk + rho * hk * (2 + rho * hk) * dck[i];
-  }
+  ozd(dck, dtk, ck, tk, NULL, sphr->npt, rho);
   sphr_k2r(sphr, dtk, dtr);
-  for ( err = 0, i = 0; i < npt; i++ ) {
-    x = getdcr(dtr[i], tr[i], fr[i], ietype, params, NULL);
-    dx = x - dcr[i];
-    if ( res != NULL ) res[i] = dx;
-    if ( FABS(dx) > err ) err = FABS(dx);
-    dcr[i] += dmp * dx;
-  }
-  return err;
+  return closured(dcr, dtr, tr, fr, res, NULL, sphr->npt, ietype, params, dmp);
 }
 
 
@@ -436,7 +467,7 @@ static void integ(int npt, xdouble rmax)
 {
   xdouble pres, presa, presb;
   xdouble compr, dcompr, comprb, dcomprb;
-  xdouble *bphi, *der, *fr, *rdfr, *fk;
+  xdouble *bphi, *fr, *rdfr, *fk;
   xdouble *cr, *ck, *tr, *tk;
   xdouble *dcr, *dtr, *dck, *dtk;
   sphr_t *sphr;
@@ -444,7 +475,6 @@ static void integ(int npt, xdouble rmax)
   sphr = sphr_open(dim, npt, rmax, 0, ffttype);
 
   xnew(bphi, npt);
-  xnew(der, npt);
   xnew(fr, npt);
   xnew(rdfr, npt);
   xnew(cr, npt);
@@ -467,8 +497,8 @@ static void integ(int npt, xdouble rmax)
   }
 
   if ( solver == SOLVER_LMV ) {
-    iter_lmv(sphr, rho, cr, ck, tr, tk, fr, der, Mpt, damp, itmax, tol);
-    iterd_picard(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, damp, itmax, tol);
+    iter_lmv(sphr, rho, cr, tr, ck, tk, fr, Mpt, damp, itmax, tol);
+    iterd_lmv(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, Mpt, damp, itmax, tol);
   } else if ( solver == SOLVER_MDIIS ) {
     iter_mdiis(sphr, rho, cr, tr, ck, tk, fr, nbases, damp, itmax, tol);
     iterd_mdiis(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, nbases, damp, itmax, tol);
@@ -490,7 +520,6 @@ static void integ(int npt, xdouble rmax)
 EXIT:
   sphr_close(sphr);
   free(bphi);
-  free(der);
   free(fr);
   free(rdfr);
   free(cr);

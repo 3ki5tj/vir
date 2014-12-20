@@ -240,8 +240,8 @@ static xdouble iter_mdiis(sphr_t *sphr, xdouble rho,
   COPY1DARR(cr, mdiis->crbest, npt);
   /* update the corresponding ck, tr, tk */
   err = step_picard(sphr, rho, cr, tr, ck, tk, fr, NULL, 0);
-  if ( verbose )
-    fprintf(stderr, "iter_mdiis finished in %d steps, err %g\n", it, err);
+  if ( verbose || err > tol )
+    fprintf(stderr, "iter_mdiis finished in %d steps, err %g\n", it, (double) err);
 
   mdiis_close(mdiis);
   return err;
@@ -291,8 +291,8 @@ static xdouble iterd_mdiis(sphr_t *sphr, xdouble rho,
   COPY1DARR(dcr, mdiis->crbest, npt);
   /* update the corresponding ck, tr, tk */
   err = stepd_picard(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, NULL, 0);
-  if ( verbose )
-    fprintf(stderr, "iter_mdiis finished in %d steps, err %g\n", it, err);
+  if ( verbose || err > tol )
+    fprintf(stderr, "iter_mdiis finished in %d steps, err %g\n", it, (double) err);
 
   mdiis_close(mdiis);
   return err;
