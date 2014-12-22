@@ -277,7 +277,7 @@ static xdouble iterd_mdiis(sphr_t *sphr, xdouble rho,
     mdiis_gencr(mdiis, dcr, dmp);
     /* compute the residue vector and error */
     err = stepd_picard(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, res, 0);
-    /* add the new cr into the basis */
+    /* add the new dcr into the basis */
     ib = mdiis_update(mdiis, dcr, res, err);
 
     if ( verbose >= 2 )
@@ -291,6 +291,61 @@ static xdouble iterd_mdiis(sphr_t *sphr, xdouble rho,
   COPY1DARR(dcr, mdiis->crbest, npt);
   /* update the corresponding ck, tr, tk */
   err = stepd_picard(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, NULL, 0);
+  if ( verbose || err > tol )
+    fprintf(stderr, "iter_mdiis finished in %d steps, err %g\n", it, (double) err);
+
+  mdiis_close(mdiis);
+  return err;
+}
+
+
+
+/* compute d^2/d(rho)^2 functions by the MDIIS method */
+static xdouble iterdd_mdiis(sphr_t *sphr, xdouble rho,
+    xdouble *ddcr, xdouble *ddtr, xdouble *ddck, xdouble *ddtk,
+    const xdouble *dtr, const xdouble *dck, const xdouble *dtk,
+    const xdouble *tr, const xdouble *ck, const xdouble *tk,
+    xdouble *fr, int nbases, xdouble dmp, int itmax, xdouble tol)
+{
+  mdiis_t *mdiis;
+  int it, ibp = 0, ib, npt = sphr->npt;
+  xdouble err, errp, *res;
+
+  /* open an mdiis object */
+  mdiis = mdiis_open(npt, nbases);
+  /* use the space of the last array for `res' */
+  res = mdiis->res[mdiis->mnb];
+
+  /* construct the initial basis */
+  COPY1DARR(mdiis->crbest, ddcr, npt);
+  stepdd_picard(sphr, rho, ddcr, ddtr, ddck, ddtk,
+      dtr, dck, dtk, tr, ck, tk, fr, res, 0);
+  mdiis_build(mdiis, ddcr, res);
+
+  err = errp = errinf;
+  for ( it = 0; it < itmax; it++ ) {
+    /* compute a set of coefficients of combining basic functions */
+    mdiis_solve(mdiis);
+    /* construct a new ddcr from the combination */
+    mdiis_gencr(mdiis, ddcr, dmp);
+    /* compute the residue vector and error */
+    err = stepdd_picard(sphr, rho, ddcr, ddtr, ddck, ddtk,
+        dtr, dck, dtk, tr, ck, tk, fr, res, 0);
+    /* add the new ddcr into the basis */
+    ib = mdiis_update(mdiis, ddcr, res, err);
+
+    if ( verbose >= 2 )
+      fprintf(stderr, "it %d, err %g -> %g, ib %d -> %d\n",
+          it, errp, err, ibp, ib);
+    if ( err < tol ) break;
+    ibp = ib;
+    errp = err;
+  }
+  /* use the best cr discovered so far */
+  COPY1DARR(ddcr, mdiis->crbest, npt);
+  /* update the corresponding ck, tr, tk */
+  err = stepdd_picard(sphr, rho, ddcr, ddtr, ddck, ddtk,
+      dtr, dck, dtk, tr, ck, tk, fr, NULL, 0);
   if ( verbose || err > tol )
     fprintf(stderr, "iter_mdiis finished in %d steps, err %g\n", it, (double) err);
 

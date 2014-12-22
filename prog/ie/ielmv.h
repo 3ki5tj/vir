@@ -33,17 +33,15 @@ typedef struct {
 
 
 /* open an lmv object */
-static lmv_t *lmv_open(int npt, int M, xdouble dr, xdouble *ki)
+static lmv_t *lmv_open(int npt, int M, xdouble *ki)
 {
   int i, j;
   lmv_t *lmv;
 
-  if ( M < 0 ) M = (int) (4 * npt * dr);
-  if ( M >= npt ) M = npt;
-  if ( verbose ) fprintf(stderr, "select M = %d\n", M);
-
   xnew(lmv, 1);
   lmv->npt = npt;
+  if ( M >= npt ) M = npt;
+  if ( verbose ) fprintf(stderr, "select M = %d\n", M);
   lmv->M = M;
   lmv->ki = ki;
   MAKE1DARR(lmv->tr1,     npt);
@@ -162,7 +160,7 @@ static int lmv_update(lmv_t *lmv, xdouble *tk, xdouble dmp)
 /* compute correlation functions using the LMV solver */
 static void iter_lmv(sphr_t *sphr, xdouble rho,
     xdouble *cr, xdouble *tr, xdouble *ck, xdouble *tk,
-    xdouble *fr,
+    const xdouble *fr,
     int Mpt, xdouble dmp, int itmax, xdouble tol)
 {
   int it, npt = sphr->npt;
@@ -170,7 +168,7 @@ static void iter_lmv(sphr_t *sphr, xdouble rho,
   lmv_t *lmv;
 
   /* open an lmv object */
-  lmv = lmv_open(npt, Mpt, sphr->dr, sphr->ki);
+  lmv = lmv_open(npt, Mpt, sphr->ki);
   COPY1DARR(lmv->crbest, cr, npt);
 
   /* initialize t(k) and t(r) */
@@ -215,8 +213,8 @@ static void iter_lmv(sphr_t *sphr, xdouble rho,
 /* compute d/d(rho) functions using the LMV solver */
 static void iterd_lmv(sphr_t *sphr, xdouble rho,
     xdouble *dcr, xdouble *dtr, xdouble *dck, xdouble *dtk,
-    xdouble *tr, xdouble *ck, xdouble *tk,
-    xdouble *fr,
+    const xdouble *tr, const xdouble *ck, const xdouble *tk,
+    const xdouble *fr,
     int Mpt, xdouble dmp, int itmax, xdouble tol)
 {
   int it, npt = sphr->npt;
@@ -224,7 +222,7 @@ static void iterd_lmv(sphr_t *sphr, xdouble rho,
   lmv_t *lmv;
 
   /* open an lmv object */
-  lmv = lmv_open(npt, Mpt, sphr->dr, sphr->ki);
+  lmv = lmv_open(npt, Mpt, sphr->ki);
   COPY1DARR(lmv->crbest, dcr, npt);
 
   /* initialize t(k) and t(r) */
@@ -258,6 +256,63 @@ static void iterd_lmv(sphr_t *sphr, xdouble rho,
   COPY1DARR(dcr, lmv->crbest, npt);
   /* compute dck, dtr, dtk */
   err = stepd_picard(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, NULL, 0.0);
+  if ( verbose || err > tol )
+    fprintf(stderr, "iterd_lmv finishes in %d iterations, err %g\n", it, (double) err);
+
+  lmv_close(lmv);
+}
+
+
+
+/* compute d^2/d(rho)^2 functions using the LMV solver */
+static void iterdd_lmv(sphr_t *sphr, xdouble rho,
+    xdouble *ddcr, xdouble *ddtr, xdouble *ddck, xdouble *ddtk,
+    const xdouble *dtr, const xdouble *dck, const xdouble *dtk,
+    const xdouble *tr, const xdouble *ck, const xdouble *tk,
+    const xdouble *fr,
+    int Mpt, xdouble dmp, int itmax, xdouble tol)
+{
+  int it, npt = sphr->npt;
+  xdouble err, errp = errinf;
+  lmv_t *lmv;
+
+  /* open an lmv object */
+  lmv = lmv_open(npt, Mpt, sphr->ki);
+  COPY1DARR(lmv->crbest, ddcr, npt);
+
+  /* initialize t(k) and t(r) */
+  stepdd_picard(sphr, rho, ddcr, ddtr, ddck, ddtk,
+      dtr, dck, dtk, tr, ck, tk, fr, NULL, 0.0);
+  COPY1DARR(lmv->tk1, ddtk, npt);
+
+  for ( it = 0; it < itmax; it++ ) {
+    /* compute the error of the current ddc(r) and ddc(k) */
+    sphr_k2r(sphr, lmv->tk1, lmv->tr1);
+    err = closuredd(ddcr, lmv->tr1, dtr, tr, fr, NULL, NULL, npt, ietype, params, 0.0);
+    lmv_savebest(lmv, ddcr, err);
+
+    /* compute ddc(r) and ddc(k) */
+    closuredd(ddcr, ddtr, dtr, tr, fr, NULL, lmv->der, npt, ietype, params, 1.0);
+    sphr_r2k(sphr, ddcr, ddck);
+    ozdd(ddck, lmv->tk1, dck, dtk, ck, tk, lmv->dek, npt, rho);
+
+    /* compute the new dtk */
+    if ( lmv_update(lmv, ddtk, dmp) != 0 ) break;
+    sphr_k2r(sphr, ddtk, ddtr);
+
+    if ( verbose >= 2 )
+      fprintf(stderr, "it %d: M %d, err %g -> %g, tkerr %g/%g, damp %g\n",
+          it, lmv->M, (double) errp, (double) err,
+          (double) lmv->err1, (double) lmv->err2, (double) dmp);
+    if ( err < tol || err > errmax ) break;
+    errp = err;
+  }
+
+  /* use the best dcr discovered so far */
+  COPY1DARR(ddcr, lmv->crbest, npt);
+  /* compute dck, dtr, dtk */
+  err = stepdd_picard(sphr, rho, ddcr, ddtr, ddck, ddtk,
+      dtr, dck, dtk, tr, ck, tk, fr, NULL, 0.0);
   if ( verbose || err > tol )
     fprintf(stderr, "iterd_lmv finishes in %d iterations, err %g\n", it, (double) err);
 
