@@ -54,7 +54,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--corr", "%b", &mkcorr, "try to correct HNC");
   argopt_add(ao, "-o", NULL, &fnvir, "output virial coefficient");
   argopt_add(ao, "--crtr", NULL, &fncrtr, "file name of c(r) and t(r)");
-  argopt_add(ao, "-v", "%b", &verbose, "be verbose");
+  argopt_add(ao, "-v", "%+", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
   if ( rmax == NULL ) {

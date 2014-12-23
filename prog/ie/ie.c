@@ -7,6 +7,7 @@
 
 
 enum { SOLVER_PICARD, SOLVER_LMV, SOLVER_MDIIS, SOLVER_COUNT };
+const char *solvers[] = {"Picard", "LMV", "MDIIS"};
 
 
 
@@ -17,8 +18,9 @@ xdouble rmax = (xdouble) 40.96L;
 xdouble T = (xdouble) 1.35;
 xdouble beta;
 xdouble rho = (xdouble) 0.279L;
+int ljtype = LJ_FULL;
 int ietype = IETYPE_PY;
-int solver = SOLVER_LMV;
+int solver = SOLVER_MDIIS;
 int itmax = 10000;
 xdouble tol = (xdouble) 1e-8L;
 xdouble damp = 1;
@@ -45,20 +47,24 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--damp", "%" XDBLSCNF "f", &damp, "damping factor of solving integral equations");
   argopt_add(ao, "--itmax", "%d", &itmax, "maximal number of iterations");
   argopt_add(ao, "--tol", "%" XDBLSCNF "f", &tol, "error tolerance");
-  argopt_add(ao, "-S", "%d", &solver, "integral equation solver");
+  argopt_addx(ao, "--LJ", "%list", &ljtype, "LJ type", ljtypes, LJ_COUNT);
+  argopt_addx(ao, "-S", "%list", &solver, "integral equation solver", solvers, SOLVER_COUNT);
+  argopt_addx(ao, "-C", "%list", &ietype, "closure", ietype_names, IETYPE_COUNT);
   argopt_add(ao, "-M", "%d", &Mpt, "number of points for the LMV solver");
   argopt_add(ao, "-B", "%d", &nbases, "number of bases for the MDIIS solver");
   argopt_add(ao, "--cr", NULL, &fncrout, "output file for c(r)");
   argopt_add(ao, "--inp", NULL, &fncrinp, "input file for c(r)");
-  argopt_add(ao, "-v", "%b", &verbose, "be verbose");
+  argopt_add(ao, "-v", "%+", &verbose, "be verbose");
   argopt_add(ao, "--verbose", "%d", &verbose, "set verbose level");
   argopt_addhelp(ao, "-h");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
   beta = 1/T;
   if ( Mpt <= 0 ) Mpt = (int) (2 * rmax);
-  fprintf(stderr, "rmax %f, rho %g, T %f, M %d, nbases %d\n",
-      (double) rmax, (double) rho, (double) T, Mpt, nbases);
+  fprintf(stderr, "rmax %f, rho %g, T %f, closure %s, solver %s, "
+      "M %d, nbases %d\n",
+      (double) rmax, (double) rho, (double) T,
+      solvers[solver], ietype_names[ietype], Mpt, nbases);
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }
@@ -119,38 +125,40 @@ static void ozdd(xdouble *ddck, xdouble *ddtk,
 
 /* compute the cavity distribution function
  * *d_yr = partial yr / partial tr  */
-static xdouble getyr(xdouble tr, int ietype, xdouble s,
+static xdouble getyr(xdouble tr, xdouble bphilr, int ietype, xdouble s,
     xdouble *d_yr, xdouble *dd_yr)
 {
-  xdouble u, z;
+  xdouble u, z, tr1, xp;
 
+  tr1 = tr - bphilr;
+  xp = EXP(bphilr);
   if ( ietype == IETYPE_PY ) { /* PY */
-    if ( d_yr ) *d_yr = 1;
+    if ( d_yr ) *d_yr = xp;
     if ( dd_yr ) *dd_yr = 0;
-    return 1 + tr;
+    return  xp * (1 + tr1);
   } else if ( ietype == IETYPE_HNC ) { /* HNC */
     z = EXP(tr);
     if ( d_yr ) *d_yr = z;
     if ( dd_yr ) *dd_yr = z;
     return z;
+  } else if ( ietype == IETYPE_SQR ) { /* quadratic */
+    if ( d_yr ) *d_yr = xp * (1 + s * tr1);
+    if ( dd_yr ) *dd_yr = xp * s;
+    return xp * (1 + tr1 + s * .5 * tr1 * tr1);
   } else if ( ietype == IETYPE_INVROWLINSON ) { /* inverse Rowlinson */
-    z = EXP(tr);
-    if ( d_yr ) *d_yr = 1 + s * (z - 1);
-    if ( dd_yr ) *dd_yr = s * z;
-    return 1 + tr + s * (z - 1 - tr);
+    z = EXP(tr1);
+    if ( d_yr ) *d_yr = xp * (1 + s * (z - 1));
+    if ( dd_yr ) *dd_yr = xp * s * z;
+    return xp * (1 + tr1 + s * (z - 1 - tr1));
   } else if ( ietype == IETYPE_HC ) { /* Hutchinson-Conkie */
-    u = 1 + s * tr;
+    u = 1 + s * tr1;
     if (u < XDBL_MIN) u = XDBL_MIN;
     z = POW(u, 1./s);
-    if ( d_yr ) *d_yr = z/u;
-    if ( dd_yr ) *dd_yr = (1 - s) * z / (u * u);
-    return z;
-  } else if ( ietype == IETYPE_SQR ) { /* quadratic */
-    if ( d_yr ) *d_yr = 1 + s * tr;
-    if ( dd_yr ) *dd_yr = s;
-    return 1 + tr + s * .5 * tr * tr;
+    if ( d_yr ) *d_yr = xp * z/u;
+    if ( dd_yr ) *dd_yr = xp * (1 - s) * z / (u * u);
+    return xp * z;
   } else {
-    fprintf(stderr, "unknown closure %d\n", ietype);
+    fprintf(stderr, "cannot do closure %s\n", ietype_names[ietype]);
     exit(1);
   }
 }
@@ -159,41 +167,43 @@ static xdouble getyr(xdouble tr, int ietype, xdouble s,
 
 /* compute the new indirect correlation function
  * *d_cr = partial cr / partial tr  */
-static xdouble getcr(xdouble tr, xdouble fr, int ietype, xdouble s,
+static xdouble getcr(xdouble tr, xdouble bphilr,
+    xdouble fr, int ietype, xdouble s,
     xdouble *d_cr, xdouble *w, xdouble *dw)
 {
-  xdouble u, z;
+  xdouble u, z, tr1;
 
+  tr1 = tr - bphilr;
   if ( ietype == IETYPE_PY ) { /* PY */
     if ( d_cr ) *d_cr = fr;
-    return fr * (1 + tr);
+    return (1 + fr) * (1 + tr1) - 1 - tr;
   } else if ( ietype == IETYPE_HNC ) { /* HNC */
-    z = EXP(tr);
+    z = EXP(tr1);
     if ( d_cr ) *d_cr = (1 + fr) * z;
     if ( w ) *w = z - 1 - tr;
     if ( dw ) *dw = z - 1;
     return (1 + fr) * z - 1 - tr;
+  } else if ( ietype == IETYPE_SQR ) { /* quadratic */
+    if ( d_cr ) *d_cr = (1 + fr) * (1 + s * tr1) - 1;
+    if (w) *w = .5 * tr1 * tr1;
+    if (dw) *dw = tr1;
+    return (1 + fr) * (1 + tr1 + s * .5 * tr1 * tr1) - 1 - tr;
   } else if ( ietype == IETYPE_INVROWLINSON ) { /* inverse Rowlinson */
-    z = EXP(tr);
+    z = EXP(tr1);
     if ( d_cr ) *d_cr = (1 + fr) * (1 + s * (z - 1)) - 1;
-    if (w) *w = z - 1 - tr;
+    if (w) *w = z - 1 - tr1;
     if (dw) *dw = z - 1;
-    return fr * (1 + tr) + (1 + fr) * s * (z - 1 - tr);
+    return (1 + fr) * (1 + tr1 + s * (z - 1 - tr1)) - 1 - tr;
   } else if ( ietype == IETYPE_HC ) { /* Hutchinson-Conkie */
-    u = 1 + s * tr;
+    u = 1 + s * tr1;
     if (u < XDBL_MIN) u = XDBL_MIN;
     z = POW(u, 1./s);
     if ( d_cr ) *d_cr = (1 + fr) * z/u - 1;
     if ( w ) *w = (-LOG(u) + 1 - 1/u) * z / (s * s);
     if ( dw ) *dw = (-LOG(u) + (1 - s) * (1 - 1/u)) * z / u / (s * s);
     return (1 + fr) * z - 1 - tr;
-  } else if ( ietype == IETYPE_SQR ) { /* quadratic */
-    if ( d_cr ) *d_cr = 1 + s * tr;
-    if (w) *w = .5 * tr * tr;
-    if (dw) *dw = tr;
-    return fr * (1 + tr) + (1 + fr) * s * .5 * tr * tr;
   } else {
-    fprintf(stderr, "unknown closure %d\n", ietype);
+    fprintf(stderr, "cannot do closure %s\n", ietype_names[ietype]);
     exit(1);
   }
 }
@@ -202,23 +212,25 @@ static xdouble getcr(xdouble tr, xdouble fr, int ietype, xdouble s,
 
 /* compute the new dcr = d c(r) / d(rho)
  * *d_dcr = partial dcr / partial dtr  */
-static xdouble getdcr(xdouble dtr, xdouble tr, xdouble fr,
+static xdouble getdcr(xdouble dtr, xdouble tr,
+    xdouble bphilr, xdouble fr,
     int ietype, xdouble s, xdouble *d_dcr)
 {
-  xdouble z;
+  xdouble z, tr1;
 
+  tr1 = tr - bphilr;
   if ( ietype == IETYPE_PY ) { /* PY */
     z = fr;
   } else if ( ietype == IETYPE_HNC ) { /* HNC */
-    z = (1 + fr) * EXP(tr) - 1;
-  } else if ( ietype == IETYPE_INVROWLINSON ) { /* inverse Rowlinson */
-    z = (1 + fr) * s * (EXP(tr) - 1) + fr;
-  } else if ( ietype == IETYPE_HC ) { /* Hutchinson-Conkie */
-    z = (1 + fr) * POW(1 + s * tr, 1./s - 1) - 1;
+    z = (1 + fr) * EXP(tr1) - 1;
   } else if ( ietype == IETYPE_SQR ) { /* quadratic */
-    z = (1 + fr) * s * tr + fr;
+    z = (1 + fr) * s * tr1 + fr;
+  } else if ( ietype == IETYPE_INVROWLINSON ) { /* inverse Rowlinson */
+    z = (1 + fr) * s * (EXP(tr1) - 1) + fr;
+  } else if ( ietype == IETYPE_HC ) { /* Hutchinson-Conkie */
+    z = (1 + fr) * POW(1 + s * tr1, 1./s - 1) - 1;
   } else {
-    fprintf(stderr, "unknown closure %d\n", ietype);
+    fprintf(stderr, "cannot do closure %s\n", ietype_names[ietype]);
     exit(1);
   }
   if ( d_dcr ) *d_dcr = z;
@@ -229,30 +241,32 @@ static xdouble getdcr(xdouble dtr, xdouble tr, xdouble fr,
 
 /* compute the new ddcr = d^2 c(r) / d(rho)^2
  * *d_ddcr = partial dcr / partial ddtr  */
-static xdouble getddcr(xdouble ddtr, xdouble dtr, xdouble tr, xdouble fr,
+static xdouble getddcr(xdouble ddtr, xdouble dtr, xdouble tr,
+    xdouble bphilr, xdouble fr,
     int ietype, xdouble s, xdouble *d_ddcr)
 {
-  xdouble xp, z = 0, w = 0;
+  xdouble xp, z = 0, w = 0, tr1;
 
+  tr1 = tr - bphilr;
   if ( ietype == IETYPE_PY ) { /* PY */
     z = fr;
     w = 0;
   } else if ( ietype == IETYPE_HNC ) { /* HNC */
-    xp = EXP(tr);
+    xp = EXP(tr1);
     z = (1 + fr) * xp - 1;
     w = (1 + fr) * xp;
   } else if ( ietype == IETYPE_INVROWLINSON ) { /* inverse Rowlinson */
-    xp = EXP(tr);
+    xp = EXP(tr1);
     z = (1 + fr) * s * (xp - 1) + fr;
     w = (1 + fr) * s * xp;
   } else if ( ietype == IETYPE_HC ) { /* Hutchinson-Conkie */
-    z = (1 + fr) * POW(1 + s * tr, 1./s - 1) - 1;
-    w = (1 + fr) * (1 - s) * POW(1 + s * tr, 1./s - 2);
+    z = (1 + fr) * POW(1 + s * tr1, 1./s - 1) - 1;
+    w = (1 + fr) * (1 - s) * POW(1 + s * tr1, 1./s - 2);
   } else if ( ietype == IETYPE_SQR ) { /* quadratic */
-    z = (1 + fr) * s * tr + fr;
+    z = (1 + fr) * s * tr1 + fr;
     w = (1 + fr) * s;
   } else {
-    fprintf(stderr, "unknown closure %d\n", ietype);
+    fprintf(stderr, "cannot do closure %s\n", ietype_names[ietype]);
     exit(1);
   }
   if ( d_ddcr ) *d_ddcr = z;
@@ -263,7 +277,7 @@ static xdouble getddcr(xdouble ddtr, xdouble dtr, xdouble tr, xdouble fr,
 
 /* closure for correlation functions */
 static xdouble closure(xdouble *cr, xdouble *tr,
-    const xdouble *fr,
+    const xdouble *bphilr, const xdouble *fr,
     xdouble *res, xdouble *der, int npt,
     int ietype, xdouble params, xdouble dmp)
 {
@@ -271,7 +285,7 @@ static xdouble closure(xdouble *cr, xdouble *tr,
   xdouble err, x, dx, dc;
 
   for ( err = 0, i = 0; i < npt; i++ ) {
-    x = getcr(tr[i], fr[i], ietype, params, &dc, NULL, NULL);
+    x = getcr(tr[i], bphilr[i], fr[i], ietype, params, &dc, NULL, NULL);
     dx = x - cr[i];
     if ( der != NULL ) der[i] = dc;
     if ( res != NULL ) res[i] = dx;
@@ -285,7 +299,8 @@ static xdouble closure(xdouble *cr, xdouble *tr,
 
 /* closure for d/d(rho) functions */
 static xdouble closured(xdouble *dcr, xdouble *dtr,
-    const xdouble *tr, const xdouble *fr,
+    const xdouble *tr,
+    const xdouble *bphilr, const xdouble *fr,
     xdouble *res, xdouble *der, int npt,
     int ietype, xdouble params, xdouble dmp)
 {
@@ -293,7 +308,7 @@ static xdouble closured(xdouble *dcr, xdouble *dtr,
   xdouble err, x, dx, dc;
 
   for ( err = 0, i = 0; i < npt; i++ ) {
-    x = getdcr(dtr[i], tr[i], fr[i], ietype, params, &dc);
+    x = getdcr(dtr[i], tr[i], bphilr[i], fr[i], ietype, params, &dc);
     dx = x - dcr[i];
     if ( der != NULL ) der[i] = dc;
     if ( res != NULL ) res[i] = dx;
@@ -307,7 +322,8 @@ static xdouble closured(xdouble *dcr, xdouble *dtr,
 
 /* closure for d^2/d(rho)^2 functions */
 static xdouble closuredd(xdouble *ddcr, xdouble *ddtr,
-    const xdouble *dtr, const xdouble *tr, const xdouble *fr,
+    const xdouble *dtr, const xdouble *tr,
+    const xdouble *bphilr, const xdouble *fr,
     xdouble *res, xdouble *der, int npt,
     int ietype, xdouble params, xdouble dmp)
 {
@@ -315,7 +331,7 @@ static xdouble closuredd(xdouble *ddcr, xdouble *ddtr,
   xdouble err, x, dx, dc;
 
   for ( err = 0, i = 0; i < npt; i++ ) {
-    x = getddcr(ddtr[i], dtr[i], tr[i], fr[i], ietype, params, &dc);
+    x = getddcr(ddtr[i], dtr[i], tr[i], bphilr[i], fr[i], ietype, params, &dc);
     dx = x - ddcr[i];
     if ( der != NULL ) der[i] = dc;
     if ( res != NULL ) res[i] = dx;
@@ -331,12 +347,13 @@ static xdouble closuredd(xdouble *ddcr, xdouble *ddtr,
  * compute the residue vector `res' if needed */
 static xdouble step_picard(sphr_t *sphr, xdouble rho,
     xdouble *cr, xdouble *tr, xdouble *ck, xdouble *tk,
-    const xdouble *fr, xdouble *res, xdouble dmp)
+    const xdouble *bphilr, const xdouble *fr,
+    xdouble *res, xdouble dmp)
 {
   sphr_r2k(sphr, cr, ck);
   oz(ck, tk, NULL, sphr->npt, rho);
   sphr_k2r(sphr, tk, tr);
-  return closure(cr, tr, fr, res, NULL, sphr->npt, ietype, params, dmp);
+  return closure(cr, tr, bphilr, fr, res, NULL, sphr->npt, ietype, params, dmp);
 }
 
 
@@ -346,12 +363,14 @@ static xdouble step_picard(sphr_t *sphr, xdouble rho,
 static xdouble stepd_picard(sphr_t *sphr, xdouble rho,
     xdouble *dcr, xdouble *dtr, xdouble *dck, xdouble *dtk,
     const xdouble *tr, const xdouble *ck, const xdouble *tk,
-    const xdouble *fr, xdouble *res, xdouble dmp)
+    const xdouble *bphilr, const xdouble *fr,
+    xdouble *res, xdouble dmp)
 {
   sphr_r2k(sphr, dcr, dck);
   ozd(dck, dtk, ck, tk, NULL, sphr->npt, rho);
   sphr_k2r(sphr, dtk, dtr);
-  return closured(dcr, dtr, tr, fr, res, NULL, sphr->npt, ietype, params, dmp);
+  return closured(dcr, dtr, tr, bphilr, fr, res, NULL,
+      sphr->npt, ietype, params, dmp);
 }
 
 
@@ -362,12 +381,13 @@ static xdouble stepdd_picard(sphr_t *sphr, xdouble rho,
     xdouble *ddcr, xdouble *ddtr, xdouble *ddck, xdouble *ddtk,
     const xdouble *dtr, const xdouble *dck, const xdouble *dtk,
     const xdouble *tr, const xdouble *ck, const xdouble *tk,
-    const xdouble *fr, xdouble *res, xdouble dmp)
+    const xdouble *bphilr, const xdouble *fr,
+    xdouble *res, xdouble dmp)
 {
   sphr_r2k(sphr, ddcr, ddck);
   ozdd(ddck, ddtk, dck, dtk, ck, tk, NULL, sphr->npt, rho);
   sphr_k2r(sphr, ddtk, ddtr);
-  return closuredd(ddcr, ddtr, dtr, tr, fr, res, NULL,
+  return closuredd(ddcr, ddtr, dtr, tr, bphilr, fr, res, NULL,
       sphr->npt, ietype, params, dmp);
 }
 
@@ -376,13 +396,14 @@ static xdouble stepdd_picard(sphr_t *sphr, xdouble rho,
 /* direct (Picard iteration) */
 static xdouble iter_picard(sphr_t *sphr, xdouble rho,
     xdouble *cr, xdouble *tr, xdouble *ck, xdouble *tk,
-    xdouble *fr, xdouble dmp, int itmax, xdouble tol)
+    const xdouble *bphilr, const xdouble *fr,
+    xdouble dmp, int itmax, xdouble tol)
 {
   int it;
-  xdouble err;
+  xdouble err = 0;
 
   for ( it = 0; it < itmax; it++ ) {
-    err = step_picard(sphr, rho, cr, tr, ck, tk, fr, NULL, dmp);
+    err = step_picard(sphr, rho, cr, tr, ck, tk, bphilr, fr, NULL, dmp);
     if ( err < tol || err > errmax ) break;
     if ( verbose >= 2 ) fprintf(stderr, "it %d, err %g\n", it, (double) err);
   }
@@ -394,43 +415,48 @@ static xdouble iter_picard(sphr_t *sphr, xdouble rho,
 
 
 /* solve d/d(rho) functions by direct iteration */
-static void iterd_picard(sphr_t *sphr, xdouble rho,
+static xdouble iterd_picard(sphr_t *sphr, xdouble rho,
     xdouble *dcr, xdouble *dtr, xdouble *dck, xdouble *dtk,
     const xdouble *tr, const xdouble *ck, const xdouble *tk,
-    xdouble *fr, xdouble dmp, int itmax, xdouble tol)
+    const xdouble *bphilr, const xdouble *fr,
+    xdouble dmp, int itmax, xdouble tol)
 {
   int it;
-  xdouble err;
+  xdouble err = 0;
 
   for ( it = 0; it < itmax; it++ ) {
-    err = stepd_picard(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, NULL, dmp);
+    err = stepd_picard(sphr, rho, dcr, dtr, dck, dtk,
+        tr, ck, tk, bphilr, fr, NULL, dmp);
     if ( err < tol || err > errmax ) break;
     if ( verbose >= 2 ) fprintf(stderr, "it %d, err %g\n", it, (double) err);
   }
   if ( verbose || err > tol )
     fprintf(stderr, "iterd_picard finished in %d steps, err %g\n", it, (double) err);
+  return err;
 }
 
 
 
 /* solve d^2/d(rho)^2 functions by direct iteration */
-static void iterdd_picard(sphr_t *sphr, xdouble rho,
+static xdouble iterdd_picard(sphr_t *sphr, xdouble rho,
     xdouble *ddcr, xdouble *ddtr, xdouble *ddck, xdouble *ddtk,
     const xdouble *dtr, const xdouble *dck, const xdouble *dtk,
     const xdouble *tr, const xdouble *ck, const xdouble *tk,
-    xdouble *fr, xdouble dmp, int itmax, xdouble tol)
+    const xdouble *bphilr, const xdouble *fr,
+    xdouble dmp, int itmax, xdouble tol)
 {
   int it;
-  xdouble err;
+  xdouble err = 0;
 
   for ( it = 0; it < itmax; it++ ) {
     err = stepdd_picard(sphr, rho, ddcr, ddtr, ddck, ddtk,
-        dtr, dck, dtk, tr, ck, tk, fr, NULL, dmp);
+        dtr, dck, dtk, tr, ck, tk, bphilr, fr, NULL, dmp);
     if ( err < tol || err > errmax ) break;
     if ( verbose >= 2 ) fprintf(stderr, "it %d, err %g\n", it, (double) err);
   }
   if ( verbose || err > tol )
     fprintf(stderr, "iterdd_picard finished in %d steps, err %g\n", it, (double) err);
+  return err;
 }
 
 
@@ -470,7 +496,7 @@ static int loadcr(int npt, xdouble *ri, xdouble *cr, xdouble *tr,
     }
     if ( FABS(r - ri[i]) > 1e-6 ) {
       fprintf(stderr, "%s: %d, %g %g mismatch\n",
-          fn, i, r, (double) ri[i]);
+          fn, i, (double) r, (double) ri[i]);
       break;
     }
     cr[i] = c;
@@ -487,19 +513,22 @@ EXIT:
 
 
 static void savecr(int npt, xdouble *ri,
-    xdouble *cr, xdouble *tr, xdouble *dcr, xdouble *dtr,
-    xdouble *fr, xdouble *bphi, char *fn)
+    xdouble *cr, xdouble *tr,
+    xdouble *dcr, xdouble *dtr,
+    xdouble *ddcr, xdouble *ddtr,
+    xdouble *fr, xdouble *bphi, xdouble *bphilr, char *fn)
 {
   int i;
   FILE *fp;
 
   xfopen(fp, fn, "w", return);
   for ( i = 0; i < npt; i++ ) {
-    fprintf(fp, "%8.6f %14.8f %14.8f %14.8f %14.8f %14.8f %g\n",
+    fprintf(fp, "%8.6f %14.8f %14.8f %14.8f %14.8f %14.8f %14.8f %14.8f %g %g\n",
         (double) ri[i],
         (double) cr[i], (double) tr[i],
         (double) dcr[i], (double) dtr[i],
-        (double) fr[i], (double) bphi[i]);
+        (double) ddcr[i], (double) ddtr[i],
+        (double) fr[i], (double) bphi[i], (double) bphilr[i]);
   }
   fclose(fp);
 }
@@ -511,7 +540,7 @@ static xdouble getpvars(sphr_t *sphr, xdouble rho,
     const xdouble *cr, const xdouble *tr,
     const xdouble *dcr, const xdouble *dtr,
     const xdouble *ddtr,
-    const xdouble *rdfr,
+    const xdouble *bphilr, const xdouble *rdfr,
     xdouble *comprc, xdouble *dcomprc,
     xdouble *comprv, xdouble *dcomprv)
 {
@@ -530,7 +559,7 @@ static xdouble getpvars(sphr_t *sphr, xdouble rho,
     /* dcomprc = d^2(beta P) / d(rho)^2 = -Int {c(r) + rho * d[c(r)]/ d(rho)} dr */
     *dcomprc -= (cr[i] + rho * dcr[i]) * rDm1;
     /* bpresv = rho + rho*rho/(2*D) Int r f'(r) y(r) dr */
-    yr = getyr(tr[i], ietype, params, &dydt, &ddydtt);
+    yr = getyr(tr[i], bphilr[i], ietype, params, &dydt, &ddydtt);
     bpresv += rho*rho/(2*dim) * rdfr[i] * yr * rDm1;
     /* d(bpresv)/d(rho) = 1 + rho/D Int r f'(r) y(r) dr
      *   + (rho*rho)/(2*D) Int r f'(r) d[y(r)]/d(rho) dr
@@ -669,7 +698,7 @@ static xdouble getfe_hnc(int npt, xdouble rho,
 
 static void integ(int npt, xdouble rmax)
 {
-  xdouble *bphi, *fr, *rdfr, *fk;
+  xdouble *bphi, *bphisr, *bphilr, *fr, *rdfr, *fk;
   xdouble *cr, *ck, *tr, *tk;
   xdouble *dcr, *dtr, *dck, *dtk;
   xdouble *ddcr, *ddtr, *ddck, *ddtk;
@@ -679,57 +708,63 @@ static void integ(int npt, xdouble rmax)
 
   sphr = sphr_open(dim, npt, rmax, 0, ffttype);
 
-  MAKE1DARR(bphi, npt);
-  MAKE1DARR(fr,   npt);
-  MAKE1DARR(rdfr, npt);
-  MAKE1DARR(cr,   npt);
-  MAKE1DARR(tr,   npt);
-  MAKE1DARR(fk,   npt);
-  MAKE1DARR(ck,   npt);
-  MAKE1DARR(tk,   npt);
-  MAKE1DARR(dcr,  npt);
-  MAKE1DARR(dtr,  npt);
-  MAKE1DARR(dck,  npt);
-  MAKE1DARR(dtk,  npt);
-  MAKE1DARR(ddcr, npt);
-  MAKE1DARR(ddtr, npt);
-  MAKE1DARR(ddck, npt);
-  MAKE1DARR(ddtk, npt);
+  MAKE1DARR(bphi,   npt);
+  MAKE1DARR(bphisr, npt);
+  MAKE1DARR(bphilr, npt);
+  MAKE1DARR(fr,     npt);
+  MAKE1DARR(rdfr,   npt);
+  MAKE1DARR(cr,     npt);
+  MAKE1DARR(tr,     npt);
+  MAKE1DARR(fk,     npt);
+  MAKE1DARR(ck,     npt);
+  MAKE1DARR(tk,     npt);
+  MAKE1DARR(dcr,    npt);
+  MAKE1DARR(dtr,    npt);
+  MAKE1DARR(dck,    npt);
+  MAKE1DARR(dtk,    npt);
+  MAKE1DARR(ddcr,   npt);
+  MAKE1DARR(ddtr,   npt);
+  MAKE1DARR(ddck,   npt);
+  MAKE1DARR(ddtk,   npt);
 
-  mkfr(npt, beta, bphi, fr, rdfr, sphr->ri, sphr->dm, 0, 0, 1);
+  mkfr(npt, beta, bphi, bphisr, bphilr,
+      fr, rdfr, sphr->ri, sphr->dm, 0, 0, ljtype);
   sphr_r2k(sphr, fr, fk);
   COPY1DARR(cr, fr, npt);
 
   if ( fncrinp != NULL ) {
     if ( loadcr(npt, sphr->ri, cr, tr, dcr, dtr, fncrinp) != 0 )
       goto EXIT;
-    savecr(npt, sphr->ri, cr, tr, dcr, dtr, fr, bphi, "initcr.dat");
+    savecr(npt, sphr->ri, cr, tr, dcr, dtr, ddcr, ddtr, fr, bphi, bphilr, "initcr.dat");
   }
 
   if ( solver == SOLVER_LMV ) {
-    iter_lmv(sphr, rho, cr, tr, ck, tk, fr, Mpt, damp, itmax, tol);
+    iter_lmv(sphr, rho, cr, tr, ck, tk,
+        bphilr, fr, Mpt, damp, itmax, tol);
     iterd_lmv(sphr, rho, dcr, dtr, dck, dtk,
-        tr, ck, tk, fr, Mpt, damp, itmax, tol);
+        tr, ck, tk, bphilr, fr, Mpt, damp, itmax, tol);
     iterdd_lmv(sphr, rho, ddcr, ddtr, ddck, ddtk,
-        dtr, dck, dtk, tr, ck, tk, fr, Mpt, damp, itmax, tol);
+        dtr, dck, dtk, tr, ck, tk, bphilr, fr, Mpt, damp, itmax, tol);
   } else if ( solver == SOLVER_MDIIS ) {
-    iter_mdiis(sphr, rho, cr, tr, ck, tk, fr, nbases, damp, itmax, tol);
+    iter_mdiis(sphr, rho, cr, tr, ck, tk,
+        bphilr, fr, nbases, damp, itmax, tol);
     iterd_mdiis(sphr, rho, dcr, dtr, dck, dtk,
-        tr, ck, tk, fr, nbases, damp, itmax, tol);
+        tr, ck, tk, bphilr, fr, nbases, damp, itmax, tol);
     iterdd_mdiis(sphr, rho, ddcr, ddtr, ddck, ddtk,
-        dtr, dck, dtk, tr, ck, tk, fr, nbases, damp, itmax, tol);
+        dtr, dck, dtk, tr, ck, tk, bphilr, fr, nbases, damp, itmax, tol);
   } else {
-    iter_picard(sphr, rho, cr, tr, ck, tk, fr, damp, itmax, tol);
+    iter_picard(sphr, rho, cr, tr, ck, tk,
+        bphilr, fr, damp, itmax, tol);
     iterd_picard(sphr, rho, dcr, dtr, dck, dtk,
-        tr, ck, tk, fr, damp, itmax, tol);
+        tr, ck, tk, bphilr, fr, damp, itmax, tol);
     iterdd_picard(sphr, rho, ddcr, ddtr, ddck, ddtk,
-        dtr, dck, dtk, tr, ck, tk, fr, damp, itmax, tol);
+        dtr, dck, dtk, tr, ck, tk, bphilr, fr, damp, itmax, tol);
   }
 
   if ( fncrout != NULL )
-    savecr(npt, sphr->ri, cr, tr, dcr, dtr, fr, bphi, fncrout);
+    savecr(npt, sphr->ri, cr, tr, dcr, dtr, ddcr, ddtr, fr, bphi, bphilr, fncrout);
 
-  presv = getpvars(sphr, rho, cr, tr, dcr, dtr, ddtr, rdfr,
+  presv = getpvars(sphr, rho, cr, tr, dcr, dtr, ddtr, bphilr, rdfr,
       &comprc, &dcomprc, &comprv, &dcomprv);
   printf("rho %5.3f, T %6.3f: bPv %9.5f, dbPc/v %9.5f/%9.5f, ddbPc/v %9.5f/%9.5f\n",
       (double) rho, (double) (1/beta),
@@ -737,22 +772,24 @@ static void integ(int npt, xdouble rmax)
       (double) dcomprc, (double) dcomprv);
 EXIT:
   sphr_close(sphr);
-  FREE1DARR(bphi, npt);
-  FREE1DARR(fr,   npt);
-  FREE1DARR(rdfr, npt);
-  FREE1DARR(cr,   npt);
-  FREE1DARR(tr,   npt);
-  FREE1DARR(fk,   npt);
-  FREE1DARR(ck,   npt);
-  FREE1DARR(tk,   npt);
-  FREE1DARR(dcr,  npt);
-  FREE1DARR(dtr,  npt);
-  FREE1DARR(dck,  npt);
-  FREE1DARR(dtk,  npt);
-  FREE1DARR(ddcr, npt);
-  FREE1DARR(ddtr, npt);
-  FREE1DARR(ddck, npt);
-  FREE1DARR(ddtk, npt);
+  FREE1DARR(bphi,   npt);
+  FREE1DARR(bphisr, npt);
+  FREE1DARR(bphilr, npt);
+  FREE1DARR(fr,     npt);
+  FREE1DARR(rdfr,   npt);
+  FREE1DARR(cr,     npt);
+  FREE1DARR(tr,     npt);
+  FREE1DARR(fk,     npt);
+  FREE1DARR(ck,     npt);
+  FREE1DARR(tk,     npt);
+  FREE1DARR(dcr,    npt);
+  FREE1DARR(dtr,    npt);
+  FREE1DARR(dck,    npt);
+  FREE1DARR(dtk,    npt);
+  FREE1DARR(ddcr,   npt);
+  FREE1DARR(ddtr,   npt);
+  FREE1DARR(ddck,   npt);
+  FREE1DARR(ddtk,   npt);
 }
 
 

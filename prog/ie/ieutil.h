@@ -1535,7 +1535,7 @@ enum {
   IETYPE_LOG,
   IETYPE_YBG, /* Yvon-Green-Born */
   IETYPE_KIRKWOOD,
-  IETYPE_LAST
+  IETYPE_COUNT
 };
 
 
@@ -1543,19 +1543,19 @@ enum {
 const char *ietype_names[] = {
   "PY",
   "HNC",
-  "Square",
-  "XSquare",
-  "Cubic",
-  "Rowlinson",
-  "Inverse Rowlinson",
+  "Sqr",
+  "XSqr",
+  "Cub",
+  "Row",
+  "InvRow",
   "Hurst",
-  "Hutchinson-Conkie",
-  "Ballon-Pastore-Galli-Gazzillo",
+  "HC",
+  "BPGG",
   "Verlet",
-  "Geometric",
-  "Exponential",
-  "Logarithmic",
-  "Yvon-Green-Born",
+  "Geo",
+  "Exp",
+  "Log",
+  "YGB",
   "Kirkwood",
   "LAST"
 };
@@ -2158,28 +2158,71 @@ __inline static void snapshot_take(int l, int npt,
 
 
 /* return the potential phi(r), and -r*phi'(r)*/
-static xdouble potlj(xdouble r, xdouble sig, xdouble eps, xdouble *nrdphi)
+static xdouble potlj(xdouble r, xdouble sig, xdouble eps, xdouble *nrdu)
 {
-  xdouble invr6 = (sig*sig)/(r*r), u, v;
+  xdouble invr6, phi, nrdphi;
 
-  invr6 = invr6*invr6*invr6;
-  u = 4*invr6*(invr6 - 1);
-  if (u > 1000) u = 1000;
-  if (nrdphi == NULL) nrdphi = &v;
-  *nrdphi = invr6*(48*invr6 - 24);
-  if (*nrdphi > 12000) *nrdphi = 12000;
-  *nrdphi *= eps;
-  return eps*u;
+  invr6  = sig / r;
+  invr6 *= invr6;
+  invr6  = invr6 * invr6 * invr6;
+  phi = 4 * invr6 * (invr6 - 1);
+  if (phi > 1000) phi = 1000;
+  nrdphi = invr6 * (48 * invr6 - 24);
+  if (nrdphi > 12000) nrdphi = 12000;
+  if ( nrdu != NULL ) *nrdu = nrdphi;
+  phi *= eps;
+  nrdphi *= eps;
+  return phi;
 }
 
 
 
+/* return the potential phi(r), and -r*phi'(r)*/
+static xdouble potlj_split(xdouble r, xdouble sig, xdouble eps,
+    xdouble *usr, xdouble *ulr, xdouble *nrdu)
+{
+  xdouble invr6, phi, phisr, philr, nrdphi;
+
+  invr6  = sig / r;
+  invr6 *= invr6;
+  invr6  = invr6 * invr6 * invr6;
+  if ( invr6 * 2 < 1 ) { /* r > rmin */
+    phisr = 0;
+    philr = 4 * invr6 * (invr6 - 1);
+  } else { /* r < rmin */
+    phisr = 4 * invr6 * (invr6 - 1) + 1;
+    philr = -1;
+  }
+  phi = 4 * invr6 * (invr6 - 1);
+  if (phi > 1000) phi = 1000;
+  if (phisr > 1000) phisr = 1000;
+  nrdphi = invr6 * (48 * invr6 - 24);
+  if (nrdphi > 12000) nrdphi = 12000;
+  phi *= eps;
+  phisr *= eps;
+  philr *= eps;
+  nrdphi *= eps;
+  if ( usr  != NULL ) *usr  = phisr;
+  if ( ulr  != NULL ) *ulr  = philr;
+  if ( nrdu != NULL ) *nrdu = nrdphi;
+  return phi;
+}
+
+
+
+enum { LJ_NONE, LJ_FULL, LJ_SPLIT, LJ_REPUL, LJ_COUNT };
+const char *ljtypes[] = { "None", "Full", "Split", "Repul", "LJ_COUNT" };
+
+
+
 /* compute f(r) */
-__inline static void mkfr(int npt, xdouble beta, xdouble *bphi,
+__inline static void mkfr(int npt, xdouble beta,
+    xdouble *bphi, xdouble *bphisr, xdouble *bphilr,
     xdouble *fr, xdouble *rdfr, xdouble *ri, int dm,
     xdouble gaussf, int invexp, int dolj)
 {
   int i;
+  xdouble x, u, usr, ulr, rdu;
 
   /* compute f(r) */
   for ( i = 0; i < npt; i++ ) { /* compute f(r) = exp(-beta u(r)) - 1 */
@@ -2192,13 +2235,21 @@ __inline static void mkfr(int npt, xdouble beta, xdouble *bphi,
       xdouble pot = POW(r, -invexp);
       fr[i] = EXP(-pot) - 1;
       rdfr[i] = pot * invexp * (fr[i] + 1);
-    } else if ( dolj ) {
-      xdouble x, bph;
-      bph = beta * potlj(r, 1, 1, &rdfr[i]);
-      if (bphi != NULL) bphi[i] = bph;
-      x = EXP(-bph);
+    } else if ( dolj == LJ_FULL ) {
+      u = potlj(r, 1, 1, &rdu);
+      if ( bphi != NULL ) bphi[i] = beta * u;
+      if ( bphisr != NULL ) bphisr[i] = beta * u;
+      if ( bphilr != NULL ) bphilr[i] = 0;
+      x = EXP(-bphi[i]);
       fr[i] = x - 1;
-      rdfr[i] *= beta * x;
+      rdfr[i] = beta * x * rdu;
+    } else if ( dolj == LJ_SPLIT ) {
+      u = potlj_split(r, 1, 1, &usr, &ulr, &rdu);
+      if ( bphi != NULL ) bphi[i] = beta * u;
+      if ( bphisr != NULL ) bphisr[i] = beta * usr;
+      if ( bphilr != NULL ) bphilr[i] = beta * ulr;
+      fr[i] = EXP(-bphisr[i]) - 1;
+      rdfr[i] = beta * rdu * EXP(-beta*u);
     } else { /* hard-sphere */
       fr[i] = (i < dm) ? -1 : 0;
       rdfr[i] = 0;

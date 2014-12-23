@@ -160,11 +160,11 @@ static int lmv_update(lmv_t *lmv, xdouble *tk, xdouble dmp)
 /* compute correlation functions using the LMV solver */
 static void iter_lmv(sphr_t *sphr, xdouble rho,
     xdouble *cr, xdouble *tr, xdouble *ck, xdouble *tk,
-    const xdouble *fr,
+    const xdouble *bphilr, const xdouble *fr,
     int Mpt, xdouble dmp, int itmax, xdouble tol)
 {
   int it, npt = sphr->npt;
-  xdouble err, errp = errinf;
+  xdouble err, errp;
   lmv_t *lmv;
 
   /* open an lmv object */
@@ -172,17 +172,20 @@ static void iter_lmv(sphr_t *sphr, xdouble rho,
   COPY1DARR(lmv->crbest, cr, npt);
 
   /* initialize t(k) and t(r) */
-  step_picard(sphr, rho, cr, tr, ck, tk, fr, NULL, 0.0);
+  step_picard(sphr, rho, cr, tr, ck, tk, bphilr, fr, NULL, 0.0);
   COPY1DARR(lmv->tk1, tk, npt);
 
+  err = errp = errinf;
   for ( it = 0; it < itmax; it++ ) {
     /* compute the error of the current c(r) and c(k) */
     sphr_k2r(sphr, lmv->tk1, lmv->tr1);
-    err = closure(cr, lmv->tr1, fr, NULL, NULL, npt, ietype, params, 0.0);
+    err = closure(cr, lmv->tr1, bphilr, fr, NULL, NULL,
+        npt, ietype, params, 0.0);
     lmv_savebest(lmv, cr, err);
 
     /* compute c(r) and c(k) */
-    closure(cr, tr, fr, NULL, lmv->der, npt, ietype, params, 1.0);
+    closure(cr, tr, bphilr, fr, NULL, lmv->der,
+        npt, ietype, params, 1.0);
     sphr_r2k(sphr, cr, ck);
     oz(ck, lmv->tk1, lmv->dek, npt, rho);
 
@@ -201,7 +204,7 @@ static void iter_lmv(sphr_t *sphr, xdouble rho,
   /* use the best cr discovered so far */
   COPY1DARR(cr, lmv->crbest, npt);
   /* compute ck, tr, tk */
-  step_picard(sphr, rho, cr, tr, ck, tk, fr, NULL, 0.0);
+  step_picard(sphr, rho, cr, tr, ck, tk, bphilr, fr, NULL, 0.0);
   if ( verbose )
     fprintf(stderr, "iter_lmv finishes in %d iterations, err %g\n", it, (double) err);
 
@@ -214,11 +217,11 @@ static void iter_lmv(sphr_t *sphr, xdouble rho,
 static void iterd_lmv(sphr_t *sphr, xdouble rho,
     xdouble *dcr, xdouble *dtr, xdouble *dck, xdouble *dtk,
     const xdouble *tr, const xdouble *ck, const xdouble *tk,
-    const xdouble *fr,
+    const xdouble *bphilr, const xdouble *fr,
     int Mpt, xdouble dmp, int itmax, xdouble tol)
 {
   int it, npt = sphr->npt;
-  xdouble err, errp = errinf;
+  xdouble err, errp;
   lmv_t *lmv;
 
   /* open an lmv object */
@@ -226,17 +229,21 @@ static void iterd_lmv(sphr_t *sphr, xdouble rho,
   COPY1DARR(lmv->crbest, dcr, npt);
 
   /* initialize t(k) and t(r) */
-  stepd_picard(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, NULL, 0.0);
+  stepd_picard(sphr, rho, dcr, dtr, dck, dtk,
+      tr, ck, tk, bphilr, fr, NULL, 0.0);
   COPY1DARR(lmv->tk1, dtk, npt);
 
+  err = errp = errinf;
   for ( it = 0; it < itmax; it++ ) {
     /* compute the error of the current c(r) and c(k) */
     sphr_k2r(sphr, lmv->tk1, lmv->tr1);
-    err = closured(dcr, lmv->tr1, tr, fr, NULL, NULL, npt, ietype, params, 0.0);
+    err = closured(dcr, lmv->tr1, tr, bphilr, fr, NULL, NULL,
+        npt, ietype, params, 0.0);
     lmv_savebest(lmv, dcr, err);
 
     /* compute dc(r) and dc(k) */
-    closured(dcr, dtr, tr, fr, NULL, lmv->der, npt, ietype, params, 1.0);
+    closured(dcr, dtr, tr, bphilr, fr, NULL, lmv->der,
+        npt, ietype, params, 1.0);
     sphr_r2k(sphr, dcr, dck);
     ozd(dck, lmv->tk1, ck, tk, lmv->dek, npt, rho);
 
@@ -255,7 +262,8 @@ static void iterd_lmv(sphr_t *sphr, xdouble rho,
   /* use the best dcr discovered so far */
   COPY1DARR(dcr, lmv->crbest, npt);
   /* compute dck, dtr, dtk */
-  err = stepd_picard(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, fr, NULL, 0.0);
+  err = stepd_picard(sphr, rho, dcr, dtr, dck, dtk,
+      tr, ck, tk, bphilr, fr, NULL, 0.0);
   if ( verbose || err > tol )
     fprintf(stderr, "iterd_lmv finishes in %d iterations, err %g\n", it, (double) err);
 
@@ -269,11 +277,11 @@ static void iterdd_lmv(sphr_t *sphr, xdouble rho,
     xdouble *ddcr, xdouble *ddtr, xdouble *ddck, xdouble *ddtk,
     const xdouble *dtr, const xdouble *dck, const xdouble *dtk,
     const xdouble *tr, const xdouble *ck, const xdouble *tk,
-    const xdouble *fr,
+    const xdouble *bphilr, const xdouble *fr,
     int Mpt, xdouble dmp, int itmax, xdouble tol)
 {
   int it, npt = sphr->npt;
-  xdouble err, errp = errinf;
+  xdouble err, errp;
   lmv_t *lmv;
 
   /* open an lmv object */
@@ -282,17 +290,20 @@ static void iterdd_lmv(sphr_t *sphr, xdouble rho,
 
   /* initialize t(k) and t(r) */
   stepdd_picard(sphr, rho, ddcr, ddtr, ddck, ddtk,
-      dtr, dck, dtk, tr, ck, tk, fr, NULL, 0.0);
+      dtr, dck, dtk, tr, ck, tk, bphilr, fr, NULL, 0.0);
   COPY1DARR(lmv->tk1, ddtk, npt);
 
+  err = errp = errinf;
   for ( it = 0; it < itmax; it++ ) {
     /* compute the error of the current ddc(r) and ddc(k) */
     sphr_k2r(sphr, lmv->tk1, lmv->tr1);
-    err = closuredd(ddcr, lmv->tr1, dtr, tr, fr, NULL, NULL, npt, ietype, params, 0.0);
+    err = closuredd(ddcr, lmv->tr1, dtr, tr, bphilr, fr, NULL, NULL,
+        npt, ietype, params, 0.0);
     lmv_savebest(lmv, ddcr, err);
 
     /* compute ddc(r) and ddc(k) */
-    closuredd(ddcr, ddtr, dtr, tr, fr, NULL, lmv->der, npt, ietype, params, 1.0);
+    closuredd(ddcr, ddtr, dtr, tr, bphilr, fr, NULL, lmv->der,
+        npt, ietype, params, 1.0);
     sphr_r2k(sphr, ddcr, ddck);
     ozdd(ddck, lmv->tk1, dck, dtk, ck, tk, lmv->dek, npt, rho);
 
@@ -312,7 +323,7 @@ static void iterdd_lmv(sphr_t *sphr, xdouble rho,
   COPY1DARR(ddcr, lmv->crbest, npt);
   /* compute dck, dtr, dtk */
   err = stepdd_picard(sphr, rho, ddcr, ddtr, ddck, ddtk,
-      dtr, dck, dtk, tr, ck, tk, fr, NULL, 0.0);
+      dtr, dck, dtk, tr, ck, tk, bphilr, fr, NULL, 0.0);
   if ( verbose || err > tol )
     fprintf(stderr, "iterd_lmv finishes in %d iterations, err %g\n", it, (double) err);
 

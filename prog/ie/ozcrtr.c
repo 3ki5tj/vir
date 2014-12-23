@@ -52,7 +52,7 @@ static void doargs(int argc, char **argv)
 #endif
   argopt_add(ao, "-G", "%b", &gaussf, "Gaussian model instead of hard spheres");
   argopt_add(ao, "-I", "%d", &invexp, "exponent of the inverse potential r^(-n)");
-  argopt_add(ao, "-v", "%b", &verbose, "be verbose");
+  argopt_add(ao, "-v", "%+", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);
 
@@ -246,7 +246,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
   MAKE2DARR(ck, nmax - 1, npt);
 
   /* compute f(r) */
-  mkfr(npt, beta, NULL, fr, rdfr, sphr->ri, sphr->dm, gaussf, invexp, dolj);
+  mkfr(npt, beta, NULL, NULL, NULL, fr, rdfr, sphr->ri, sphr->dm, gaussf, invexp, dolj);
   COPY1DARR(crl, fr, npt)
 
   for ( i = 0; i < npt; i++ )
