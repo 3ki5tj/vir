@@ -10,17 +10,17 @@
  *  gcc -DFFTW -DDHT -DF128 ievir.c -lfftw3q -lgsl -lgslcblas -lquadmath -lm
  * --------------------------------------------------------------------
  * Use the GSL version only:
- *  gcc -DDHT iegsl.c -lgsl -lgslcblas -lm
+ *  gcc -DDHT ievir.c -lgsl -lgslcblas -lm
  * --------------------------------------------------------------------
  * Use the FFTW version only:
  * For the normal double precision
- *  gcc -DFFTW ieodfftw.c -lfftw3
+ *  gcc -DFFTW ievir.c -lfftw3
  * Or for the long double precision
- *  gcc -DFFTW -DLDBL ieodfftw.c -lfftw3l
+ *  gcc -DFFTW -DLDBL ievir.c -lfftw3l
  * Or for the 128-bit precision
- *  gcc -DFFTW -DF128 ieodfftw.c -lfftw3q -lquadmath -lm
+ *  gcc -DFFTW -DF128 ievir.c -lfftw3q -lquadmath -lm
  * To disable FFTW and use FFTW0
- *  gcc -DFFT0 ieodfftw.c -lm
+ *  gcc -DFFT0 ievir.c -lm
  * */
 #include <stdio.h>
 #include <stdlib.h>
@@ -95,7 +95,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type, 0: integral grid points, 1: half-integer grid points");
   argopt_add(ao, "-T", "%" XDBLSCNF "f", &T, "temperature");
-  argopt_add(ao, "--ie", "%d", &ietype, "type of closure, 0: PY, 1: HNC-like; set the respective parameters automatically sets the type");
+  argopt_addx(ao, "-C", "%list", &ietype, "type of closure, 0: PY, 1: HNC-like; set the respective parameters automatically sets the type", ietype_names, IETYPE_COUNT);
   argopt_add(ao, "-q", "%" XDBLSCNF "f", &hncq,  "q of the hypernetted-chain (Marucho-Pettitt) approximation, y(r) = a0 exp(q t(r)) + (1-a0) + (1-a0 q) t(r)");
   argopt_add(ao, "-a", "%" XDBLSCNF "f", &hncamp, "a0 of the hypernetted-chain (Marucho-Pettitt) approximation, 0: to be set by 1/q");
   argopt_add(ao, "--rya", "%" XDBLSCNF "f", &hncalpha, "alpha, in the Roger-Young switch function [1 - exp(-alpha*r)]^m");
@@ -136,7 +136,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-s", "%b", &snapshot, "save intermediate snapshots");
   argopt_add(ao, "-G", "%b", &gaussf, "Gaussian model instead of hard spheres");
   argopt_add(ao, "--invexp", "%d", &invexp, "exponent of the inverse potential r^(-n)");
-  argopt_add(ao, "--lj", "%b", &dolj, "Lennard-Jones fluid");
+  argopt_addx(ao, "--LJ", "%list", &dolj, "Lennard-Jones fluid", ljtypes, LJ_COUNT);
   argopt_add(ao, "-v", "%+", &verbose, "be verbose");
   argopt_addhelp(ao, "--help");
   argopt_parse(ao, argc, argv);

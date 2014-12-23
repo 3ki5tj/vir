@@ -15,8 +15,8 @@ runit () {
 # this function takes three parameters:
 # dimension, order, number of evaluation points
 comp_ldbl_f128() {
-  runit iegsl_l $1 $2 $3
-  runit iegsl_q $1 $2 $3
+  runit ievirgsl_l $1 $2 $3
+  runit ievirgsl_q $1 $2 $3
 }
 
 # the following is a quick benchmark

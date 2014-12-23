@@ -1,4 +1,4 @@
-/* re-run iegsl.c from snapshots
+/* re-run ievirgsl.c from snapshots
  * This tools help fixing missing lines in hBnXXX.dat */
 #include <stdio.h>
 #include <stdlib.h>

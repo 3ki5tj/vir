@@ -20,7 +20,7 @@ shiftinc_min, shiftinc_max, shiftinc_del = None, None, None
 shiftl0_min, shiftl0_max, shiftl0_del = None, None, None
 
 program = ""
-options = "" # command-line options to be passed on to iegsl or ieodfftw
+options = "" # command-line options to be passed on to ievirgsl or ievirfftw
 
 
 refdir = None # directory for the reference files
@@ -68,8 +68,8 @@ def usage():
    -C:        shift, in terms of n, instead of n - 2, in min:del:max format
    -d:        shift increment, in min:del:max format
    -L:        shift minimal order l0, in min:max format
-   -P:        program to run, e.g., iegsl_l
-   -O:        command-line options to be passed to iegsl or ieodfftw
+   -P:        program to run, e.g., ievirgsl_l
+   -O:        command-line options to be passed to ievirgsl or ievirfftw
    --ref:     reference file
    --dir:     reference directory
   """
@@ -148,7 +148,7 @@ def doargs():
     shiftinc_min, shiftinc_max, shiftinc_del = 0.0, 0.5, 1.0
 
   if not program:
-    program = "./iegsl" if dim % 2 == 0 else "./ieodfftw_q -M8192"
+    program = "./ievirgsl" if dim % 2 == 0 else "./ievirfftw_q -M8192"
   else:
     if not program.startswith("."): program = os.path.join(".", program)
 

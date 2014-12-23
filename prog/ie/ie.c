@@ -128,35 +128,34 @@ static void ozdd(xdouble *ddck, xdouble *ddtk,
 static xdouble getyr(xdouble tr, xdouble bphilr, int ietype, xdouble s,
     xdouble *d_yr, xdouble *dd_yr)
 {
-  xdouble u, z, tr1, xp;
+  xdouble u, z, tr1;
 
   tr1 = tr - bphilr;
-  xp = EXP(bphilr);
   if ( ietype == IETYPE_PY ) { /* PY */
-    if ( d_yr ) *d_yr = xp;
+    if ( d_yr ) *d_yr = 1;
     if ( dd_yr ) *dd_yr = 0;
-    return  xp * (1 + tr1);
+    return  1 + tr1;
   } else if ( ietype == IETYPE_HNC ) { /* HNC */
-    z = EXP(tr);
+    z = EXP(tr1);
     if ( d_yr ) *d_yr = z;
     if ( dd_yr ) *dd_yr = z;
     return z;
   } else if ( ietype == IETYPE_SQR ) { /* quadratic */
-    if ( d_yr ) *d_yr = xp * (1 + s * tr1);
-    if ( dd_yr ) *dd_yr = xp * s;
-    return xp * (1 + tr1 + s * .5 * tr1 * tr1);
+    if ( d_yr ) *d_yr = 1 + s * tr1;
+    if ( dd_yr ) *dd_yr = s;
+    return 1 + tr1 + s * .5 * tr1 * tr1;
   } else if ( ietype == IETYPE_INVROWLINSON ) { /* inverse Rowlinson */
     z = EXP(tr1);
-    if ( d_yr ) *d_yr = xp * (1 + s * (z - 1));
-    if ( dd_yr ) *dd_yr = xp * s * z;
-    return xp * (1 + tr1 + s * (z - 1 - tr1));
+    if ( d_yr ) *d_yr = 1 + s * (z - 1);
+    if ( dd_yr ) *dd_yr = s * z;
+    return 1 + tr1 + s * (z - 1 - tr1);
   } else if ( ietype == IETYPE_HC ) { /* Hutchinson-Conkie */
     u = 1 + s * tr1;
     if (u < XDBL_MIN) u = XDBL_MIN;
     z = POW(u, 1./s);
-    if ( d_yr ) *d_yr = xp * z/u;
-    if ( dd_yr ) *dd_yr = xp * (1 - s) * z / (u * u);
-    return xp * z;
+    if ( d_yr ) *d_yr = z/u;
+    if ( dd_yr ) *dd_yr = (1 - s) * z / (u * u);
+    return z;
   } else {
     fprintf(stderr, "cannot do closure %s\n", ietype_names[ietype]);
     exit(1);

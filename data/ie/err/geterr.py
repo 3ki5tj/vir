@@ -23,7 +23,7 @@ def loadBn(fn):
 def geterr(fn, fnref):
   if fnref.startswith("xBn"):
     fn, fnref = fnref, fn
-  
+
   Bnref = loadBn(fnref)
   Bn = loadBn(fn)
   nmax = min(len(Bn), len(Bnref))
@@ -31,7 +31,7 @@ def geterr(fn, fnref):
   for n in range(1, nmax):
     s += "%4d %24.14e %24.14e %24.14e\n" % (
         n, Bn[n], Bnref[n], fabs(Bn[n] - Bnref[n]))
-  
+
   # output name
   fnout = fn
   if fn.endswith(".dat"): fnout = fn[:-4] + ".err"

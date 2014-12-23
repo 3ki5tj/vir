@@ -2232,9 +2232,13 @@ __inline static void mkfr(int npt, xdouble beta,
       fr[i] = -EXP(-r2);
       rdfr[i] = -2*r2*fr[i];
     } else if ( invexp > 0 ) { /* inverse potential r^(-invexp) */
-      xdouble pot = POW(r, -invexp);
-      fr[i] = EXP(-pot) - 1;
-      rdfr[i] = pot * invexp * (fr[i] + 1);
+      u = POW(r, -invexp);
+      if ( bphi != NULL ) bphi[i] = u;
+      if ( bphisr != NULL ) bphisr[i] = u;
+      if ( bphilr != NULL ) bphilr[i] = 0;
+      x = EXP(-u);
+      fr[i] = x - 1;
+      rdfr[i] = invexp * u * x;
     } else if ( dolj == LJ_FULL ) {
       u = potlj(r, 1, 1, &rdu);
       if ( bphi != NULL ) bphi[i] = beta * u;
@@ -2242,15 +2246,19 @@ __inline static void mkfr(int npt, xdouble beta,
       if ( bphilr != NULL ) bphilr[i] = 0;
       x = EXP(-bphi[i]);
       fr[i] = x - 1;
-      rdfr[i] = beta * x * rdu;
+      rdfr[i] = beta * rdu * x;
     } else if ( dolj == LJ_SPLIT ) {
       u = potlj_split(r, 1, 1, &usr, &ulr, &rdu);
       if ( bphi != NULL ) bphi[i] = beta * u;
       if ( bphisr != NULL ) bphisr[i] = beta * usr;
       if ( bphilr != NULL ) bphilr[i] = beta * ulr;
-      fr[i] = EXP(-bphisr[i]) - 1;
-      rdfr[i] = beta * rdu * EXP(-beta*u);
+      x = EXP(-bphisr[i]);
+      fr[i] = x - 1;
+      rdfr[i] = beta * rdu * x;
     } else { /* hard-sphere */
+      if ( bphi != NULL ) bphi[i] = 0;
+      if ( bphisr != NULL ) bphisr[i] = 0;
+      if ( bphilr != NULL ) bphilr[i] = 0;
       fr[i] = (i < dm) ? -1 : 0;
       rdfr[i] = 0;
     }

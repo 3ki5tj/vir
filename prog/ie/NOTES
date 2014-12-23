@@ -1,0 +1,85 @@
+gaussf running
+===============
+n 13, e 24
+n 14, e 23
+n 15, e 23
+n 17, e 24
+n 18, e 24
+n 19, e 25
+n 20, e 25
+
+
+Shift of the hard sphere model
+==============================
+
+New shift
+----------
+
+Hard sphere
+~~~~~~~~~~~~
+
+D = 2
+* best parameters: ./ievirgsl --corr -D2 -c0.194 -d0.0 -L4, (c' 0.194), error 1.54203833119% (n 6, 1.07464109577%)
+* best parameters: ./ievirgsl --corr -D2 -c-0.06 -d0.04 -L3, (c' -0.14), error 0.7131301684% (n 11, 0.468641492886%)
+
+D = 3
+* best parameters: ./ievirfftw_q -M8192 --corr -D3 -c0.335 -d0.0 -L3, (c' 0.335), error 6.31580626675% (n 11, 3.78196593326%)
+
+D = 6
+* best parameters: ./ievirgsl --corr -D6 -c0.352 -d0.0 -L2, (c' 0.352), error 8.28359264602% (n 12, 4.09865752935%)
+* best parameters: ./ievirgsl --corr -D6 -c0.45 -d-0.04 -L2, (c' 0.53), error 7.83816390485% (n 5, 4.38635292495%)
+fit to n = 16
+* best parameters: ./ievirgsl --corr -D6 -c0.36 -d0.0 -L2, (c' 0.36), error 17.5190533199% (n 15, 8.57740113315%)
+
+Gaussian model
+~~~~~~~~~~~~~~~
+
+D = 5
+* best parameters: ./ievirfftw_q -M8192 --corr -G -D5 -c-0.136 -d0.0 -L3, (c' -0.136), error 12.6855302858% (n 5, 7.83671310393%)
+
+D = 6
+* best parameters: ./ievirgsl --corr -G -D6 -c0.047 -d0.0 -L6, (c' 0.047), error 2.58551856198% (n 12, 1.05634911603%)
+* best parameters: ./ievirgsl --corr -G -D6 -c-0.04 -d0.011 -L5, (c' -0.062), error 0.479199882519% (n 8, 0.269281246909%)
+
+D = 7
+* best parameters: ./ievirfftw_q -M8192 --corr -G -D7 -c0.0085 -d0.0 -L6, (c' 0.0085), error 0.506242267168% (n 12, 0.210889303082%)
+* best parameters: ./ievirfftw_q -M8192 --corr -G -D7 -C-0.004 -d0.002 -L3, (c 2.77555756156e-17), error 0.526348985362% (n 6, 0.332090456191%)
+
+D = 8
+* best parameters: ./ievirgsl --corr -G -D8 -c0.00325 -d0.0 -L6, (c' 0.00325), error 0.128332699584% (n 7, 0.0565939935881%)
+
+D = 9
+* best parameters: ./ievirfftw_q -M8192 --corr -G -D9 -c0.00089 -d0.0 -L5, (c' 0.00089), error 0.0385239318704% (n 12, 0.0209715618515%)
+
+
+
+
+Old shift (before Aug 17, 2014)
+------------------------------
+
+2D hard-sphere:
+./ievirgsl --corr -D2 -c-0.132 -d0.061 -L3, (c' -0.254), error 0.427821686445% (n 6)
+./ievirgsl --corr -D2 -c0.205 -L4, (c' 0.205), error 1.02089359331% (n 10)
+
+3D hard-sphere:
+./ievirfftw_q -M8192 --corr -D3 -c-0.374 -d0.204 -L2, (c' -0.782), error 2.88427972437% (n 12)
+./ievirfftw_q -M8192 --corr -D3 -c0.506 -d0.0 -L3, (c' 0.506), error 9.76567947096% (n 11)
+
+4D hard-sphere
+./ievirgsl --corr -D4 -c-0.675 -d-0.038 -L2, (c' -0.599) error 54.1577541112% (n 5)
+./ievirgsl --corr -D4 -c-0.672 -d-0.037 -L2, error 73.5835955182% (n 9)
+
+5D hard-sphere
+./ievirfftw_q -M8192 --corr -D5 -c-0.876 -d-0.017 -L2, (c' -0.842), error 214.437488766% (n 8)
+./ievirfftw_q -M8192 --corr -D5 -c-0.874 -d-0.018 -L2, (c' -0.838), error 214.466127363% (n 7)
+
+6D hard-sphere
+./ievirgsl --corr -D6 -c0.182 -d0.209 -L2, (c' -0.236), error 6.22214169297% (n 7)
+./ievirgsl --corr -D6 -c0.675 -d0.0 -L2, error 11.0704659824% (n 8)
+
+Gaussian model
+===============
+
+5D gaussian
+./ievirfftw_q -M8192 --corr -G -D5 -c-0.103 -d-0.007 -L3, (c' -0.089), error 12.462324563% (n 5)
+

@@ -4,7 +4,7 @@
 
 '''
 clean up snapshot files for y(r), snapshot_yr*.dat,
-produced by ievir.c (or iegsl.c) with -DDHT
+produced by ievir.c (or ievirgsl.c) with -DDHT
 
 Since the discrete Hankel transform (DHT) for even dimensions
   is slow, snapshots are used for restartable runs.

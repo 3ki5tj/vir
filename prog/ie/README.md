@@ -21,9 +21,9 @@
   Code        | Dependencies  | Description
 ------------- | ------------- | --------------
   ievir.c     | FFTW3/GSL     | compute virial coefficients of integral equations
-  iegsl.c     |   GSL         | alias of `ievir.c` as a symblic link, for even/odd dimensions
-  ieodfftw.c  |  FFTW3        | alias of `ievir.c` as a symbolic link, for odd dimensions
-  snapfixgsl.c (deprecated) | GSL | fix the snapshotXXX_.dat output of iegsl.c
+  ievirgsl.c  |   GSL         | alias of `ievir.c` as a symblic link, for even/odd dimensions
+  ievirfftw.c |  FFTW3        | alias of `ievir.c` as a symbolic link, for odd dimensions
+  snapfixgsl.c (deprecated) | GSL | fix the snapshotXXX_.dat output of ievirgsl.c
   ozcrtr.c    | FFTW3/GSL     | given c(r), compute t(r) from the OZ relation
   ljievir.c   | GSL/FFTW3     | for the LJ potential (special PYA closure)
 
@@ -32,7 +32,7 @@
 
   Code           |  Description
 ---------------- | ----------------------
-  ieodmpfr.c     | generalized odd-dimensional case
+  ievirmpfr.c    | generalized odd-dimensional case
   ieutilmpfr.h   | common routines for the MPFR programs, the counterpart of ieutil.h
   fftmpfr.h      | multiple-precision code for FFT, the counterpart of fft.h
 
@@ -47,11 +47,10 @@
 #### Additional code ####
 
 See bak/README for additional code.
-ie3dxxx.c is kept along with ieodxxx.c for the purpose of double checking.
 
 
 
-### Integral equation (expansion around a density) ###
+### Integral equation (expansion around a nonzero density) ###
 
   Code          | Dependencies  | Description
 --------------- | ------------- | -------------
@@ -73,11 +72,11 @@ ie3dxxx.c is kept along with ieodxxx.c for the purpose of double checking.
 
   * works for any dimensions
     - For even dimensions, define -DDHT to use the discrete Hankel transform (DHT) during compiling.
-      This version has the alias `iegsl.c`, which is a symbolic link to `ievir.c`
+      This version has the alias `ievirgsl.c`, which is a symbolic link to `ievir.c`
       because it uses the GNU Scientific Library (GSL for the Bessel functions.)
 
     - For odd dimensions, define -DFFTW to use FFTW3 during compilation.
-      This version has the alias `ieodfftw.c`, which is symbolic link to `ievir.c`
+      This version has the alias `ievirfftw.c`, which is symbolic link to `ievir.c`
 
   * supports the following closures
     - Percus-Yevick (PY)
@@ -108,11 +107,11 @@ ie3dxxx.c is kept along with ieodxxx.c for the purpose of double checking.
 
 Enter
 ```
-make iegsl ieodfftw
+make ievirgsl ievirfftw
 ```
 Here,
-`iegsl` is mainly for even dimensions,
-`ieodfftw` is for odd dimensions.
+`ievirgsl` is mainly for even dimensions,
+`ievirfftw` is for odd dimensions.
 
 
 #### Manual compilation ####
@@ -133,16 +132,16 @@ gcc -O3 -DFFTW ievir.c -lfftw3 -lm
 
 To `long double`, define `LDBL` or `LONG` in compilation
 ```
-gcc -O3 -DLDBL -DDHT iegsl.c -lgsl -lgslcblas -lm
+gcc -O3 -DLDBL -DDHT ievirgsl.c -lgsl -lgslcblas -lm
 ```
 
 For slowdht with `__float128`, define `F128` or `QUAD` in compilation
 ```
-gcc -O3 -DF128 -DDHT -Wall -Wextra iegsl.c -lgsl -lgslcblas -lquadmath -lm
+gcc -O3 -DF128 -DDHT -Wall -Wextra ievir.c -lgsl -lgslcblas -lquadmath -lm
 ```
 Or for odd dimensions,
 ```
-gcc -O3 -DF128 ieodfftw.c -lfftw3q -lquadmath -lm
+gcc -O3 -DF128 -DFFTW ievir.c -lfftw3q -lquadmath -lm
 ```
 Test it by
 ```
@@ -262,20 +261,20 @@ For D = 30, n = 128, M = 3072 (sampling points)
 
 
 
-## ieodmpfr ##
+## ievirmpfr ##
 
 
 ### Overview ###
 
-Arbitrary precision version of ieodfftw.c (ievir.c), currently with limited features.
+Arbitrary precision version of ievirfftw.c (ievir.c), currently with limited features.
 
 
 ### Compilation ###
 
-When `ieodfftw` (`ievir.c` compiled with `-DFFTW` fails,
+When `ievirfftw` (`ievir.c` compiled with `-DFFTW` fails,
 switch to the mpfr version to enable higher precisions.
 ```
-icc ieodmpfr.c -lmpfr -lgmp && ./a.out -D 15 -n 128 -R 131.072 -M 262144 --corr
+icc ievirmpfr.c -lmpfr -lgmp && ./a.out -D 15 -n 128 -R 131.072 -M 262144 --corr
 ```
 Note, FFTW is unavailable in this case, and we use `fftmpfr.h` in this case.
 
