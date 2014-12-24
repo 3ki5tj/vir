@@ -49,7 +49,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--itmax", "%d", &itmax, "maximal number of iterations");
   argopt_add(ao, "--tol", "%" XDBLSCNF "f", &tol, "error tolerance");
   argopt_addx(ao, "--LJ", "%list", &ljtype, "LJ type", ljtypes, LJ_COUNT);
-  argopt_add(ao, "--ljlrs", "%" XDBLSCNF "f", &ljlrs, "scaling factor for the long-range part when using --LJ=split");
+  argopt_add(ao, "--LJlrs", "%" XDBLSCNF "f", &ljlrs, "scaling factor for the long-range part when using --LJ=split");
   argopt_addx(ao, "-S", "%list", &solver, "integral equation solver", solvers, SOLVER_COUNT);
   argopt_addx(ao, "-C", "%list", &ietype, "closure", ietype_names, IETYPE_COUNT);
   argopt_add(ao, "-M", "%d", &Mpt, "number of points for the LMV solver");

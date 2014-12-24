@@ -17,7 +17,7 @@ LM = -lm
 # warning 1572 is the float-point comparison
 # use -O1 for compiling speed, use -O2 for speed
 CCOPT = -O1
-CX = icc $(CCOPT) -ipo -Wall -Wremarks -Wcheck -wd11001 -wd11006 -wd1572 -wd981
+CX = icc $(CCOPT) -ipo -Wall -Wremarks -Wcheck -wd11001 -wd11006 -wd1572 -wd981 -wd3280
 #CX = gcc -O3 -march=native -fwhole-program -Wall -Wextra -Wunused
 LMX =
 
@@ -37,7 +37,7 @@ csrc_extra      = $(filter-out \
 		    $(csrc_fftw) $(csrc_mpfr) $(csrc_gmp) $(csrc_gsl), \
 		    $(csrc))
 
-deps = $(wildcard *.h)
+deps = $(wildcard *.h) Makefile
 bins_fftw       = $(patsubst %.c, %,   $(csrc_fftw))
 bins_fftw_l     = $(patsubst %,   %_l, $(bins_fftw))
 bins_fftw_q     = $(patsubst %,   %_q, $(bins_fftw))
@@ -130,7 +130,7 @@ pack:
 
 $(prj)code.zip: fft.h fftmpfr.h xdouble.h slowdht.h fftx.h zcom.h \
   		ievir.c ieutil.h \
-		ieodmpfr.c ieutilmpfr.h \
+		ievirmpfr.c ieutilmpfr.h \
 		ybgvir.c kirkvir.c \
 		ozcrtr.c \
 		ie.c ielmv.h iemdiis.h \

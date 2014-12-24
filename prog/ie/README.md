@@ -1,4 +1,19 @@
-# Compute virial coefficients from integral equations #
+# Computation of virial coefficients from integral equations #
+
+
+## Overview ##
+
+The project focuses on the computation of virial coefficients
+from integral equations.
+The main source code is `ievir.c`.
+The idea is to expand everything as a series of the density, rho.
+
+It also contains a side project that computes properties
+around a finite density, rho.
+
+
+
+
 
 ## List of files ##
 
@@ -101,7 +116,7 @@ See bak/README for additional code.
 
 #### Source code ####
 
-  ievir.c
+`ievir.c`
 
 #### Compilation through the Makefile ####
 
@@ -164,7 +179,7 @@ because `__float128` is supported by GCC only.
   --corr        | do the detailed self-consistent (DSC) closure
   --lamc        | do the &lambda;-DSC
 
-### Precision ###
+#### Precision ####
 
 Tested for dimensions 2 - 30.
 
@@ -172,7 +187,7 @@ Generally, we need more precise data type for higher dimensional cases.
 
 The following examples may help the user to choose the proper parameters
 
-#### Example 1 ####
+##### Example 1 #####
 
 For D = 30, n = 128, M = 3072 (sampling points)
 
@@ -261,15 +276,16 @@ For D = 30, n = 128, M = 3072 (sampling points)
 
 
 
-## ievirmpfr ##
+### ievirmpfr ###
 
 
-### Overview ###
+#### Overview ####
 
+The source code is contained in ievirmpfr.c and ieutilmpfr.h.
 Arbitrary precision version of ievirfftw.c (ievir.c), currently with limited features.
 
 
-### Compilation ###
+#### Compilation ####
 
 When `ievirfftw` (`ievir.c` compiled with `-DFFTW` fails,
 switch to the mpfr version to enable higher precisions.
