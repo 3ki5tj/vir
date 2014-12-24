@@ -225,7 +225,7 @@ static void doargs(int argc, char **argv)
 static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
 {
   xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, By = 0, B2, fcorr = 0;
-  xdouble *fr, *rdfr = NULL, *swr = NULL;
+  xdouble *bphi, *fr, *rdfr = NULL, *swr = NULL;
   xdouble *crl, *trl, *yrl, *tkl;
   xdouble **ck, **tk = NULL, **cr = NULL, **tr = NULL, **yr = NULL;
   xdouble *yrcoef = NULL;
@@ -239,12 +239,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
   (void) Rmax;
   sphr = sphr_open(dim, npt, rmax, Rmax, ffttype);
   B2 = gaussf ? sphr->B2g : sphr->B2hs;
-  /* TODO: compute B2 for inverse potential */
-  if ( invexp > 0 ) B2 = 0;
-  printf("D %d, dr %f, dm %d, rmax %f, ffttype %d, ietype %d (%s), B2 %.10e\n",
-      dim, (double) sphr->rmax/npt, sphr->dm, (double) sphr->rmax,
-      ffttype, ietype, ietype_names[ietype], (double) B2);
 
+  MAKE1DARR(bphi, npt);
   MAKE1DARR(fr, npt);
   if ( smoothpot ) MAKE1DARR(rdfr, npt);
   MAKE1DARR(swr, npt);
@@ -257,8 +253,14 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
     MAKE2DARR(tk, nmax - 1, npt);
   }
 
-  mkfr(npt, beta, NULL, NULL, NULL, fr, rdfr, sphr->ri, sphr->dm, gaussf, invexp, dolj);
+  mkfr(npt, beta, bphi, NULL, NULL, fr, rdfr, sphr->ri, sphr->dm, gaussf, invexp, dolj);
   COPY1DARR(crl, fr, npt);
+  /* compute B2 for inverse potential */
+  if ( invexp > 0 || dolj )
+    B2 = getB2(bphi, sphr->rDm1, sphr->npt);
+  printf("D %d, dr %f, dm %d, rmax %f, ffttype %d, ietype %d (%s), B2 %.10e\n",
+      dim, (double) sphr->rmax/npt, sphr->dm, (double) sphr->rmax,
+      ffttype, ietype, ietype_names[ietype], (double) B2);
 
   if ( singer ) {
     MAKE2DARR(cr, nmax - 1, npt);
@@ -527,6 +529,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
   savevirtail(fnvir, clock() - t1);
 
   sphr_close(sphr);
+  FREE1DARR(bphi, npt);
   FREE1DARR(fr,   npt);
   FREE1DARR(rdfr, npt);
   FREE1DARR(swr,  npt);

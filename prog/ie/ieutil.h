@@ -2177,6 +2177,8 @@ static xdouble potlj(xdouble r, xdouble sig, xdouble eps, xdouble *nrdu)
 
 
 
+xdouble ljlrs = 1;
+
 /* return the potential phi(r), and -r*phi'(r)*/
 static xdouble potlj_split(xdouble r, xdouble sig, xdouble eps,
     xdouble *usr, xdouble *ulr, xdouble *nrdu)
@@ -2186,22 +2188,23 @@ static xdouble potlj_split(xdouble r, xdouble sig, xdouble eps,
   invr6  = sig / r;
   invr6 *= invr6;
   invr6  = invr6 * invr6 * invr6;
-  if ( invr6 * 2 < 1 ) { /* r > rmin */
-    phisr = 0;
-    philr = 4 * invr6 * (invr6 - 1);
-  } else { /* r < rmin */
-    phisr = 4 * invr6 * (invr6 - 1) + 1;
-    philr = -1;
-  }
   phi = 4 * invr6 * (invr6 - 1);
-  if (phi > 1000) phi = 1000;
-  if (phisr > 1000) phisr = 1000;
+  if ( invr6 * 2 < 1 ) { /* r > rmin */
+    phisr = phi * (1 - ljlrs);
+    philr = phi * ljlrs;
+  } else { /* r < rmin */
+    phisr = phi + ljlrs;
+    philr = -ljlrs;
+  }
   nrdphi = invr6 * (48 * invr6 - 24);
-  if (nrdphi > 12000) nrdphi = 12000;
   phi *= eps;
   phisr *= eps;
   philr *= eps;
   nrdphi *= eps;
+#define PHIMAX 100000
+  if ( phi    > PHIMAX )    phi     = PHIMAX;
+  if ( phisr  > PHIMAX )    phisr   = PHIMAX;
+  if ( nrdphi > PHIMAX*12 ) nrdphi  = PHIMAX*12;
   if ( usr  != NULL ) *usr  = phisr;
   if ( ulr  != NULL ) *ulr  = philr;
   if ( nrdu != NULL ) *nrdu = nrdphi;
@@ -2244,7 +2247,7 @@ __inline static void mkfr(int npt, xdouble beta,
       if ( bphi != NULL ) bphi[i] = beta * u;
       if ( bphisr != NULL ) bphisr[i] = beta * u;
       if ( bphilr != NULL ) bphilr[i] = 0;
-      x = EXP(-bphi[i]);
+      x = EXP( -beta * u );
       fr[i] = x - 1;
       rdfr[i] = beta * rdu * x;
     } else if ( dolj == LJ_SPLIT ) {
@@ -2252,7 +2255,7 @@ __inline static void mkfr(int npt, xdouble beta,
       if ( bphi != NULL ) bphi[i] = beta * u;
       if ( bphisr != NULL ) bphisr[i] = beta * usr;
       if ( bphilr != NULL ) bphilr[i] = beta * ulr;
-      x = EXP(-bphisr[i]);
+      x = EXP( -beta * usr );
       fr[i] = x - 1;
       rdfr[i] = beta * rdu * x;
     } else { /* hard-sphere */
@@ -2266,6 +2269,18 @@ __inline static void mkfr(int npt, xdouble beta,
     if ( r > RCUTOFF ) fr[i] = rdfr[i] = 0;
 #endif
   }
+}
+
+
+
+__inline static xdouble getB2(const xdouble *bphi, const xdouble *rDm1, int npt)
+{
+  int i;
+  xdouble B2 = 0;
+
+  for ( i = 0; i < npt; i++ )
+    B2 += (EXP( -bphi[i] ) - 1) * rDm1[i];
+  return -B2/2;
 }
 
 

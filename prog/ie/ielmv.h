@@ -41,7 +41,7 @@ static lmv_t *lmv_open(int npt, int M, xdouble *ki)
   xnew(lmv, 1);
   lmv->npt = npt;
   if ( M >= npt ) M = npt;
-  if ( verbose ) fprintf(stderr, "select M = %d\n", M);
+  if ( verbose ) fprintf(stderr, "LMV: select M = %d\n", M);
   lmv->M = M;
   lmv->ki = ki;
   MAKE1DARR(lmv->tr1,     npt);
@@ -158,7 +158,7 @@ static int lmv_update(lmv_t *lmv, xdouble *tk, xdouble dmp)
 
 
 /* compute correlation functions using the LMV solver */
-static void iter_lmv(sphr_t *sphr, xdouble rho,
+static xdouble iter_lmv(sphr_t *sphr, xdouble rho,
     xdouble *cr, xdouble *tr, xdouble *ck, xdouble *tk,
     const xdouble *bphilr, const xdouble *fr,
     int Mpt, xdouble dmp, int itmax, xdouble tol)
@@ -172,10 +172,9 @@ static void iter_lmv(sphr_t *sphr, xdouble rho,
   COPY1DARR(lmv->crbest, cr, npt);
 
   /* initialize t(k) and t(r) */
-  step_picard(sphr, rho, cr, tr, ck, tk, bphilr, fr, NULL, 0.0);
+  lmv->errmin = errp = step_picard(sphr, rho, cr, tr, ck, tk, bphilr, fr, NULL, 0.0);
   COPY1DARR(lmv->tk1, tk, npt);
 
-  err = errp = errinf;
   for ( it = 0; it < itmax; it++ ) {
     /* compute the error of the current c(r) and c(k) */
     sphr_k2r(sphr, lmv->tk1, lmv->tr1);
@@ -194,8 +193,8 @@ static void iter_lmv(sphr_t *sphr, xdouble rho,
     sphr_k2r(sphr, tk, tr);
 
     if ( verbose >= 2 )
-      fprintf(stderr, "it %d: M %d, err %g -> %g, tkerr %g/%g, damp %g\n",
-          it, lmv->M, (double) errp, (double) err,
+      fprintf(stderr, "iter_lmv: it %d: M %d, err %g -> %g (min %g), tkerr %g/%g, damp %g\n",
+          it, lmv->M, (double) errp, (double) err, (double) lmv->errmin,
           (double) lmv->err1, (double) lmv->err2, (double) dmp);
     if ( err < tol || err > errmax ) break;
     errp = err;
@@ -204,17 +203,18 @@ static void iter_lmv(sphr_t *sphr, xdouble rho,
   /* use the best cr discovered so far */
   COPY1DARR(cr, lmv->crbest, npt);
   /* compute ck, tr, tk */
-  step_picard(sphr, rho, cr, tr, ck, tk, bphilr, fr, NULL, 0.0);
+  err = step_picard(sphr, rho, cr, tr, ck, tk, bphilr, fr, NULL, 0.0);
   if ( verbose )
     fprintf(stderr, "iter_lmv finishes in %d iterations, err %g\n", it, (double) err);
 
   lmv_close(lmv);
+  return err;
 }
 
 
 
 /* compute d/d(rho) functions using the LMV solver */
-static void iterd_lmv(sphr_t *sphr, xdouble rho,
+static xdouble iterd_lmv(sphr_t *sphr, xdouble rho,
     xdouble *dcr, xdouble *dtr, xdouble *dck, xdouble *dtk,
     const xdouble *tr, const xdouble *ck, const xdouble *tk,
     const xdouble *bphilr, const xdouble *fr,
@@ -229,11 +229,10 @@ static void iterd_lmv(sphr_t *sphr, xdouble rho,
   COPY1DARR(lmv->crbest, dcr, npt);
 
   /* initialize t(k) and t(r) */
-  stepd_picard(sphr, rho, dcr, dtr, dck, dtk,
+  lmv->errmin = errp = stepd_picard(sphr, rho, dcr, dtr, dck, dtk,
       tr, ck, tk, bphilr, fr, NULL, 0.0);
   COPY1DARR(lmv->tk1, dtk, npt);
 
-  err = errp = errinf;
   for ( it = 0; it < itmax; it++ ) {
     /* compute the error of the current c(r) and c(k) */
     sphr_k2r(sphr, lmv->tk1, lmv->tr1);
@@ -252,8 +251,8 @@ static void iterd_lmv(sphr_t *sphr, xdouble rho,
     sphr_k2r(sphr, dtk, dtr);
 
     if ( verbose >= 2 )
-      fprintf(stderr, "it %d: M %d, err %g -> %g, tkerr %g/%g, damp %g\n",
-          it, lmv->M, (double) errp, (double) err,
+      fprintf(stderr, "iterd_lmv: it %d: M %d, err %g -> %g (min %g), tkerr %g/%g, damp %g\n",
+          it, lmv->M, (double) errp, (double) err, (double) lmv->errmin,
           (double) lmv->err1, (double) lmv->err2, (double) dmp);
     if ( err < tol || err > errmax ) break;
     errp = err;
@@ -268,12 +267,13 @@ static void iterd_lmv(sphr_t *sphr, xdouble rho,
     fprintf(stderr, "iterd_lmv finishes in %d iterations, err %g\n", it, (double) err);
 
   lmv_close(lmv);
+  return err;
 }
 
 
 
 /* compute d^2/d(rho)^2 functions using the LMV solver */
-static void iterdd_lmv(sphr_t *sphr, xdouble rho,
+static xdouble iterdd_lmv(sphr_t *sphr, xdouble rho,
     xdouble *ddcr, xdouble *ddtr, xdouble *ddck, xdouble *ddtk,
     const xdouble *dtr, const xdouble *dck, const xdouble *dtk,
     const xdouble *tr, const xdouble *ck, const xdouble *tk,
@@ -289,11 +289,10 @@ static void iterdd_lmv(sphr_t *sphr, xdouble rho,
   COPY1DARR(lmv->crbest, ddcr, npt);
 
   /* initialize t(k) and t(r) */
-  stepdd_picard(sphr, rho, ddcr, ddtr, ddck, ddtk,
+  lmv->errmin = errp = stepdd_picard(sphr, rho, ddcr, ddtr, ddck, ddtk,
       dtr, dck, dtk, tr, ck, tk, bphilr, fr, NULL, 0.0);
   COPY1DARR(lmv->tk1, ddtk, npt);
 
-  err = errp = errinf;
   for ( it = 0; it < itmax; it++ ) {
     /* compute the error of the current ddc(r) and ddc(k) */
     sphr_k2r(sphr, lmv->tk1, lmv->tr1);
@@ -312,8 +311,8 @@ static void iterdd_lmv(sphr_t *sphr, xdouble rho,
     sphr_k2r(sphr, ddtk, ddtr);
 
     if ( verbose >= 2 )
-      fprintf(stderr, "it %d: M %d, err %g -> %g, tkerr %g/%g, damp %g\n",
-          it, lmv->M, (double) errp, (double) err,
+      fprintf(stderr, "iterd_lmv: it %d: M %d, err %g -> %g (min %g), tkerr %g/%g, damp %g\n",
+          it, lmv->M, (double) errp, (double) err, (double) lmv->errmin,
           (double) lmv->err1, (double) lmv->err2, (double) dmp);
     if ( err < tol || err > errmax ) break;
     errp = err;
@@ -328,6 +327,7 @@ static void iterdd_lmv(sphr_t *sphr, xdouble rho,
     fprintf(stderr, "iterd_lmv finishes in %d iterations, err %g\n", it, (double) err);
 
   lmv_close(lmv);
+  return err;
 }
 
 

@@ -1,4 +1,5 @@
-/* integral equation */
+/* integral equation
+ * properties around a nonzero density */
 #define ZCOM_PICK
 #define ZCOM_ARGOPT
 #include "zcom.h"
@@ -24,7 +25,7 @@ int solver = SOLVER_MDIIS;
 int itmax = 10000;
 xdouble tol = (xdouble) 1e-8L;
 xdouble damp = 1;
-const xdouble errmax = 1000;
+const xdouble errmax = 10000;
 int Mpt = 20;
 int nbases = 5;
 char *fncrout = NULL;
@@ -48,12 +49,13 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "--itmax", "%d", &itmax, "maximal number of iterations");
   argopt_add(ao, "--tol", "%" XDBLSCNF "f", &tol, "error tolerance");
   argopt_addx(ao, "--LJ", "%list", &ljtype, "LJ type", ljtypes, LJ_COUNT);
+  argopt_add(ao, "--ljlrs", "%" XDBLSCNF "f", &ljlrs, "scaling factor for the long-range part when using --LJ=split");
   argopt_addx(ao, "-S", "%list", &solver, "integral equation solver", solvers, SOLVER_COUNT);
   argopt_addx(ao, "-C", "%list", &ietype, "closure", ietype_names, IETYPE_COUNT);
   argopt_add(ao, "-M", "%d", &Mpt, "number of points for the LMV solver");
   argopt_add(ao, "-B", "%d", &nbases, "number of bases for the MDIIS solver");
   argopt_add(ao, "--cr", NULL, &fncrout, "output file for c(r)");
-  argopt_add(ao, "--inp", NULL, &fncrinp, "input file for c(r)");
+  argopt_add(ao, "--in", NULL, &fncrinp, "input file for c(r)");
   argopt_add(ao, "-v", "%+", &verbose, "be verbose");
   argopt_add(ao, "--verbose", "%d", &verbose, "set verbose level");
   argopt_addhelp(ao, "-h");
@@ -469,12 +471,13 @@ const xdouble errinf = 1e300;
 
 /* load a previous solution for refinement */
 static int loadcr(int npt, xdouble *ri, xdouble *cr, xdouble *tr,
-    xdouble *dcr, xdouble *dtr, const char *fn)
+    xdouble *dcr, xdouble *dtr, xdouble *ddcr, xdouble *ddtr,
+    const char *fn)
 {
   int i;
   FILE *fp;
   char ln[40960];
-  xdouble r, c, t, dc, dt;
+  xdouble r, c, t, dc, dt, ddc, ddt;
 
   xfopen(fp, fn, "r", return -1);
   for ( i = 0; i < npt; i++ ) {
@@ -487,9 +490,11 @@ static int loadcr(int npt, xdouble *ri, xdouble *cr, xdouble *tr,
       strip(ln);
     } while ( ln[0] == '\0' || ln[0] == '#' );
 
-    if ( 5 != sscanf(ln,
-          "%" XDBLSCNF "f %" XDBLSCNF "f %" XDBLSCNF "f %" XDBLSCNF "f %" XDBLSCNF "f",
-          &r, &c, &t, &dc, &dt) ) {
+    if ( 7 != sscanf(ln,
+          "%" XDBLSCNF "f %" XDBLSCNF "f %" XDBLSCNF "f "
+          "%" XDBLSCNF "f %" XDBLSCNF "f"
+          "%" XDBLSCNF "f %" XDBLSCNF "f",
+          &r, &c, &t, &dc, &dt, &ddc, &ddt) ) {
       fprintf(stderr, "%s no data on line %d\n%s\n", fn, i, ln);
       break;
     }
@@ -502,6 +507,8 @@ static int loadcr(int npt, xdouble *ri, xdouble *cr, xdouble *tr,
     tr[i] = t;
     dcr[i] = dc;
     dtr[i] = dt;
+    ddcr[i] = ddc;
+    ddtr[i] = ddt;
   }
   fprintf(stderr, "%s loaded successfully\n", fn);
 EXIT:
@@ -522,7 +529,7 @@ static void savecr(int npt, xdouble *ri,
 
   xfopen(fp, fn, "w", return);
   for ( i = 0; i < npt; i++ ) {
-    fprintf(fp, "%8.6f %14.8f %14.8f %14.8f %14.8f %14.8f %14.8f %14.8f %g %g\n",
+    fprintf(fp, "%8.6f %22.14e %22.14e %22.14e %22.14e %22.14e %22.14e %14.8f %g %g\n",
         (double) ri[i],
         (double) cr[i], (double) tr[i],
         (double) dcr[i], (double) dtr[i],
@@ -572,7 +579,7 @@ static xdouble getpvars(sphr_t *sphr, xdouble rho,
      * where
      *  d^2[y(r)]/d(rho)^2 = ddydtt { d[t(r)]/d(rho) }^2 + dydt d^2[t(r)]/d(rho)^2 */
     *dcomprv += (1./dim) * rdfr[i] * yr * rDm1
-      + (rho/dim) * rdfr[i] * dydt * dtr[i] * rDm1
+      + (2*rho/dim) * rdfr[i] * dydt * dtr[i] * rDm1
       + rho*rho/(2*dim) * rdfr[i] * (ddydtt * dtr[i] * dtr[i] + dydt * ddtr[i]) * rDm1;
   }
   return bpresv;
@@ -704,6 +711,7 @@ static void integ(int npt, xdouble rmax)
   sphr_t *sphr;
   xdouble comprc, dcomprc;
   xdouble presv, comprv, dcomprv;
+  xdouble B2;
 
   sphr = sphr_open(dim, npt, rmax, 0, ffttype);
 
@@ -730,9 +738,10 @@ static void integ(int npt, xdouble rmax)
       fr, rdfr, sphr->ri, sphr->dm, 0, 0, ljtype);
   sphr_r2k(sphr, fr, fk);
   COPY1DARR(cr, fr, npt);
+  B2 = getB2(bphi, sphr->rDm1, sphr->npt);
 
   if ( fncrinp != NULL ) {
-    if ( loadcr(npt, sphr->ri, cr, tr, dcr, dtr, fncrinp) != 0 )
+    if ( loadcr(npt, sphr->ri, cr, tr, dcr, dtr, ddcr, ddtr, fncrinp) != 0 )
       goto EXIT;
     savecr(npt, sphr->ri, cr, tr, dcr, dtr, ddcr, ddtr, fr, bphi, bphilr, "initcr.dat");
   }
@@ -765,10 +774,10 @@ static void integ(int npt, xdouble rmax)
 
   presv = getpvars(sphr, rho, cr, tr, dcr, dtr, ddtr, bphilr, rdfr,
       &comprc, &dcomprc, &comprv, &dcomprv);
-  printf("rho %5.3f, T %6.3f: bPv %9.5f, dbPc/v %9.5f/%9.5f, ddbPc/v %9.5f/%9.5f\n",
+  printf("rho %6.4f, T %7.4f: bPv %9.5f, dbPc/v %9.5f/%9.5f, ddbPc/v %9.5f/%9.5f, B2 %g\n",
       (double) rho, (double) (1/beta),
       (double) presv, (double) comprc, (double) comprv,
-      (double) dcomprc, (double) dcomprv);
+      (double) dcomprc, (double) dcomprv, (double) B2);
 EXIT:
   sphr_close(sphr);
   FREE1DARR(bphi,   npt);

@@ -170,16 +170,17 @@ static int mdiis_update(mdiis_t *m, xdouble *cr, xdouble *res, xdouble err)
 #ifndef MDIIS_THRESHOLD
 #define MDIIS_THRESHOLD 10.0
 #endif
-      int reset = ( SQRT(dot) < MDIIS_THRESHOLD );
-      if ( verbose ) {
-        fprintf(stderr, "MDIIS: bad basis, %g is greater than %g, %s, error:",
-          (double) dot, (double) max, reset ? "reset" : "accept");
-        for ( i = 0; i < nb; i++ )
-          fprintf(stderr, " %g", (double) m->mat[i*mnb1+i]);
-        fprintf(stderr, "\n");
-      }
-      if ( reset ) {
+      if ( SQRT(dot) < MDIIS_THRESHOLD ) {
+        static int once;
         mdiis_build(m, cr, res);
+        if ( verbose >= 2 || (verbose && !once) ) {
+          fprintf(stderr, "MDIIS: bad basis, %g is greater than %g, reset, error:",
+            (double) dot, (double) max);
+          for ( i = 0; i < nb; i++ )
+            fprintf(stderr, " %g", (double) m->mat[i*mnb1+i]);
+          fprintf(stderr, "\n");
+          once = 1;
+        }
         return 1;
       }
     }
@@ -216,10 +217,10 @@ static xdouble iter_mdiis(sphr_t *sphr, xdouble rho,
 
   /* construct the initial basis */
   COPY1DARR(mdiis->crbest, cr, npt);
-  step_picard(sphr, rho, cr, tr, ck, tk, bphilr, fr, res, 0);
+  mdiis->errmin = errp = step_picard(sphr, rho, cr, tr,
+      ck, tk, bphilr, fr, res, 0);
   mdiis_build(mdiis, cr, res);
 
-  err = errp = errinf;
   for ( it = 0; it < itmax; it++ ) {
     /* compute a set of coefficients of combining basic functions */
     mdiis_solve(mdiis);
@@ -231,9 +232,9 @@ static xdouble iter_mdiis(sphr_t *sphr, xdouble rho,
     ib = mdiis_update(mdiis, cr, res, err);
 
     if ( verbose >= 2 )
-      fprintf(stderr, "it %d, err %g -> %g, ib %d -> %d\n",
-          it, (double) errp, (double) err, ibp, ib);
-    if ( err < tol ) break;
+      fprintf(stderr, "iter_mdiis: it %d, err %g -> %g (min %g), ib %d -> %d\n",
+          it, (double) errp, (double) err, (double) mdiis->errmin, ibp, ib);
+    if ( err < tol || err > errmax ) break;
     ibp = ib;
     errp = err;
   }
@@ -268,10 +269,10 @@ static xdouble iterd_mdiis(sphr_t *sphr, xdouble rho,
 
   /* construct the initial basis */
   COPY1DARR(mdiis->crbest, dcr, npt);
-  stepd_picard(sphr, rho, dcr, dtr, dck, dtk, tr, ck, tk, bphilr, fr, res, 0);
+  mdiis->errmin = errp = stepd_picard(sphr, rho, dcr, dtr, dck, dtk,
+      tr, ck, tk, bphilr, fr, res, 0);
   mdiis_build(mdiis, dcr, res);
 
-  err = errp = errinf;
   for ( it = 0; it < itmax; it++ ) {
     /* compute a set of coefficients of combining basic functions */
     mdiis_solve(mdiis);
@@ -283,9 +284,9 @@ static xdouble iterd_mdiis(sphr_t *sphr, xdouble rho,
     ib = mdiis_update(mdiis, dcr, res, err);
 
     if ( verbose >= 2 )
-      fprintf(stderr, "it %d, err %g -> %g, ib %d -> %d\n",
-          it, (double) errp, (double) err, ibp, ib);
-    if ( err < tol ) break;
+      fprintf(stderr, "iterd_mdiis: it %d, err %g -> %g (min %g), ib %d -> %d\n",
+          it, (double) errp, (double) err, (double) mdiis->errmin, ibp, ib);
+    if ( err < tol || err > errmax ) break;
     ibp = ib;
     errp = err;
   }
@@ -321,11 +322,10 @@ static xdouble iterdd_mdiis(sphr_t *sphr, xdouble rho,
 
   /* construct the initial basis */
   COPY1DARR(mdiis->crbest, ddcr, npt);
-  stepdd_picard(sphr, rho, ddcr, ddtr, ddck, ddtk,
+  mdiis->errmin = errp = stepdd_picard(sphr, rho, ddcr, ddtr, ddck, ddtk,
       dtr, dck, dtk, tr, ck, tk, bphilr, fr, res, 0);
   mdiis_build(mdiis, ddcr, res);
 
-  err = errp = errinf;
   for ( it = 0; it < itmax; it++ ) {
     /* compute a set of coefficients of combining basic functions */
     mdiis_solve(mdiis);
@@ -338,9 +338,9 @@ static xdouble iterdd_mdiis(sphr_t *sphr, xdouble rho,
     ib = mdiis_update(mdiis, ddcr, res, err);
 
     if ( verbose >= 2 )
-      fprintf(stderr, "it %d, err %g -> %g, ib %d -> %d\n",
-          it, (double) errp, (double) err, ibp, ib);
-    if ( err < tol ) break;
+      fprintf(stderr, "iterdd_mdiis: it %d, err %g -> %g (min %g), ib %d -> %d\n",
+          it, (double) errp, (double) err, (double) mdiis->errmin, ibp, ib);
+    if ( err < tol || err > errmax ) break;
     ibp = ib;
     errp = err;
   }
