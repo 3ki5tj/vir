@@ -1,4 +1,13 @@
 *~
+.*~
 *.zip
 *.jar
-
+*.pyc
+*.out
+*.bbl
+*.log
+*.aux
+*.toc
+*Notes.bib
+*.png
+*.pos

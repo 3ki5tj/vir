@@ -136,7 +136,7 @@ static real domds(real *dismat, real *nx, int n, int ndim)
     if (k > 0) {
       for ( i = 0; i < n; i++ )
         for ( j = 0; j < ndim; j++ )
-          y[i*ndim + j] += (rnd0() - .5) * amp + f[i*ndim + j] * dt;
+          y[i*ndim + j] += (rand01() - .5) * amp + f[i*ndim + j] * dt;
     }
     for ( i = 0; i < n * ndim; i++ )
       ym[i] = y[i];

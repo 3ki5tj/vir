@@ -395,7 +395,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
   gc->nedg[n][1] += ned;
 
   if (nstcs <= 0) return;
-  if (n <= nlookup || rnd0() * nstcs / nsted < 1) {
+  if (n <= nlookup || rand01() * nstcs / nsted < 1) {
     /* check if the graph has a clique separator
      * but in special cases, fb and nr are computed as well */
     if (n <= 3) { /* assuming biconnectivity */
@@ -435,7 +435,7 @@ static void gc_accumdata(gc_t *gc, const dg_t *g, double t,
     gc->nocs[n][1] += nocs;
 
     if (nstfb <= 0) return;
-    if (n <= nlookup || rnd0() * nstfb/nstcs < 1) {
+    if (n <= nlookup || rand01() * nstfb/nstcs < 1) {
       /* compute fb, if it is cheap */
       if ( errfb ) { /* if dg_rhsc_spec0() fails, no clique separator */
         if (ned > n + nedxmax && n > nedxmax + 2) {
@@ -947,11 +947,11 @@ static int nmove_pureup2restrained(int *i0, dg_t *g,
   int i, n = g->n, deg = 0;
 
   /* the Zr step is cheaper, so we do it first */
-  if (Zr < 1 && rnd0() >= Zr) return 0;
+  if (Zr < 1 && rand01() >= Zr) return 0;
 
-  *i0 = (n == 1) ? 0 : (int) (rnd0() * n); /* randomly choose a vertex as the root */
-  /* xn = x0 + rc * rndball */
-  rvn_inc( rvn_rndball(x[n], rc), x[*i0] );
+  *i0 = (n == 1) ? 0 : (int) (rand01() * n); /* randomly choose a vertex as the root */
+  /* xn = x0 + rc * randball */
+  rvn_inc( rvn_randball(x[n], rc), x[*i0] );
   /* biconnectivity means to be linked to two vertices */
   for (i = 0; i < n; i++)
     if ( (r2ij[n][i] = r2ij[i][n] = rvn_dist2(x[i], x[n])) < 1 )
@@ -984,8 +984,8 @@ static int nmove_restraineddown2pure(int i0, int j0,
   int i, n = g->n, j, k;
   dgvs_t vs;
 
-  if (Zr < 1 && rnd0() >= Zr) return 0;
-  i = (rnd0() > 0.5) ? i0 : j0;
+  if (Zr < 1 && rand01() >= Zr) return 0;
+  i = (rand01() > 0.5) ? i0 : j0;
   if ( n > 2 ) {
     DGVS_MKINVSET(vs, n, i)
     if ( !dg_biconnectedvs(g, vs) )
@@ -1016,7 +1016,7 @@ static int nmove_scale(int i0, int j0, dg_t *g, dg_t *ng,
   int k, n = g->n;
 
   /* randomly choose i0 or j0 as the root */
-  if (rnd0() < 0.5) { k = i0, i0 = j0, j0 = k; }
+  if (rand01() < 0.5) { k = i0, i0 = j0, j0 = k; }
   /* xj0 = x[i0] + (x[j0] - x[i0]) * s */
   rvn_diff(xj0, x[j0], x[i0]);
   rvn_inc(rvn_smul(xj0, sr), x[i0]);
@@ -1035,7 +1035,7 @@ static int nmove_scale(int i0, int j0, dg_t *g, dg_t *ng,
   /* if moving up to a pure state, we correct the pair generation
    * probability caused by the heat-bath method
    * the `extra' is set only in this case */
-  if ( extra && rnd0() >= 1.*aved/dg_nedges(ng) ) return 0;
+  if ( extra && rand01() >= 1.*aved/dg_nedges(ng) ) return 0;
   dg_copy(g, ng);
   rvn_copy(x[j0], xj0);
   UPDR2(r2ij, r2i, n, j0, k);
@@ -1149,7 +1149,7 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
    * diagrams are harder to equilibrate */
   if (nmin < 8) {
     int nn = (8 > nmax) ? nmax : 8;
-    ninit = nmin + (int) (rnd0() * (nn - nmin));
+    ninit = nmin + (int) (rand01() * (nn - nmin));
   } else
     ninit = nmin;
   ensmin = nmin * mtiers;
@@ -1173,9 +1173,9 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
   for (it = 1, t = 1; ieql || t <= nsteps; t += 1, it++) {
     die_if (g->n < nmin || g->n > nmax, "bad n %d, t %g, iens %d, mtiers %d, ensmax %d\n", g->n, t, iens, mtiers, ensmax);
     iens0 = iens;
-    if (rnd0() < ratn) /* n-move, switching ensemble */
+    if (rand01() < ratn) /* n-move, switching ensemble */
     {
-      if (rnd0() < 0.5) { /* increase the ensemble index */
+      if (rand01() < 0.5) { /* increase the ensemble index */
         if (iens >= ensmax) goto STEP_END;
 
         acc = 0;
@@ -1196,7 +1196,7 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
            * The (I) --> (II) step follows from the regular scaling code.
            * If the above scaling step is accepted, then the (II) --> (III) step
            *  amounts to the following test (to remove the heat-bath bias)
-           *    acc = ( rnd0() < 1. / (gc->Zr[iens + 1] * dg_nedges(ng)) );
+           *    acc = ( rand01() < 1. / (gc->Zr[iens + 1] * dg_nedges(ng)) );
            * where `ng' is the diagram correspond to the scaled coordinates R
            * and `1/Zr[iens + 1]' should be roughly equal to the inverse of the
            * number of edges in `ng', which is roughly n.
@@ -1246,7 +1246,7 @@ static int mcgcr(int nmin, int nmax, int mtiers, double nsteps,
 
           if ( ( g->n <= 3 || dg_connectedvs(g, dgvs_mkinvset2(vs, g->n, pi, pj) ) )
             && r2ij[pj][pi] < dblsqr(gc->rc[iens - 1] * gc->sr[iens - 1])
-            && (nmvtype == 0 || rnd0() < gc->Zr[iens] * ned) ) {
+            && (nmvtype == 0 || rand01() < gc->Zr[iens] * ned) ) {
             acc = nmove_scale(pi, pj, g, ng, x, xi, r2ij, r2i, 1. / gc->sr[iens - 1],
                0, 1.);
           }
@@ -1292,7 +1292,7 @@ STEP_END:
 
     if (ieql >= 0) {
       gc->hist[iens] += 1;
-      if (gc->type[iens] == GCX_PURE && rnd0() * nsted < 1)
+      if (gc->type[iens] == GCX_PURE && rand01() * nsted < 1)
         gc_accumdata(gc, g, t, nstcs, nstfb);
     }
     if ( ieql != 0 ) { /* equilibration */

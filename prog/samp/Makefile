@@ -7,7 +7,7 @@ LM = -lm
 # otherwise it causes trouble for mcgcr2.c in D = 15 and odd dimensions
 # for some icc versions
 CX = icc -O2 -ipo \
-     -Wall -Wremarks -Wcheck -wd11001 -wd11006
+     -Wall -Wremarks -Wcheck -wd11001 -wd11006 -wd3280
 #CX = gcc -O3 -march=native -fwhole-program -Wall -Wextra -Wunused
 LMX =
 
@@ -54,24 +54,38 @@ draw: draw.c
 %: %.c
 	$(CC) -o $@ $< $(LM)
 
-syncipo:
-	rsync -avL *.[ch] cz1@129.109.88.204:lwork/vir
-	rsync -avL *.py cz1@129.109.88.204:lwork/vir
-	rsync -avL *.ma cz1@129.109.88.204:lwork/vir
-	rsync -avL Z.dat cz1@129.109.88.204:lwork/vir
+he = cz1@129.109.88.204
 
-sync: syncipo
-	rsync -avL *.[ch] oo1@stampede.tacc.utexas.edu:/work/02464/oo1/vir
-	rsync -avL *.py oo1@stampede.tacc.utexas.edu:/work/02464/oo1/vir
-	rsync -avL Bring.dat oo1@stampede.tacc.utexas.edu:/work/02464/oo1/vir
-	rsync -avL Z.dat oo1@stampede.tacc.utexas.edu:/work/02464/oo1/vir
+synche:
+	rsync -avL *.[ch] $(he):lwork/vir
+	rsync -avL *.py $(he):lwork/vir
+	rsync -avL *.ma $(he):lwork/vir
+	rsync -avL Z.dat $(he):lwork/vir
+
+stamp = oo1@stampede.tacc.utexas.edu
+
+sync:
+	rsync -avL *.[ch] $(stamp):/work/02464/oo1/vir
+	rsync -avL *.py $(stamp):/work/02464/oo1/vir
+	rsync -avL Bring.dat $(stamp):/work/02464/oo1/vir
+	rsync -avL Z.dat $(stamp):/work/02464/oo1/vir
+
+smic = oo1@smic.hpc.lsu.edu
+
+syncsmic:
+	rsync -avL *.[ch] $(smic):work/vir
+	rsync -avL *.py $(smic):work/vir
+	rsync -avL Bring.dat $(smic):work/vir
+	rsync -avL Z.dat $(smic):work/vir
 
 # files are kraken are automatically on keeneland
-sync2::
-	rsync -e gsissh -avL *.[ch] kraken-gsi.nics.xsede.org:work/vir
-	rsync -e gsissh -avL *.py kraken-gsi.nics.xsede.org:work/vir
-	rsync -e gsissh -avL Bring.dat kraken-gsi.nics.xsede.org:work/vir
-	rsync -e gsissh -avL Z.dat kraken-gsi.nics.xsede.org:work/vir
+kraken = kraken-gsi.nics.xsede.org
+
+sync2:
+	rsync -e gsissh -avL *.[ch] $(kraken):work/vir
+	rsync -e gsissh -avL *.py $(kraken):work/vir
+	rsync -e gsissh -avL Bring.dat $(kraken):work/vir
+	rsync -e gsissh -avL Z.dat $(kraken):work/vir
 
 clean:
 	rm -rf $(bins) $(bins_d) $(bins_mp) $(bins_mpi) $(xbins) *~ a.out gmon.out \

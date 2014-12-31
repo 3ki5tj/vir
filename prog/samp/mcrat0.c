@@ -567,7 +567,7 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
 
   /* main loop */
   for (it = 1, t = 1; t <= nsteps; t += 1, it++) {
-    if (ratcr > 0 && (ratcr >= 1 || rnd0() < ratcr)) {
+    if (ratcr > 0 && (ratcr >= 1 || rand01() < ratcr)) {
       /* particle replacement */
       /* it usually makes the simulation slower with a less-precise result
        * we keep it only for a psychological backup */
@@ -584,11 +584,11 @@ static void mcrat_lookup(int n, double nequil, double nsteps,
       av0_add(&racc, acc);
     } else {
       /* randomly displace a particle */
-      i = (int) (rnd0() * DG_N_);
+      i = (int) (rand01() * DG_N_);
       if (gdisp)
-        rvn_granddisp(xi, x[i], amp);
+        rvn_randgausdisp(xi, x[i], amp);
       else
-        rvn_rnddisp(xi, x[i], amp);
+        rvn_randdisp(xi, x[i], amp);
 
       /* directly change the connectivity bits of the graph */
       ncode = code;
@@ -817,7 +817,7 @@ static void mcrat_direct(int n, double nequil, double nsteps,
     }
 #endif /* defined(CHECK) */
 
-    if (ratcr > 0 && (ratcr >= 1 || rnd0() < ratcr)) {
+    if (ratcr > 0 && (ratcr >= 1 || rand01() < ratcr)) {
       /* displace one particle attached to an edge */
       acc = verepl(x, xi, g, ng, &gdirty);
       racc.sx += acc;

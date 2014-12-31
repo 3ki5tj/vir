@@ -67,8 +67,8 @@ static double vir3(long nsteps)
 
   rvn_zero(u);
   for (t = 1; t <= nsteps; t++) {
-    u[0] = pow(rnd0(), 1./D);
-    rvn_rndball0(v); v[0] += u[0];
+    u[0] = pow(rand01(), 1./D);
+    rvn_randball0(v); v[0] += u[0];
     if (rvn_sqr(v) < 1) acc++;
   }
   x = -2 * (-acc/6.) / nsteps;
@@ -91,9 +91,9 @@ static double vir4(long nsteps)
   rvn_zero(v[0]);
   rvn_zero(v[1]);
   for (t = 1; t <= nsteps; t++) {
-    v[1][0] = pow(rnd0(), 1./D);
-    rvn_rndball0(v[2]); v[2][0] += v[1][0];
-    rvn_add(v[3], v[2], rvn_rndball0(u));
+    v[1][0] = pow(rand01(), 1./D);
+    rvn_randball0(v[2]); v[2][0] += v[1][0];
+    rvn_add(v[3], v[2], rvn_randball0(u));
     if (rvn_sqr(v[3]) < 1) {
       lnk02 = ( rvn_sqr(v[2]) < 1 );
       lnk13 = ( rvn_dist2(v[1], v[3]) < 1 );
@@ -155,10 +155,10 @@ static double vir5(long nsteps)
   rvn_zero(v[0]);
   rvn_zero(v[1]);
   for (t = 1; t <= nsteps; t++) {
-    v[1][0] = pow(rnd0(), 1./D);
-    rvn_rndball0(v[2]); v[2][0] += v[1][0];
-    rvn_add(v[3], v[2], rvn_rndball0(u));
-    rvn_add(v[4], v[3], rvn_rndball0(u));
+    v[1][0] = pow(rand01(), 1./D);
+    rvn_randball0(v[2]); v[2][0] += v[1][0];
+    rvn_add(v[3], v[2], rvn_randball0(u));
+    rvn_add(v[4], v[3], rvn_randball0(u));
 
 #define CNT(i, j) (rvn_dist2(v[i], v[j]) < 1)
     code = CNT(0, 4)       | (CNT(0, 2) << 1) | (CNT(0, 3) << 2)
@@ -322,17 +322,17 @@ static double vir6(long nsteps)
   rvn_zero(vb[1]);
   for (t = 1; t <= nsteps; t++) {
     /* spanning tree is a chain */
-    v[1][0] = pow(rnd0(), 1./D);
-    rvn_rndball0(v[2]); v[2][0] += v[1][0];
-    rvn_add(v[3], v[2], rvn_rndball0(u));
-    rvn_add(v[4], v[3], rvn_rndball0(u));
-    rvn_add(v[5], v[4], rvn_rndball0(u));
+    v[1][0] = pow(rand01(), 1./D);
+    rvn_randball0(v[2]); v[2][0] += v[1][0];
+    rvn_add(v[3], v[2], rvn_randball0(u));
+    rvn_add(v[4], v[3], rvn_randball0(u));
+    rvn_add(v[5], v[4], rvn_randball0(u));
     /* spanning tree is a claw */
     vb[1][0] = v[1][0];
     rvn_copy(vb[2], v[2]);
     rvn_copy(vb[3], v[3]);
-    rvn_add(vb[4], vb[2], rvn_rndball0(u));
-    rvn_add(vb[5], vb[2], rvn_rndball0(u));
+    rvn_add(vb[4], vb[2], rvn_randball0(u));
+    rvn_add(vb[5], vb[2], rvn_randball0(u));
 
     /* encode the connectivity */
     for (lnk = lnkb = 0, ipr = 0, i = 0; i < 5; i++)

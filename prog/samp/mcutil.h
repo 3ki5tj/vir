@@ -420,7 +420,7 @@ INLINE void initx(rvn_t *x, int n)
   real a = (real) (0.5 / sqrt(D));
 
   for (i = 0; i < n; i++)
-    rvn_rnd(x[i], -a, a);
+    rvn_randunif(x[i], -a, a);
 }
 #endif
 
@@ -449,9 +449,9 @@ INLINE void initxring(rvn_t *x, int n)
 
 /* randomly displace a vertex */
 #define DISPRNDI(i, nv, x, xi, amp, gauss) { \
-  i = (int) (rnd0() * (nv)); \
-  if (gauss) rvn_granddisp(xi, (x)[i], amp); \
-  else rvn_rnddisp(xi, (x)[i], amp); }
+  i = (int) (rand01() * (nv)); \
+  if (gauss) rvn_randgausdisp(xi, (x)[i], amp); \
+  else rvn_randdisp(xi, (x)[i], amp); }
 
 
 
@@ -661,7 +661,7 @@ INLINE double gengconf(rvn_t *x, int n, double sig2)
   sig = sqrt(sig2);
   rvn_zero(xc);
   for (i = 0; i < n; i++) {
-    rvn_grand(x[i], 0, sig);
+    rvn_smul(rvn_randgaus(x[i]), sig);
     d2sm += rvn_sqr(x[i]);
     rvn_inc(xc, x[i]);
   }
@@ -684,7 +684,7 @@ INLINE int grepl0(rvn_t *x, rvn_t *nx, dg_t *g, dg_t *ng,
   mkgraph(ng, nx, n);
   if ( !dg_biconnected(ng) ) return 0;
   logwt = getloggwt(x, n, sig2);
-  if (logwt > lognwt || rnd0() < exp(logwt - lognwt)) {
+  if (logwt > lognwt || rand01() < exp(logwt - lognwt)) {
     dg_copy(g, ng);
     rvn_ncopy(x, nx, n);
     return 1;
@@ -700,7 +700,7 @@ INLINE int verepl(rvn_t *x, rvn_t xi, dg_t *g, dg_t *ng, int *gdirty)
 
   ne0 = dg_randedge(g, &i, &j); /* select a random edge */
   if (ne0 <= 0) return 0;
-  rvn_inc(rvn_rndball0(xi), x[j]);
+  rvn_inc(rvn_randball0(xi), x[j]);
   dg_copy(ng, g);
   *gdirty = 0;
   for (k = 0; k < n; k++) { /* connectivity to i */
@@ -718,7 +718,7 @@ INLINE int verepl(rvn_t *x, rvn_t xi, dg_t *g, dg_t *ng, int *gdirty)
   }
   if ( !dg_biconnected(ng) ) return 0;
   ne1 = dg_nedges(ng);
-  if ( ne1 > ne0 && ne1 * rnd0() >= ne0 ) return 0;
+  if ( ne1 > ne0 && ne1 * rand01() >= ne0 ) return 0;
   dg_copy(g, ng);
   rvn_copy(x[i], xi);
   return 1;

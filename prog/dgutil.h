@@ -30,7 +30,7 @@ INLINE int dg_randedge(const dg_t *g, int *i0, int *i1)
     ne += cnt[i] = dg_degvs(g, i, maski);
     DGVS_ADD(maski, i) /* update `maski' */
   }
-  rr = (int) (rnd0() * 2 * ne);
+  rr = (int) (rand01() * 2 * ne);
   ipr = rr / 2;
   /* go through pairs such that 0 <= j < i < N */
   DGVS_CLEAR(maski)

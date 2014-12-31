@@ -98,7 +98,7 @@ static double mcrun(int n, double nequil, double nsteps, real amp,
   fb = dg_hsfb(g);
 
   for (it = 1, t = 1; t <= nsteps + nequil; t += 1, it++) {
-    i = (int) (rnd0() * n);
+    i = (int) (rand01() * n);
     rvn_rnddisp(xi, x[i], amp);
     dg_copy(ng, g);
     for (j = 0; j < n; j++) {

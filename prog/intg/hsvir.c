@@ -17,8 +17,8 @@ static double vir3(long nsteps)
   double x;
 
   for (t = 1; t <= nsteps; t++) {
-    rvn_rndball0(u);
-    rvn_inc(u, rvn_rndball0(v));
+    rvn_randball0(u);
+    rvn_inc(u, rvn_randball0(v));
     if (rvn_sqr(u) < 1) acc++;
   }
   x = -2 * (-acc/6.) / nsteps;
@@ -39,9 +39,9 @@ static double vir4(long nsteps)
 
   for (t = 1; t <= nsteps; t++) {
     rvn_zero(v[0]);
-    rvn_add(v[1], v[0], rvn_rndball0(u));
-    rvn_add(v[2], v[1], rvn_rndball0(u));
-    rvn_add(v[3], v[2], rvn_rndball0(u));
+    rvn_add(v[1], v[0], rvn_randball0(u));
+    rvn_add(v[2], v[1], rvn_randball0(u));
+    rvn_add(v[3], v[2], rvn_randball0(u));
     if (rvn_sqr(v[3]) < 1) {
       acc44++;
       lnk02 = (rvn_sqr(v[2]) < 1);
@@ -74,10 +74,10 @@ static double vir5(long nsteps)
   for (i = 0; i < 10; i++) acc[i] = 0;
   rvn_zero(v[0]);
   for (t = 1; t <= nsteps; t++) {
-    rvn_add(v[1], v[0], rvn_rndball0(u));
-    rvn_add(v[2], v[1], rvn_rndball0(u));
-    rvn_add(v[3], v[2], rvn_rndball0(u));
-    rvn_add(v[4], v[3], rvn_rndball0(u));
+    rvn_add(v[1], v[0], rvn_randball0(u));
+    rvn_add(v[2], v[1], rvn_randball0(u));
+    rvn_add(v[3], v[2], rvn_randball0(u));
+    rvn_add(v[4], v[3], rvn_randball0(u));
 
 #define COMPLINK(i, j) lnk[i][j] = (rvn_dist2(v[i], v[j]) < 1)
     COMPLINK(0, 2);

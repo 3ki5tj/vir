@@ -660,7 +660,7 @@ static int getpair(int *pi, int *pj, const dg_t *g,
 
   if (npr <= 0) return 0;
   if (pi != NULL && pj != NULL) {
-    id = pr[ (int) (rnd0() * npr) ];
+    id = pr[ (int) (rand01() * npr) ];
     *pi = id / DG_NMAX;
     *pj = id - (*pi) * DG_NMAX;
   }
@@ -710,7 +710,7 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
    * fully-connected diagrams are harder to equilibrate */
   if (nmin < 8) {
     int nn = (8 > nmax) ? nmax : 8;
-    ninit = nmin + (int) (rnd0() * (nn - nmin));
+    ninit = nmin + (int) (rand01() * (nn - nmin));
   } else
     ninit = nmin;
   g = dg_open(nmax);
@@ -727,12 +727,12 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
   for (it = 1, t = 1; ieql || t <= nsteps; t += 1, it++) {
     n = g->n;
     die_if (n < nmin || n > nmax, "bad n %d, t %g\n", n, t);
-    if ( rnd0() < ratn ) { /* switching the ensemble, O(n) */
-      if ( rnd0() < 0.5 ) { /* add an vertex */
+    if ( rand01() < ratn ) { /* switching the ensemble, O(n) */
+      if ( rand01() < 0.5 ) { /* add an vertex */
         if ( n >= nmax ) goto STEP_END;
         /* attach a new vertex to a random vertex */
-        i = (n == 1) ? 0 : (int) (rnd0() * n);
-        rvn_inc(rvn_rndball(x[n], gc->rc[n + 1]), x[i]);
+        i = (n == 1) ? 0 : (int) (rand01() * n);
+        rvn_inc(rvn_randball(x[n], gc->rc[n + 1]), x[i]);
         /* test if adding x[n] leaves the diagram biconnected */
         for (deg = 0, j = 0; j < n; j++)
           if ( (r2i[j] = rvn_dist2(x[n], x[j])) < 1 )
@@ -752,7 +752,7 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
           }
           if ( nmvtype == 1 ) { /* heat-bath algorithm */
             npr = getpair(NULL, NULL, g, r2ij, gc->rc[n + 1]);
-            if (rnd0() < 1./(gc->Zr[n + 1] * npr)) {
+            if (rand01() < 1./(gc->Zr[n + 1] * npr)) {
               /* accept the move */
               if ( ieql >= 0 ) gc->nup[n][1] += 1;
             } else { /* recover */
@@ -772,7 +772,7 @@ static int mcgc(int nmin, int nmax, double nsteps, double mcamp,
             gc->ngpr[n][1] += npr;
           }
           die_if (n == 2 && npr != 2, "n %d, npr %d\n", n, npr);
-          if (rnd0() >= npr * gc->Zr[n]) goto STEP_END;
+          if (rand01() >= npr * gc->Zr[n]) goto STEP_END;
         } else { /* Metropolis removal */
           i = randpair(n, &j);
           die_if (i == j || i >= n || j >= n, "bad i %d, j %d, n %d\n", i, j, g->n);
