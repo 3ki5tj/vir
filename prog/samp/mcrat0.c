@@ -71,10 +71,11 @@ int hash_initls = 1;
 
 int dostat = 0; /* applies to mapl and hash */
 
+/* database files by the hash table */
 char *dbfninp = NULL; /* input database */
 char *dbfnout = NULL; /* output database */
 char *dbfnbak = NULL; /* backup output database */
-int dbbinary = -1; /* binary database */
+int dbbinary = -1; /* use a binary database instead of a text one */
 int dbnobak = 0; /* do not backup the database */
 
 double crxmax = 0;
@@ -96,7 +97,7 @@ char fnyr[80];
 static void doargs(int argc, char **argv)
 {
   argopt_t *ao;
-  int dbset = 0;
+  int dbeasy = 0;
 
   ao = argopt_open(0);
   argopt_add(ao, "-n", "%d", &n, "order n");
@@ -140,9 +141,9 @@ static void doargs(int argc, char **argv)
 
   argopt_add(ao, "--stat",        "%b",   &dostat,      "compute statistics");
 
-  argopt_add(ao, "--dbez",        "%b",   &dbset,       "set default database file fb.bdb for both input and output");
-  argopt_add(ao, "--dbinp",       NULL,   &dbfninp,     "input database");
-  argopt_add(ao, "--dbout",       NULL,   &dbfnout,     "output database");
+  argopt_add(ao, "--dbez",        "%b",   &dbeasy,      "set default database file fb.bdb for both input and output (for the hash table)");
+  argopt_add(ao, "--dbinp",       NULL,   &dbfninp,     "specify the file name of the input database");
+  argopt_add(ao, "--dbout",       NULL,   &dbfnout,     "specify the file name of the output database (written in an interval of nstrep)");
   argopt_add(ao, "--dbbin",       "%d",   &dbbinary,    "if the output database is binary, 1: binary, 0: text, -1: default");
   argopt_add(ao, "--dbnobak",     "%b",   &dbnobak,     "do not backup database");
 
@@ -215,7 +216,7 @@ static void doargs(int argc, char **argv)
   }
 #endif
 
-  if (dbset) {
+  if (dbeasy) { /* default setting for the database */
     dbbinary = 1;
     dbfnout = dbfninp = "fb.bdb";
   }
@@ -301,7 +302,7 @@ static void doargs(int argc, char **argv)
     sprintf(fnyr, "%sD%dn%d.dat", yrnames[yrtype], D, n);
   }
 
-#if DGMAP_EXISTS
+#ifdef DGMAP_EXISTS
   if ( nstyr > 0 ) dgmap_needvperm = 1;
 #endif
 
@@ -927,7 +928,11 @@ static void mcrat_direct(int n, double nequil, double nsteps,
         if (dbfnout != NULL) {
           /* make a backup file if possible */
           if (!dbnobak) copyfile(dbfnout, dbfnbak);
-          /* the hash table may be change during the writing process
+          /* save the current hash table into file `dbfnout'
+           * if the database is large and the file outputting is slow,
+           * the master thread will seriously lag behind other threads
+           * because only this thread does the work
+           * NOTE: the hash table may be changed during the writing process
            * how to fix this? */
           dghash_save(hash, dbfnout, D, dbbinary);
         }
@@ -998,6 +1003,8 @@ int main(int argc, char **argv)
     } else
 #endif /* defined(DGMAP_EXISTS) */
     {
+      /* hash table (dghash) and the large lookup table (dgmapl) are
+       * used in this branch, despite the name `_direct' */
       mcrat_direct(n, nequil, nsteps, mcamp, gdisp, nstfb, nstcom);
     }
 

@@ -100,6 +100,7 @@ typedef struct {
 
 
 /* open an hash table for the nth virial coefficient
+ * in the OpenMP case, only the master thread calls this
  * `bits'     is the number of bits of the hash table, such that it has
  *            2^bits different keys, hence buckets
  *            each bucket possesses a linked list
@@ -169,6 +170,7 @@ static dghash_t *dghash_open(int n, int bits, size_t blkmem, size_t memmax,
 
   xnew(h, 1);
   h->n = n;
+  /* the number of words to encode the adjacency matrix of the graph */
   h->cwords = (n * (n - 1) / 2 + DG_WORDBITS - 1) / DG_WORDBITS;
   h->bits = bits;
   h->memmax = memmax;
@@ -319,6 +321,7 @@ static int dgls_additem(dgls_t *ls, dgdbitem_t *it, dghash_t *h,
 
 
 static int dghash_isocap_;
+/* `dghash_isocodes_' is an array that can hold `dghash_isocap_' graphs */
 static dgword_t *dghash_isocodes_;
 #pragma omp threadprivate(dghash_isocodes_, dghash_isocap_)
 
@@ -340,6 +343,10 @@ static int dghash_enumiso(dghash_t *h, const dg_t *g,
       h->mem += dghash_isocap_ * sizeof(dgword_t);
     }
   }
+
+  /* list all isomorphisms of graph `g' with the level `h->level'
+   * and save them into the array `dghash_isocodes_'
+   * the function dg_repisocodels() is defined in "dgaut.h" */
   cnt = dg_repisocodels(dghash_isocodes_, cwords, h->isomax, g, h->level, ng);
 #pragma omp critical
   {
@@ -397,13 +404,22 @@ INLINE double dghash_fbnr0(dghash_t *h, const dg_t *g, double *nr,
     h = dghash_[DG_N_];
   }
 
-  /* find the representative graph of according to the automorphism level */
   if (ng->c == NULL) ng->c = ng_c; /* initialize the stock graph */
+  /* find the representative graph of `g'
+   * according to the automorphism level
+   * this function is defined in "dgaut.h" */
   dg_repiso(ng, g, h->level);
+
+  /* encode the graph `ng' into the word array `c' */
   dg_encode(ng, c);
+
+  /* compute the hash code of `c' */
   DGHASH_GETID(hashid, c, DG_CWORDS_(h->cwords), h->bits);
+
+  /* h->ls[hashid] contains a list of graphs with the same hash code `hashid' */
   ls = h->ls + hashid;
 //#pragma omp flush /* flush to get the recent view */
+  /* find the entry with code `c', if any, in the list `ls' */
   ls1 = dgls_find(ls, c, DG_CWORDS_(h->cwords), &pos);
   if (ls1 != NULL) { /* entry exists */
 #ifndef DG_NORING
@@ -413,6 +429,7 @@ INLINE double dghash_fbnr0(dghash_t *h, const dg_t *g, double *nr,
 #endif
     fb  = ls1->arr[pos].fb;
   }
+
   if (h->dostat) { /* accumulate data for statistics */
 #pragma omp critical
     {
@@ -420,18 +437,29 @@ INLINE double dghash_fbnr0(dghash_t *h, const dg_t *g, double *nr,
       h->hits += (ls1 != NULL);
     }
   }
+
+  /* if the above search is successful, it means that
+   * the input graph `g' is an old one, we return `fb'
+   * otherwise, we need to compute `fb' directly
+   * Note, if the hash table is large enough, we usually stop here */
   if (ls1 != NULL) return fb;
+
 #ifdef DG_NORING
   nrptr = NULL;
   *nr = 0;
 #else
   nrptr = nr;
 #endif
+  /* directly compute `fb' and `nr' of `g' */
   fb = dg_fbnr0(g, nrptr, DGSC_DEFAULTMETHOD, csepmethod, ned, degs);
   if (h->isoenum) {
+    /* in this case, we add the all isomorphisms of graph `g'
+     * into the hash table */
     /* omp critical region will be limited in dghash_enum() */
     dghash_enumiso(h, g, fb, *nr, ng);
   } else {
+    /* in this case, we only add the code `c' of graph `g'
+     * into the list `ls' of the hash table */
 #pragma omp critical
     {
       dgls_add(ls, c, fb, *nr, h);

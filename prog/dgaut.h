@@ -368,7 +368,7 @@ INLINE void dg_permequipart(int *perm, const dg_t *g, int recur)
 
 
 
-/* get a permutation compatible with the degree sequence */
+/* get a permutation `perm' compatible with the degree sequence for graph `g' */
 INLINE void dg_permdegseq(int *perm, const dg_t *g)
 {
   DG_DEFN_(g)
@@ -378,20 +378,24 @@ INLINE void dg_permdegseq(int *perm, const dg_t *g)
   DGVS_DEFIQ_(iq)
 #define DG_DEGMIN 0 /* can be 2 for biconnected graphs */
 
-  for (i = DG_DEGMIN; i < DG_N_; i++) {
-    DGVS_CLEAR( cvs[i] )
+  for (deg = DG_DEGMIN; deg < DG_N_; deg++) {
+    DGVS_CLEAR( cvs[deg] )
   }
   /* use count sort to collect vertices with the same degrees */
   for (i = 0; i < DG_N_; i++) {
+    /* cvs[d] collects vertices (as bits)
+     * with the same degree, given by dg_deg(g, i) */
     DGVS_ADD( cvs[dg_deg(g, i)], i )
   }
-  i = 0;
+
+  i = 0; /* rank of the current vertex, sorted by the degree */
   for (deg = DG_DEGMIN; deg < DG_N_; deg++) {
     DGVS_CPY(vs, cvs[deg]) /* copy the vertex set */
-    while ( dgvs_nonzero(vs) ) { /* loop over vertices in this cell */
+    /* now `vs' collects all vertices with the same degree, `deg' */
+    while ( dgvs_nonzero(vs) ) { /* loop over vertices in this set `vs' */
       DGVS_FIRSTLOW(k, vs, b, iq) /* extract the first bit `b' from `vs' */
       DGVS_XOR1(vs, b, iq) /* remove `b' from `vs' */
-      perm[ k ] = i++;
+      perm[ k ] = i++; /* vertex `k' is the ith lowest-degree vertex */
     }
   }
 }
@@ -429,8 +433,9 @@ INLINE void dg_partdegseq(dgpart_t *part, const dg_t *g)
 
 
 
-/* rearrange vertices in `gin' according to the permutation `perm' */
-INLINE dg_t *dg_permutate(dg_t * RESTRICT gout, const dg_t * RESTRICT gin, const int *perm)
+/* rearrange vertices in `gin' according to the permutation `perm'
+ * save the resulting graph in `gout' */
+INLINE dg_t *dg_permute(dg_t * RESTRICT gout, const dg_t * RESTRICT gin, const int *perm)
 {
   DG_DEFN_(gin)
   int i, j;
@@ -473,13 +478,13 @@ INLINE int dg_checkiso(const dg_t *a, const dg_t *b, const int *perm)
 
 /* get a representative isomorphic graph `gout' of the input graph `gin'
  * `level' represent the depth of the search
- * if level == 3, it returns the unique canonical label of the graph
+ * if level == 4, it returns the unique canonical label of the graph
  *   all isomorphic graphs share the same canonical label
- * if level == 2, it returns the first node from McKay's search of the
+ * if level == 3, it returns the first node from McKay's search of the
  *    canonical label
- * if level == 1, it returns a graph that is compatible with equitable
+ * if level == 2, it returns a graph that is compatible with equitable
  *    partition (hierarchical degree sequence) of the graph
- * if level == 0, it returns a graph compatible with the degree sequence
+ * if level == 1, it returns a graph compatible with the degree sequence
  *
  * In all cases, `gout' is isomorphic to `gin' since the former is produced
  *  from some vertex permutation of the latter.
@@ -492,15 +497,21 @@ INLINE dg_t *dg_repiso(dg_t *gout, const dg_t *gin, int level)
   int perm[DG_NMAX + 1];
 
   if (level == 0) {
+    /* disable isomorphism, simply copy the graph */
     DG_DEFN_(gin)
     gout->n = DG_N_;
     return dg_copy(gout, gin);
   }
 
   if (level >= 4 || level < 0) { /* return the canonical label */
+    /* use NAUTY to find the unique isomorphism */
     return dg_canlabel(gout, gin);
   }
 
+  /* compute a permutation `perm' of the vertices according to the `level'
+   * the permutation represents an isomorphic graph to `g'
+   * with a higher `level', there are fewer possible permutations or isomorphisms
+   * but it takes longer to compute it */
   if (level == 1) { /* degree sequence */
     dg_permdegseq(perm, gin);
   } else if (level == 2) { /* equitable partition */
@@ -509,7 +520,10 @@ INLINE dg_t *dg_repiso(dg_t *gout, const dg_t *gin, int level)
     dg_permequipart(perm, gin, 1);
   }
   //die_if (dg_checkperm(perm, gin->n) != 0, "bad permutation level %d\n", level);
-  dg_permutate(gout, gin, perm);
+
+  /* compute the isomorphic graph `gout' of the input graph `gin'
+   * according to the permutation `perm' computed above */
+  dg_permute(gout, gin, perm);
   //die_if (dg_checkiso(gout, gin, perm) != 0, "bad isomorphism!\n");
   return gout;
 }
@@ -607,7 +621,7 @@ static int *dgaut_perms_, dgaut_nperms_; /* permutation */
 INLINE int dg_repisocodels(dgword_t *codes, int cwords, int nmax,
     const dg_t *g, int level, dg_t *ng)
 {
-  dgpart_t part;
+  dgpart_t part = {0};
   int ncnt, i, ic, j, n = g->n;
 
   if (level == 0) { /* unit partition, exchange all vertices */
@@ -626,11 +640,14 @@ INLINE int dg_repisocodels(dgword_t *codes, int cwords, int nmax,
     if (dgaut_perms_) free(dgaut_perms_);
     xnew(dgaut_perms_, dgaut_nperms_);
   }
-  /* obtain a list of possible permutations */
+  /* obtain a list of possible permutations that are compatible
+   * with the vertex partition `part' */
   ncnt = dg_part2permls(dgaut_perms_, nmax, &part);
   /* convert each permutation to a code */
   for (ic = 0, i = 0; i < ncnt; i++) {
-    dg_permutate(ng, g, dgaut_perms_ + i * n);
+    /* construct the graph `ng' from `g' by permutation `i' */
+    dg_permute(ng, g, dgaut_perms_ + i * n);
+    /* encode the graph `ng' into `codes[ic]' */
     dg_encode(ng, codes + ic * cwords);
     /* avoid duplicated codes see if the code is new */
     for (j = 0; j < ic; j++)
