@@ -58,7 +58,7 @@ function draw() {
   for (var i = 0; i < xy.length; i++) {
     var x = xy[i][0];
     var y = xy[i][1];
-    var spotcolor = "#a0a0e0"
+    var spotcolor = "#a0a0e0";
     var color = "#2040a0";
     if (i == moveAtom) {
       if (moveAcc) {
@@ -88,7 +88,7 @@ function mcStep() {
     var d = dist(xi - xy[j][0], yi - xy[j][1]);
     if (d < 2*radius) break;
   }
-  if (j == n) {
+  if (j === n) {
     xy[moveAtom][0] = xi;
     xy[moveAtom][1] = yi;
     mcAcc += 1;
@@ -97,12 +97,12 @@ function mcStep() {
     moveAcc = false;
   }
   accratio = 1.*mcAcc/mcTot*100;
-  if (step % 100 == 0) {
+  if (step % 100 === 0) {
     draw();
     document.getElementById("accratio").innerHTML
       = accratio.toPrecision(4) + "%";
   }
-  return j == n;
+  return j === n;
 }
 
 initPos(55);

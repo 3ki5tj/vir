@@ -1,4 +1,4 @@
-/* Copyright (c) Cheng Zhang 2010-2014 */
+/* Copyright (c) Cheng Zhang 2010-2015 */
 window.onload = init;
 
 
@@ -29,18 +29,28 @@ function toc_init()
     // find h3 elements listed after this h2
     for (var j = 0; j < cnodes.length; j++) {
       var ccap = cnodes[j].innerHTML;
-      for (var k = 0; k < nodes.length; k++)
-        if (cnodes[j].compareDocumentPosition(nodes[k]) == 4)
+      for (var k = 0; k < nodes.length; k++) {
+        if (cnodes[j].compareDocumentPosition(nodes[k]) == 4) {
           break; // cnode[j] is after nodes[k]
+        }
+      }
       // the parent <h2> is this one
-      if ( k - 1 != i ) continue;
+      if ( k - 1 != i ) {
+        continue;
+      }
       console.log(j + " " + ccap + " " + nodes[i].innerHTML);
       cnodes[j].innerHTML = '<a name="h3_' + j + '"></a>' + ccap;
       cs += '<li><a href="#h3_' + j + '">' + ccap + '</a></li>';
     }
-    if (cs != "") s += "<ul>" + cs + "</ul>";
+    if (cs !== "") {
+      s += "<ul>" + cs + "</ul>";
+    }
   }
-  if (s == "") return; else s = "<ul>" + s + "</ul>";
+  if (s === "") {
+    return;
+  } else {
+    s = "<ul>" + s + "</ul>";
+  }
 
   var env = document.createElement("div"); // envelope
   env.setAttribute("id", "tocbox");
@@ -90,9 +100,9 @@ function dtbox_init() // create a date/time box
   dtbox = document.createElement("div");
   dtbox.id = "dtbox";
   dtbox.setAttribute("style",
-      "font: small-caps 100% sans-serif; position: fixed;"
-    + "bottom: 0; left: 0; right: 0; height: 20px; "
-    + "padding: 2px; text-align: center;")
+      "font: small-caps 100% sans-serif; position: fixed;" \
+    + "bottom: 0; left: 0; right: 0; height: 20px; " \
+    + "padding: 2px; text-align: center;");
   dtbox.onmouseover = function() { dtbox_update(true); };
   dtbox.onmouseout = function() { dtbox_update(false); };
   document.body.appendChild(dtbox);
@@ -112,9 +122,13 @@ function dtbox_update(open)
 function rmpostfix(s, pfx)
 {
   var i = s.lastIndexOf(".");
-  if (i == -1) return s;
+  if (i == -1) {
+    return s;
+  }
   var m = pfx.length;
-  if (i < m || s.substr(i - m, m) != pfx) return s;
+  if (i < m || s.substr(i - m, m) != pfx) {
+    return s;
+  }
   return s.substr(0, i - m) + s.substr(i, s.length - i);
 }
 
@@ -126,8 +140,7 @@ function makeimgslinks()
   var imgs = document.getElementsByTagName("img");
 
   for (var i = 0; i < imgs.length; i++) {
-    if ( imgs[i].className == "demo"
-      || imgs[i].className == "fig" ) {
+    if ( imgs[i].className == "demo" || imgs[i].className == "fig" ) {
       pr = imgs[i].parentNode;
       nb = document.createElement('a');
       // if the image name ends with 'sm', e.g. 'fig123sm.png'
@@ -153,7 +166,7 @@ function appendspaces()
 function invokejava(img) {
   par = img.parentNode;
   p = document.createElement('div');
-  p.innerHTML = '<applet code="' + img.alt + '" archive="' + img.alt + '.jar" '
+  p.innerHTML = '<applet code="' + img.alt + '" archive="' + img.alt + '.jar" ' \
       + 'width="' + img.width + '" height="' + img.height + '"></applet>';
   par.replaceChild(p, img);
 }
@@ -163,8 +176,9 @@ function invokejava(img) {
 function makejava() {
   imgs = document.getElementsByTagName("img");
   for (var i = 0; i < imgs.length; i++) {
-    if (imgs[i].className == "javaimg")
+    if (imgs[i].className == "javaimg") {
       imgs[i].setAttribute("onclick", "invokejava(this)");
+    }
   }
 }
 

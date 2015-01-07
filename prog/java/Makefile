@@ -1,4 +1,4 @@
-prj=VirSamp
+prj = VirSamp
 
 javas = $(prj)App.0.java MCSamp.java \
 	Diagram.java DiagramMap.java Bits.java \
@@ -6,6 +6,8 @@ javas = $(prj)App.0.java MCSamp.java \
 	XYZCanvasVir.java XYZModelMC.java \
 	Atom.java \
         Ave.java MDS.java
+
+all: jar
 
 $(prj)App.class: $(prj)App.java
 	javac $<

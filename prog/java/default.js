@@ -1,5 +1,14 @@
-/* Copyright (c) Cheng Zhang 2010-2012 */
+/* Copyright (c) Cheng Zhang 2010-2015 */
+
+
+
+"use strict";
+
+
+
 window.onload = init;
+
+
 
 function init()
 {
@@ -10,11 +19,14 @@ function init()
   makejava(); // substitute Java applet
 }
 
+
+
 function toc_init() // create a table of content
 {
+  var s, i;
   var nodes = document.getElementsByTagName("h2");
-  for (s = "", i = 0; i < nodes.length; i++) {
-    cap = nodes[i].innerHTML;
+  for ( s = "", i = 0; i < nodes.length; i++ ) {
+    var cap = nodes[i].innerHTML;
     nodes[i].innerHTML = '<a name="h2_' + i + '"></a>' + cap; // add a marker
     s += '<li><a href="#h2_' + i + '">' + cap + '</a></li>'; // add to TOC
   }
@@ -40,31 +52,50 @@ function toc_init() // create a table of content
   tocshow(0);
 }
 
+
+
 function tocshow(open)
-  { document.getElementById("tocbox").style.left = (open ? "0px" : "-200px"); }
+{
+  document.getElementById("tocbox").style.left = (open ? "0px" : "-200px");
+}
+
 
 
 var dtbox;
+
+
+
 function dtbox_init() // create a date/time box
 {
   dtbox = document.createElement("div");
   dtbox.id = "dtbox";
   dtbox.setAttribute("style", "font: small-caps 100% sans-serif; position: fixed;"
       + "bottom: 0; left: 0; right: 0; height: 20px; padding: 2px; text-align: center;")
-  dtbox.onmouseover = function() { dtbox_update(true); };
-  dtbox.onmouseout = function() { dtbox_update(false); };
+  dtbox.onmouseover = function() {
+    dtbox_update(true);
+  };
+  dtbox.onmouseout = function() {
+    dtbox_update(false);
+  };
   document.body.appendChild(dtbox);
   dtbox_update(false);
 }
+
+
+
 function dtbox_update(open)
 {
   dtbox.style.backgroundColor = open ? "#F0F0F0" : "";
   dtbox.innerHTML = open ? new Date().toLocaleString() : "";
 }
 
-function makeimgslinks() { // make all demo images links
+
+
+// make all demo images links
+function makeimgslinks()
+{
   var imgs = document.getElementsByTagName("img");
-  for (var i = 0; i < imgs.length; i++)
+  for ( var i = 0; i < imgs.length; i++ )
     if (imgs[i].className == "demo") {
       pr = imgs[i].parentNode;
       nb = document.createElement('a');
@@ -75,20 +106,33 @@ function makeimgslinks() { // make all demo images links
     }
 }
 
-function appendspaces() { document.body.innerHTML += "<p>&nbsp;<p>&nbsp;"; }
 
-function invokejava(img) {
-  par = img.parentNode;
-  p = document.createElement('div');
+
+function appendspaces()
+{
+  document.body.innerHTML += "<p>&nbsp;<p>&nbsp;";
+}
+
+
+
+// replace the img element by the applet specified in code
+function invokejava(img)
+{
+  var par = img.parentNode;
+  var p = document.createElement('div');
   p.innerHTML = '<applet code="' + img.alt
       + '" width="' + img.width + '" height="' + img.height + '"></applet>';
   par.replaceChild(p, img);
 }
 
-function makejava() {
-  imgs = document.getElementsByTagName("img");
+
+
+function makejava()
+{
+  var imgs = document.getElementsByTagName("img");
   for (var i = 0; i < imgs.length; i++) {
-    if (imgs[i].className == "javaimg")
+    if (imgs[i].className == "javaimg") {
       imgs[i].setAttribute("onclick", "invokejava(this)");
+    }
   }
 }
