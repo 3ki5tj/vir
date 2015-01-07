@@ -1,0 +1,41 @@
+#!/bin/bash
+#PBS -q workq
+#PBS -A TG-MCA93S001
+#PBS -N D4n11NZa
+#PBS -o D4n11NZa.out
+#PBS -j oe
+#PBS -l walltime=72:00:00
+#PBS -l nodes=1:ppn=20
+
+#icc -DD=4 -DN=11 -DDG_NORING=1 -mmic -openmp -O2 -ipo -Wall -Wremarks ../../mcrat0.c -o a.mic
+#icc -DD=4 -DN=11 -DDG_NORING=1       -openmp -O2 -ipo -Wall -Wremarks ../../mcrat0.c -o a.out
+
+export dir=$PBS_O_WORKDIR
+cd $dir
+export dir1=`pwd`
+
+echo "foo.pbs: current directory $dir, $dir1" >> cur.dir
+cd $dir && ./cpu.sh 1112491295 &
+
+# export OMP_NUM_THREADS=20
+# export KMP_AFFINITY=verbose,scatter
+# 
+# # allow 30 gigabytes for the hash table
+# ./
+# ./a.out -1 1e14 -q 1000000000 --rng 1112491295 \
+#   --hash-mode=1 --hash-bits=28 --hash-memmax=3e10 \
+#   --hash-nocsep --auto-level=9 --dbez -p3 &
+
+rm -f $PBS_O_HOME/.ssh/known_hosts
+
+# log into two mic nodes to do the jobs
+echo "running on mic0, $dir"
+ssh mic0 "cd $dir && ./mic.sh mic0 332419833" &
+
+rm -f $PBS_O_HOME/.ssh/known_hosts
+
+echo "running on mic1, $dir"
+ssh mic1 "cd $dir && ./mic.sh mic1 448193444" &
+
+wait
+

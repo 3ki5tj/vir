@@ -1,0 +1,29 @@
+#!/bin/bash
+#PBS -q workq
+#PBS -A TG-MCA93S001
+#PBS -N D3n12NZa
+#PBS -o D3n12NZa.out
+#PBS -j oe
+#PBS -l walltime=72:00:00
+#PBS -l nodes=1:ppn=20
+
+export dir=$PBS_O_WORKDIR
+cd $dir
+export dir1=`pwd`
+
+echo "foo.pbs: current directory $dir, $dir1" >> cur.dir
+cd $dir && ./cpu.sh 3129812911 &
+
+rm -f $PBS_O_HOME/.ssh/known_hosts
+
+# log into two mic nodes to do the jobs
+echo "running on mic0, $dir"
+ssh mic0 "cd $dir && ./mic.sh mic0 555411113" &
+
+rm -f $PBS_O_HOME/.ssh/known_hosts
+
+echo "running on mic1, $dir"
+ssh mic1 "cd $dir && ./mic.sh mic1 333192223" &
+
+wait
+
