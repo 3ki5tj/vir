@@ -1,0 +1,17 @@
+In n12w1NZc and n12w1NZd, the database are no longer updated.
+Check to see if they run faster than n12w1NZa and n12w1NZb.
+
+
+Database updating
+          |   CPU   |   MIC
+----------|---------|---------
+n12w1NZa  |   yes   |   no
+n12w1NZb  |   yes   |   no
+n12w1NZc  |   no    |   no
+n12w1NZd  |   no    |   no
+
+
+### Note for run2 ###
+
+The database for n12w1NZb, n12w1NZc and n12w1NZd, [MIC] are currently 10G
+check the log to see if the mic can take it.

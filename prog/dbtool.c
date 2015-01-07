@@ -53,7 +53,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-l", NULL, &fninp4,   "fourth database");
   argopt_add(ao, "-o", NULL, &fnout,    "output database");
   argopt_add(ao, "-b", "%d", &binary,   "output format 1: binary, 0: text, -1: same as the input");
-  argopt_add(ao, "-c", "%d", &check,    "checking, 0: disable, 1: biconnectivity, 2: fb and nr are correct");
+  argopt_add(ao, "-c", "%d", &check,    "checking level, 0: disable, 1: biconnectivity, 2: fb and nr are correct");
   argopt_add(ao, "-d", "%b", &checkdup, "checking duplicated items");
   argopt_add(ao, "-v", "%d", &verbose,  "verbose");
   argopt_addhelp(ao, "-h");

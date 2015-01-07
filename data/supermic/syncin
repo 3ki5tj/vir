@@ -4,4 +4,5 @@
 rsync -avzL --exclude="*.tmp*" --exclude="ZrD*" --exclude="*.data" --exclude "test*" \
   --exclude="*~" --exclude=".*.swp" --exclude="*.bak*" --exclude="fb*.bdb" \
   --exclude="DHT*.dat" --exclude="Bn*.dat" --exclude="snapshot*" \
+  --exclude="dbtool" --exclude="a.out" --exclude="a.mic" \
   oo1@smic.hpc.lsu.edu:work/vir/* .
