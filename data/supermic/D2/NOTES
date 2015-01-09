@@ -1,5 +1,9 @@
 The first run of n14w1NZc has no mic1.
 
+## run2 ##
+
+### Parameters ###
+
 The database updating is stopped for n14w1NZc.
 To be compared to n14w1NZb.
 
@@ -11,8 +15,15 @@ n14w1NZa  |   yes   |   yes
 n14w1NZb  |   yes   |   yes
 n14w1NZc  |   no    |   no
 
+It appears that database updating does not slow down sampling.
 
-### run2 ###
+
+### Check ###
 
 The database file for n14w1NZb and n14w1NZc is currently 8G.
 Check the log file to see if the MIC can take it.
+
+
+### Todo ###
+
+Try to add n14w1NZd

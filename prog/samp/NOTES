@@ -1,0 +1,59 @@
+D = 7, Nmax = 128 preparation
+
+icc -DD=7 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 20 -C -A0 -0 1e8 -1 1e9 -x 1.86 -i ZrrD7r1n64.dat 
+icc -DD=7 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -A0 -1 1e10
+
+D = 9, Nmax = 128 preparation
+
+icc -DD=9 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 20 -C -A0 -0 1e8 -1 1e9 -x 1.86 -i ZrrD9r1n64.dat 
+icc -DD=9 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -A0 -1 1e10
+
+D = 11, Nmax = 128 preparation
+
+icc -DD=11 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 20 -C -A0 -0 1e8 -1 1e9 -x 1.86 -i ZrrD11r1n64.dat 
+icc -DD=11 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -A0 -1 1e10
+
+D = 13, Nmax = 128 preparation
+
+icc -DD=13 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 10 -C -A0 -0 1e7 -1 1e8 -i ZrrD13r1n64.dat -x 1.85
+icc -DD=13 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -A0 -1 1e10
+
+
+D = 15, Nmax = 128 preparation
+
+icc -DD=15 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 10 -C -A0 -0 1e7 -1 1e8 -i ZrrD15r1n64.dat -x 1.85
+icc -DD=15 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -A0 -1 1e10
+
+
+D = 17, Nmax = 128 preparation
+
+icc -DD=17 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 10 -C -A0 -0 1e6 -1 1e7
+icc -DD=17 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 10 -C -A0 -0 1e7 -1 1e8
+icc -DD=17 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 10 -C -A0 -0 1e8 -1 1e10
+icc -DD=17 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 3 -C -A0 -0 1e10 -1 1e10
+icc -DD=17 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -A0 -1 1e10
+
+
+D = 19, Nmax = 128 preparation
+
+icc -DD=19 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 10 -C -A0 -0 1e6 -1 1e7
+icc -DD=19 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 10 -C -A0 -0 1e7 -1 1e8
+icc -DD=19 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 20 -C -A0 -0 1e8 -1 1e10
+icc -DD=19 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -A0 -1 1e10
+
+D = 20, Nmax = 128 preparation
+
+icc -DD=20 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 20 -C -A0 -0 1e8 -1 1e9 -x 1.86 -i ZrrD20r1n64.dat 
+icc -DD=20 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -A0 -1 1e10
+
+D = 25, Nmax = 128 preparation
+
+icc -DD=25 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 20 -C -A0 -0 1e8 -1 1e9 -x 1.86 -i ZrrD25r1n64.dat 
+icc -DD=25 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -A0 -1 1e10
+
+D = 30, Nmax = 128 preparation
+
+icc -DD=30 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -E 20 -C -A0 -0 1e8 -1 1e9 -x 1.81 -i ZrrD30r2n64.dat -m 2 
+icc -DD=30 -DNMAX=128 mcgcr2.c && ./a.out -n 128 -m 1 -A0 -1 5e10 -m 2
+
+

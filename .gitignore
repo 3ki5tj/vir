@@ -1,6 +1,7 @@
 *~
 .*~
 *.zip
+*.class
 *.jar
 *.pyc
 *.out
@@ -10,4 +11,8 @@
 *.toc
 *Notes.bib
 *.png
+*.pdf
+*.eps
 *.pos
+*.dat*
+bak
