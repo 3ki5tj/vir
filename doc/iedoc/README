@@ -1,0 +1,129 @@
+
+Manuscript Instructions
+========================
+
+The manuscript can be accessed in two locations.  The first location is
+	/Bossman/cz1/vir/iedoc
+The second location, for off-campus access, is the following Dropbox link
+	https://www.dropbox.com/sh/qwtgxlf0uti88aa/AABk72-VvDWvBLSV56Xufsk-a?dl=0
+In both locations, selected references can be found in the ``refs'' sub-directory.
+
+The complete PDF manuscript is ievirdoc.pdf.
+
+The source Word document is ievirtext.doc.
+
+Please make changes on the Word version ievirtext.doc.
+Microsoft Word has a useful "Track Changes" feature.
+If it is not turned on, please turn it on before editing.
+
+There is an EndNote library including all references:
+	ievir.enl
+and
+	ievir.Data
+directory.
+
+The PDF manuscript includes a supplemental material in the end.
+However, this is only intended to help the reviewers, and we may not publish it.
+The supplemental material is written in LaTeX, and the stand-alone PDF is iegraph.pdf
+
+The notes of the manuscript are collected in ievirnotes.tex, or ievirnotes.pdf
+
+
+Data and Programs
+========================
+
+Integral equation code        /Bossman/cz1/vir/prog/ievircode.zip
+
+Mayer sampling code           /Bossman/cz1/vir/prog/vircode.zip
+(with correlation functions)
+
+Integral equation data        /Bossman/cz1/vir/data/iedata.zip
+
+Gaussian model data           /Bossman/cz1/vir/data/gaussfdata.zip
+
+
+
+Manuscript Checklist (for CZ)
+=============================
+
+o Turn on the "Track Changes" feature in Microsoft Word.
+o Check that each label equation is referenced at least once.
+o Check that the punctuation after each equation.
+o Press F9 to update links (should be done automatically when printed to PDF).
+o Run EndNote to update the references.
+o Export EndNote references to ievir.enl.
+o EndNote style changes:
+  * In Table II, change the style of reference 16 from superscript to normal font.
+  * In the Appendix for Mayer sampling of correlation functions (H.1 currently)
+    following "using the convention of",  Ref. 15
+    the "15" should not be in the normal instead of superscript font.
+o Check the equation numbers in the arrow equations:
+  PY:         the equation after Eq. (11)
+  HNC:        the equation after Eq. (20)
+  YBG:        the equation after Eq. (D2)
+  Kirkwood:   the equation after Eq. (E7)
+o Check if the units of equations make sense.
+o Run make clean && make on the figure directory to use the latest data set
+
+
+
+
+Data Checklist (for CZ)
+=========================
+
+data/gaussf
+-----------
+1. Enter
+  ./syncin && make
+
+2. For each (dim, order) that needs to be updated, enter
+  ./gaussfextra.py dim order
+
+3. Enter
+  make Bossman
+
+
+
+data/ie/cr
+-----------
+1. Enter make
+
+
+
+data/ie/err
+-------------
+1.  Enter
+  scp $ipo:lwork/vir/ie/tmp2/*Bn*.dat
+
+2.  Enter
+  ./ievirextra.py -D10 --ir -w
+  ./ievirextra.py -D15 --ir -w
+
+3.  Enter
+  ./geterr.py xBnIRD10n36.dat BnD10n32.dat
+  ./geterr.py xBnIRD15n36.dat BnD15n64.dat
+
+
+
+doc/iedoc/fig
+--------------
+1. make clean && make
+
+
+
+doc/iedoc
+----------
+1. Enter
+  make
+
+2. Enter
+  make Bossman
+
+
+web/hsvirial/prog/c
+--------------------
+1. Enter
+  make zip
+
+2. Enter
+  make Bossman
