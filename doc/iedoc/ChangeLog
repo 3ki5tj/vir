@@ -1,10 +1,22 @@
-Major changes since version 3
-=============================
 
-iegraph.tex (supplemental material)
--------------------------------------
-+ Even more simplified PY pressure closure in the hard-sphere case.
-+ Explanation of the simplified PY pressure closure formula.
+## Major changes in version 5
+
+### ievirtext.doc
+
+  o Merging Appendices A and B.
+  o Update new virial coefficients from Mayer sampling in Table II.
+  o Improving the new Appendix F (Generalizations).
+
+
+## Major changes since version 3
+
+### iegraph.tex (supplemental material)
+
+  o Even more simplified PY pressure closure in the hard-sphere case.
+  o Explanation of the simplified PY pressure closure formula.
+  o More discussions on lambda-DSC.
+
+
 
 
 

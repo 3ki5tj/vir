@@ -1454,7 +1454,7 @@ run
 
 
 
-\section{Appendix A: Fourier transform in odd dimensions}
+\section{Appendix A: Fourier transforms (odd dimensions)}
 
 
 
@@ -1716,12 +1716,61 @@ So
 &=
   \frac{ 2^{\delta + 2} \pi^{\delta + 1} } { k^\delta }
 \int_0^R
-  A(r) \, j_\delta(k r) \, r^{\delta + 2} \, dr
+  A(r) \, j_\delta(k r) \, r^{\delta + 2} \, dr.
 \end{align*}
 
 
 
-\section{Appendix B: Fourier transform in even dimensions}
+\subsection{Spherical Bessel functions}
+
+The following formula is deleted from version 5 of the manuscript
+\begin{equation}
+  j_\delta(x)
+=
+  (-x)^\delta \,
+  \left(
+    \frac{ d }
+    { x \, dx }
+  \right)^\delta
+  \,
+  \left(
+    \frac{ \sin x } { x }
+  \right).
+\end{equation}
+This formula can be readily used to expand
+spherical Bessel functions
+as rational combinations of $\sin x$ and $\cos x$.
+
+The first few spherical Bessel functions are
+\begin{align*}
+  j_0(x)
+&=
+  \frac{ \sin(x) } { x },
+\\
+  j_1(x)
+&=
+  \frac{ \sin(x) } { x^2 }
+-
+  \frac{ \cos(x) } { x },
+\\
+  j_2(x)
+&=
+  \left(
+    \frac{ 3 } { x^3 }
+    -
+    \frac{ 1 } { x }
+  \right)
+  \,
+  \sin x
+  -
+  \frac{ 3 } { x^2 }
+  \,
+  \cos x.
+\end{align*}
+
+
+
+\section{Appendix A: Fourier transforms (even dimensions)}
 
 \subsection{Hankel transform}
 
@@ -1783,6 +1832,48 @@ So our transform from $\alpha(r)$ to $\hat\alpha(k)$
 should be completely symmetric to the inverse transform
 from $\hat\alpha(k)$ to $\alpha(r)$.
 
+
+
+\subsection{Inverse transform}
+
+The inverse transform of the \emph{discrete} Hankel transform
+is given below (deleted from version 5):
+\begin{align*}
+  \alpha(r_k)
+&=
+  \frac{ 1 }{ R^2 }
+  \sum_{m = 1}^{M - 1}
+    \hat\alpha(k_m) \,
+    J_\nu(k_m r_k) \,
+    \frac{ 2 }
+    { \left[
+        J_{\nu+1}(j_{\nu,m})
+      \right]^2 }
+\\
+&=
+  \left(
+    \frac{ k_{\max} }
+         { j_{\nu, M} }
+  \right)^2
+  \sum_{m = 1}^{M - 1}
+    \hat\alpha(k_m) \,
+    J_\nu\left(
+      \frac{ j_{\nu, k} j_{\nu, m} }
+           { j_{\nu, M} }
+    \right) \,
+    \frac{ 2 }
+    { \left[
+        J_{\nu + 1}(j_{\nu, m})
+      \right]^2 },
+\end{align*}
+where
+\[
+  k_{\max} = j_{\nu, M} / R.
+\]
+This again shows that the inverse Hankel transform
+$\hat\alpha(k) \rightarrow \alpha(r)$
+assumes the same form as the Hankel transform
+$\alpha(r) \rightarrow \hat\alpha(k)$.
 
 
 
