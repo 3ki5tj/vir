@@ -71,6 +71,9 @@
 
 \tableofcontents
 
+
+
+
 \section{Main text: Methods}
 
 
@@ -1454,7 +1457,7 @@ run
 
 
 
-\section{Appendix A: Fourier transforms (odd dimensions)}
+\section{Appendix A.1: Fourier transforms in odd dimensions}
 
 
 
@@ -1676,10 +1679,10 @@ So
 \tilde A(k \rightarrow 0)
 &\approx
 \frac{ (2 \pi)^{D/2} } { k^{D/2 - 1} \Gamma(D/2) }
-\int A(r) \left( \frac{k r}{2} \right)^{D/2 - 1} dr \\
+\int_0^\infty A(r) \, \left( \frac{k r}{2} \right)^{D/2 - 1} dr \\
 &=
 \frac{ 2 \pi^{D/2} } { \Gamma(D/2) }
-\int A(r) r^{D/2 - 1} dr
+\int_0^\infty A(r) \, r^{D/2 - 1} dr.
 \end{align*}
 %
 The pre-factor is indeed the surface area
@@ -1691,12 +1694,14 @@ The inverse of Eq. (A1) is
 A(r)
 =
 \frac{ (2\pi)^{-D/2} } { r^{D/2 - 1} }
-\int \tilde{A}(k) \, J_{D/2-1}(kr) \, k^{D/2} \, dk.
+\int_0^\infty \tilde{A}(k) \, J_{D/2-1}(kr) \, k^{D/2} \, dk.
 \label{eq:invftsphr}
 \end{equation}
 Note that, besides $k \leftrightarrow r$,
 the $(2\pi)^{D/2}$ in the pre-factor is now $(2\pi)^{-D/2}$
-for we have to divide it by $(2\pi)^D$.
+for we have to divide the result by $(2\pi)^D$
+for the inverse Fourier transform.
+
 
 
 \subsection{Eq. (A2)}
@@ -1770,63 +1775,65 @@ The first few spherical Bessel functions are
 
 
 
-\section{Appendix A: Fourier transforms (even dimensions)}
+\section{Appendix A.2: Fourier transforms in even dimensions}
 
 \subsection{Hankel transform}
 
 Rewrite Eq. (A1) as
 \[
-\tilde{A}(k) k^{D/2-1}
+\tilde{A}(k) \, k^{D/2-1}
 = (2 \pi)^{D/2}
-\int A(r) r^{D/2-1} \, J_{D/2-1}(kr) \, r \, dr.
+\int_0^\infty A(r) \, r^{D/2-1} \, J_{D/2-1}(kr) \, r \, dr.
 \]
 
 Now replace $D/2 - 1$ by $\nu$, and
 \[
-\tilde{A}(k) k^\nu
+\tilde{A}(k) \, k^\nu
 = (2 \pi)^{\nu+1}
-\int A(r) r^\nu \, J_{\nu}(kr) \, r \, dr.
+\int_0^\infty A(r) \, r^\nu \, J_{\nu}(kr) \, r \, dr.
 \]
 
 We now do the following replacements:
 \begin{equation}
 \begin{split}
-  A(r) r^\nu \rightarrow \alpha(r) \\
-  \tilde{A}(k) k^\nu (2\pi)^{-\nu-1}
+  A(r) \, r^\nu \rightarrow \alpha(r) \\
+  \tilde{A}(k) \, k^\nu (2\pi)^{-\nu-1}
   \rightarrow
   \hat a(k),
 \end{split}
 \label{eq:Atoalpha}
 \end{equation}
 we get
-\[
+\begin{equation}
 \hat a(k)
 =
-\int \alpha(r) J_\nu(kr) \, r \, dr.
-\]
+\int_0^\infty \alpha(r) \, J_\nu(kr) \, r \, dr.
+\label{eq:HankelTransform}
+\end{equation}
 
 For the inverse, we rewrite \eqref{eq:invftsphr}
 \[
-A(r) r^{D/2-1}
+A(r) \, r^{D/2-1}
 =
 (2\pi)^{-D/2}
-\int \tilde{A}(k) k^{D/2-1} \, J_{D/2-1}(kr) \, k \, dk.
+\int_0^\infty \tilde{A}(k) \, k^{D/2-1} \, J_{D/2-1}(kr) \, k \, dk.
 \]
 
 Replacing $D/2 - 1$ by $\nu$ yields
 \[
-A(r) r^\nu
+A(r) \, r^\nu
 =
 (2\pi)^{-\nu-1}
-\int \tilde{A}(k) k^\nu \, J_\nu(kr) \, k \, dk.
+\int_0^\infty \tilde{A}(k) \, k^\nu \, J_\nu(kr) \, k \, dk.
 \]
 
 Using \eqref{eq:Atoalpha} gives
-\[
+\begin{equation}
 \alpha(r)
 =
-\int \hat \alpha(k) J_\nu(kr) \, k \, dk.
-\]
+\int_0^\infty \hat \alpha(k) J_\nu(kr) \, k \, dk.
+\label{eq:inverseHankelTransform}
+\end{equation}
 
 So our transform from $\alpha(r)$ to $\hat\alpha(k)$
 should be completely symmetric to the inverse transform
@@ -1834,11 +1841,406 @@ from $\hat\alpha(k)$ to $\alpha(r)$.
 
 
 
-\subsection{Inverse transform}
+\subsection{Fourier-Bessel series}
 
-The inverse transform of the \emph{discrete} Hankel transform
-is given below (deleted from version 5):
+The discretization of Hankel transform
+is related to the Fourier-Bessel series\cite{arfken}.
+%
+Suppose the function $\alpha(r)$ can be expanded as
+%
+\begin{align}
+\alpha(r) = \sum_{m = 1}^\infty \hat\alpha_m \,
+  J_\nu\left(
+    \frac{ \gamma_{\nu, m} \, r } { R }
+  \right),
+  \label{eq:FourierBesselSeries}
+\end{align}
+%
+where $\gamma_{\nu, m}$ is the $m$th zero of $J_\nu$.
+%
+Then, the coefficients $\hat\alpha_m$ are given by
+%
+\begin{align}
+\hat\alpha_m
+=
+\frac{ 2 } { R^2 \, \left[ J_{\nu+1}(\gamma_{\nu, m}) \right]^2 }
+\int_0^R \alpha(r) \, J_\nu\left(
+    \frac{ \gamma_{\nu, m} \, r } { R }
+  \right) \, r \, dr.
+  \label{eq:FourierBesselSeries_cm}
+\end{align}
+%
+Comparing to \eqref{eq:HankelTransform},
+we get
+\begin{align}
+  \hat\alpha_m
+=
+  \frac{ 2 } { R^2 \, [J_{\nu + 1}(\gamma_{\nu, m})]^2 }
+  \,
+  \hat\alpha
+  \left(
+    \frac{ \gamma_{\nu, m} } { R }
+  \right).
+  \label{eq:twoalphahats}
+\end{align}
+
+The proof is the following.
+The Bessel function satisfies the following differential equation
 \begin{align*}
+  \frac{d}{dz} \left( z \, \frac {d J_\nu}{dz} \right)
+  + \left(z - \frac{ \nu^2 } { z } \right) \, J_\nu = 0.
+\end{align*}
+or
+\begin{align*}
+  \frac{d}{dr} \left[ r \,
+    \frac {d}{dr} J_\nu\left( \frac{ \gamma_{\nu, m} \, r } { R } \right)
+  \right]
+  + \left(
+      \frac{\gamma^2_{\nu, m}}{R^2} \,r - \frac{ \nu^2 } { r }
+    \right) \, J_\nu\left( \frac{ \gamma_{\nu, m} \, r } { R } \right) = 0.
+\end{align*}
+%
+We now multiply the above by $J_\nu\left( \gamma_{\nu, n} \, r / R \right)$,
+and integrate $r$ from $0$ to $R$, and
+\begin{align*}
+&
+  \left.
+ J_\nu\left( \frac{ \gamma_{\nu, n} \, r } { R } \right)
+  r \frac {d}{dr}
+    J_\nu\left( \frac{ \gamma_{\nu, m} \, r } { R } \right)
+\right|_0^{R}
+-
+  \int_0^R
+    \frac {d}{dr} J_\nu\left( \frac{ \gamma_{\nu, m} \, r } { R } \right)
+    \frac {d}{dr} J_\nu\left( \frac{ \gamma_{\nu, n} \, r } { R } \right)
+  \, r \, dr
+\\
+&+
+\frac{\gamma^2_{\nu, m}}{R^2} \int_0^R
+J_\nu\left( \frac{ \gamma_{\nu, m} \, r } { R } \right) \,
+J_\nu\left( \frac{ \gamma_{\nu, n} \, r } { R } \right) \, r \, dr
+-
+\nu^2 \int_0^R
+J_\nu\left( \frac{ \gamma_{\nu, m} \, r } { R } \right) \,
+J_\nu\left( \frac{ \gamma_{\nu, n} \, r } { R } \right) \, \frac{ dr } { r }
+= 0.
+\end{align*}
+The first term vanishes because $J_\nu\left( \gamma_{\nu, n} \right) = 0$.
+%
+Now subtract the version with $n$ and $m$ swapped,
+we get, for $n \ne m$,
+\[\int_0^R
+J_\nu\left( \frac{ \gamma_{\nu, m} \, r } { R } \right) \,
+J_\nu\left( \frac{ \gamma_{\nu, n} \, r } { R } \right) \, r \, dr
+= 0.
+\]
+This proves the orthogonality of
+$J_\nu\left( \gamma_{\nu, m} \, r / R \right)$
+and
+$J_\nu\left( \gamma_{\nu, n} \, r / R \right)$.
+
+If, however, we set $\gamma_{\nu, n} \rightarrow \gamma_{\nu, m} + \delta\gamma$,
+then,
+\begin{align*}
+  \delta \gamma \,
+  \gamma_{\nu, m} \,
+  J'_\nu( \gamma_{\nu, m} )
+  J'_\nu( \gamma_{\nu, m} )
+-
+  \frac{ 2 \gamma_{\nu, m} \, \delta \gamma }{R^2} \int_0^R
+  J^2_\nu( \gamma_{\nu, m} ) \, r \, dr
+= 0.
+\end{align*}
+Now using the recurrence relation
+\[
+  J'_{\nu}(z) = n J_\nu(z) / z - J_{\nu + 1}(z),
+\]
+we get (noting that at $z = \gamma_{\nu, m}$, $J(z) = 0$)
+\begin{align*}
+  \int_0^R
+  J^2_\nu( \gamma_{\nu, m} ) \, r \, dr
+=
+  \frac{
+    \left[ J_{\nu+1}( \gamma_{\nu, m} ) \right]^2 \, R^2
+  } { 2 }.
+\end{align*}
+
+
+In summary,
+\begin{align}
+  \int_0^R
+  J_\nu( \gamma_{\nu, n} \, r ) \,
+  J_\nu( \gamma_{\nu, m} \, r ) \, r \, dr
+=
+  \delta_{n, m} \,
+  \frac{ \left[ J_{\nu+1}( \gamma_{\nu, m} ) \right]^2 \, R^2 } { 2 }.
+  \label{eq:FourierBessel_orthonormal}
+\end{align}
+which proves \eqref{eq:FourierBesselSeries_cm}.
+
+
+
+\subsection{Discrete Hankel transform}
+
+
+
+In the appendix,
+we give the discrete Hankel transform
+\begin{align}
+\hat\alpha(k_m)
+&=
+\hat\alpha\left( \frac{ \gamma_{\nu, m} } { R } \right)
+\notag
+\\
+&=
+\int_0^R
+\alpha(r) \,
+J_\nu\left( \frac{ \gamma_{\nu, m} \, r } { R } \right) \, r \, dr
+\notag
+\\
+&=
+\frac{ R^2 } { \gamma^2_{\nu, M} }
+\sum_{k = 1}^{M - 1}
+\alpha(r_k) \,
+J_\nu\left( \frac{ \gamma_{\nu, m} \, r_k } { R } \right)
+\frac{ 2 } { \left[ J_{\nu + 1}(\gamma_{\nu, k}) \right]^2 },
+\label{eq:discreteHankelTransform}
+\end{align}
+with
+$r_k = \left(\gamma_{\nu, k} / \gamma_{\nu, M}\right) R$.
+We shall derive this formula below.
+
+
+Suppose
+\begin{align}
+\int_0^R
+\alpha(r) \,
+J_\nu\left( \frac{ \gamma_{\nu, m} \, r } { R } \right) \, r \, dr
+=
+\sum_{k = 1}^{M - 1} \beta_k \,
+\alpha(r_k) \,
+J_\nu\left( \frac{ \gamma_{\nu, m} \, r_k } { R } \right),
+\label{eq:DHT_beta}
+\end{align}
+we wish to determine the coefficients $\beta_k$.
+
+
+First, by using $J_\nu(\gamma_{\nu, n} \, r)$ as $\alpha(r)$
+in \eqref{eq:DHT_beta},
+we get from \eqref{eq:FourierBessel_orthonormal} that
+\begin{align*}
+\sum_{k = 1}^{M - 1}
+J_\nu\left( \frac{ \gamma_{\nu, n} \, \gamma_{\nu, k} } { \gamma_{\nu, M} } \right) \,
+J_\nu\left( \frac{ \gamma_{\nu, m} \, \gamma_{\nu, k} } { \gamma_{\nu, M} } \right) \,
+\beta_k
+=
+  \delta_{n, m} \,
+  \frac{ \left[ J_{\nu+1}( \gamma_{\nu, m} ) \right]^2 \, R^2 } { 2 }.
+\end{align*}
+By $k \rightarrow m$, $m \rightarrow k$, $n \rightarrow k'$, we get
+\begin{align}
+\sum_{m = 1}^{M - 1}
+J_\nu\left( \frac{ \gamma_{\nu, k} \, \gamma_{\nu, m} } { \gamma_{\nu, M} } \right) \,
+J_\nu\left( \frac{ \gamma_{\nu, k'} \, \gamma_{\nu, m} } { \gamma_{\nu, M} } \right) \,
+\beta_m
+=
+  \delta_{k, k'} \,
+  \frac{ \left[ J_{\nu+1}( \gamma_{\nu, k} ) \right]^2 \, R^2 } { 2 }.
+  \label{eq:DHT_orthonormal}
+\end{align}
+
+
+
+On the other hand,
+using \eqref{eq:DHT_beta} in \eqref{eq:FourierBesselSeries_cm} yields
+\begin{align*}
+\hat\alpha_m
+=
+\frac{ 2 }
+{ R^2 \, \left[ J_{\nu + 1}(\gamma_{\nu,m}) \right]^2 }
+\sum_{k' = 1}^{M - 1}
+\alpha(r_{k'}) \,
+J_\nu\left( \frac{ \gamma_{\nu, m} \, \gamma_{\nu, k'} } { \gamma_{\nu, M} } \right)
+\, \beta_{k'}.
+\end{align*}
+
+Now $\alpha(r_k)$ can be computed from \eqref{eq:FourierBesselSeries}
+as
+\begin{align*}
+\alpha(r_k)
+&= \sum_{m = 1}^\infty \hat\alpha_m \,
+  J_\nu\left(
+    \frac{ \gamma_{\nu, m} \, r_k } { R }
+  \right)
+\\
+&=
+  \sum_{k' = 1}^{M - 1}
+  \alpha(r_{k'}) \,
+  \frac{ \beta_{k'} }
+  { R^2 }
+  \sum_{m = 1}^{M - 1}
+  \frac{ 2 }
+  { \left[ J_{\nu + 1}(\gamma_{\nu,m}) \right]^2 }
+  J_\nu\left(
+    \frac{ \gamma_{\nu, m} \, \gamma_{\nu, k'} } { \gamma_{\nu, M} }
+  \right)
+  J_\nu\left(
+    \frac{ \gamma_{\nu, m} \, \gamma_{\nu, k} } { \gamma_{\nu, M} }
+  \right)
+\\
+&= \sum_{k' = 1}^{M - 1}
+  \alpha(r_{k'}) \, \delta_{k, k'}.
+\end{align*}
+%
+Note that we have changed the up limit of the sum from $\infty$ to $k$.
+%
+Thus, we have,
+\begin{align*}
+  \sum_{m = 1}^{M - 1}
+  \frac{ 2 }
+  { \left[ J_{\nu + 1}(\gamma_{\nu,m}) \right]^2 }
+  J_\nu\left( \frac{ \gamma_{\nu, m} \, \gamma_{\nu, k'} } { \gamma_{\nu, M} } \right)
+  J_\nu\left(
+    \frac{ \gamma_{\nu, m} \, \gamma_{\nu, k} } { \gamma_{\nu, M} }
+  \right)
+  =
+  \delta_{k, k'} \frac{ R^2 } { \beta_{k} },
+\end{align*}
+Compare this result to \eqref{eq:DHT_orthonormal},
+we get
+\[
+  \beta_k
+=
+\frac{ 2 \, C } { [ J_{\nu + 1}(\gamma_{\nu, k}) ]^2 },
+\]
+where $C$ is some constant.
+
+
+
+\subsubsection*{Determination of the constant $C$}
+
+For a sufficiently large $k$,
+we get, from \eqref{eq:DHT_beta},
+\begin{align}
+  \int_{r_k}^{r_{k+1}}
+  r \, dr
+\approx
+  \beta_k
+=
+  \frac{ 2 \, C } { [ J_{\nu + 1}(\gamma_{\nu, k}) ]^2 }
+  \label{eq:determ_C}
+\end{align}
+
+We now use the asymptotic expansion of the Bessel function\cite{arfken}
+\begin{equation}
+  J_\nu(z)
+\approx
+  \sqrt{ \frac{ 2 } { \pi \, z } } \,
+  \cos\left[
+    z - \left(
+        n + \frac 1 2
+        \right)
+        \left(
+          \frac \pi 2
+        \right)
+  \right].
+  \label{eq:Bessel_asympt}
+\end{equation}
+%
+which also shows that
+%
+\begin{equation}
+  \gamma_{\nu, k}
+\approx
+  \left(
+    k + \frac 1 2 + \frac{(-1)^n}{4}
+  \right)
+  \, \pi,
+  \label{eq:BesselZero_asympt}
+\end{equation}
+%
+and
+%
+\begin{equation}
+  \Delta \gamma_{\nu, k}
+=
+  \gamma_{\nu, k + 1} - \gamma_{\nu, k}
+\approx
+  \pi.
+  \label{eq:BesseldZero_asympt}
+\end{equation}
+
+
+Now since $r_k = R \, \left( \gamma_{\nu, k}/\gamma_{\nu, M} \right)$,
+the left hand side of \eqref{eq:determ_C} is roughly
+\begin{equation}
+  r_k \, \Delta r_k
+=
+  \left( \frac{ R } { \gamma_{\nu, M} } \right)^2
+  \gamma_{\nu, k} \, \Delta \gamma_{\nu, k}
+=
+  \left( \frac{ R } { \gamma_{\nu, M} } \right)^2
+  \gamma_{\nu, k} \, \pi.
+  \label{eq:determC_lhs}
+\end{equation}
+
+
+On the other hand, from \eqref{eq:Bessel_asympt}, we get
+\[
+  J_{\nu+1}(\gamma_{\nu, k})
+=
+  \pm \sqrt{
+    \frac{ 2 }
+    { \pi \, \gamma_{\nu, k} }
+  }.
+\]
+So, the right hand side of \eqref{eq:determ_C} is equal to
+\begin{equation}
+  C \, \gamma_{\nu, k} \, \pi.
+  \label{eq:determC_rhs}
+\end{equation}
+Thus, equating \eqref{eq:determC_lhs} and \eqref{eq:determC_rhs} yields
+\[
+  C = \left( \frac{ R } { \gamma_{\nu, M} } \right)^2,
+\]
+and
+\[
+  \beta_k
+=
+  \frac{ 2 }
+  { [ J_{\nu + 1}(\gamma_{\nu, k}) ]^2 }
+  \frac{ R^2 }
+  { \gamma^2_{\nu, M} }.
+\]
+This completes the proof of \eqref{eq:discreteHankelTransform}.
+
+
+
+
+
+\subsection{Inverse discrete Hankel transform}
+
+We now derive the inverse discrete Hankel transform.
+
+Using \eqref{eq:twoalphahats} in \eqref{eq:FourierBesselSeries},
+we get
+\begin{align*}
+  \alpha(r)
+=
+\sum_{m = 1}^\infty
+\frac{ 2 } { R^2 [J_{\nu + 1}(\gamma_{\nu, m})]^2 }
+\hat\alpha
+  \left(
+    \frac{ \gamma_{\nu, m} } { R }
+  \right) \,
+J_\nu\left(
+    \frac{ \gamma_{\nu, m} \, r } { R }
+  \right).
+\end{align*}
+%
+We now set $r = r_k$, and define $k_m = \gamma_{\nu, m}/R$.
+Then
+\begin{align}
   \alpha(r_k)
 &=
   \frac{ 1 }{ R^2 }
@@ -1847,30 +2249,32 @@ is given below (deleted from version 5):
     J_\nu(k_m r_k) \,
     \frac{ 2 }
     { \left[
-        J_{\nu+1}(j_{\nu,m})
+        J_{\nu+1}(\gamma_{\nu,m})
       \right]^2 }
+\notag
 \\
 &=
-  \left(
-    \frac{ k_{\max} }
-         { j_{\nu, M} }
-  \right)^2
+  \frac{ k_{\max}^2 }
+       { \gamma_{\nu, M}^2 }
   \sum_{m = 1}^{M - 1}
     \hat\alpha(k_m) \,
     J_\nu\left(
-      \frac{ j_{\nu, k} j_{\nu, m} }
-           { j_{\nu, M} }
+      \frac{ \gamma_{\nu, k} \gamma_{\nu, m} }
+           { \gamma_{\nu, M} }
     \right) \,
     \frac{ 2 }
     { \left[
-        J_{\nu + 1}(j_{\nu, m})
+        J_{\nu + 1}(\gamma_{\nu, m})
       \right]^2 },
-\end{align*}
+\label{eq:inverseDiscreteHankelTransform}
+\end{align}
 where
 \[
-  k_{\max} = j_{\nu, M} / R.
+  k_{\max} = \gamma_{\nu, M} / R.
 \]
-This again shows that the inverse Hankel transform
+A comparison of \eqref{eq:inverseDiscreteHankelTransform}
+and \eqref{eq:discreteHankelTransform}
+shows that the inverse discrete Hankel transform
 $\hat\alpha(k) \rightarrow \alpha(r)$
 assumes the same form as the Hankel transform
 $\alpha(r) \rightarrow \hat\alpha(k)$.
@@ -2969,6 +3373,6 @@ So
 \end{align*}
 
 
-%\bibliography{liquid}
+\bibliography{liquid}
 \end{document}
 
