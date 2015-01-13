@@ -20,6 +20,9 @@ iegraph.pdf: iegraph.tex liquid.bib Makefile
 
 $(prj)notes.pdf: $(prj)notes.tex Makefile
 	pdflatex $<
+	bibtex iegraph
+	pdflatex $<
+	pdflatex $<
 
 clean:
 	$(RM) *.aux *.bbl *.blg *.log *.dvi \

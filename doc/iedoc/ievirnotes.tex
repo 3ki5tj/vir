@@ -2281,7 +2281,7 @@ $\alpha(r) \rightarrow \hat\alpha(k)$.
 
 
 
-\section{Appendix D: Transformation of series}
+\section{Appendix C: Transformation of series}
 
 \subsection{Product}
 
@@ -2504,11 +2504,11 @@ So
 
 
 
-\section{Appendix E: YBG equation}
+\section{Appendix D: YBG equation}
 
-\subsection{Eq. (E1), Constant shift}
+\subsection{Eq. (D1), Constant shift}
 
-In (E1), $g(\vr_{32})$ is replaced by $h(\vr_{32}) = g(\vr_{32}) - 1$,
+In (D1), $g(\vr_{32})$ is replaced by $h(\vr_{32}) = g(\vr_{32}) - 1$,
 this is valid because
 \[
  \int \nabla_1 \phi(\vr_{13}) g(\vr_{13} \, d\vr_3
@@ -2519,7 +2519,7 @@ this is valid because
 
 \subsection{Fourier transform}
 
-Eq. (E1) can be written as
+Eq. (D1) can be written as
 \[
   \vct{W}
 =
@@ -2856,7 +2856,7 @@ So
 
 
 
-\section{Appendix F: Kirkwood's equation}
+\section{Appendix E: Kirkwood's equation}
 
 \subsection{Expansion of correlation functions}
 
@@ -2954,9 +2954,9 @@ K_{l, m} \rho^l \xi^m
 
 
 
-\subsection{Eq. (F4)}
+\subsection{Eq. (E4)}
 
-From Eq. (F3)
+From Eq. (E3)
 \begin{align*}
   \sum_{l=0}^\infty
   \sum_{m=1}^{l+1}
@@ -2994,9 +2994,9 @@ in $y(\vr)$.
 
 
 
-\subsection{Eq. (F5)}
+\subsection{Eq. (E5)}
 
-From Eq. (F2)
+From Eq. (E2)
 \begin{align*}
   \sum_{l=1}^\infty
   \sum_{m=1}^{l}
@@ -3031,7 +3031,7 @@ So
 
 
 
-\subsection{Eq. (F6)}
+\subsection{Eq. (E6)}
 
 The exponentiation satisfies $\partial_\rho y = y \partial_\rho \omega$.
 \begin{align*}
@@ -3073,7 +3073,7 @@ or
 \]
 
 
-\subsection{Eq. (F7)}
+\subsection{Eq. (E7)}
 
 Since $1+h = g = (1+f) \,y$, we have
 \[
@@ -3094,104 +3094,284 @@ So
 
 
 
-\section{Appendix H: Expansion of the correlation functions at a finite density}
+\section{Appendix G: Expansion of correlation functions around a finite density}
 
 
-\subsection{The $l = 1$ case}
+\subsection{Recurrence relation for $[1 - (\rho + \Delta \rho) \, \tilde c]^{-1}$}
 
-The general formula is
+The general formula, unnumbered equation above Eq. (G1), is
+%
 \begin{align}
-  \rho \tilde h_{l;\rho}
+  \rho \, \tilde h_{l;\rho}
 &=
 \left\{
   \left[
     1 - \rho \, \tilde c
-    - \sum_{j = 1}^l
-        (\rho \tilde c_{j;\rho} + \tilde c_{j-1;\rho})
-          \, \Delta \rho^j
+    - \sum_{i = 1}^l
+        (\rho \, \tilde c_{i;\rho} + \tilde c_{i-1;\rho})
+          \, \Delta \rho^i
   \right]^{-1}
 \right\}_{l;\rho}
 \notag \\
 &\hphantom{=}- \tilde h_{l-1; \rho}.
+\label{eq:oz_nzrho1}
 \end{align}
-
-For the $l = 1$ case, we have
+%
+For convenience,
+we introduce
 \begin{align*}
-  \rho \, \partial_\rho \tilde h
-&=
-  \rho \, \tilde h_{1;\rho}
+  \tilde C_i
+&\equiv
+  \rho \, \tilde c_{i;\rho} + \tilde c_{i-1;\rho},
 \\
-&=
-\left\{
-  \left[
-    1 - \rho \, \tilde c
-    - (\rho \, \tilde c_{1;\rho} + \tilde c_{0;\rho})
-          \, \Delta \rho
-  \right]^{-1}
-\right\}_{1; \rho}
-  - \tilde h_{0; \rho}
+  \tilde H_i
+&\equiv
+  \rho \, \tilde h_{i;\rho} + \tilde h_{i-1;\rho},
 \\
-&=
-(1 - \rho \, \tilde c)^{-1} \,
-\left[
-  1 - \frac{ (\rho \, \partial_\rho \tilde c + \tilde c) }
-           { 1 - \rho \, \tilde c }
-\right]^{-1}_{1;\rho}
-- \tilde h,
-\\
-&=
-(1 - \rho \, \tilde c)^{-2} \,
-(\rho \, \partial_\rho \tilde c + \tilde c)
-- \tilde h,
-\\
-&=
-(1 + \rho \, \tilde h)^2 \,
-\rho \, \partial_\rho \tilde c
-+ (1 + \rho \, \tilde h) \, \tilde h
-- \tilde h,
-\\
-&=
-(1 + \rho \, \tilde h)^2 \,
-\rho \, \partial_\rho \tilde c
-+ \rho \, \tilde h^2,
+  K
+&\equiv
+  1 + \rho \, \tilde h
+  =
+  (1 - \rho \, \tilde c)^{-1},
 \end{align*}
-where we have use
-$\tilde c_{1;\rho} = \partial_\rho \tilde c$,
-$\tilde h_{1;\rho} = \partial_\rho \tilde h$,
-$\tilde c_{1;\rho} = \tilde c$,
-$\tilde h_{1;\rho} = \tilde h$,
+%
+where
+$\tilde h = \tilde h_{0;\rho}$
 and
-\[
-  (1 - \rho \tilde c)^{-1}
-=
-  1 + \rho \tilde h.
-\]
-
-
-So
+$\tilde c = \tilde c_{0;\rho}$.
+%
+Then, \eqref{eq:oz_nzrho1} can be rewritten as
 \begin{align*}
-\partial_\rho \tilde h
+  H_l
 &=
-(1 + \rho \, \tilde h)^2 \,
-\partial_\rho \tilde c
-+ \tilde h^2,
+  \left[
+    \left(
+      K^{-1} - \sum_{i = 1}^l C_i \, \Delta \rho^i
+    \right)^{-1}
+  \right]_{l;\rho}
+\\
+&= K
+  \left[
+    \left(
+      1 - K \sum_{i = 1}^l C_i \, \Delta \rho^i
+    \right)^{-1}
+  \right]_{l;\rho}.
 \end{align*}
-and since $t = h - c$, we have
+%
+or, by adding up the components,
+%
+\begin{align*}
+  1 + K^{-1} \sum_{l = 1}^\infty H_l \, \Delta \rho^l
+=
+  \left(
+    1 - K \sum_{i = 1}^\infty C_i \, \Delta \rho^i
+  \right)^{-1}.
+\end{align*}
+%
+Then, we have
+%
+\begin{align*}
+  \left(
+    1 + K^{-1} \sum_{l = 1}^\infty H_l \, \Delta \rho^l
+  \right)
+  \left(
+    1 - K \sum_{i = 1}^\infty C_i \, \Delta \rho^i
+  \right)
+=
+  1.
+\end{align*}
+By inspecting the coefficient of $\Delta \rho^l$, we get
+\begin{align*}
+  H_l
+= K \sum_{i = 1}^{l - 1} H_{l - i} \, C_i + K^2 \, C_l
+= K \sum_{i = 1}^{l} H_{l - i} \, C_i,
+\end{align*}
+where
+we have defined $\tilde h_{-1;\rho} \equiv 1$,
+such that $H_0 = \rho \, \tilde h_{0;\rho} + \tilde h_{-1;\rho} = K$,
+or,
+\begin{align}
+  \rho \, \tilde h_{l;\rho}
+=
+  K \sum_{i = 1}^{l}
+  (\rho \, \tilde h_{l-i;\rho} + \tilde h_{l-i-1;\rho})
+  (\rho \, \tilde c_{i;\rho} + \tilde c_{i-1;\rho})
+  - \tilde h_{l-1;\rho},
+  \label{eq:hc_nzrho}
+\end{align}
+which is the second part of the unnumbered equation
+before Eq. (G1).
+
+
+
+\subsection{Proof of Eq. (G1)}
+
+We now prove
+\begin{equation}
+  \tilde h_{l;\rho}
+=
+  K \, \tilde h_{l-1;\rho} \, \tilde c_{0;\rho}
++
+  K \sum_{i = 1}^l (\rho \, \tilde h_{l - i;\rho} + h_{l-1-i;\rho} ) \, \tilde c_{i;\rho}.
+  \label{eq:hc_nzrho_simplified}
+\end{equation}
+We shall do this by induction.
+
+
+
+\subsubsection{$l=1$ case}
+
+For $l = 1$,
+we get from \eqref{eq:hc_nzrho} that
+\begin{align}
+\rho \, \tilde h_{1;\rho}
+&=
+  K \, (\rho \, \tilde h_{0;\rho} + \tilde h_{-1;\rho}) \,
+  \rho \, \tilde c_{1;\rho}
++
+  K \, (\rho \, \tilde h_{0;\rho} + \tilde h_{-1;\rho}) \,
+  \tilde c_{0;\rho}
+-
+  \tilde h_{0;\rho}
+\notag
+\\
+&=
+  K^2 \,
+  \rho \, \tilde c_{1;\rho}
++
+  (K - 1) \, \tilde h_{0;\rho}
+=
+\rho (K^2 \, \tilde c_{1;\rho} + \tilde h^2 ).
+\label{eq:hc_nzrho1a}
+\end{align}
+Note that we have used the Ornstein-Zernike relation: $\tilde h = K \tilde c$.
+
+On the other hand, \eqref{eq:hc_nzrho_simplified}
+gives
+\begin{align}
+  \tilde h_{1;\rho}
+&=
+  K \, \tilde h_{0;\rho} \, \tilde c_{0;\rho}
++
+  K (\rho \, \tilde h_{0;\rho} + h_{-1;\rho} ) \, \tilde c_{1;\rho}
+\\
+&=
+  \tilde h^2 + K^2 \, \tilde c_{1;\rho},
+\label{eq:hc_nzrho1b}
+\end{align}
+which agrees with \eqref{eq:hc_nzrho1a}.
+%
+This means \eqref{eq:hc_nzrho_simplified}
+holds for $l = 1$.
+
+
+
+
+\subsubsection{Generally $l$}
+
+
+Now suppose \eqref{eq:hc_nzrho_simplified}
+holds for the $l$ case,
+%
+Now let us prove the $l + 1$ case.
+
+From \eqref{eq:hc_nzrho_simplified},
+we get
+\begin{align*}
+  \rho \, \tilde h_{l+1;\rho}
+&=
+  K \sum_{i = 1}^{l+1}
+  (\rho \, \tilde h_{l+1-i;\rho} + \tilde h_{l-i;\rho}) \,
+  \rho \, \tilde c_{i;\rho}
++
+  K \sum_{i = 1}^{l+1}
+  (\rho \, \tilde h_{l+1-i;\rho} + \tilde h_{l-i;\rho}) \,
+  \tilde c_{i-1;\rho}
+-
+  h_{l;\rho}
+%
+%
+%
+\\
+&=
+  K \sum_{i = 1}^{l+1}
+  (\rho \, \tilde h_{l+1-i;\rho} + \tilde h_{l-i;\rho}) \,
+  \rho \, \tilde c_{i;\rho}
++
+  K \sum_{i = 1}^{l}
+  (\rho \, \tilde h_{l-i;\rho} + \tilde h_{l-1-i;\rho}) \,
+  \tilde c_{i;\rho}
+\\
+&\hphantom{=\quad}
++ K \,
+  (\rho \, \tilde h_{l;\rho} + \tilde h_{l-1;\rho}) \,
+  \tilde c_{0;\rho}
+-
+  h_{l;\rho}
+%
+%
+%
+\\
+&=
+  K \sum_{i = 1}^{l+1}
+  (\rho \, \tilde h_{l+1-i;\rho} + \tilde h_{l-i;\rho}) \,
+  \rho \, \tilde c_{i;\rho}
++ K \,
+  \rho \, \tilde h_{l;\rho} \,
+  \tilde c_{0;\rho}
+\\
+&\hphantom{=\quad}
++
+\left[
+  K \sum_{i = 1}^{l}
+  (\rho \, \tilde h_{l-i;\rho} + \tilde h_{l-1-i;\rho}) \,
+  \tilde c_{i;\rho}
++ K \,
+  \tilde h_{l-1;\rho} \,
+  \tilde c_{0;\rho}
+-
+  h_{l;\rho}
+\right].
+%
+%
+%
+\end{align*}
+The terms in the square brackets vanish because of the induction hypothesis,
+\eqref{eq:hc_nzrho_simplified};
+the remaining terms give
+\eqref{eq:hc_nzrho_simplified}
+for the $l + 1$ case.
+This completes the proof of
+\eqref{eq:hc_nzrho_simplified}.
+
+
+
+\subsection{The $l = 1$ case}
+
+From \eqref{eq:hc_nzrho1b},
+we get
 \begin{align*}
 \partial_\rho \tilde t
 &=
-(2 + \rho \, \tilde h) \rho \, \tilde h \,
+\partial_\rho \tilde h
+-
 \partial_\rho \tilde c
-+ \tilde h^2.
+\\
+&=
+\tilde h^2
++
+\rho \, \tilde h \,
+(2 + \rho \, \tilde h) \,
+\partial_\rho \tilde c.
 \end{align*}
 
 
 
-\section{Appendix I.}
+\section{Appendix H.}
 
 
 
-\subsection{I.5 RH theorem}
+\subsection{H.5 RH theorem}
 
 
 
