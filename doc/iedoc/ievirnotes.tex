@@ -1467,11 +1467,15 @@ run
 
 A relatively easy way to remember the Bessel function
 is through the generating function
-\[
+%
+\begin{equation}
+  g(z, t)
+  =
   \exp\left[ \frac{z}{2} \left(t - \frac{1}{t}\right) \right]
   =
   \sum_{\nu = \infty}^\infty J_\nu(z) \, t^\nu.
-\]
+  \label{eq:BesselGF}
+\end{equation}
 %
 Expanding the left side yields
 \begin{align*}
@@ -1501,11 +1505,88 @@ So,
 
 
 
-\subsection{Proof of Eq. (A1)}
+\subsection{Recurrence relations of the Bessel function}
+
+Several recurrence relations can be derived from the generating function,
+Eq. \eqref{eq:BesselGF}, which we will use later on.
+
+First,
+\begin{equation}
+  \frac { \partial g } { \partial z}
++
+  \frac { t \partial g } { z \partial t}
+=
+  t g.
+  \label{eq:BesselR1g}
+\end{equation}
+or
+\[
+\frac 1 2 \left( t - \frac 1 t \right) \, g
++
+\frac {t} {2 z} \left( 1 + \frac 1 { t^2 } \right) \, g
+=
+  t \, g.
+\]
+
+Now expanding both sides of Eq. \eqref{eq:BesselR1g},
+we get
+\[
+  \sum_\nu J'_\nu(z) \, t^\nu
++
+  \sum_\nu \frac{ \nu \, J_\nu(z) } { z } t^\nu
+=
+  \sum_\nu J_{\nu}(z) \, t^{\nu+1},
+\]
+or
+\[
+  J'_\nu(z)
++
+  \frac{ \nu \, J_\nu(z) } { z }
+=
+  J_{\nu - 1}(z),
+\]
+which can be written as
+\begin{align}
+  \frac{d}{dz} [z^{\nu} J_\nu(z)] = z^{\nu} J_{\nu-1}(z),
+  \label{eq:BesselR1}
+\end{align}
+
+Similarly, from
+\begin{equation}
+-
+  \frac { \partial g } { \partial z}
++
+  \frac { t \partial g } { z \partial t}
+=
+  \frac{1}{t} \, g,
+  \label{eq:BesselR2g}
+\end{equation}
+we get
+\begin{align}
+  \frac{d}{dz} [z^{-\nu} J_\nu(z)] = -z^{-\nu} J_{\nu+1}(z),
+  \label{eq:BesselR2}
+\end{align}
 
 
 
-To show Eq. (A1), we start with
+
+
+\subsection{Proof of Eq. \eqref{eq:FTsphr}}
+
+The Fourier transform of an isotropic function in $D$ dimensions
+is given by
+\begin{align}
+  \tilde A(k)
+&=
+\frac{(2\pi)^{D/2}}{k^{D/2-1}}
+\int_0^\infty
+A(r) \, J_{D/2-1}(kr) \,
+r^{D/2} \, dr.
+\tag{A1}
+\label{eq:FTsphr}
+\end{align}
+
+To show Eq. \eqref{eq:FTsphr}, we start with
 %
 \begin{align}
   \tilde A(k)
@@ -1584,7 +1665,7 @@ A(r)
 A(r) \, J_\nu(kr) \,
 r^{\nu+1} \, dr.
 \end{align*}
-which is Eq. (A1) upon $\nu \rightarrow D/2-1$.
+which is Eq. \eqref{eq:FTsphr} upon $\nu \rightarrow D/2-1$.
 
 
 
@@ -1597,7 +1678,7 @@ We now prove Eq. \eqref{eq:intexpsin}.
 First, it is readily seen that
 the imaginary part of the integral is zero
 for the integral over $(0, \pi/2)$
-is canceled by that over $(\pi/2, pi)$.
+is canceled by that over $(\pi/2, \pi)$.
 %
 Thus, we will show that
 \begin{equation}
@@ -1663,11 +1744,11 @@ B(\nu + \tfrac{1}{2}, \tfrac{1}{2})
 
 
 
-\subsection{Small $k$ limit of Eq. (A1)}
+\subsection{Small $k$ limit of Eq. \eqref{eq:FTsphr}}
 
 
 
-One way to convince yourself of Eq. (A1) is to study the small $k$ limit.
+One way to convince yourself of Eq. \eqref{eq:FTsphr} is to study the small $k$ limit.
 %
 Keeping the first term in \eqref{eq:bessel} yields
 \[
@@ -1689,13 +1770,13 @@ The pre-factor is indeed the surface area
 given by \eqref{eq:surfareaD}.
 
 
-The inverse of Eq. (A1) is
+The inverse of Eq. \eqref{eq:FTsphr} is
 \begin{equation}
 A(r)
 =
 \frac{ (2\pi)^{-D/2} } { r^{D/2 - 1} }
 \int_0^\infty \tilde{A}(k) \, J_{D/2-1}(kr) \, k^{D/2} \, dk.
-\label{eq:invftsphr}
+\label{eq:invFTsphr}
 \end{equation}
 Note that, besides $k \leftrightarrow r$,
 the $(2\pi)^{D/2}$ in the pre-factor is now $(2\pi)^{-D/2}$
@@ -1779,7 +1860,7 @@ The first few spherical Bessel functions are
 
 \subsection{Hankel transform}
 
-Rewrite Eq. (A1) as
+Rewrite Eq. \eqref{eq:FTsphr} as
 \[
 \tilde{A}(k) \, k^{D/2-1}
 = (2 \pi)^{D/2}
@@ -1811,7 +1892,7 @@ we get
 \label{eq:HankelTransform}
 \end{equation}
 
-For the inverse, we rewrite \eqref{eq:invftsphr}
+For the inverse, we rewrite \eqref{eq:invFTsphr}
 \[
 A(r) \, r^{D/2-1}
 =
@@ -2503,18 +2584,21 @@ So
 
 
 
-
 \section{Appendix D: YBG equation}
 
-\subsection{Eq. (D1), Constant shift}
+\subsection{Eq. (D1), from $g(r)$ to $h(r)$}
 
 In (D1), $g(\vr_{32})$ is replaced by $h(\vr_{32}) = g(\vr_{32}) - 1$,
 this is valid because
 \[
- \int \nabla_1 \phi(\vr_{13}) g(\vr_{13} \, d\vr_3
-= \nabla_1 \left( \int \phi(\vr_{13}) g(\vr_{13} \, d\vr_3 \right)
-= 0.
+  \int \nabla_1 \phi(r_{13}) \, g(\vr_{13}) \, d\vr_3
+=
+  \int \frac{ \vr_{13} } { r_{13} } \,
+  \phi'(r_{13}) \, g(\vr_{13}) \, d\vr_{31}.
 \]
+Now since there is no preferred direction of $\vr_{13}$,
+this integral has to be zero (pages 205-206 of \cite{hill}).
+
 
 
 \subsection{Fourier transform}
@@ -2527,7 +2611,7 @@ Eq. (D1) can be written as
 \]
 where
 \[
-  \vct{W}(\vr) = \nabla \omega(\vr) = (\vr/r) \, \omega'(r),
+  \vct{W}(\vr) = \nabla \omega(\vr),
 \]
 and
 \[
@@ -2535,145 +2619,9 @@ and
   = (\vr/r) \, f'(r) \, y(r).
 \]
 
-The Fourier transform of $\vct W$ is
+The Fourier transform of $\vct W(\vr)$ is
 \begin{align*}
   \tilde{\vct{W}}(\vk)
-&=
-\int \vct{W}(\vr) \exp(-i\vk\cdot\vr) \, d\vr
-\\
-&=
-\int (\vr/r) \, \omega'(r) \, \exp(-i\vk\cdot\vr) \, d\vr
-\\
-&=
-\frac{\partial}{(-i) \, \partial \vk}
-\int \frac{\omega'(r)}{r} \, \exp(-i\vk\cdot\vr) \, d\vr
-\end{align*}
-%
-Since $\tilde{\vct{W}}$ is necessarily a radial function,
-we have
-\begin{align*}
-  \tilde{\vct{W}}(\vk)
-&=
-  \tilde{\vct{W}}(k)
-\\
-&=
-i \frac{\vk}{k} \frac{\partial}{\partial k}
-\int \frac{\omega'(r)}{r} \, \exp(-i\vk\cdot\vr) \, d\vr
-\\
-&\equiv
-i \vk \, \tilde{w}(k),
-\end{align*}
-where
-\begin{align*}
-\tilde{w}
-&=
-\frac{\partial}{k\partial k}
-\int \frac{\omega'(r)}{r} \, \exp(-i\vk\cdot\vr) \, d\vr
-\end{align*}
-
-We write the above function in Bessel functions:
-\begin{align}
-  \tilde{w}
-&=
-\frac{\partial}{k\partial k}
-\left[
-\frac{(2\pi)^{D/2}}{k^{D/2-1}}
-\int \frac{\omega'(r)}{r} \, r^{D/2} J_{D/2-1}(kr) \, dr
-\right]
-\notag \\
-&=
-\frac{(2\pi)^{D/2}}{k}
-\int
-\frac{\omega'(r)}{r}
-\,
-\frac{r^D \, \partial}{\partial (kr)}
-\left[
-\frac{1}{(kr)^{D/2-1}}
-  J_{D/2-1}(kr)
-\right]
-\, dr
-\notag \\
-&=
--
-\frac{(2\pi)^{D/2}}{k}
-\int
-\frac{\omega'(r)}{r}
-\frac{r^D}
-{
-(kr)^{D/2-1}
-}
-\, J_{D/2}(kr) \, dr
-\notag \\
-&=
--
-\frac{(2\pi)^{D/2}}{k^D}
-\int
-\omega'(r) \, (kr)^{D/2}
-\, J_{D/2}(kr) \, dr
-\label{eq:wbessel1}
-\end{align}
-Here, we have used
-\begin{align*}
-  \frac{d}{dz} [z^{-\nu} J_\nu(z)] = -z^{-\nu} J_{\nu+1}(z).
-\end{align*}
-where $\nu = D/2-1$.
-
-
-We then integrating by parts
-\begin{align*}
-\tilde{w}(k)
-&=
-\frac{(2\pi)^{D/2}}{k^D}
-\int
-\omega(r) \,
-\frac{\partial }{\partial r}
-\left[
-  (kr)^{D/2}
-  \, J_{D/2}(kr)
-\right]
-\, dr
-\\
-&=
-\frac{(2\pi)^{D/2}}{k^{D-1}}
-\int
-\omega(r) \,
-\frac{\partial }{\partial (kr)}
-\left[
-  (kr)^{D/2}
-  \, J_{D/2}(kr)
-\right]
-\, dr
-\\
-&=
-\frac{(2\pi)^{D/2}}{k^{D-1}}
-\int
-\omega(r) \,
-\left[
-  (kr)^{D/2}
-  \, J_{D/2-1}(kr)
-\right]
-\, dr
-\\
-&=
-\frac{(2\pi)^{D/2}}{k^{D/2-1}}
-\int
-\omega(r) \,
-  r^{D/2}
-  \, J_{D/2-1}(kr)
-\, dr
-\\
-&=\tilde\omega(k).
-\end{align*}
-Here we have used another property of the Bessel function
-\[
-  \frac{d}{dz} \Big[ z^\nu J_\nu(z) \Big]
-=
-  z^\nu \, J_{\nu - 1}(z).
-\]
-
-The simple result can be alternatively derived as
-\begin{align*}
-  \tilde{\vct{W}}
 &=
 \int \nabla \omega \, \exp(-i\vk \cdot \vr) \, d\vr
 \\
@@ -2687,8 +2635,7 @@ i \vk \, \int \omega \exp(-i\vk \cdot \vr) \, d\vr
 i \vk \, \tilde{\omega}(\vk).
 \end{align*}
 
-
-The Fourier transform of $\vct{Y}$ is given by
+The Fourier transform of $\vct Y(\vr)$ is
 \begin{align*}
   \tilde{\vct{Y}}(\vk)
 &=
@@ -2699,48 +2646,89 @@ The Fourier transform of $\vct{Y}$ is given by
 \\
 &=
 \frac{\partial}{(-i) \, \partial \vk}
-\int \frac{f'(r) \, y(r)}{r} \, \exp(-i\vk\cdot\vr) \, d\vr
+\int \frac{f'(r)}{r} \, y(r) \, \exp(-i\vk\cdot\vr) \, d\vr
+\end{align*}
+%
+Since $\tilde{\vct{Y}}(\vk)$ is necessarily a radial function,
+we have
+\begin{align*}
+  \tilde{\vct{Y}}(\vk)
+&=
+  \tilde{\vct{Y}}(k)
 \\
 &=
 i \frac{\vk}{k} \frac{\partial}{\partial k}
-\int \frac{f'(r) \, y(r)}{r} \, \exp(-i\vk\cdot\vr) \, d\vr
+\int \frac{f'(r)}{r} \, y(r) \, \exp(-i\vk\cdot\vr) \, d\vr
 \\
-&=
+&\equiv
 i \vk \, \tilde{\gamma}(k),
 \end{align*}
-%
 where
-\[
-\tilde{\gamma}(k)
-=
-\frac{\partial}{k\partial k}
-\int \frac{f'(r) \, y(r)}{r} \, \exp(-i\vk\cdot\vr) \, d\vr.
-\]
-
-We now use similar manipulations as
-those in \eqref{eq:wbessel1}, and
 \begin{align*}
-\tilde{\gamma}(k)
+  \tilde{\gamma} (k)
+&=
+\frac{1}{k}
+\frac{\partial}{\partial k}
+\int \frac{f'(r)}{r} \, y(r) \, \exp(-i\vk\cdot\vr) \, d\vr
+\end{align*}
+
+We now write the above function in Bessel functions.
+Using Eq. \eqref{eq:FTsphr}, we get
+\begin{align}
+  \tilde{\gamma}(k)
 &=
 \frac{\partial}{k\partial k}
-\int \frac{f'(r) \, y(r)}{r} \, \exp(-i\vk\cdot\vr) \, d\vr
-\\
-&=-\frac{(2\pi)^{D/2}}{k^{D/2}}
+\left[
+\frac{(2\pi)^{D/2}}{k^{D/2-1}}
+\int \frac{f'(r) \, y(r)}{r} \, r^{D/2} J_{D/2-1}(kr) \, dr
+\right]
+\notag \\
+&=
+\frac{(2\pi)^{D/2}}{k}
+\int
+\frac{f'(r) \, y(r)}{r}
+\,
+\frac{r^D \, \partial}{\partial (kr)}
+\left[
+\frac{1}{(kr)^{D/2-1}}
+  J_{D/2-1}(kr)
+\right]
+\, dr
+\notag \\
+&=
+-
+\frac{(2\pi)^{D/2}}{k}
+\int
+\frac{f'(r) \, y(r)}{r}
+\frac{r^D}
+{
+(kr)^{D/2-1}
+}
+\, J_{D/2}(kr) \, dr
+\notag \\
+&=
+-\frac{(2\pi)^{D/2}}{k^{D/2}}
 \int f'(r) \, y(r) \, r^{D/2} \, J_{D/2}(kr) \, dr.
-\end{align*}
+\label{eq:wbessel1}
+\end{align}
+Here, we have used Eq. \eqref{eq:BesselR2}
+with $\nu = D/2-1$.
+
+
+
 
 
 \subsection{Hard-sphere case}
 
-In the hard sphere case $f'(r) = \delta(r - 1)$,
-so
+In the hard sphere case $f'(r) = \delta(r - 1)$.
+So
 \begin{align}
 \tilde{\gamma}(k)
 &=-\frac{(2\pi)^{D/2}}{k^{D/2}}
 \int \delta(r - 1) \, y(r) \, r^{D/2} \, J_{D/2}(kr) \, dr
 \notag \\
 &=-\frac{(2\pi)^{D/2}}{k^{D/2}}
-y(1) \, J_{D/2}(k)
+y(1) \, J_{D/2}(k).
 \label{eq:gammahs}
 \end{align}
 
@@ -2748,7 +2736,8 @@ y(1) \, J_{D/2}(k)
 
 \subsection{Fourier transform of the $f$-bond}
 
-We write the above function in Bessel functions:
+From Eq. \eqref{eq:FTsphr},
+the Fourier transform of the $f$-function is given by
 \begin{align}
   \tilde{f}(k)
 &=
@@ -2760,17 +2749,19 @@ We write the above function in Bessel functions:
 \int_0^1 r^{D/2} J_{D/2-1}(kr) \, dr
 \notag \\
 &=
--\frac{(2\pi)^{D/2}}{k^{D-1}}
-\int_0^1 \frac{\partial}{\partial (kr)}
-\left[(kr)^{D/2} J_{D/2}(kr) \right] \, dr
+-\frac{(2\pi)^{D/2}}{k^{D}}
+\int_0^k \frac{\partial}{\partial (kr)}
+\left[(kr)^{D/2} J_{D/2}(kr) \right] \, d(kr)
 \notag \\
 &=
--\frac{(2\pi)^{D/2}}{k^{D-1}} \frac{1}{k}
+-\frac{(2\pi)^{D/2}}{k^{D}}
 k^{D/2} J_{D/2}(k).
 \notag \\
 &=
--\frac{(2\pi)^{D/2}}{k^{D/2}} J_{D/2}(k).
+-\frac{(2\pi)^{D/2}}{k^{D/2}} J_{D/2}(k),
 \end{align}
+where, we have used Eq. \eqref{eq:BesselR1}
+with $\nu = D/2$.
 
 
 Using the above relation, \eqref{eq:gammahs}
@@ -2828,30 +2819,30 @@ which is usual OZ form.
 
 
 Both sides of \eqref{eq:ozr}
-are equal to $\partial_\rho (\beta P)$.
+are equal to $\partial_\rho (\beta P^{(c)})$.
 \begin{equation*}
-  \partial_\rho (\beta \, P)
+  \partial_\rho (\beta \, P^{(c)})
 =
  \left[1 + \rho \int h(\vr) \, d\vr \right]^{-1}.
 \end{equation*}
 
 Now expand the above equation in $\rho$,
 \[
-  \sum_n n B_n \rho^{n-1}
+  \sum_n n B_n^{(c)} \rho^{n-1}
 =
   \sum_n
-  \Bigl\{
+  \Biggl\{
     \left[1 + \rho \int h(\vr) \, d\vr \right]^{-1}
-  \Bigr\}_{n - 1} \, \rho^{n-1}.
+  \Biggr\}_{n - 1} \, \rho^{n-1}.
 \]
 So
 \[
-  B_n
+  B_n^{(c)}
 =
 \frac{1}{n}
-  \Bigl\{
+  \Biggl\{
     \left[1 + \rho \int h(\vr) \, d\vr \right]^{-1}
-  \Bigr\}_{n - 1}.
+  \Biggr\}_{n - 1}.
 \]
 
 
@@ -2982,7 +2973,7 @@ From Eq. (E3)
 
 Thus
 \[
-  K_{l,m} = f y_{l, m-1}/m,
+  K_{l,m} = f y_{l, m-1}/m.
 \]
 
 
@@ -3053,7 +3044,7 @@ j \, \omega_{j, k} \rho^{j-1} \xi^k
 \sum_{j = 1}^\infty
 \sum_{k = 1}^j
 j \, y_{i, n} \,
-\omega_{j, k} \rho^{i+j-1} \xi^{n+k}
+\omega_{j, k} \rho^{i+j-1} \xi^{n+k}.
 \end{align*}
 
 Thus,
@@ -3065,7 +3056,7 @@ j \, y_{i, n} \, \omega{j, k}.
 \]
 The index $k$ satisfies
 \begin{align*}
-   0 \le n = m - k \le i
+   0 \le n = m - k \le i,
 \end{align*}
 or
 \[
@@ -3082,7 +3073,7 @@ Since $1+h = g = (1+f) \,y$, we have
   \sum_{l = 0}^\infty
   \left[
     (1 + f) \sum_{m = 0}^l y_{l, m} \xi^m \Big|_{\xi = 1}
-  \right] \rho^l
+  \right] \rho^l.
 \]
 
 So
@@ -3343,6 +3334,7 @@ the remaining terms give
 for the $l + 1$ case.
 This completes the proof of
 \eqref{eq:hc_nzrho_simplified}.
+
 
 
 
