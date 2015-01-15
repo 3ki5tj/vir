@@ -11,5 +11,5 @@ echo "cpu.sh: $dir1, seed $1" >> cur.dir
 # allow 30 gigabytes for the hash table
 ./a.out -1 1e14 -q 2000000000 --rng $1 \
   --hash-mode=1 --hash-bits=28 --hash-memmax=3e10 \
-  --hash-nocsep --auto-level=9 --dbinp=fb.bdb -p3 &
+  --hash-nocsep --auto-level=9 --dbinp=fb.bdb --dbout=fb.bdb -p3 &
 

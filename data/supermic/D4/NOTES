@@ -1,4 +1,15 @@
-### run2 ###
+## run4 ##
+
+n12w1NZa, cpu uses a database file of 20G
+
+## run3 ##
+
+n11w1NZx turns on database updating
+
+n12w1NZa, cpu uses a database file of 18G
+
+## run2 ##
 
 n12w1NZa currently uses a database file of 12G,
-check the log to see if the MIC can take it.
+check the log to see if the MIC can take it (search for "err").
+yes!

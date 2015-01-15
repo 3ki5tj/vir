@@ -152,16 +152,16 @@ set bmargin 1.5
 set rmargin 0.
 set lmargin 6.0
 
-set label 101 "{/Arial-Italic D} = 2, {/Symbol-Oblique k} = 0" \
+set label 101 "{/Arial-Italic D} = 2, {/Symbol-Oblique k}_{/Arial-Italic n} = 0" \
   at 16.0, 1.3e-4 rotate by -53  textcolor rgb color1b font lbfont
 
-set label 301 "{/Arial-Italic D} = 2, {/Symbol-Oblique k} = (0.194)_{{/Arial-Italic n} {/Symbol \263} 6}" \
+set label 301 "{/Arial-Italic D} = 2, {/Symbol-Oblique k}_{/Arial-Italic n} = (0.194)_{{/Arial-Italic n} {/Symbol \263} 6}" \
   at 14.5, 3.0e-3 rotate by -52  textcolor rgb color1b2 font lbfont
 
-set label 102 "{/Arial-Italic D} = 3, {/Symbol-Oblique k} = 0" \
+set label 102 "{/Arial-Italic D} = 3, {/Symbol-Oblique k}_{/Arial-Italic n} = 0" \
   at  9.5, 2.4e-4 rotate by -72  textcolor rgb color2b font lbfont
 
-set label 302 "{/Arial-Italic D} = 3, {/Symbol-Oblique k} = (0.335)_{{/Arial-Italic n} {/Symbol \263} 5}" \
+set label 302 "{/Arial-Italic D} = 3, {/Symbol-Oblique k}_{/Arial-Italic n} = (0.335)_{{/Arial-Italic n} {/Symbol \263} 5}" \
   at 10.5, 8.5e-4 rotate by -68  textcolor rgb color2b2 font lbfont
 
 set label 103 "{/Arial-Italic D} = 4" \
@@ -175,7 +175,7 @@ plot [2:22][8e-6:2] \
   ""                                      u ($1):(abs($2)):3                            w p  ls 2              notitle, \
   "data/D3/BnD3n12.dat"                   u ($1):(abs($2)):3                            w l  ls 6              notitle, \
   ""                                      u ($1):(abs($2)):3                            w p  ls 6              notitle, \
-  "data/D4/BnD4n11.dat"                   u ($1):(($1 <= 10) ? abs($2) : 1/0):3         w l  ls 10             notitle, \
+  "data/D4/BnD4n12.dat"                   u ($1):(($1 <= 10) ? abs($2) : 1/0):3         w l  ls 10             notitle, \
   ""                                      u ($1):(($1 <= 10) ? abs($2) : 1/0):3         w p  ls 10             notitle, \
   "iedata/xBnPYcD2n32.dat"                u ($1):(abs($2))                              w l  ls 4              notitle, \
   ""                                      u ($1):(abs($2))                              w p  ls 4              notitle, \
@@ -218,10 +218,10 @@ unset ylabel
 set label 101 "{/Arial-Italic D} = 5, {/Symbol-Oblique l}-DSC" \
     at   9.5, 2.5e-4   rotate by -55  textcolor rgb color1b1 font lbfont
 
-set label 102 "{/Arial-Italic D} = 6, {/Symbol-Oblique k} = 0" \
+set label 102 "{/Arial-Italic D} = 6, {/Symbol-Oblique k}_{/Arial-Italic n} = 0" \
     at  20, 5.0e-4 rotate by 8  textcolor rgb color2b font lbfont
 
-set label 202 "{/Arial-Italic D} = 6, {/Symbol-Oblique k} = (0.352)_{{/Arial-Italic n} {/Symbol \263} 4}" \
+set label 202 "{/Arial-Italic D} = 6, {/Symbol-Oblique k}_{/Arial-Italic n} = (0.352)_{{/Arial-Italic n} {/Symbol \263} 4}" \
     at  24.0, 2.5e-4 rotate by 10  textcolor rgb color2b2 font lbfontsm
 
 set label 302 "{/Arial-Italic D} = 6, {/Symbol-Oblique l}-DSC" \

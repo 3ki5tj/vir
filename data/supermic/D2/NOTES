@@ -1,4 +1,18 @@
-The first run of n14w1NZc has no mic1.
+## run3 ##
+
+New simulation: n14w1NZd.
+
+Database updating
+
+          |   CPU   |   MIC
+----------|---------|---------
+n14w1NZa  |   yes   |   yes
+n14w1NZb  |   yes   |   yes
+n14w1NZc  |   yes   |   yes
+n14w1NZd  |   yes   |   yes
+
+database size is now 11.6G
+
 
 ## run2 ##
 
@@ -15,7 +29,7 @@ n14w1NZa  |   yes   |   yes
 n14w1NZb  |   yes   |   yes
 n14w1NZc  |   no    |   no
 
-It appears that database updating does not slow down sampling.
+It appears that database updating does not slow down sampling significantly.
 
 
 ### Check ###
@@ -27,3 +41,9 @@ Check the log file to see if the MIC can take it.
 ### Todo ###
 
 Try to add n14w1NZd, after obtaining a larger database
+
+
+
+## run1 ##
+
+n14w1NZc has no mic1.

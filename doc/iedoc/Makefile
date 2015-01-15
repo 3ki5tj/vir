@@ -20,6 +20,11 @@ $(latexpdfs): %.pdf : %.tex liquid.bib Makefile
 	pdflatex $<
 	pdflatex $<
 
+iegraph.pdf: fig/iepres.pdf
+
+fig/iepres.pdf:
+	$(MAKE) -C fig iegraph.pdf
+
 clean:
 	$(RM) *.aux *.bbl *.blg *.log *.dvi \
 	      *Notes.bib *~
