@@ -111,12 +111,12 @@ set key left Left reverse spacing spc font lbfont
 
 plot [:][0:9] \
   "iedata/thermo/PYhs.dat"            u 1:($2/$1-1)             w l  ls 2  lw 1 notitle, \
-  ""                                  u 1:($2/$1-1)  every 2::1 w p  ls 2  t "PY, Eq. (23)", \
-  ""                                  u 1:($3/$1-1)  every 2::1 w p  ls 4  t "PY, Eq. (50)", \
-  ""                                  u 1:($4/$1-1)  every 2::1 w p  ls 6  t "PY, Eq. (51)", \
+  ""                                  u 1:($2/$1-1)  every 2::1 w p  ls 2  t "PY, Eq. (24)", \
+  ""                                  u 1:($3/$1-1)  every 2::1 w p  ls 4  t "PY, Eq. (51)", \
+  ""                                  u 1:($4/$1-1)  every 2::1 w p  ls 6  t "PY, Eq. (52)", \
   "iedata/thermo/HNChs.dat"           u 1:($2/$1-1)             w l  ls 8  lw 1 notitle, \
-  ""                                  u 1:($2/$1-1)  every 2::1 w p  ls 8  t "HNC, Eq. (41)", \
-  ""                                  u 1:($3/$1-1)  every 2::1 w p  ls 10 t "HNC, Eq. (42)", \
+  ""                                  u 1:($2/$1-1)  every 2::1 w p  ls 8  t "HNC, Eq. (42)", \
+  ""                                  u 1:($3/$1-1)  every 2::1 w p  ls 10 t "HNC, Eq. (43)", \
   1e-100 lw 0 notitle
 
 
