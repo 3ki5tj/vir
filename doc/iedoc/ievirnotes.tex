@@ -3362,8 +3362,89 @@ we get
 \section{Appendix H.}
 
 
+\subsection{H.4 Direct and indirect correlation functions}
 
-\subsection{H.5 RH theorem}
+The density component $c_{n-2}(\vr)$ of the direct correlation function
+is given by
+\begin{align}
+  c_{n-2}(\vr)
+&=
+  \frac { Z_n } { n! }
+  \sum_{i \ne j}
+  \langle
+    f_B(\vr^n)
+    \,
+    \delta(\vr_{ij} - \vr)
+  \rangle_{\mathrm{bc}}
+\notag
+\\
+&=
+  \frac { Z_n } { (n - 2)! }
+  \langle
+    f_B(\vr^n)
+    \,
+    \delta(\vr_{12} - \vr)
+  \rangle_{\mathrm{bc}},
+  \tag{H2}
+  \label{eq:mayer_cr}
+\end{align}
+where, we have used the fact that
+every \emph{ordered} pair $(i, j)$ is equivalent,
+such that the sum over $i \ne j$
+is equal to average at $(1, 2)$
+multiplied by $n \, (n - 1)$.
+
+This formula is implemented as follows.
+%
+We will need an array
+of accumulators along $r$
+\[
+  A_c(r)
+\equiv
+  A_c\left(
+    r - \frac { \Delta r } { 2 },
+    r + \frac { \Delta r } { 2 }
+  \right).
+\]
+to accumulate
+the histogram-like quantities $f_B(\vr^n) \delta(\vr_{ij} - \vr)$,
+which are zero initially.
+%
+Given a configuration $\vr^n$,
+we first compute the signed star content $f_B(\vr^n)$.
+%
+Then,
+we list all pairs $(i, j)$ with $i < j$.
+%
+For each pair,
+we locate the bin $\left( r - \frac { \Delta r } { 2 }, r + \frac { \Delta r } { 2 } \right)$
+that contains $r_{ij} = |\vr_{ij}|$,
+and add $f_B(\vr^n)$ into the accumulator there.
+%
+The total number of samples $N_\mathrm{samp}$
+is incremented by $n (n - 1) / 2$
+(which is the number of pairs) per configuration.
+%
+In the end,
+for each bin at $r$,
+$c(r)$ is computed as
+\[
+  c(r)
+=
+  A_c(r) \,
+  \frac{ Z_n } { (n - 2)! }
+  \frac{ 1 } { N_\mathrm{samp} \, S_D(r) \, \Delta r },
+\]
+where
+$Z_n$ is the partition function
+(which is obtained from the grand-ensemble simulation or the ring content)
+and
+$S_D(r)$ is the surface area,
+defined in \eqref{eq:surfareaD}.
+
+
+
+\subsection{H.6 RH theorem}
 
 
 

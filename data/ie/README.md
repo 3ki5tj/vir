@@ -1,5 +1,6 @@
 Directories
 ==============
+
   * iebenchmark   benchmark data set
   * gaussf        integral equations applied to the Gaussian model
   * pyhc          a set of data with the cavity route computed (mainly for HNC, Fig. 1)
@@ -10,17 +11,14 @@ Directories
 
 
 
-D               Method    Number of points    Precision*
-2               DHT         524288              53-bit (double)
-                            262144              64-bit (long double)
-
-8,10,...,30     DHT         131072              64-bit (long double)
-
-3,5,...,15      FFT        4194304              113-bit (quadruple)
-
-17,19,...,27    FFT         262144              256-bit
-
-29              FFT         262144              384-bit
+D               | Method    | Number of points    | Precision*
+----------------|-----------|---------------------|-------------------------
+2               | DHT       |   524288            |   53-bit (double)
+                |           |   262144            |   64-bit (long double)
+8,10,...,30     | DHT       |   131072            |   64-bit (long double)
+3,5,...,15      | FFT       |  4194304            |   113-bit (quadruple)
+17,19,...,27    | FFT       |   262144            |   256-bit
+29              | FFT       |   262144            |   384-bit
 
 * Precision is the number of bits to represent the significant.
   The 64-bit double-precision floating-point number has 53 bits.
@@ -30,6 +28,7 @@ D               Method    Number of points    Precision*
 
 Notes
 ======
+
 D = 20, DHT
   with -M 32768
     double / long double makes little difference

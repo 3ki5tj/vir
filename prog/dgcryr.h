@@ -87,20 +87,24 @@ INLINE int dgyr_preproc(dg_t *g, int a, int b, int type, int *eab)
  * y(r) [type = 0] or y(r) - t(r) [type = 1] or ln y(r) [type = 2]
  *
  * 0. y(r) is computed as follows
- * First, join the root vertices a-b, if they are not adjacent in g
- * Then, the signed star content of a-b is equal to
+ * First, join the roots a-b, if they are not adjacent in g
+ * Then, the f^{i, j}_B of a-b is equal to
  * the number of biconnected subgraphs of g
  * with even number of missing edges (except a-b)
  * less the number of biconnected subgraphs of g
  * with odd number of missing edges (except a-b)
+ * the average f^{i, j}_B correspond to f(r) y(r).
  *
  * 1. y(r) - t(r) = c(r) - f(r) y(r) is computed as follows
  * First, disjoin the root vertices a and b, if they are adjacent in g
  * The remaining is the same.
  *
+ * 2. ln y(r)
+ * Same as 0, but {a, b} is not a separation pair.
+ *
  * 3. ln y(r) - t(r)
  * Similar to case 1, but also exclude graphs with {a, b} being
- * articulation pair.
+ * a separation pair.
  *
  * On return g should be the same
  * This function is adapted from dgsc_iter0.h from dgsc.h
@@ -121,9 +125,16 @@ INLINE double dgsc_yriter0(dg_t *g, int a, int b, int type, int proc)
   die_if (b < 0, "(%d-%d) is not a valid edge\n", a, b);
   DGYR_CHECKTYPE(type);
 
-  if (proc && dgyr_preproc(g, a, b, type, &eab) == 0) return 0;
+  /* link a and b for yr or ln yr
+   * or unlink a and b for yr - tr or ln yr - tr
+   * eab = 1 if a - b is linked
+   * eab = -1 if a - b is unlinked */
+  if (proc && dgyr_preproc(g, a, b, type, &eab) == 0)
+    return 0;
 
-  /* collect edges to be switched on or off */
+  /* collect flexible edges that can be switched on or off
+   * either vertex of a flexible edge must have a degree greater
+   * than 2 for the graph without the edge to be biconnected */
   ned = dg_degs(g, degs);
   for (med = 0, vi = 0; vi < n - 1; vi++)
     if ( degs[vi] > 2 )
@@ -145,19 +156,27 @@ INLINE double dgsc_yriter0(dg_t *g, int a, int b, int type, int proc)
       if ( (degi = degs[ vi = ed[ied][0] ]) < 3
         || (degj = degs[ vj = ed[ied][1] ]) < 3 )
         continue;
+
+      /* try to remove the edge vi - vj */
       dg_unlink(g, vi, vj);
+
       if ( dg_biconnected(g)
-          && (!DO_LNYR(type) || dg_connectedvs(g, vsnab)) ) {
-        /* if we want the bridge diagrams, va and vb cannot be a separation pair */
-        degs[vi] = degi - 1, degs[vj] = degj - 1;
+          && !(DO_LNYR(type) && !dg_connectedvs(g, vsnab)) ) {
+        /* if we are doing ln y(r), va and vb cannot be a separation pair */
+        degs[vi] = degi - 1;
+        degs[vj] = degj - 1;
         st[top] = ied;
         --ned;
         fb += 1 - ned % 2 * 2;
+        /* accept the removal vi - vj */
         break;
       }
+
+      /* add back vi - vj and try the next flexible edge */
       dg_link(g, vi, vj);
     }
-    if (ied < med) { /* try to push */
+
+    if (ied < med) { /* an edge vi - vj is selected */
       if (++top < med) {
         /* edges in the stack are arranged in ascending order, so the edge
          * on the next position must have a greater index than this edge */
@@ -165,17 +184,26 @@ INLINE double dgsc_yriter0(dg_t *g, int a, int b, int type, int proc)
         continue;
       } /* otherwise, fall through and pop */
     }
+
     --top; /* pop */
-    if (top >= 0 && (ied = st[top]) >= 0) { /* erase the edge */
-      vi = ed[ied][0]; vj = ed[ied][1];
+    if (top >= 0 && (ied = st[top]) >= 0) { /* link back the edge */
+      vi = ed[ied][0];
+      vj = ed[ied][1];
       dg_link(g, vi, vj);
-      degs[vi]++, degs[vj]++;
+      degs[vi]++;
+      degs[vj]++;
       ned++;
     }
   }
 
+  /* if eab = 1, unlink a - b
+   * if eab = -1, link a - b */
   if ( proc ) dgyr_postproc(g, a, b, eab);
-  /* we have added an f-bond between a-b, which evaluates -1 */
+
+  /* for y(r) and ln y(r), we have just evaluated integrands
+   * for f(r) y(r) and f(r) ln y(r), respectively,
+   * the f-bond between a-b, which evaluates -1,
+   * needs to removed in the end */
   if (type == YRTYPE_YR || type == YRTYPE_LNYR) fb = -fb;
   return fb;
 }
@@ -189,13 +217,13 @@ INLINE int dgrjw_yrfq(dgvs_t *c, dgword_t vs, int a, int b)
 {
   dgword_t w, bi;
 
-  /* if there is a bond, i.e., r(i, j) < 1, then fq = 0 */
+  /* if there is an f-bond, i.e., r(i, j) < 1, then fq = 0 */
   for (w = vs; w; w ^= bi) {
     int i = bitfirstlow(w, &bi);
-    /* if c[i] share vertices with vs, there is bond
+    /* if c[i] share vertices with vs, there is an f-bond with i
      * the Boltzmann weight = \prod_(ij) e_ij, and it allows no clash
      * therefore return zero immediately
-     * exclude, however, the edge a-b */
+     * exclude, however, the f-bond a-b */
     if ( i == a && (DGVS_FIRSTWORD(c[i]) & (vs & ~b)) ) return 0;
     else if ( i == b && (DGVS_FIRSTWORD(c[i]) & (vs & ~a))) return 0;
     else if (DGVS_FIRSTWORD(c[i]) & vs) return 0;
@@ -322,6 +350,7 @@ static dgrjw_fb_t dgrjw_yriter(const dg_t *g, int a, int b, int type,
 
   /* loop over the position of the first clique separator */
   for ( v = 0; v < DG_N_; v++ ) {
+    /* we only keep two successive stages */
     iold = v % 2;
     inew = (v + 1) % 2;
     idold = iold * vsmax;
@@ -370,7 +399,7 @@ static dgrjw_fb_t dgrjw_yriter(const dg_t *g, int a, int b, int type,
 
 /* remove graphs with {a, b} being a separation pair
  * `fbarr' is the input, `fdarr' is the output */
-static dgrjw_fb_t dgrjw_yrrmseppr(const dg_t *g, int a, int b, int sgn,
+static dgrjw_fb_t dgrjw_yrrmsepr(const dg_t *g, int a, int b, int sgn,
     dgrjw_fb_t *fbarr, dgrjw_fb_t *fdarr, unsigned *vsbysize)
 {
   dgrjw_fb_t fa;
@@ -451,24 +480,28 @@ static dgrjw_fb_t dgrjw_yrfb0(dg_t *g, int a, int b, int type, int proc)
 
   /* add/remove the edge between a and b */
   if ( proc && dgyr_preproc(g, a, b, type, &eab) == 0 ) return 0;
+
   /* pre-compute all fc and fq values */
   dgrjw_yrprepare(g, a, b, type, dgrjw_fbarr_, dgrjw_fbarr_ + size,
                    dgrjw_vsbysize_, dgrjw_aparr_);
+
   /* remove articulated graphs */
   fb = dgrjw_yriter(g, a, b, type, dgrjw_fbarr_,
                     dgrjw_vsbysize_, dgrjw_aparr_);
-  /* remove graphs in which a and b form an articulation pair */
+
+  /* remove graphs in which a and b form a separation pair */
   if ( DO_LNYR(type) ) {
     offset = DG_N_ % 2;
     /* in this case, a and b are adjacent,
      * i.e., we are computing the expansion of f(r) y(r), instead of y(r)
      * so in removing the graphs with {a, b} being a separation pair
      * we must use the negative sign to get f(r) ln y(r) */
-    fb = dgrjw_yrrmseppr(g, a, b, -1, dgrjw_fbarr_ + offset * size,
+    fb = dgrjw_yrrmsepr(g, a, b, -1, dgrjw_fbarr_ + offset * size,
             dgrjw_fbarr_ + (!offset) *size, dgrjw_vsbysize_);
   } else {
     if ( type == YRTYPE_YR ) fb = -fb;
   }
+
   /* remove/add back the edge between a and b */
   if ( proc ) dgyr_postproc(g, a, b, eab);
   return fb;
@@ -598,7 +631,7 @@ INLINE double dg_yrfb0(dg_t *g, int a, int b, int type,
   if ( *ned <= 2*DG_N_ - 2 || DG_N_ > RJWNMAX || type == YRTYPE_LNYRTR ) {
     fb = dgsc_yriter0(g, a, b, type, 0);
   } else {
-    fb =  (double) dgrjw_yrfb0(g, a, b, type, 0);
+    fb = (double) dgrjw_yrfb0(g, a, b, type, 0);
   }
 
 END:

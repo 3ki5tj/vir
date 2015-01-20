@@ -456,6 +456,7 @@ static void report(const av0_t *fbsm, const av0_t *nrsm,
 
 
 
+/* currently only for the master node */
 static void savecr(hscr_t *hs, rvn_t *x, int n, double fb)
 {
   int i, j;

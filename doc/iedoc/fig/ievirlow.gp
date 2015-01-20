@@ -221,7 +221,7 @@ set label 101 "{/Arial-Italic D} = 5, {/Symbol-Oblique l}-DSC" \
 set label 102 "{/Arial-Italic D} = 6, {/Symbol-Oblique k}_{/Arial-Italic n} = 0" \
     at  20, 5.0e-4 rotate by 8  textcolor rgb color2b font lbfont
 
-set label 202 "{/Arial-Italic D} = 6, {/Symbol-Oblique k}_{/Arial-Italic n} = (0.352)_{{/Arial-Italic n} {/Symbol \263} 4}" \
+set label 202 "{/Arial-Italic D} = 6, {/Symbol-Oblique k}_{/Arial-Italic n} = (0.352)_{{/Arial-Italic n}{/Symbol \263}4}" \
     at  24.0, 2.5e-4 rotate by 10  textcolor rgb color2b2 font lbfontsm
 
 set label 302 "{/Arial-Italic D} = 6, {/Symbol-Oblique l}-DSC" \
