@@ -12,5 +12,5 @@ echo "data output to $1, random number seed $2, $LD_LIBRARY_PATH, $OMP_NUM_THREA
 # allow 14G memory for the hash table
 ./a.mic -w 5 -1 1e14 -q 100000000 \
   --hash-bits=24 --hash-memmax=14e9 --hash-nocsep \
-  --auto-level=9 --dbinp=fb.bdb --dbout=fb.bdb -p3 -P $1 --rng $2
+  --auto-level=9 --dbinp=fb.bdb -p3 -P $1 --rng $2
 

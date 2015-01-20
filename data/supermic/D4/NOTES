@@ -1,15 +1,50 @@
-## run4 ##
+## run5 ##
 
-n12w1NZa, cpu uses a database file of 20G
+## run4 ##
 
 ## run3 ##
 
-n11w1NZx turns on database updating
+n11w1NZx turns on database updating for CPU
 
-n12w1NZa, cpu uses a database file of 18G
+
+
+
+
+# n12w1NZa #
+
+## run7 ##
+
+MIC database updating is disabled.
+
+## run6 ##
+
+MIC database is deleted, rebuilding...
+The CPU database is now 23G.
+
+Try to combine the databases for MIC, if not too large: done!
+MIC database is now 9G
+
+## run5 ##
+
+run for only a day due to MIC database overflow.
+
+MIC appears to be very slow.
+MIC database is not updated.
+MIC cannot take the database of 12G.
+
+## run4 ##
+
+run for less than a day.
+CPU uses a database file of 20G
+restarted because of old MIC database.
+
+## run3 ##
+
+cpu uses a database file of 18G
 
 ## run2 ##
 
-n12w1NZa currently uses a database file of 12G,
+currently uses a database file of 12G,
 check the log to see if the MIC can take it (search for "err").
-yes!
+yes! (actually, no!)
+

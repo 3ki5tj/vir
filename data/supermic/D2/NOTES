@@ -1,3 +1,25 @@
+## run6 ##
+
+CPU database is not updated.
+MIC database size: 9.1G.
+Turned off udpating.
+
+## run5 ##
+
+Reduced the MIC database size.
+MIC database size is updated in n14w5NZa and n14w5NZb
+they use a database of about 5G.
+n14w5NZc and n14w5NZd use a database of about 7G, no updating.
+
+
+## run4 ##
+
+run for only a day.
+Database size is now 12.3G.
+Database from different directories not merged.
+MIC cannot take it!
+
+
 ## run3 ##
 
 New simulation: n14w1NZd.
@@ -11,7 +33,10 @@ n14w1NZb  |   yes   |   yes
 n14w1NZc  |   yes   |   yes
 n14w1NZd  |   yes   |   yes
 
-database size is now 11.6G
+Database size is now 11.6G
+MIC cannot take it!
+
+MIC is very slow.
 
 
 ## run2 ##

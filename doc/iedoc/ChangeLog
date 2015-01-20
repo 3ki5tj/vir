@@ -3,18 +3,22 @@
 
 ### ievirtext.doc
 
-  o Merging Appendices A and B.
-  o Update new virial coefficients from Mayer sampling in Table II.
-  o Improving the new Appendix F (Generalizations).
-
-
-## Major changes since version 3
+  * Merging and shorten Appendices A and B.
+  * Update new virial coefficients from Mayer sampling in Table II.
+  * Application on the critical point (Appendix G).
+  * More on lambda-DSC (Appendix F).
+  * Even more simplified PY pressure formula in the hard-sphere case.
+  * Delete geometric and logarithmic closures.
+  * Various fixes.
 
 ### iegraph.tex (supplemental material)
 
-  o Even more simplified PY pressure closure in the hard-sphere case.
-  o Explanation of the simplified PY pressure closure formula.
-  o More discussions on lambda-DSC.
+  * Various fixes.
+
+### ievirnotes.tex
+
+  * Improve the discussion on various Appendices.
+  * Add notes on how to reproduce the Tables.
 
 
 

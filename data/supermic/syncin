@@ -2,7 +2,8 @@
 
 # scratch dir is more up to date
 rsync -avzL --exclude="*.tmp*" --exclude="ZrD*" --exclude="*.data" --exclude "test*" \
-  --exclude="*~" --exclude=".*.swp" --exclude="*.bak*" --exclude="fb*.bdb" \
+  --exclude="*~" --exclude=".*.swp" --exclude="*.bak*" --exclude="*.bdb" \
   --exclude="DHT*.dat" --exclude="Bn*.dat" --exclude="snapshot*" \
   --exclude="dbtool" --exclude="a.out" --exclude="a.mic" \
+  --exclude="cur.dir" \
   oo1@smic.hpc.lsu.edu:work/vir/* .

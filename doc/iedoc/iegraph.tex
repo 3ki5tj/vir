@@ -165,7 +165,8 @@ where
 with $\phi(\vr)$ being the pair potential.
 %
 Alternatively, the hypernetted-chain (HNC) closure\cite{
-morita1958, *morita1959, *morita1960}
+morita1958, *morita1959, *morita1960,
+vanleeuwen1959, meeron1960, verlet1960, green1960, rushbrooke1960}
   approximates $y(\vr) \approx \exp { t(\vr) }$, so
 %
 \begin{align}
@@ -368,6 +369,8 @@ Table \ref{tab:thermodyn}
                  + \rho \, \tilde{c}(\vk)
               \Big\} \, \dvk
       \end{aligned}$.
+    This function can be avoided by using the virial theorem,
+    [Sec. \ref{sec:virialtheorem}].
   }
   \\
   \noalign{\smallskip}
@@ -429,7 +432,7 @@ Table \ref{tab:thermodyn}
 \subsection{Graph theory}
 
 Here we briefly review the graphic representation
-in liquid state theory\cite{hansen, mayer, uhlenbeck1962}.
+in liquid state theory\cite{hansen, mayer, uhlenbeck1962, morita1961III}.
 %
 We first list a few basic terms in the graph theory.
 %
@@ -790,7 +793,7 @@ and we say that $A_1$, \dots, $A_l$
 
 
 
-A \emph{cycle} is a circular (series) composition,
+A \emph{cycle} is a circular series composition,
 %
 e.g.,
 %
@@ -2462,7 +2465,7 @@ where
   d\vr_2 \, \cdots \, d\vr_n,
   \label{eq:Ipsi}
 \end{multline}
-with $E(G)$, $P(G)$ being the sets of edges and unordered pivots in $G$.
+with $E(G)$, $P(G)$ being the sets of edges and unordered pivots in $G$,
 %
 Thus, $|E(G)|$ is equal to the number of edges $e(G)$,
 and $|P(G)| = p(G)/2$,
@@ -2476,7 +2479,10 @@ every edge in $G$ is an unordered pivot.
 %
 Thus,
 the first product in \eqref{eq:Ipsi}
-covers all adjacent pivots.
+covers all adjacent pivots,
+and the second product over the complement
+$P(G) \backslash E(G)$
+covers all nonadjacent pivots,
 %
 We can treat
 $\A(\psi_0, \psi_1)$
@@ -2514,23 +2520,25 @@ Thus, Lemma \ref{thm:whitenAhnc} can now be stated as
 \end{align*}
 
 Since $\delta \psi_1(\vr) = \delta f(\vr)/ f(\vr)$,
-the second equation becomes\cite{morita1960I, *hiroike1960II, *morita1961III}
+the second equation becomes\cite{hiroike1957, morita1958, *morita1960, *morita1960I}
 \begin{equation}
   \frac{ \delta \A } { \delta f(\vr) }
   = \frac{1}{2} \, \rho^2 y(\vr).
   \label{eq:yrfunctional}
 \end{equation}
-The counterpart of \eqref{eq:yrfunctional} for the PY equation
-will be shown in Sec. \ref{sec:pyPalt}.
+The relation is also true for the exact graphic sum of $y(\vr)$,
+if $\A$ covers all biconnected graphs.
+%
+It, however, has to be modified to \eqref{eq:yrfunctionalpy} in the PY case.
 
 
 
 
 
-\subsection{\label{sec:hncFex}Graphic sums of free energy and chemical potential}
+\subsection{\label{sec:hncFex}Graphic sums of the Helmholtz free energy and chemical potential}
 
 
-We now show that the free energy is given by\cite{morita1958, *morita1959, *morita1960}
+We now show that the free energy is given by\cite{morita1958, *morita1960}
 \begin{equation}
   -\frac{ \beta \Fex }{V}
 =
@@ -2589,7 +2597,7 @@ yields \eqref{eq:hncFexA}.
 A similar derivation from the virial theorem
 can be found in Sec. \ref{sec:vthnc},
 which shows that the expression \eqref{eq:hncFexA}
-corresponds to the virial-route result\cite{morita1960I, *hiroike1960II, *morita1961III}.
+corresponds to the virial-route result\cite{morita1960, morita1960I}.
 
 Equation \eqref{eq:hncFexA} shows that the graphic sum
 in the HNC equation shares the same weight as
@@ -3015,7 +3023,7 @@ Thus, \eqref{eq:countpairs}
 %%
 %Thus, the free energy can be computed
 The free energy can now be computed from \eqref{eq:hncFexA}
-as\cite{morita1958, *morita1959, *morita1960, singer1985}
+as\cite{morita1958, *morita1960, *morita1960I, singer1985}
 %
 \begin{align}
     - \frac{ 2 \beta \Fex } { V }
@@ -3042,7 +3050,7 @@ where,
 %
 Similarly, the chemical potential
   can be computed from \eqref{eq:hncmugsum}
-  as \cite{morita1958, *morita1959, *morita1960, singer1985}
+  as \cite{morita1958, *morita1960, *morita1960I, singer1985}
 %
 \begin{align}
     - \beta \, \rho \, \muex
@@ -3104,9 +3112,7 @@ We obtain the pressure from
 \label{eq:hncP}
 \end{align}
 %
-In Fig. \ref{fig:iepres},
-we show, in the three-dimensional hard-sphere fluid,
-that
+We will show in Sec. \ref{sec:vthnc} that
 \eqref{eq:hncP}
 is equivalent to the virial-route pressure formula:
 \begin{equation}
@@ -3117,11 +3123,13 @@ is equivalent to the virial-route pressure formula:
 \label{eq:virialpressure}
 \end{equation}
 %
-This fact will be shown in Sec. \ref{sec:vthnc}.
+The proof was previously sketched\cite{morita1960, morita1960I}.
+It is illustrated in Fig. \ref{fig:iepres}
+for the three-dimensional hard-sphere fluid.
 
 \begin{figure}[h]
   \makebox[\linewidth][c]{
-    \includegraphics[angle=0, width=\linewidth]{fig/iepres.pdf}
+    \includegraphics[angle=0, width=0.8\linewidth]{fig/iepres.pdf}
   }%
   \caption{\label{fig:iepres}
   Comparison of the pressure formulae for the PY and HNC equations.}
@@ -3131,7 +3139,7 @@ This fact will be shown in Sec. \ref{sec:vthnc}.
 
 
 
-\section{Virial theorem}
+\section{\label{sec:virialtheorem}Virial theorem}
 
 Here we derive a virial theorem,
 and use it
@@ -3797,13 +3805,17 @@ with respect to $\rho$
 %
 In other words,
 the virial coefficients computed from
-\eqref{eq:hncF} and \eqref{eq:hncmu}
+\eqref{eq:hncF} or \eqref{eq:hncmu}
 are the same as those computed from
-\eqref{eq:virialpressure}.
-%
-Below we verify this algebraically
-without using \eqref{eq:yrfunctional}.
+\eqref{eq:virialpressure},
+and \eqref{eq:hncP} and \eqref{eq:virialpressure}
+are equivalent in the HNC equation.
 
+
+
+Below we verify this algebraically\cite{morita1960}
+without using \eqref{eq:yrfunctional}.
+%
 We now differentiate \eqref{eq:hncF} with respect to $\zeta$,
 \begin{align}
   \left. \partial_\zeta \left(-\frac{ \beta\,\Fex }{ V }\right) \right|_{\zeta = 1}
