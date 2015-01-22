@@ -1521,6 +1521,8 @@ __inline static xdouble get_Bg_py(int l, int npt, xdouble **cr,
 enum {
   IETYPE_PY = 0,
   IETYPE_HNC,
+  IETYPE_MP,
+  IETYPE_RY,
   IETYPE_SQR,
   IETYPE_XSQR,
   IETYPE_CUB,
@@ -1528,6 +1530,7 @@ enum {
   IETYPE_INVROWLINSON, /* Rowlinson, 1966 */
   IETYPE_HURST, /* Hurst, 1965 */
   IETYPE_HC, /* Hutchinson and Conkie, 1971, Molecular Physics, Vol. 21, No. 5, 881-890 */
+  IETYPE_MS,
   IETYPE_BPGG, /* Ballon, Pastore, Galli, and Gazzillo */
   IETYPE_VERLET, /* Verlet, 1980 */
   IETYPE_GEO,
@@ -1543,6 +1546,8 @@ enum {
 const char *ietype_names[] = {
   "PY",
   "HNC",
+  "MP",
+  "RY",
   "Sqr",
   "XSqr",
   "Cub",
@@ -1550,6 +1555,7 @@ const char *ietype_names[] = {
   "InvRow",
   "Hurst",
   "HC",
+  "MS",
   "BPGG",
   "Verlet",
   "Geo",
@@ -1775,52 +1781,47 @@ __inline static void print_yrcoef(xdouble *a, int lmax)
 
 #define savevirhead(fn, title, dim, l0, nmax, ietype, mkcorr, npt, rmax, inittime) \
   savevirheadx(fn, title, dim, l0, nmax, ietype, mkcorr, 0, 0, npt, rmax, inittime, \
-      1, 1, -1, 0, 0, 0)
+      0, 0, 0)
 
 /* save the header for the virial file */
 __inline static char *savevirheadx(const char *fn, const char *title,
     int dim, int l0, int nmax, int ietype,
     int mkcorr, int expcorr, int lamcorr,
     int npt, xdouble rmax, clock_t inittime,
-    xdouble hncamp, xdouble hncq, xdouble hncalpha,
     xdouble shift, xdouble shiftinc, int shiftl0)
 {
   FILE *fp;
   static char fndef[512];
   char sietype[8] = "";
 
-  if ( ietype == IETYPE_PY) strcpy(sietype, "PY");
-  else if ( ietype == IETYPE_HNC) strcpy(sietype, "HNC");
-  else if ( ietype == IETYPE_HC) strcpy(sietype, "HC");
-  else if ( ietype == IETYPE_HURST) strcpy(sietype, "H");
-  else if ( ietype == IETYPE_ROWLINSON) strcpy(sietype, "R");
-  else if ( ietype == IETYPE_INVROWLINSON) strcpy(sietype, "IR");
-  else if ( ietype == IETYPE_VERLET) strcpy(sietype, "V");
-  else if ( ietype == IETYPE_SQR)   strcpy(sietype, "SQR");
-  else if ( ietype == IETYPE_XSQR)  strcpy(sietype, "XSQR");
-  else if ( ietype == IETYPE_CUB)   strcpy(sietype, "CUB");
-  else if ( ietype == IETYPE_GEO)   strcpy(sietype, "GEO");
-  else if ( ietype == IETYPE_EXP)   strcpy(sietype, "EXP");
-  else if ( ietype == IETYPE_LOG)   strcpy(sietype, "LOG");
-  else if ( ietype == IETYPE_BPGG)  strcpy(sietype, "BPGG");
-  else if ( ietype == IETYPE_YBG)   strcpy(sietype, "YBG");
-  else if ( ietype == IETYPE_KIRKWOOD) strcpy(sietype, "K");
+  if ( ietype == IETYPE_PY)                 strcpy(sietype, "PY");
+  else if ( ietype == IETYPE_HNC)           strcpy(sietype, "HNC");
+  else if ( ietype == IETYPE_MP)            strcpy(sietype, "MP");
+  else if ( ietype == IETYPE_RY)            strcpy(sietype, "RY");
+  else if ( ietype == IETYPE_HC)            strcpy(sietype, "HC");
+  else if ( ietype == IETYPE_HURST)         strcpy(sietype, "H");
+  else if ( ietype == IETYPE_ROWLINSON)     strcpy(sietype, "R");
+  else if ( ietype == IETYPE_INVROWLINSON)  strcpy(sietype, "IR");
+  else if ( ietype == IETYPE_VERLET)        strcpy(sietype, "V");
+  else if ( ietype == IETYPE_SQR)           strcpy(sietype, "SQR");
+  else if ( ietype == IETYPE_XSQR)          strcpy(sietype, "XSQR");
+  else if ( ietype == IETYPE_CUB)           strcpy(sietype, "CUB");
+  else if ( ietype == IETYPE_GEO)           strcpy(sietype, "GEO");
+  else if ( ietype == IETYPE_EXP)           strcpy(sietype, "EXP");
+  else if ( ietype == IETYPE_LOG)           strcpy(sietype, "LOG");
+  else if ( ietype == IETYPE_MS)            strcpy(sietype, "MS");
+  else if ( ietype == IETYPE_BPGG)          strcpy(sietype, "BPGG");
+  else if ( ietype == IETYPE_YBG)           strcpy(sietype, "YBG");
+  else if ( ietype == IETYPE_KIRKWOOD)      strcpy(sietype, "K");
 
   if ( mkcorr ) strcat(sietype, "c");
   else if ( expcorr ) strcat(sietype, "x");
   else if ( lamcorr ) strcat(sietype, "l");
 
   if ( fn == NULL ) {
-    char shncamp[80] = "", shncq[80] = "", shncalpha[80] = "";
     char sshift[80] = "", sshiftinc[80] = "", sshiftl0[80] = "";
 
     /* add special parameters */
-    if ( FABS(hncamp - 1) > 1e-6 )
-      sprintf(shncamp, "a%g", (double) hncamp);
-    if ( FABS(hncq - 1) > 1e-6 )
-      sprintf(shncq, "q%g", (double) hncq);
-    if ( hncalpha >= 0 )
-      sprintf(shncalpha, "A%g", (double) hncalpha);
     if ( FABS(shift) > 1e-6 )
       sprintf(sshift, "c%g", (double) shift);
     if ( FABS(shiftinc) > 1e-6 )
@@ -1828,10 +1829,9 @@ __inline static char *savevirheadx(const char *fn, const char *title,
     if ( (FABS(shift) > 1e-6 || FABS(shiftinc) > 1e-6) && shiftl0 > 0 )
       sprintf(sshiftl0, "L%d", shiftl0);
 
-    sprintf(fndef, "%sBn%sD%dn%dR%.0fM%d%s%s%s%s%s%s%s.dat",
+    sprintf(fndef, "%sBn%sD%dn%dR%.0fM%d%s%s%s%s.dat",
         title ? title : "", sietype,
         dim, nmax, (double) rmax, npt,
-        shncamp, shncq, shncalpha,
         sshift, sshiftinc, sshiftl0,
         STRPREC);
     fn = fndef;

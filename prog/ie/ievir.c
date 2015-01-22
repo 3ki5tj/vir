@@ -58,7 +58,8 @@ int invexp = 0; /* inverse potential */
 int dolj = 0; /* Lennard-Jones potential */
 char systitle[32];
 
-int ietype = 0;
+int ietype0 = 0; /* nominal closure */
+int ietype = 0; /* actual closure */
 
 xdouble hncamp = 0, hncq = 1; /* Marucho-Pettitt */
 xdouble hncalpha = -1; /* Rogers-Young */
@@ -154,20 +155,11 @@ static void doargs(int argc, char **argv)
   if ( rmax <= 0 ) rmax = nmax + 2;
 
   /* closure type */
-  if ( hncq > 0 && hncamp <= 0 ) /* Marucho-Pettitt extended HNC */
-    hncamp = 1/hncq; /* set amp automatically = 1/q */
-  if ( argopt_isset(ao, hncamp) || argopt_isset(ao, hncq)
-    || argopt_isset(ao, hncalpha) ) {
-    ietype = IETYPE_HNC;
-    dohnc = 1; /* turn on HNC, if necessary */
-  }
-
   if ( argopt_isset(ao, hcs) ) ietype = IETYPE_HC;
   if ( argopt_isset(ao, rowphi) ) ietype = IETYPE_ROWLINSON;
   if ( argopt_isset(ao, invphi) ) ietype = IETYPE_INVROWLINSON;
   if ( argopt_isset(ao, hurstm) ) ietype = IETYPE_HURST;
   if ( argopt_isset(ao, verleta) || argopt_isset(ao, verletb) ) ietype = IETYPE_VERLET;
-  if ( argopt_isset(ao, usems) ) { ietype = IETYPE_BPGG; bpggs = 2; }
   if ( argopt_isset(ao, bpggs) ) ietype = IETYPE_BPGG;
   if ( argopt_isset(ao, sqrs) ) ietype = IETYPE_SQR;
   if ( argopt_isset(ao, xsqrs) ) ietype = IETYPE_XSQR;
@@ -178,12 +170,42 @@ static void doargs(int argc, char **argv)
       geot = geos/2;
   }
   if ( argopt_isset(ao, logs) ) ietype = IETYPE_LOG;
+  ietype0 = ietype;
+
+  if ( hncq > 0 && hncamp <= 0 ) { /* Marucho-Pettitt extended HNC */
+    hncamp = 1/hncq; /* set amp automatically = 1/q */
+  }
+
+  if ( dohnc ) {
+    ietype0 = IETYPE_HNC;
+    ietype = IETYPE_HNC;
+  }
+
+  if ( argopt_isset(ao, hncq) || argopt_isset(ao, hncamp) ) {
+    if ( FABS(hncq - 1) > 1e-6 || FABS(hncamp - 1) > 1e-6 ) {
+      ietype0 = IETYPE_MP;
+    } else {
+      ietype0 = IETYPE_HNC;
+    }
+    ietype = IETYPE_HNC;
+    dohnc = 1;
+  }
+
+  if ( argopt_isset(ao, hncalpha) ) {
+    ietype = IETYPE_HNC;
+    ietype0 = IETYPE_RY;
+    dohnc = 1; /* turn on HNC, if necessary */
+  }
+
+  if ( argopt_isset(ao, usems) ) {
+    ietype0 = IETYPE_MS;
+    ietype = IETYPE_BPGG;
+    bpggs = 2;
+  }
 
   if ( ietype > IETYPE_HNC ) dohnc = 0;
 
   beta = 1/T;
-
-  if ( dohnc ) ietype = IETYPE_HNC;
 
   if ( argopt_isset(ao, shift) || argopt_isset(ao, shiftn) || argopt_isset(ao, shiftinc) )
     mkcorr = 1;
@@ -212,7 +234,7 @@ static void doargs(int argc, char **argv)
   }
 
   printf("D %d, npt %d, ietype %d (%s), HNC %d, a0 %g, q %g, %s\n",
-      dim, numpt, ietype, ietype_names[ietype], dohnc,
+      dim, numpt, ietype0, ietype_names[ietype0], dohnc,
       (double) hncamp, (double) hncq, systitle);
 
   if ( verbose ) argopt_dump(ao);
@@ -260,7 +282,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
     B2 = getB2(bphi, sphr->rDm1, sphr->npt);
   printf("D %d, dr %f, dm %d, rmax %f, ffttype %d, ietype %d (%s), B2 %.10e\n",
       dim, (double) sphr->rmax/npt, sphr->dm, (double) sphr->rmax,
-      ffttype, ietype, ietype_names[ietype], (double) B2);
+      ffttype, ietype0, ietype_names[ietype0], (double) B2);
 
   if ( singer ) {
     MAKE2DARR(cr, nmax - 1, npt);
@@ -350,8 +372,8 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
         npt, ck, tk, cr, tr, crl, trl, yr);
 
   fnvir = savevirheadx(fnvir, systitle, dim, l0, nmax,
-      ietype, mkcorr, expcorr, lamcorr, npt, rmax, t1 - t0,
-      hncamp, hncq, hncalpha, shift, shiftinc, shiftl0);
+      ietype0, mkcorr, expcorr, lamcorr, npt, rmax, t1 - t0,
+      shift, shiftinc, shiftl0);
 
   for ( l = l0; l < nmax - 1; l++ ) {
     /* c_l(r) --> c_l(k) for the previous l */
