@@ -47,9 +47,9 @@ def getnum(x, err):
 def mkrow(name, tag, doy):
   ''' write an HTML row '''
 
-  srow = "<tr><td>" + name + "</td><td><i>c</i><br><i>v</i>"
+  srow = "<tr>\n<td>" + name + "</td>\n<td><i>c</i><br><i>v</i>"
   if doy: srow += "<br><i>y</i>"
-  srow += "</td>"
+  srow += "</td>\n"
 
   fn = glob.glob("Bn" + tag + "D3*.dat")[0]
   Bc, Bv, By = loadvir(fn)
@@ -58,24 +58,26 @@ def mkrow(name, tag, doy):
             1e-6, 1e-6, 1e-6, 1e-7, 1e-7,
             1e-7, 1e-7, 1e-7, 1e-7]
   for n in range(4, 13):
-    srow += "<td style='text-align:right'>"
+    srow += "<td style='text-align: right;'>"
     srow += getnum(Bc[n], err[n])
     srow += "<br>" + getnum(Bv[n], err[n])
     if doy:
       srow += "<br>" + getnum(By[n], err[n])
-    srow += "</td>"
+    srow += "</td>\n"
 
-  srow += "</tr>"
+  srow += "</tr>\n\n"
   return srow
 
 
 
 def mkTableII():
-  stab = "<table>\n";
-  stab += "<tr><th>Integral equation</th><th></th>"
+  stab = "<html>\n<head>\n<style>\ntable, th, td { border: 1px solid black; }\n</style>\n</head>\n"
+  stab += "<body>\n"
+  stab += "<table>\n";
+  stab += "<tr>\n<th>Integral equation</th>\n<th></th>\n"
   for n in range(4, 13):
-    stab += "<th><i>B</i><sub>%d</sub>/<i>B</i><sub>2</sub><sup>%d</sup></th>" % (n, n - 1)
-  stab += "</tr>"
+    stab += "<th><i>B</i><sub>%d</sub>/<i>B</i><sub>2</sub><sup>%d</sup></th>\n" % (n, n - 1)
+  stab += "</tr>\n\n"
   stab += mkrow("YBG",          "YBG",  True)
   stab += mkrow("Kirkwood",     "K",    True)
   stab += mkrow("PY",           "PY",   True)
@@ -90,7 +92,9 @@ def mkTableII():
   stab += mkrow("MP",           "MP",   False)
   stab += mkrow("RY",           "RY",   False)
   stab += mkrow("Quadratic",    "SQR",  False)
-  stab += "</table>"
+  stab += "</table>\n"
+  stab += "</body>\n"
+  stab += "</html>\n"
   return stab
 
 
