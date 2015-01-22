@@ -166,7 +166,7 @@ __inline static void get_yr_kirk(int l, int npt, xdouble ***yr, xdouble ***wr)
 static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
 {
   xdouble Bc, Bv, By = 0, B2, fcorr = 0;
-  xdouble *fr, *fk, *rdfr = NULL;
+  xdouble *fr, *fk, *rdfr;
   xdouble ***wr = NULL, *hrl = NULL, *crl = NULL, ***yr = NULL;
   xdouble **wkl = NULL, ***ck = NULL, **hk = NULL, *hk0;
   int i, l, l0 = 1, m;
@@ -185,7 +185,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
 
   MAKE1DARR(fr, npt);
   MAKE1DARR(fk, npt);
-  if ( smoothpot ) MAKE1DARR(rdfr, npt);
+  MAKE1DARR(rdfr, npt);
   MAKE1DARR(hrl, npt);
   MAKE1DARR(crl, npt);
   MAKE2DARR(wkl, nmax - 1, npt);

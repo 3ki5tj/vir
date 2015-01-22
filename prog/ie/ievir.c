@@ -225,7 +225,7 @@ static void doargs(int argc, char **argv)
 static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
 {
   xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, By = 0, B2, fcorr = 0;
-  xdouble *bphi, *fr, *rdfr = NULL, *swr = NULL;
+  xdouble *bphi, *fr, *rdfr, *swr;
   xdouble *crl, *trl, *yrl, *tkl;
   xdouble **ck, **tk = NULL, **cr = NULL, **tr = NULL, **yr = NULL;
   xdouble *yrcoef = NULL;
@@ -242,7 +242,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
 
   MAKE1DARR(bphi, npt);
   MAKE1DARR(fr, npt);
-  if ( smoothpot ) MAKE1DARR(rdfr, npt);
+  MAKE1DARR(rdfr, npt);
   MAKE1DARR(swr, npt);
   MAKE1DARR(crl, npt);
   MAKE1DARR(trl, npt);

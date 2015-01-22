@@ -229,7 +229,7 @@ __inline static void mkcorrfunc2(int l, int npt,
 static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
 {
   xdouble Bc, Bv, Bm = 0, By = 0, B2, fcorr = 0;
-  xdouble *fr, *fk, *rdfr = NULL;
+  xdouble *fr, *fk, *rdfr;
   xdouble **wr, *hrl, *yrl, *yd;
   xdouble *vcr = NULL, *vck = NULL, **tr = NULL, *lambda = NULL;
   xdouble **wk = NULL, *wkl = NULL, **hk = NULL, *hk0;
@@ -247,7 +247,7 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
 
   MAKE1DARR(fr, npt);
   MAKE1DARR(fk, npt);
-  if ( smoothpot ) MAKE1DARR(rdfr, npt);
+  MAKE1DARR(rdfr, npt);
   MAKE1DARR(yrl, npt);
   MAKE1DARR(hrl, npt);
   MAKE1DARR(wkl, npt);
