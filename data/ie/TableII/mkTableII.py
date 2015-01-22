@@ -17,7 +17,10 @@ def loadvir(fn):
     n = int(a[0])
     Bc[n] = float(a[1])
     Bv[n] = float(a[2])
-    By[n - 1] = float(a[-1])
+    if fn.startswith("x"):
+      By[n] = float(a[len(a)/2])
+    else:
+      By[n - 1] = float(a[-1])
   return Bc, Bv, By
 
 
@@ -51,11 +54,15 @@ def mkrow(name, tag, doy):
   if doy: srow += "<br><i>y</i>"
   srow += "</td>\n"
 
-  fn = glob.glob("Bn" + tag + "D3*.dat")[0]
+  fn = glob.glob("xBn" + tag + "D3*.dat")
+  if len(fn) > 0:
+    fn = fn[0]
+  else:
+    fn = glob.glob("Bn" + tag + "D3*.dat")[0]
   Bc, Bv, By = loadvir(fn)
 
   err = [0, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5,
-            1e-6, 1e-6, 1e-6, 1e-7, 1e-7,
+            1e-6, 1e-6, 1e-6, 1e-6, 1e-7,
             1e-7, 1e-7, 1e-7, 1e-7]
   for n in range(4, 13):
     srow += "<td style='text-align: right;'>"
@@ -71,10 +78,11 @@ def mkrow(name, tag, doy):
 
 
 def mkTableII():
-  stab = "<html>\n<head>\n<style>\ntable, th, td { border: 1px solid black; }\n</style>\n</head>\n"
+  stab = "<html>\n<head>\n<style>\ntable, th, td { border: 1px solid black; border-collapse: collapse; padding: 2px 4px 2px 4px; }\n</style>\n</head>\n"
   stab += "<body>\n"
+  stab += "<h1>Table II</h1>\n"
   stab += "<table>\n";
-  stab += "<tr>\n<th>Integral equation</th>\n<th></th>\n"
+  stab += "<tr>\n<th>Integral equation</th>\n<th>&nbsp;</th>\n"
   for n in range(4, 13):
     stab += "<th><i>B</i><sub>%d</sub>/<i>B</i><sub>2</sub><sup>%d</sup></th>\n" % (n, n - 1)
   stab += "</tr>\n\n"

@@ -1,7 +1,13 @@
+#!/bin/bash
+
+gcc -O0 -g -Wall -DLDBL ybgvir.c -lfftw3l -lm -o ybgvir_l
+gcc -O0 -g -Wall -DLDBL kirkvir.c -lfftw3l -lm -o kirkvir_l
+gcc -O0 -g -Wall -DLDBL -DFFTW ievir.c -lfftw3l -lm -o ievirfftw_l
+
 export Mpt=8388608
 
 # YBG
-./ybgvir_l    -n 14 -M $Mpt
+./ybgvir_l    -n 14 -M 16777216
 
 # Kirkwoord
 ./kirkvir_l   -n 14 -M 1048576

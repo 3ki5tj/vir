@@ -27,6 +27,8 @@ dor = 0
 doir = 0
 dobpgg = 0
 dolamc = 0
+doybg = 0
+dokirk = 0
 
 refval = 0 # reference value, for debugging
 
@@ -48,6 +50,9 @@ def usage():
    --hnc:  HNC closure
    --r:    the Rowlinson closure
    --ir:   the inverse Rowlinson closure
+   --bpgg: the BPGG closure
+   --ybg:  the YBG equation
+   --kirk: the Kirkwood equation
    --lamc: density-dependent lambda
    -v:     be verbose
    -vv:    be more verbose
@@ -62,6 +67,7 @@ def doargs():
     opts, args = getopt.gnu_getopt(sys.argv[1:], "D:n:M:e:wQ:av",
         [ "dim=", "order=", "errmax=",
           "py", "hnc", "hurst", "r", "ir", "bpgg", "lamc",
+          "ybg", "kirk",
           "report", "all",
           "ref=", "resmin=",
           "verbose=", "help", ])
@@ -72,6 +78,7 @@ def doargs():
 
   global dim, nstep, nmax, wreport, scanall, verbose, errmax
   global dopy, dohnc, dolamc, dohurst, dor, doir, dobpgg
+  global doybg, dokirk
   global refval, resolmin
 
   for o, a in opts:
@@ -105,6 +112,10 @@ def doargs():
       doir = 1
     elif o in ("--bpgg",):
       dobpgg = 1
+    elif o in ("--ybg",):
+      doybg = 1
+    elif o in ("--kirk",):
+      dokirk = 1
     elif o in ("-v",):
       verbose += 1
     elif o in ("--verbose",):
@@ -419,6 +430,10 @@ def doit(dim):
     tag, cols = "IR", ((1, "compressibility"), (2, "virial"))
   elif dobpgg:
     tag, cols = "BPGG", ((1, "compressibility"), (2, "virial"))
+  elif doybg:
+    tag, cols = "YBG", ((1, "compressibility"), (2, "virial"), (-1, "cavity"))
+  elif dokirk:
+    tag, cols = "K", ((1, "compressibility"), (2, "virial"), (-1, "cavity"))
   elif dolamc:
     tag, cols = "PYl", ((3, "self-consistent"),)
 
