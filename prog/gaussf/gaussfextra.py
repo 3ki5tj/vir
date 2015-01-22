@@ -23,11 +23,30 @@ def getvir(fn, dim):
 
 
 
+def changedir():
+  ''' change the current directory to the one for Gaussian data '''
+  d = os.getcwd()
+  for i in range(100):
+    d1 = os.path.split(d)[1]
+    if d1 == "data":
+      os.chdir( os.path.join(d, "gaussf") )
+      return d
+    d = os.path.abspath( os.path.join(d, os.pardir) )
+
+
+
 def extrapolate(dim, n):
+  # current directory
+  curdir = os.getcwd()
+
   # 1. find files
-  fnls0 = glob.glob("gaussfn%de*E*ldblmpf.dat" % (n))
+  pat = "gaussfn%de*E*ldblmpf.dat" % (n)
+  fnls0 = glob.glob(pat)
+  if not fnls0:
+    changedir()
+    fnls0 = glob.glob(pat)
   fnls = []
-  for ed in range(13, 100):
+  for ed in range(13, 10000):
     fn = "gaussfn%de%dE%dldblmpf.dat" % (n, ed, ed)
     if os.path.exists(fn):
       try:
@@ -57,7 +76,7 @@ def extrapolate(dim, n):
       Bn = svir + dx
     else:
       Bn = svir
-    if Bnprev > 0:
+    if fabs(Bnprev) > 0:
       err = fabs(Bn - Bnprev)
     else:
       err = fabs(dx)
@@ -72,6 +91,10 @@ def extrapolate(dim, n):
         dim, n, scifmt.scifmt(Bn, err).text(errmax = 100), Bn, err)
   except Exception:
     print "D %d, n %d, %.20f %s" % (dim, n, Bn, err)
+  
+  os.chdir( curdir )
+  return Bn, err
+
 
 
 

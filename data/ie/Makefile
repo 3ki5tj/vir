@@ -5,8 +5,8 @@ zip: $(zipfile)
 
 $(zipfile): *.dat Makefile
 	zip -9 $@ *.dat \
-	  TableII/*.dat TableII/*.sh TabelII/*.py TableII/README* \
-	  TabelII/*.html TableII/*.c TableII/*.h \
+	  Table*/*.dat Table*/*.sh Tabel*/*.py Table*/README* \
+	  Tabel*/*.html Table*/*.c Table*/*.h \
 	  ybg/*.dat kirk/*.dat \
 	  hnc/*.dat py/*.dat pyhnc/*.dat \
 	  cr/*.dat err/*.dat iebenchmark/*.dat \

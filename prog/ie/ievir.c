@@ -96,26 +96,26 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type, 0: integral grid points, 1: half-integer grid points");
   argopt_add(ao, "-T", "%" XDBLSCNF "f", &T, "temperature");
-  argopt_addx(ao, "-C", "%list", &ietype, "type of closure, 0: PY, 1: HNC-like; set the respective parameters automatically sets the type", ietype_names, IETYPE_COUNT);
-  argopt_add(ao, "-q", "%" XDBLSCNF "f", &hncq,  "q of the hypernetted-chain (Marucho-Pettitt) approximation, y(r) = a0 exp(q t(r)) + (1-a0) + (1-a0 q) t(r)");
-  argopt_add(ao, "-a", "%" XDBLSCNF "f", &hncamp, "a0 of the hypernetted-chain (Marucho-Pettitt) approximation, 0: to be set by 1/q");
+  argopt_addx(ao, "--cl", "%list", &ietype, "type of closure, 0: PY, 1: HNC; set the respective parameters automatically sets the type", ietype_names, IETYPE_COUNT);
+  argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted-chain (HNC) closure");
+  argopt_add(ao, "-q", "%" XDBLSCNF "f", &hncq,  "q of the Marucho-Pettitt closure, y(r) = a0 exp(q t(r)) + (1-a0) + (1-a0 q) t(r)");
+  argopt_add(ao, "-a", "%" XDBLSCNF "f", &hncamp, "a0 of the Marucho-Pettitt closure, 0: to be set by 1/q");
   argopt_add(ao, "--rya", "%" XDBLSCNF "f", &hncalpha, "alpha, in the Roger-Young switch function [1 - exp(-alpha*r)]^m");
   argopt_add(ao, "--hcs", "%" XDBLSCNF "f", &hcs, "s, in the Hutchinson-Conkie closure, y(r) = (1 + s t(r))^(1/s)");
-  argopt_add(ao, "--rphi", "%" XDBLSCNF "f", &rowphi, "phi of the Rowlinson approximation, t(r) = (1 - phi) (y(r) - 1) + phi ln y(r)");
-  argopt_add(ao, "--iphi", "%" XDBLSCNF "f", &invphi, "phi of the inverse Rowlinson approximation, y(r) = exp(t(r)) phi + (1 - phi) (1 + t(r))");
-  argopt_add(ao, "--hm", "%" XDBLSCNF "f", &hurstm, "m of the Hurst approximation, t(r) = [y(r)]^m log y(r)");
-  argopt_add(ao, "--va", "%" XDBLSCNF "f", &verleta, "A of the Verlet approximation, y(r) = exp[t(r) - A t(r)^2 /2 / (1 + B t(r) / 2) ]");
-  argopt_add(ao, "--vb", "%" XDBLSCNF "f", &verletb, "B of the Verlet approximation");
-  argopt_add(ao, "--bpggs", "%" XDBLSCNF "f", &bpggs, "s of the BPGG approximation, y(r) = exp[ (1 + s t(r))^(1/s) - 1 ]");
-  argopt_add(ao, "--ms", "%b", &usems, "Martynov-Sarkisov approximation, y(r) = exp[ (1 + 2 t(r))^(1/2) - 1 ]");
-  argopt_add(ao, "--sqrs", "%" XDBLSCNF "f", &sqrs, "s of the quadratic approximation, y(r) = 1 + t(r) + s t(r)^2 / 2");
-  argopt_add(ao, "--xsqrs", "%" XDBLSCNF "f", &xsqrs, "s of the exponential quadratic approximation, y(r) = exp[ t(r) + s t(r)^2 ]");
-  argopt_add(ao, "--cubs", "%" XDBLSCNF "f", &cubs, "s of the cubic approximation, y(r) = 1 + t(r) + s t(r)^2 / 2 + t t(r)^3/6");
-  argopt_add(ao, "--cubt", "%" XDBLSCNF "f", &cubt, "t of the cubic approximation");
-  argopt_add(ao, "--geos", "%" XDBLSCNF "f", &geos, "s of the geometric approximation, y(r) = 1 + t(r) + (s/2) t(r) / [1 - t t(r)] + ...");
-  argopt_add(ao, "--geot", "%" XDBLSCNF "f", &geot, "t of the geometric approximation, y(r) = 1 + t(r) + (s/2) t(r) / [1 - t t(r)] + ...");
-  argopt_add(ao, "--logs", "%" XDBLSCNF "f", &logs, "s of the logarithmic approximation, y(r) = 1 + t(r) + s t(r)^2/2 + s^2 t(r)^3/3 + ...");
-  argopt_add(ao, "--hnc", "%b", &dohnc, "use the hypernetted-chain (HNC) like approximation");
+  argopt_add(ao, "--rphi", "%" XDBLSCNF "f", &rowphi, "phi of the Rowlinson closure, t(r) = (1 - phi) (y(r) - 1) + phi ln y(r)");
+  argopt_add(ao, "--iphi", "%" XDBLSCNF "f", &invphi, "phi of the inverse Rowlinson closure, y(r) = exp(t(r)) phi + (1 - phi) (1 + t(r))");
+  argopt_add(ao, "--hm", "%" XDBLSCNF "f", &hurstm, "m of the Hurst closure, t(r) = [y(r)]^m log y(r)");
+  argopt_add(ao, "--va", "%" XDBLSCNF "f", &verleta, "A of the Verlet closure, y(r) = exp[t(r) - A t(r)^2 /2 / (1 + B t(r) / 2) ]");
+  argopt_add(ao, "--vb", "%" XDBLSCNF "f", &verletb, "B of the Verlet closure");
+  argopt_add(ao, "--bpggs", "%" XDBLSCNF "f", &bpggs, "s of the BPGG closure, y(r) = exp[ (1 + s t(r))^(1/s) - 1 ]");
+  argopt_add(ao, "--ms", "%b", &usems, "Martynov-Sarkisov closure, y(r) = exp[ (1 + 2 t(r))^(1/2) - 1 ]");
+  argopt_add(ao, "--sqrs", "%" XDBLSCNF "f", &sqrs, "s of the quadratic closure, y(r) = 1 + t(r) + s t(r)^2 / 2");
+  argopt_add(ao, "--xsqrs", "%" XDBLSCNF "f", &xsqrs, "s of the exponential quadratic closure, y(r) = exp[ t(r) + s t(r)^2 ]");
+  argopt_add(ao, "--cubs", "%" XDBLSCNF "f", &cubs, "s of the cubic closure, y(r) = 1 + t(r) + s t(r)^2 / 2 + t t(r)^3/6");
+  argopt_add(ao, "--cubt", "%" XDBLSCNF "f", &cubt, "t of the cubic closure");
+  argopt_add(ao, "--geos", "%" XDBLSCNF "f", &geos, "s of the geometric closure, y(r) = 1 + t(r) + (s/2) t(r) / [1 - t t(r)] + ...");
+  argopt_add(ao, "--geot", "%" XDBLSCNF "f", &geot, "t of the geometric closure, y(r) = 1 + t(r) + (s/2) t(r) / [1 - t t(r)] + ...");
+  argopt_add(ao, "--logs", "%" XDBLSCNF "f", &logs, "s of the logarithmic closure, y(r) = 1 + t(r) + s t(r)^2/2 + s^2 t(r)^3/3 + ...");
   argopt_add(ao, "--corr", "%b", &mkcorr, "linearly correct the closure");
   argopt_add(ao, "--expc", "%b", &expcorr, "exponentially correct the closure");
   argopt_add(ao, "--lamc", "%b", &lamcorr, "correction by a rho-dependent lambda");
@@ -145,7 +145,7 @@ static void doargs(int argc, char **argv)
   if ( dim < 1 ) argopt_help(ao);
   if ( dim % 2 == 0 ) {
 #ifndef DHT
-    fprintf(stderr, "cannot do even dimensions %d, define DHT\n", dim);
+    fprintf(stderr, "cannot do even dimensions %d, define DHT and recompile\n", dim);
     exit(1);
 #endif
     if ( !argopt_isset(ao, numpt) ) /* adjust the default number of points */
@@ -233,9 +233,9 @@ static void doargs(int argc, char **argv)
     sprintf(systitle, "%s%s", (dim % 2 ? "" : "h"), syst);
   }
 
-  printf("D %d, npt %d, ietype %d (%s), HNC %d, a0 %g, q %g, %s\n",
+  printf("D %d, npt %d, ietype %d (%s), HNC %d, %s\n",
       dim, numpt, ietype0, ietype_names[ietype0], dohnc,
-      (double) hncamp, (double) hncq, systitle);
+      systitle);
 
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
