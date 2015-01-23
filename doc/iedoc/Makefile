@@ -34,6 +34,10 @@ $(prj)doc.zip: $(prj)doc.tex $(prj)doc.pdf $(prj)text.doc \
   	       iegraph.tex iegraph.pdf liquid.bib \
 	       $(prj)notes.tex $(prj)notes.pdf \
 	       ChangeLog \
+	       tables/TableII.html \
+	       tables/TableIII.html \
+	       tables/TableIV.html \
+	       tables/TableV.html \
                $(prj).enl $(prj).Data \
 	       $(epsfigs) $(pdffigs) $(figgps) \
 	       README Makefile

@@ -91,7 +91,7 @@ def extrapolate(dim, n):
         dim, n, scifmt.scifmt(Bn, err).text(errmax = 100), Bn, err)
   except Exception:
     print "D %d, n %d, %.20f %s" % (dim, n, Bn, err)
-  
+
   os.chdir( curdir )
   return Bn, err
 

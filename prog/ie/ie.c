@@ -66,7 +66,7 @@ static void doargs(int argc, char **argv)
   fprintf(stderr, "rmax %f, rho %g, T %f, closure %s, solver %s, "
       "M %d, nbases %d\n",
       (double) rmax, (double) rho, (double) T,
-      solvers[solver], ietype_names[ietype], Mpt, nbases);
+      ietype_names[ietype], solvers[solver], Mpt, nbases);
   if ( verbose ) argopt_dump(ao);
   argopt_close(ao);
 }

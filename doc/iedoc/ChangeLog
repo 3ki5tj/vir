@@ -3,7 +3,8 @@
 
 ### ievirtext.doc
 
-  * Merging and shorten Appendices A and B.
+  * Merge and shorten Appendices A and B.
+  * Automatically generated tables under the `tables` directory.
   * Update new virial coefficients from Mayer sampling in Table II.
   * Application on the critical point (Appendix G).
   * More on lambda-DSC (Appendix F).
@@ -19,9 +20,6 @@
 
   * Improve the discussion on various Appendices.
   * Add notes on how to reproduce the Tables.
-
-
-
 
 
 
