@@ -182,7 +182,7 @@ where $\llbra P \llket$ is the Iverson bracket,
 
 Below we shall express thermodynamic quantities
   as integrals of $c(\vr)$ and $t(\vr)$
-  by a graphic analysis,
+  by a graphical analysis,
 %
 and the virial coefficients $B_n$ in \eqref{eq:virial}
   can be found from these expressions.
@@ -369,7 +369,7 @@ Table \ref{tab:thermodyn}
                  + \rho \, \tilde{c}(\vk)
               \Big\} \, \dvk
       \end{aligned}$.
-    This function can be avoided by using the virial theorem,
+    This function can be avoided by using the virial theorem
     [Sec. \ref{sec:virialtheorem}].
   }
   \\
@@ -425,13 +425,13 @@ Table \ref{tab:thermodyn}
 
 
 
-\section{\label{sec:graph}Graphic representation of cluster integrals}
+\section{\label{sec:graph}Graphical representation of cluster integrals}
 
 
 
 \subsection{Graph theory}
 
-Here we briefly review the graphic representation
+Here we briefly review the graphical representation
 in liquid state theory\cite{hansen, mayer, uhlenbeck1962, morita1961III}.
 %
 We first list a few basic terms in the graph theory.
@@ -460,7 +460,7 @@ If the first and last vertices on the path coincide,
 %
 A graph is \emph{connected}
   %if it is in one piece; that is,
-  if any two vertices are connected by a path.
+  if any two vertices are joined by a path.
 %
 Further, a connected graph is \emph{biconnected}
   if removing any vertex and the adjacent edges
@@ -490,7 +490,7 @@ A \emph{root} vertex,
 %
 The coordinates of a non-root vertex
   (drawn as a black dot)
-  are to be integrated over.
+  are to be integrated out.
 %
 In our case, a non-root vertex
   also contributes a factor of $\rho$ (density)
@@ -527,7 +527,7 @@ By the translational symmetry,
   can be written as a function $a(\vr)$
   of $\vr \equiv \vr_{12}$
   (we use capital letters for graphs,
-  and the lowercase letters for the corresponding functions).
+  and lowercase letters for the corresponding functions).
 %
 The spatial correlation functions,
   such as $c(\vr)$ and $t(\vr)$,
@@ -572,7 +572,7 @@ Note that the roots (white dots) are always (implicitly) labeled.
 For an unlabeled graph $G$,
   after assuming an arbitrary labeling of the non-root vertices of $G$,
   we define the \emph{symmetry number} $s(G)$
-  as the number of permuting the labels of the non-root vertices that
+  as the number of ways of permuting the labels of the non-root vertices that
   keep the connections of $G$ unchanged\cite{hansen, uhlenbeck1962}.
 %
 The connection-preserving permutations
@@ -788,8 +788,8 @@ Generally, a series composition,
   of several graphs
   $A_1$, \dots, $A_l$ is equal to
   $\rho^{l-1} \cdot (a_1 * \cdots * a_l)(\vr)$,
-and we say that $A_1$, \dots, $A_l$
-  are the \emph{links} of the chain.
+and we call $A_1$, \dots, $A_l$
+  the \emph{links} of the chain.
 
 
 
@@ -919,7 +919,7 @@ where the second step follows from
 
 
 
-\subsection{Graphic interpretation of the closure}
+\subsection{Graphical interpretation of the closure}
 
 
 
@@ -1187,19 +1187,16 @@ The converse is obvious.
 
 
 
-The above lemma shows that
-any polygon graph with a missing side
-can be decomposed into a chain of polygon graphs.
-%
 Given a polygon graph without knowing the labels of non-root vertices,
-we can then recursively decompose the polygon graph
+we can then recursively decompose the corresponding pie graph
+(which lacks the edge between the roots)
 and determine the proper labels of all non-root vertices.
 %
 Thus
 
 \begin{lemm}
-Given the roots of a polygon graph $G$,
-  the labels of the rest of the vertices
+Given a polygon graph $G$,
+  the labels of the non-root vertices
   can be uniquely determined.
 Thus,
   the symmetry number $s(G)$ is always unity.
@@ -1243,7 +1240,7 @@ Thus, $G$ is a polygon graph.
 
 We can similarly show the converse:
   every polygon or pie graph
-  is contained in the graphic expansion
+  is contained in the graphical expansion
   of $c(\vr)$ or $t(\vr)$,
   respectively.
 \end{proof}
@@ -1283,12 +1280,13 @@ Now, for a given polygon pack $G$,
   whitening two vertices on any side of
   a polygon pack $G$
   yields a polygon graph $H'$
-  (note that $H'$ may be different from the original $H$).
+  (although $H'$ may be different from the original $H$).
 %  and there are $2n$ possible $H'$ with $2$ for each side
 %
 One can further show that
   whitening a nonadjacent pair of vertices always yields
-  a non-polygon graph with intersecting edges,
+  a non-polygon graph,
+  for it always produces intersecting edges,
   no matter how the black dots are labeled.
 %
 Thus,
@@ -1345,7 +1343,7 @@ In the PY equation,
 %
 Note that the $n = 2$ case is special,
   for the $f$-graph does not form a polygon.
-Thus, we manually set $s(G) = 4$ in this case.
+Thus, we manually set $s(G) = 4$ in \eqref{eq:pykappasum} in this case.
 
 We give two examples.
 For
@@ -1358,7 +1356,9 @@ $G_1 = {\begin{tikzpicture}[baseline=-1mm]
       \draw (r1) -- (r2) -- (r3) -- (r4) -- (r1);
   \end{tikzpicture}}$,
 we have
-$s(G_1) = 8$, and $w(G_1) = 2\times 4/8 = 1$,
+$s(G_1) = 8$, and
+the weight in \eqref{eq:pykappasum}
+is $w(G_1) = 2\times 4/8 = 1$,
 because whitening the two vertices on any side
 yields the same polygon graph
 ${\begin{tikzpicture}[baseline=-1mm]
@@ -1386,7 +1386,7 @@ $G_2 = {
   }$,
 $s(G_2) = 1$, and $w(G_2) = 2\times 6 = 12$.
 This means that whitening the two vertices on any side of the polygon
-in either order yields a nonequivalent polygon graph.
+in either order yields a distinct polygon graph.
 
 
 %We can write \eqref{eq:pykappasum}
@@ -1403,7 +1403,7 @@ in either order yields a nonequivalent polygon graph.
 
 
 
-\subsection{Face decomposition of a polygon graph}
+\subsection{Face decomposition of a polygon pack}
 
 
 
@@ -1749,7 +1749,7 @@ Note that \eqref{eq:Clsum3}, \eqref{eq:Clsuml}, and \eqref{eq:Clsumll}
   are direct consequences of the OZ relation \eqref{eq:oz},
   and thus are applicable to any integral equation (not just the PY one).
 %
-For later convenience, we list a few variants below
+For completeness, we list a few variants below
 %
 \begin{align}
       2 \, \Chn_2
@@ -1868,7 +1868,7 @@ Differentiating \eqref{eq:logrhoc} and using \eqref{eq:oz} yields
 %
 where ``$(\vk)$'' is dropped.
 %
-Integrating over $\vk$ and using \eqref{eq:cyclesp2} yields
+Integrating out $\vk$ and using \eqref{eq:cyclesp2} yields
 %
 \begin{align}
   \int \partial_\rho \tilde T \dvk
@@ -1924,8 +1924,10 @@ by a differentiation with respect to the density, $\rho$.
 
 Similarly,
   by differentiating \eqref{eq:pykappasum} with respect to $\rho$,
-  and ignoring inter-face pairs $p(G) \approx n(G) \, [n(G) - 1]$,
+  and ignoring inter-face pairs
   we get
+  $p(G) \approx n(G) \, [n(G) - 1]$,
+  and
 %
 \begin{align}
            -\frac{\rho^2}{2}
@@ -2125,7 +2127,7 @@ Since the joints are distinguishable,
   $s(H) = s(G_1) \cdots s(G_l)$,
   which is indeed the inverse weight of $H$.
 %
-The converse, every $c$-chain can be found in the expansion of $t(\vr)$
+The converse, every $c$-chain can be found in the expansion of $t(\vr)$,
 can be shown similarly.
 
 Next, we show every graph in the expansion of $y(r)$
@@ -2140,7 +2142,7 @@ Since the HNC closure is
 + \frac{ t^2(\vr) }{ 2! }
 + \frac{ t^3(\vr) }{ 3! }+ \cdots,
 \]
-every graph $M$ in the graphic expansion of $y(\vr)$,
+every graph $M$ in the graphical expansion of $y(\vr)$,
   or, specifically, in the expansion of $t^m(\vr)/m!$ ($m \ge 0$),
   is a $c$-bundle of $m$ $c$-chains,
   $H_1$, $H_2$, \dots, and $H_m$.
@@ -2308,7 +2310,7 @@ If we blacken the two roots,
 a $c$-graph becomes a \emph{$c$-pack}.
 %
 In a $c$-pack,
-  an ordered pair of vertices forms a \emph{pivot}
+  a pair of vertices forms a \emph{pivot}
   if marking them as the roots renders the $c$-pack to some $c$-graph.
 %
 For example,
@@ -2339,7 +2341,7 @@ $\rho^2 \int c(\vr) \, d\vr$
 \end{equation}
 %
 where $p(G)$ and $s(G)$ are
-  the number of pivots and
+  the number of ordered pivots and
   the symmetry number
   of $G$,
   respectively.
@@ -2384,7 +2386,7 @@ By definition,
   which is the set of vertex permutations
   that keep the connections of $G$ unchanged.
 %
-Given a pivot $(i, j)$ of $G$,
+Given an ordered pivot $(i, j)$ of $G$,
   let $G_{ij}$ be the $c$-graph
   from whitening the pivot in $G$.
 %
@@ -2400,12 +2402,12 @@ Clearly, $\G_{ij}$ is a subgroup of $\Aut(G)$.
 %that maps $(i, j)$ to an isomorphic pivot.
 %
 Thus, the number of cosets $w_{ij}(G)$
-is equal to the number of pivots in $G$
+is equal to the number of ordered pivots in $G$
 that are equivalent to $(i, j)$.
 %
 By Lagrange's theorem $s(G) = s(G_{ij}) \, w_{ij}(G)$.
 %
-It follows that the procedure of whitening all pivots
+It follows that the procedure of whitening all ordered pivots
 produces $w_{ij}(G)$ copies of $G_{ij}$,
 and the total contribution
 to the sum of the whitened graphs
@@ -2479,15 +2481,15 @@ every edge in $G$ is an unordered pivot.
 %
 Thus,
 the first product in \eqref{eq:Ipsi}
-covers all adjacent pivots,
+covers all adjacent unordered pivots,
 and the second product over the complement
 $P(G) \backslash E(G)$
-covers all nonadjacent pivots,
+covers all nonadjacent unordered pivots,
 %
 We can treat
 $\A(\psi_0, \psi_1)$
 as a generating function
-of nonadjacent ($\psi_0$) and adjacent ($\psi_1$) pivots,
+of nonadjacent ($\psi_0$) and adjacent ($\psi_1$) unordered pivots,
 %
 and $\A(0,0)$ recovers \eqref{eq:Adef}.
 %
@@ -2526,7 +2528,7 @@ the second equation becomes\cite{hiroike1957, morita1958, *morita1960, *morita19
   = \frac{1}{2} \, \rho^2 y(\vr).
   \label{eq:yrfunctional}
 \end{equation}
-The relation is also true for the exact graphic sum of $y(\vr)$,
+The relation is also true for the exact graphical sum of $y(\vr)$,
 if $\A$ covers all biconnected graphs.
 %
 It, however, has to be modified to \eqref{eq:yrfunctionalpy} in the PY case.
@@ -2535,7 +2537,7 @@ It, however, has to be modified to \eqref{eq:yrfunctionalpy} in the PY case.
 
 
 
-\subsection{\label{sec:hncFex}Graphic sums of the Helmholtz free energy and chemical potential}
+\subsection{\label{sec:hncFex}Graphical sums of the Helmholtz free energy and chemical potential}
 
 
 We now show that the free energy is given by\cite{morita1958, *morita1960}
@@ -2599,7 +2601,7 @@ can be found in Sec. \ref{sec:vthnc},
 which shows that the expression \eqref{eq:hncFexA}
 corresponds to the virial-route result\cite{morita1960, morita1960I}.
 
-Equation \eqref{eq:hncFexA} shows that the graphic sum
+Equation \eqref{eq:hncFexA} shows that the graphical sum
 in the HNC equation shares the same weight as
 the exact sum given in Sec. \ref{sec:bcsums}.
 %
@@ -2838,7 +2840,7 @@ Algorithm L in above proof allows us to
 It is readily shown that,
   Step 3 results in a new $c$-pack $G$
   with $(l - 2)$ fewer vertices,
-  and it always ends up with an $f$-graph.
+  and the algorithm always ends with an $f$-graph.
 %
 Thus,
 
@@ -2867,7 +2869,7 @@ We will show below that
   either
   (a) the vertices in $V_L = \{ v_2, \dots, v_{l-1} \}$
     are entirely contained in
-    some link between $u_i$ and $u_{i+1}$,
+    some link $u_i - u_{i+1}$,
   or
   (b) $L^{(s)}$ and $J$ share the same joints (i.e., the two are the same).
 %
@@ -3002,13 +3004,13 @@ Thus, the total number of vertices $n(G)$
   of decomposing $G$ as length-$l$ cycles.
 
 A cycle of length $l$, by definition,
-  contains $l (l - 1)$ pivots,
+  contains $l (l - 1)$ ordered pivots,
   and Step 3 of Algorithm D
   removes all but two of them.
 %
 Thus, \eqref{eq:countpairs}
   is also applicable, with $p(G)$ interpreted
-  as the number of pivots of $G$.
+  as the number of ordered pivots of $G$.
 
 
 
@@ -3213,7 +3215,7 @@ Using \eqref{eq:drhodzeta} yields,
 &=
   -\sum_G w(G) \, \bigl[ n(G) - 1 \bigr] \, I^*(G; \rho, \zeta).
 \end{align*}
-%or in terms of the graphic sums,
+%or in terms of the graphical sums,
 %\begin{align*}
 %  \sum_G w(G) J^*(G; \rho, \zeta)
 %  &= \zeta \, \partial_\zeta A^*(\rho, \zeta) \notag \\
@@ -3414,7 +3416,7 @@ shown in the section title.
 %
 In $c(\vr; \zeta)$,
 \emph{every} $f$-bond
-in the graphic expansion of $c(\vr; \zeta)$
+in the graphical expansion of $c(\vr; \zeta)$
 is affected by $\zeta$.
 %
 But in $c(\zeta \vr)$,
@@ -3622,7 +3624,7 @@ we get
 
 \begin{lemm}
 Redefine $\A$ in \eqref{eq:Adef}
-such that the sum is carried over all polygon packs.
+as a sum carried over all polygon packs.
 Then, the sums obtained from whitening,
 one at a time,
 all and nonadjacent intra-face ordered pairs
@@ -3641,7 +3643,7 @@ in terms of functional derivatives.
 %
 We borrow the definitions in
 \eqref{eq:Apsi} and \eqref{eq:Ipsi},
-under two modifications:
+with two modifications:
 (i) the sum over $G$ in \eqref{eq:Apsi}
 is carried over all polygon packs;
 (ii) $P(G)$ is replaced to the set of intra-face \emph{unordered} pairs.
@@ -3932,7 +3934,7 @@ the sum of all the above graphs $H$
 Thus, $\log y(\vct0) = (-1) \cdot \sum_G I(G)/s(G)$,
   where the sum is carried over all one-root unlabeled biconnected graphs $G$.
 According to Sec. \ref{sec:bcsums},
-  the sum is equal to $\beta \muex$,
+  the sum is equal to $-\beta \muex$,
   which proves \eqref{eq:yrzerosep}.
 
 

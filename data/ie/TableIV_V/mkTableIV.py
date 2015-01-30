@@ -28,7 +28,7 @@ def loadvir(fn):
 
 
 
-def getnum(x, err, errmax = 20):
+def getnum(x, err, errmax = 30):
   if x == 0:
     return "&nbsp;"
 

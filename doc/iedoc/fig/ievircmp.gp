@@ -45,7 +45,7 @@ lbfont  = "Arial, 20"
 
 color1a = "#cc2222"
 color1b = "#000000"
-color1c = "#444466"
+color1c = "#000000"
 
 color2a = "#666666"  # "#804000"
 color2b = "#666666"
@@ -94,7 +94,7 @@ set style line 19 lc rgb color5a lt 4 lw 9.0 pt 1  ps 1.6 # bold `+'
 # for errors
 
 set style line 40 lc rgb color1b lt 1 lw 1.0 pt 12 ps 2.0  # for DSC
-set style line 41 lc rgb color1c lt 2 lw 1.0 pt 13 ps 2.0  # for SC
+set style line 41 lc rgb color1c lt 2 lw 1.0 pt  6 ps 2.0  # for SC
 
 tagdx1 = 0.005
 tagdx2 = 0.010
@@ -365,12 +365,12 @@ set origin  0.0, 0.0
 set lmargin 6.0
 set rmargin 0
 
-set key at 22, 10e-4 Left reverse spacing spc font lbfont
+set key at 16, 12e-4 Left reverse spacing spc font lbfont
 set label 100 "{/Arial-Italic D} = 10" at 26, 1.0e-4 font tlfont
 
 plot [2:32][1e-5:1] \
   "iedata/err/xBnPYcD10n128.err"          u ($1):(abs($4/$3)) w lp ls 40  t "DSC", \
-  "iedata/err/xBnIRD10n36.err"            u ($1):(abs($4/$3)) w lp ls 41  t "Rowlinson 2"
+  "iedata/err/xBnIRD10n36.err"            u ($1):(abs($4/$3)) w lp ls 41  t "{/Arial-Italic B}_4-SC"
 
 
 # right very bottom panel
@@ -379,12 +379,12 @@ set origin  lw, 0.0
 
 set lmargin 7.0
 set rmargin 1.5
-set key at 19, 10e-4 Left reverse spacing spc font lbfont
+set key at 13, 12e-4 Left reverse spacing spc font lbfont
 set label 100 "{/Arial-Italic D} = 15" at 26, 1.0e-4 font tlfont
 
 plot [2:32][1e-5:1] \
   "iedata/err/xBnPYcD15n128.err"          u ($1):(abs($4/$3)) w lp ls 40  t "DSC", \
-  "iedata/err/xBnIRD15n36.err"            u ($1):(abs($4/$3)) w lp ls 41  t "Rowlinson 2"
+  "iedata/err/xBnIRD15n36.err"            u ($1):(abs($4/$3)) w lp ls 41  t "{/Arial-Italic B}_4-SC"
 
 
 unset multiplot
