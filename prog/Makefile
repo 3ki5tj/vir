@@ -21,7 +21,7 @@ $(bins_d) : %_d: %.c $(deps)
 	$(CC) -o $@ $< $(LM)
 
 sync:
-	rsync -avzL *.[ch] cz1@129.109.88.204:lwork/vir
+	rsync -avzL *.[ch] cz1@129.109.88.204:lwork/vir1
 
 clean:
 	rm -rf $(bins) $(bins_d) *~ a.out *.his MTSEED bin obj fbrjw*.dat r[0-9][0-9][0-9][a-z]*

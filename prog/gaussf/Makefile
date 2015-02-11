@@ -51,7 +51,7 @@ gaussfmerge: gaussfmerge.c
 	$(CC) $< -o $@ $(LM) $(LMP)
 
 ipo:
-	rsync -avzL *.[ch] *.py Makefile cz1@129.109.88.204:lwork/vir/gaussf
+	rsync -avzL *.[ch] *.py Makefile cz1@129.109.88.204:lwork/vir1/gaussf
 
 stampede:
 	rsync -avzL *.[ch] *.py oo1@stampede.tacc.utexas.edu:work/vir/gaussf

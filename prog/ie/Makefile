@@ -105,7 +105,7 @@ $(bins_extra_d) : %_d: %.c $(deps)
 	$(CC) -o $@ $< $(LM)
 
 syncipo:
-	rsync -avL *.[ch] *.py *.sh cz1@129.109.88.204:lwork/vir
+	rsync -avL *.[ch] *.py *.sh cz1@129.109.88.204:lwork/vir1
 
 sync: syncipo
 	rsync -avL *.[ch] *.py *.sh oo1@stampede.tacc.utexas.edu:/work/02464/oo1/vir

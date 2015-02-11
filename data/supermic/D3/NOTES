@@ -35,3 +35,9 @@ does not accelerate the sampling speed.
 The database for n12w1NZb, n12w1NZc and n12w1NZd, [MIC] are currently 10G
 check the log to see if the mic can take it.
 If not, n12w1NZd/mic1/fb1.bdb is smaller alternative. 
+
+
+
+# n13 #
+
+

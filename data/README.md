@@ -23,3 +23,4 @@ gaussf      |  Gaussian model data (`prog/gaussf`)
 stampede    |  data collected on `stampede.tacc.utexas.edu`
 kraken      |  data collected on `kraken-gsi.nics.xsede.org`
 supermic    |  data collected on `smic.hpc.lsu.edu`
+LJ          |  standard Lennard-Jones data

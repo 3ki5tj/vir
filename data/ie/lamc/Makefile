@@ -11,4 +11,4 @@ refresh: sync
 
 sync:
 	rsync -avz --exclude="DHT*.dat" --exclude="snapshot*" \
-	  cz1@$(host):lwork/vir/ie/lamc/*PYl*.dat .
+	  cz1@$(host):lwork/vir1/ie/lamc/*PYl*.dat .

@@ -57,10 +57,10 @@ draw: draw.c
 he = cz1@129.109.88.204
 
 synche:
-	rsync -avL *.[ch] $(he):lwork/vir
-	rsync -avL *.py $(he):lwork/vir
-	rsync -avL *.ma $(he):lwork/vir
-	rsync -avL Z.dat $(he):lwork/vir
+	rsync -avL *.[ch] $(he):lwork/vir1
+	rsync -avL *.py   $(he):lwork/vir1
+	rsync -avL *.ma   $(he):lwork/vir1
+	rsync -avL Z.dat  $(he):lwork/vir1
 
 stamp = oo1@stampede.tacc.utexas.edu
 

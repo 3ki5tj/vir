@@ -10,7 +10,7 @@
 /* load the reference g(r) that comes from MC/MD
  * the input file should be the output of ljrdf_save()
  * in the LJ module of zcom.h, with the name "rdfxxx.dat" */
-__inline double *loadgrraw(const char *fn, int *npt, double **ri)
+__inline double *loadgrraw(const char *fn, int *npt, double **ri, xdouble *rho)
 {
   double *gr = NULL, x, y, z, xmin, dx, l;
   int version, i, j, rows, d, nfr, num;
@@ -35,8 +35,8 @@ __inline double *loadgrraw(const char *fn, int *npt, double **ri)
   }
   if ( (p = strstr(s, "RDF")) != NULL ) {
     if (4 == sscanf(p + 3, "%d %d %d %lf", &nfr, &d, &num, &l)) {
-      rho = num / POW(l, d);
-      printf("set density to %g\n", (double) rho);
+      *rho = num / POW(l, d);
+      printf("set density to %g\n", (double) *rho);
     }
   }
 
@@ -90,13 +90,13 @@ __inline double interp(double x, double *xi, double *yi,
 
 /* load g(r) */
 __inline int loadgr(const char *fn, int npt, xdouble *gr,
-    const xdouble *ri, xdouble sdr)
+    const xdouble *ri, xdouble sdr, xdouble *prho)
 {
   double *ri0 = NULL, *gr0 = NULL, r, r0max;
   int i, n0 = 0;
 
   /* load the raw data */
-  gr0 = loadgrraw(fn, &n0, &ri0);
+  gr0 = loadgrraw(fn, &n0, &ri0, prho);
   if ( gr0 == NULL ) return -1;
   r0max = ri0[n0-1];
 
@@ -131,7 +131,8 @@ __inline int loadgr(const char *fn, int npt, xdouble *gr,
 /* load the reference w(r) = lny(r) that comes from MC/MD
  * the input file should be the output of mc1.c
  * in the LJ module of zcom.h, with the name pmfxxx.dat */
-__inline double *loadwrraw(const char *fn, int *npt, double **ri)
+__inline double *loadwrraw(const char *fn, int *npt, double **ri,
+    xdouble *prho)
 {
   double *wr = NULL, x, y, y3, y4, y5, dx, tp, den;
   int i, j, d, num;
@@ -153,14 +154,14 @@ __inline double *loadwrraw(const char *fn, int *npt, double **ri)
     fprintf(stderr, "cannot load information from %s, %d\n%s", fn, i, s);
     goto EXIT;
   }
-  if ( FABS(den - rho) > 1e-6 ) {
-    fprintf(stderr, "Warning: rho %g vs. %g (%s)\n", (double) rho, den, fn);
+  if ( FABS(den - *prho) > 1e-6 ) {
+    fprintf(stderr, "Warning: rho %g vs. %g (%s)\n", (double) *prho, den, fn);
   }
 
-  rho = den;
+  *prho = den;
   T = tp;
   beta = 1/T;
-  fprintf(stderr, "set density %g, T %g\n", (double) rho, (double) T);
+  fprintf(stderr, "set density %g, T %g\n", (double) *prho, (double) T);
 
   /* load the array */
   xnew(wr, *npt);
@@ -187,13 +188,14 @@ EXIT:
 
 
 /* load w(r) */
-__inline int loadwr(const char *fn, int npt, xdouble *wr, const xdouble *ri)
+__inline int loadwr(const char *fn, int npt, xdouble *wr, const xdouble *ri,
+    xdouble *prho)
 {
   double *ri0 = NULL, *wr0 = NULL, r, r0max;
   int i, n0 = 0;
 
   /* load the raw data */
-  wr0 = loadwrraw(fn, &n0, &ri0);
+  wr0 = loadwrraw(fn, &n0, &ri0, prho);
   //printf("loaded wr %s n0 %d %p\n", fn, n0, wr0); getchar();
   if ( wr0 == NULL ) return -1;
   r0max = ri0[n0-1];

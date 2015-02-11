@@ -19,7 +19,7 @@ zip: $(prj)data.zip
 host=cz1@129.109.88.204
 
 syncin:
-	rsync -avz $(host):lwork/vir/gaussf/gaussf*.dat .
+	rsync -avz $(host):lwork/vir1/gaussf/gaussf*.dat .
 
 Bossman: $(prj)data.zip
 	rsync -avz $< $(host):/Bossman/cz1/vir/data/

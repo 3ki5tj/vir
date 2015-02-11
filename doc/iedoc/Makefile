@@ -1,6 +1,6 @@
 prj=ievir
 
-figs=ievircmp ievirhigh ievirlow cmpcorl
+figs=ievircmp ievirhigh ievirlow cmpcorl iepres
 pdffigs=$(patsubst %,fig/%.pdf, $(figs))
 epsfigs=$(patsubst %,fig/%.eps, $(figs))
 figgps=$(patsubst %,fig/%.gp,  $(figs))
