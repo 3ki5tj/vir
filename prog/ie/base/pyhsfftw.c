@@ -206,7 +206,7 @@ static void integ(int npt, xdouble rmax)
   xnew(dck, npt);
   xnew(dtk, npt);
 
-  mkfr(npt, 1, bphi, fr, rdfr, sphr->ri, sphr->dm, 0, 0, 0);
+  mkfr(npt, 1, bphi, NULL, NULL, fr, rdfr, sphr->ri, sphr->dm, 0, 0, 0);
   COPY1DARR(cr, fr, npt);
   COPY1DARR(dcr, fr, npt);
 
