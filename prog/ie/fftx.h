@@ -1,3 +1,8 @@
+#ifndef FFTX_H__
+#define FFTX_H__
+
+
+
 /* convenient wrapper for high-dimensioanl Fourier transform
  * of a spherical-symmetric function
  *
@@ -9,7 +14,11 @@
  * */
 
 
+
 #include "xdouble.h"
+#include <stdlib.h>
+
+
 
 #if !defined(FFT0) && !defined(FFTW) && !defined(DHT)
 #define FFT0 /* default branch, no external library */
@@ -35,8 +44,40 @@ int dhtdisk = SLOWDHT_USEDISK;
 typedef void *FFTWPFX(plan);
 #endif
 
-#include "ieutil.h"
 
+
+#ifndef xnew
+#define xnew(x, n) { \
+  if ((x = calloc(n, sizeof(*(x)))) == NULL) { \
+    fprintf(stderr, "no memory for %s x %d\n", #x, (int) (n)); \
+    exit(1); } }
+#endif
+
+#ifndef MAKE1DARR
+#define MAKE1DARR(arr, n) { int i_; \
+  xnew(arr, n); \
+  for (i_ = 0; i_ < (int) (n); i_++) arr[i_] = 0; }
+#endif
+
+#ifndef FREE1DARR
+#define FREE1DARR(arr, n) if ( (arr) != NULL ) { int i_; \
+  for (i_ = 0; i_ < (int) (n); i_++) (arr)[i_] = 0; \
+  free(arr); }
+#endif
+
+#ifndef MAKE2DARR
+#define MAKE2DARR(arr, n1, n2) { int l_; \
+  xnew(arr, n1); \
+  MAKE1DARR(arr[0], (n1) * (n2)); \
+  for ( l_ = 1; l_ < (n1); l_++ ) \
+    arr[l_] = arr[0] + l_ * (n2); }
+#endif
+
+#ifndef FREE2DARR
+#define FREE2DARR(arr, n1, n2) if ( (arr) != NULL ) { \
+  FREE1DARR((arr)[0], (n1) * (n2)); \
+  free(arr); }
+#endif
 
 
 
@@ -281,7 +322,11 @@ __inline static sphr_t *sphr_openfft(int dim, int npt, xdouble rmax, int ffttype
   xdouble rl, invrl, kl, invkl;
   sphr_t *sphr;
 
-  die_if ( dim % 2 != 1, "cannot use FFT for D = %d\n", dim);
+  if ( dim % 2 != 1 ) {
+    fprintf(stderr, "cannot use FFT for D = %d\n", dim);
+    exit(1);
+  }
+
   sphr = sphr_init(dim, npt);
   sphr->ffttype = ffttype;
 
@@ -363,9 +408,11 @@ INLINE void sphr_dht(xdouble *in, xdouble *out, xdouble fac,
 }
 
 
+
 /* convenience macros */
 #define sphr_r2k(sphr, in, out) \
   sphr_dht(in, out, sphr->facr2k, sphr->dht, sphr->arr, sphr->r2p, sphr->k2p)
+
 #define sphr_k2r(sphr, in, out) \
   sphr_dht(in, out, sphr->fack2r, sphr->dht, sphr->arr, sphr->k2p, sphr->r2p)
 
@@ -460,5 +507,4 @@ __inline static sphr_t *sphr_opendht(int dim, int npt, xdouble rmax,
 
 
 
-
-
+#endif /* FFTX_H__ */

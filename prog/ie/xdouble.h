@@ -3,6 +3,7 @@
 
 
 
+#include <math.h>
 #include <float.h>
 
 #if (defined(QUAD) || defined(F128))
@@ -28,7 +29,6 @@
 #endif
 
 
-#include <quadmath.h>
 typedef __float128 xdouble;
 #define FFTWPFX(f) fftwq_##f
 #define XDBLSCNF "Q"
@@ -87,7 +87,7 @@ typedef long double xdouble;
 
 
 
-#else
+#else /* xdouble is double */
 
 
 
