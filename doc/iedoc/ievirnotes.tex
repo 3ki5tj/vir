@@ -451,7 +451,7 @@ Using this in Eq. \eqref{eq:B2v} yields
 
 \subsection{Baxter's pressure formula}
 
-Here, we will give some key steps, see also the supplemental material
+Here, we will give some key steps, see also SM2 
 for the missing steps.
 %
 The formula is
@@ -773,7 +773,7 @@ interface pairs in the derivation (see supplemental material).
 
 
 
-\subsection{Shaul et al.'s formula for the cavity function}
+\subsection{Shaul et al.'s formula for the cavity distribution function}
 
 
 
@@ -1477,7 +1477,7 @@ run
 
 
 
-\section{Appendix A.1: Fourier transforms in odd dimensions}
+\section{SM1 A.1: Fourier transforms in odd dimensions}
 
 
 
@@ -1876,7 +1876,7 @@ The first few spherical Bessel functions are
 
 
 
-\section{Appendix A.2: Fourier transforms in even dimensions}
+\section{SM1 A.2: Fourier transforms in even dimensions}
 
 \subsection{Hankel transform}
 
@@ -2382,7 +2382,7 @@ $\alpha(r) \rightarrow \hat\alpha(k)$.
 
 
 
-\section{Appendix C: Transformation of series}
+\section{SM1 C: Transformation of series}
 
 \subsection{Product}
 
@@ -2604,7 +2604,7 @@ So
 
 
 
-\section{Appendix D: YBG equation}
+\section{SM1 D: YBG equation}
 
 \subsection{Eq. (D1), from $g(r)$ to $h(r)$}
 
@@ -2867,7 +2867,7 @@ So
 
 
 
-\section{Appendix E: Kirkwood's equation}
+\section{SM1 E: Kirkwood's equation}
 
 \subsection{Expansion of correlation functions}
 
@@ -3105,7 +3105,7 @@ So
 
 
 
-\section{Appendix G: Expansion of correlation functions around a finite density}
+\section{SM1 G: Expansion of correlation functions around a finite density}
 
 
 \subsection{Recurrence relation for $[1 - (\rho + \Delta \rho) \, \tilde c]^{-1}$}
@@ -3379,7 +3379,7 @@ we get
 
 
 
-\section{Appendix H.}
+\section{SM1 H.}
 
 
 \subsection{H.4 Direct and indirect correlation functions}
@@ -3489,44 +3489,58 @@ for they find no application for the present purpose.
 
 
 
-\section{Supplemental material}
 
-\subsection{Eq. (8)}
 
-We start from the two function case.
+\section{SM2}
+
+
+
+
+
+\subsection{Algebraic expressions of cycles, Eqs. (7) and (8)}
+
+
+
+We start from the two-function case.
 %
 \begin{align}
 & \hphantom{=\int} (a_1 * a_2)(\vr)
 \notag \\
 &=
-  \int_{\vr'}
+  \int
     a_1(\vr') \,
     a_2(\vr - \vr') \, d\vr'
 \notag \\
 &=
-  \int_{\vr'}
-    \left(
-      \int_\vk \tilde{a}_1(\vk) \, \exp(i\vk\cdot\vr') \, \dvk
-    \right)
-%\notag \\
-%&\hphantom{=}
-%\quad \times
-    a_2(\vr - \vr') \, d\vr'
+  \int \int
+    a_1(\vr_1) \,
+    a_2(\vr_2) \,
+    \delta(\vr_1 + \vr_2 - \vr) \,
+    d\vr_1 \, d\vr_2
+\notag \\
+&=
+  \int \int
+    a_1(\vr_1) \,
+    a_2(\vr_2) \,
+    \left( \int e^{-i \vk \cdot (\vr_1 + \vr_2 - \vr)} \dvk \right) \,
+    d\vr_1 \, d\vr_2
+\notag \\
+&=
+  \int
+  \dvk \,
+  e^{i \vk \cdot \vr}
+  \int
+    a_1(\vr_1) \, e^{-i \vk \cdot \vr_1} \,
+    d\vr_1 \,
+  \int
+    a_2(\vr_2) \, e^{-i \vk \cdot \vr_2} \,
+    d\vr_2
 \notag \\
 &=
   \int_\vk \dvk \,
-  \tilde{a}_1(\vk) \,
-  \exp(i\vk\cdot\vr)
-\notag \\
-&\hphantom{=}\times
-  \int_{\vr'} d\vr' \,
-    a_2(\vr - \vr') \, \exp[-i\vk\cdot(\vr - \vr')]
-\notag \\
-&=
-  \int_\vk \dvk \,
+  e^{i\vk \cdot \vr} \,
   \tilde{a}_1(\vk) \,
   \tilde{a}_2(\vk) \,
-  \exp(i\vk\cdot\vr).
   \label{eq:convol}
 \end{align}
 Thus, the Fourier transform of $a_1 * a_2$ is
@@ -3555,13 +3569,13 @@ This means
   \, \exp(i\vk\cdot\vr).
 \end{align*}
 %
-Now setting $\vr = 0$ yields the first equality.
+Now setting $\vr = \vct 0$ yields the first equality.
 \begin{align*}
   (a_1 * \cdots * a_l)(\vct 0)
 = \int \dvk \, \tilde{a}_1(\vk) \, \cdots \, \tilde{a}_l(\vk).
 \end{align*}
 
-Setting $\vr = 0$ in the first expression of \eqref{eq:convol}, yields
+Setting $\vr = \vct 0$ in the first expression of \eqref{eq:convol}, yields
 \[
   \int a_1(\vr') \, a_2(-\vr') \, d\vr'
 = \int \dvk \tilde{a}_1(\vk) \, \tilde{a}_2(\vk).
@@ -3571,6 +3585,65 @@ the left hand side can be written as
 \[
   \int a_1(\vr) \, a_2(\vr) \, d\vr.
 \]
+
+
+
+\subsection{Simplification of Baxter's pressure}
+
+
+
+We start from the expression
+%
+\begin{align*}
+-\beta \, P^\mathrm{ex}
+&=
+\frac{\rho^2}{2}
+\int c(\vr) \, d\vr
+-\int t(\vr) \, c(\vr) \, d\vr
++\int \tilde T(\vk) \, \dvk
+\\
+&=
+\frac{\rho^2}{2} \int c(\vr) \, d\vr
+-\frac{\rho^2}{2} \int t(\vr) \, c(\vr) \, d\vr
+\\
+&\hphantom{=}
+-\int \log[1 - \rho \, \tilde c(\vk)] \, \dvk
+-\rho \int \tilde c(\vk) \, \dvk
+-\frac{\rho^2}{2} \int \tilde c^2(\vk) \, \dvk
+\\
+&=
+\frac{\rho^2}{2} \tilde c(\vct 0)
+-\frac{\rho^2}{2} \int t(\vr) \, c(\vr) \, d\vr
+-\int \log[1 - \rho \, \tilde c(\vk)] \, \dvk
+-\rho c(\vct 0)
+-\frac{\rho^2}{2} \int c^2(\vr) \, d\vr
+\\
+&=
+\frac{\rho^2}{2} \tilde c(\vct 0)
+-\frac{\rho^2}{2} \int h(\vr) \, c(\vr) \, d\vr
+-\int \log[1 - \rho \, \tilde c(\vk)] \, \dvk
+-\rho c(\vct 0)
+\\
+&=
+\frac{\rho^2}{2} \tilde c(\vct 0)
+-\frac{\rho}{2} t(\vct 0)
+-\int \log[1 - \rho \, \tilde c(\vk)] \, \dvk
+-\rho c(\vct 0).
+\end{align*}
+%
+Adding the ideal-gas part,
+$\rho \, P = \rho \, P^\mathrm{ex} + \rho$,
+yields
+%
+\begin{align*}
+-\beta \, P
+&=
+\frac{\rho^2}{2} \tilde c(\vct 0)
++\frac{\rho}{2} t(\vct 0)
+-\int \log[1 - \rho \, \tilde c(\vk)] \, \dvk.
+\end{align*}
+
+
 
 
 

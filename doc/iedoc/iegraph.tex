@@ -61,7 +61,7 @@
 
 \begin{document}
 
-\title{Supplemental material: Thermodynamic quantities in integral equations}
+\title{Supplemental Material 2: Thermodynamic quantities in integral equations}
 
 %\author{Cheng Zhang}
 %\author{Chun-Liang Lai}
@@ -78,18 +78,18 @@ We review a few classic formulae that extract thermodynamic quantities
   and virial coefficients from correlation functions.
 %
 For the Percus-Yevick closure,
-  we give a simplified version \eqref{eq:pyPsimplified}
+  we give a simplification, Eq. \eqref{eq:pyPsimplified},
   of Baxter's pressure formula
   and show that it produces the same virial coefficients
   as the compressibility-route values.
 %
-We also derive an approximate formula \eqref{eq:pyddpressure}
+We also derive an approximate formula, Eq. \eqref{eq:pyddpressure},
   for the second density derivative of pressure.
 %
 For the hypernetted-chain closure,
   we show that the classical formulae
-  for the free energy \eqref{eq:hncF}
-  and chemical potential \eqref{eq:hncmu}
+  for the free energy, Eq. \eqref{eq:hncF},
+  and chemical potential, Eq. \eqref{eq:hncmu},
   produce the same virial coefficients
   as the virial-route pressure formula.
 \end{abstract}
@@ -104,8 +104,8 @@ For the hypernetted-chain closure,
 
 \section{Basics}
 
-For easy reference,
-we first repeat a few basic formulae in the main text.
+%For easy reference,
+%we first repeat a few basic formulae in the main text.
 %
 The virial expansion is
 %
@@ -147,48 +147,69 @@ A general closure is given by the following form
   \label{eq:closure}
 \end{align}
 %
-where the cavity distribution function $y(\vr) \equiv g(\vr) \, e^{ \beta \phi(\vr) }$
-  is to be approximated as some functional of $t(\vr)$.
+where the cavity distribution function,
+$y(\vr) \equiv g(\vr) \, e^{ \beta \phi(\vr) }$,
+is to be approximated as some functional of $t(\vr)$.
 %
 The Percus-Yevick (PY) closure\cite{percusyevick}
-  approximates $y(\vr) \approx 1 + t(\vr)$, so
+assumes $y(\vr) = 1 + t(\vr)$.
+%
+So
 %
 \begin{equation}
   c(\vr) = f(\vr) + f(\vr) \, t(\vr),
   \label{eq:py}
 \end{equation}
+%
 where
+%
 \begin{equation}
   f(\vr) = e^{-\beta \phi(\vr)} - 1,
   \label{eq:fbond}
 \end{equation}
+%
 with $\phi(\vr)$ being the pair potential.
 %
-Alternatively, the hypernetted-chain (HNC) closure\cite{
+Alternatively,
+the hypernetted-chain (HNC) closure\cite{
 morita1958, *morita1959, *morita1960,
-vanleeuwen1959, meeron1960, verlet1960, green1960, rushbrooke1960}
-  approximates $y(\vr) \approx \exp { t(\vr) }$, so
+vanleeuwen1959, meeron1960,
+verlet1960, green1960, rushbrooke1960}
+assumes $y(\vr) = \exp { t(\vr) }$.
+%
+So
 %
 \begin{align}
-  c(\vr) &= \big[ 1 + f(\vr) \big] \, e^{t(\vr)} - t(\vr) - 1 \notag \\
-         &= \sum_{m=0}^\infty
-                \Big\{ \llbra m \ge 2 \llket + f(\vr) \Big\}
-                \frac{ t^m(\vr) }{ m! },
-  \label{eq:hnc}
+c(\vr)
+&= \big[ 1 + f(\vr) \big] \, e^{t(\vr)} - t(\vr) - 1
+\notag \\
+&= \sum_{m=0}^\infty
+   \Big\{ \llbra m \ge 2 \llket + f(\vr) \Big\}
+   \frac{ t^m(\vr) }{ m! },
+\label{eq:hnc}
 \end{align}
 %
-where $\llbra P \llket$ is the Iverson bracket,
-  which is 1 if condition $P$ is true, or 0 otherwise.
+where
+$\llbra P \llket$ denotes the Iverson bracket,
+which is 1 if condition $P$ is true,
+or 0 otherwise.
+
+
 
 Below we shall express thermodynamic quantities
-  as integrals of $c(\vr)$ and $t(\vr)$
-  by a graphical analysis,
+as integrals of $c(\vr)$ and $t(\vr)$
+by a graphical analysis,
 %
-and the virial coefficients $B_n$ in \eqref{eq:virial}
-  can be found from these expressions.
+and the virial coefficients,
+$B_n$ in Eq. \eqref{eq:virial},
+can be found from these expressions.
 %
 Table \ref{tab:thermodyn}
-  summarizes the main results.
+summarizes the main results.
+
+
+
+
 
 \ifdim \columnwidth < 4in
   \newcommand{\tabscale}{1.0}
@@ -498,7 +519,7 @@ In our case, a non-root vertex
 %
 An edge between vertices $i$ and $j$
   contributes a factor $f_{ij} \equiv f(\vr_{ij})$
-  [defined in \eqref{eq:fbond}],
+  [defined in Eq. \eqref{eq:fbond}],
   with
   $\vr_{ij} \equiv \vr_i - \vr_j$.
 %
@@ -562,22 +583,34 @@ The choice of the last vertex is arbitrary
 
 
 
+
+
 \subsection{Symmetry number}
 
-Since the non-root vertices are identical,
-  the above labeled graphs can be reduced to the following unlabeled graphs.
+
+
+We can remove the labels of
+the non-root vertices (black dots)
+in a labeled graph
+to form an \emph{unlabeled} graph,
+because non-root vertices are identical.
 %
-Note that the roots (white dots) are always (implicitly) labeled.
+Note, however, that the roots (white dots)
+are always labeled,
+even if it is done implicitly.
 %
 For an unlabeled graph $G$,
-  after assuming an arbitrary labeling of the non-root vertices of $G$,
-  we define the \emph{symmetry number} $s(G)$
-  as the number of ways of permuting the labels of the non-root vertices that
-  keep the connections of $G$ unchanged\cite{hansen, uhlenbeck1962}.
+after assuming an arbitrary labeling of
+the non-root vertices,
+we define the \emph{symmetry number}, $s(G)$,
+as the number of ways of
+permuting the labels of the non-root vertices that
+keep the connections of $G$ unchanged\cite{
+hansen, uhlenbeck1962}.
 %
 The connection-preserving permutations
-  form a group called the automorphism group $\Aut(G)$,
-and $s(G)$ is equal to the order of the automorphism group:
+form a group called the automorphism group, $\Aut(G)$,
+and $s(G)$ is equal to its order:
 %
 \begin{equation*}
   s(G) \equiv | \Aut(G) |.
@@ -607,44 +640,57 @@ but
   }\right) = 1$,
   because the two white dots are distinguishable,
   and thus exchanging the two black dots alters the connection.
-%
+
+
 
 
 
 \subsection{\label{sec:bcsums}Sums of biconnected graphs}
 
+
+
 We state without proving the following exact results\cite{hansen, mayer, uhlenbeck1962}.
 %
-The virial expansion \eqref{eq:virial} contains
-  all unrooted labeled biconnected graphs,
-  each weighted by $(1-n)/n!$ with $n$ being the number of vertices;
+The virial series in Eq. \eqref{eq:virial}
+contains
+all unrooted labeled biconnected graphs,
+each weighted by $(1-n)/n!$
+with $n$ being the number of vertices.
 %
-equivalently, it is the sum of
-  all unrooted \emph{unlabeled} biconnected graphs $G$
-  weighted by $(1-n)/s(G)$.
+Equivalently, the series is the sum of
+all unrooted \emph{unlabeled} biconnected graphs $G$
+weighted by $(1-n)/s(G)$.
 %
-The expansion of $-\beta \Fex/V$
-  for the excess (non-ideal-gas) Helmholtz free energy
-  is the sum of all unrooted unlabeled biconnected graphs $G$
-  weighted by $1/s(G)$.
+The series for $-\beta \Fex/V$,
+with $\Fex$ being
+the excess (non-ideal-gas) Helmholtz free energy,
+is the sum of
+all unrooted unlabeled biconnected graphs $G$
+weighted by $1/s(G)$.
 %
-The expansion of $-\beta \muex$ for the excess chemical potential
-  is the sum of all one-root unlabeled biconnected graphs $G$
-  weighted by $1/s(G)$.
+The series for $-\beta \muex$,
+with $\muex$ being the excess chemical potential,
+is the sum of
+all one-root unlabeled biconnected graphs $G$
+weighted by $1/s(G)$.
 %
-The expansion of $c(\vr)$ is the sum of
-  all two-root unlabeled biconnected graphs $G$
-  weighted by $1/s(G)$.
-%
+The series for $c(\vr)$ is the sum of
+all two-root unlabeled biconnected graphs $G$
+weighted by $1/s(G)$.
 
-Unfortunately, not all biconnected graphs can be produced by integral equations.
+
+
+Unfortunately, not all biconnected graphs
+can be produced by integral equations.
 %
 In either the PY or the HNC equation,
-  $c(\vr)$, for example, contains only a subset of the biconnected graphs $G$,
-  and the weight may not be $1/s(G)$.
+$c(\vr)$, for example,
+contains only a subset of the biconnected graphs $G$,
+and the weight may not be $1/s(G)$.
 %
-The hope, however, is that the missing graphs either are negligible (HNC),
-  or somehow cancel among themselves (PY).
+The hope, however, is that the missing graphs
+are either negligible (HNC),
+or self-canceling (PY).
 
 
 
@@ -902,8 +948,8 @@ Particularly,
 \label{eq:cyclesp2}
 \end{align}
 %
-Using \eqref{eq:cyclesp2} in \eqref{eq:oz} gives
-  a zero-separation theorem\cite{rosenfeld1978}
+Using Eq. \eqref{eq:cyclesp2} in Eq. \eqref{eq:oz} gives
+  a zero-separation theorem\cite{rosenfeld1979}
 %
 \begin{align}
   t(\vct{0})
@@ -926,9 +972,9 @@ where the second step follows from
 We state a general relationship between the indirect correlation function
   and the cavity distribution function $y(\vr)$.
 %
-In \eqref{eq:closure},
+In Eq. \eqref{eq:closure},
 since $y(\vr)$ and $t(\vr)$
-collect only graphs with nonadjacent roots,
+collect graphs with nonadjacent roots only,
 we have
 %
 \begin{lemm}
@@ -938,10 +984,11 @@ The graphs in the expansion of $c(\vr)$
   the expansion of $y(\vr)\, f(\vr)$,
   and the rest belong to
   the expansion of $y(\vr) - t(\vr) - 1$.
+%
 Conversely,
   all graphs in the expansions of $y(\vr) \, f(\vr)$
-  and $y(\vr) - t(\vr) - 1$ belong to
-  the expansion of $c(\vr)$.
+  and $y(\vr) - t(\vr) - 1$
+  are contained in the expansion of $c(\vr)$.
 \label{thm:crsplit}
 \end{lemm}
 %
@@ -960,7 +1007,7 @@ Conversely,
 
 
 We now characterize the graphs involved in $c(\vr)$
-  in the PY closure \eqref{eq:py}.
+  in the PY closure, Eq. \eqref{eq:py}.
 %
 A \emph{polygon graph} $G$ satisfies
   %
@@ -1187,20 +1234,21 @@ The converse is obvious.
 
 
 
-Given a polygon graph without knowing the labels of non-root vertices,
-we can then recursively decompose the corresponding pie graph
-(which lacks the edge between the roots)
+Given a polygon graph $G$,
+even without knowing the labels of the non-root vertices,
+we can recursively decompose the corresponding pie graph $G'$
+(which differs from $G$ by a missing edge between the roots)
 and determine the proper labels of all non-root vertices.
 %
 Thus
+the labels of the non-root vertices of $G$
+can be uniquely determined.
+%
+It follows that
 
 \begin{lemm}
-Given a polygon graph $G$,
-  the labels of the non-root vertices
-  can be uniquely determined.
-Thus,
-  the symmetry number $s(G)$ is always unity.
-  \label{thm:polygonsymnum}
+The symmetry number $s(G)$ of a polygon graph $G$ is always unity.
+\label{thm:polygonsymnum}
 \end{lemm}
 
 
@@ -1226,12 +1274,12 @@ The statement obviously holds for $n \le 3$.
 Suppose it remains so for $n \le k$,
 consider the case of $n = k + 1$.
 
-The OZ relation \eqref{eq:oz}
+The OZ relation, Eq. \eqref{eq:oz},
   shows that every graph in $t(\vr)$
   is a chain of smaller polygon graphs,
   hence a pie graph by Lemma \ref{thm:pycat}.
 
-The PY closure \eqref{eq:py} generates
+The PY closure, Eq. \eqref{eq:py}, generates
   an $n$-vertex graph $G$ in $c(\vr)$
   by adding the edge between the roots
   to some $n$-vertex graph in $t(\vr)$.
@@ -1293,22 +1341,22 @@ Thus,
   the largest possible symmetry group of
   permuting vertices in a polygon graph
   is the dihedral group,
-  which allows only cycling vertex labels along the sides,
+  which allows only cycling vertex labels along the perimeter,
   and/or reversing all the labels.
 %
-The automorphism group of $G$
+The automorphism group, $\Aut(G)$,
   is necessarily a subgroup of the dihedral group,
   whose order is $2 \, n(G)$.
 %
 The symmetry number $s(G)$,
-  which is the order of the automorphism group,
+  which is the order of $\Aut(G)$,
   is therefore a divisor of $2 \, n(G)$,
   by Lagrange's theorem.
 %
 Further,
   the number of cosets of the automorphism group,
   which is equal to $w(G)$, the number of ways of
-  producing nonequivalent vertex labels,
+  producing nonequivalent vertex labels by permutation,
   is given by $2 \, n(G) / s(G)$.
 %
 In summary,
@@ -1343,7 +1391,8 @@ In the PY equation,
 %
 Note that the $n = 2$ case is special,
   for the $f$-graph does not form a polygon.
-Thus, we manually set $s(G) = 4$ in \eqref{eq:pykappasum} in this case.
+Thus, $s(G)$ in Eq. \eqref{eq:pykappasum}
+is understood to be equal to $4$ in this case.
 
 We give two examples.
 For
@@ -1357,7 +1406,7 @@ $G_1 = {\begin{tikzpicture}[baseline=-1mm]
   \end{tikzpicture}}$,
 we have
 $s(G_1) = 8$, and
-the weight in \eqref{eq:pykappasum}
+the weight in Eq. \eqref{eq:pykappasum}
 is $w(G_1) = 2\times 4/8 = 1$,
 because whitening the two vertices on any side
 yields the same polygon graph
@@ -1371,6 +1420,7 @@ ${\begin{tikzpicture}[baseline=-1mm]
   \end{tikzpicture}}$.
 %
 On the other hand, for
+%
 $G_2 = {
     \begin{tikzpicture}[baseline=-1mm]
       \newcommand{\hh}{0.7mm}
@@ -1389,7 +1439,7 @@ This means that whitening the two vertices on any side of the polygon
 in either order yields a distinct polygon graph.
 
 
-%We can write \eqref{eq:pykappasum}
+%We can write Eq. \eqref{eq:pykappasum}
 %in functional differentiation
 %\begin{align*}
 %  \frac {\delta } { \delta f_\mathrm{side}(\vr) }
@@ -1403,7 +1453,9 @@ in either order yields a distinct polygon graph.
 
 
 
+
 \subsection{Face decomposition of a polygon pack}
+
 
 
 
@@ -1534,9 +1586,14 @@ will be adapted to the HNC case in Sec. \ref{sec:hncFexmuex}.
 
 
 
+
 \subsection{Cycle sums}
 
-Using \eqref{eq:countvertices} in \eqref{eq:pykappasum} yields
+
+
+
+
+Using Eq. \eqref{eq:countvertices} in Eq. \eqref{eq:pykappasum} yields
 %
 \begin{equation}
     \rho^2 \int c(\vr) \, d\vr
@@ -1572,7 +1629,7 @@ The cycle sum $\Chn_l$ satisfies
 We show this under a generalized condition:
 %Below, for generality,
 %we assume that
-every 2-rooted graph $G$ in the expansion of $c(\vr)$
+every 2-root graph $G$ in the expansion of $c(\vr)$
 carries the weight of $1/s(G)$.
 %
 This condition is satisfied in the PY case,
@@ -1585,8 +1642,9 @@ allows the proof to be also applicable to the HNC case. % below.
 
 
 By definition,
-$s(G)$ is the order of the automorphism group $\Aut(G)$ of $G$,
-or the number of vertex permutations that keep the connection of $G$ unchanged.
+$s(G)$ is the order of the automorphism group $\Aut(G)$,
+or the number of vertex permutations
+that keep the connection of $G$ unchanged.
 %
 Suppose $L$ is an $l$-cycle in $G$,
 and the joints are $V_L = \{v_1, v_2, \dots v_l\}$.
@@ -1615,7 +1673,7 @@ contribute
 = \frac{ I(G) }{ |\G_L|}
 \label{eq:ccyclingleft}
 \end{equation}
-to the left hand side of \eqref{eq:ccycling}.
+to the left-hand side of Eq. \eqref{eq:ccycling}.
 
 
 As discussed above,
@@ -1631,12 +1689,15 @@ whose order is $2l$.
 %
 The number of different ways of the circular composition
 $G_1 * \cdots * G_l (*\, G_1)$
-occurring in $\rho^l (c * \cdots * c)$ is equal to $2l / |\Hgroup_L|$.
+occurring in $\rho^l (c * \cdots * c)$ is equal to
+the number of cosets of $\Hgroup_L$,
+which is, by Lagrange's theorem, equal to
+$2l / |\Hgroup_L|$.
 %
 Now, as each $G_i$ ($1 \le i \le l$)
 carries the weight of $1/s(G_i)$ in the expansion of $c(\vr)$,
 the total contribution of the cycle $L$
-to the right hand side is
+to the right-hand side is
 \begin{align*}
   \frac{1}{2l}
   \cdot
@@ -1646,7 +1707,7 @@ to the right hand side is
 = \frac{ I(G) }
  { |\Hgroup_L| \cdot s(G_1) \cdots s(G_l) }.
 \end{align*}
-The above expression is the same as \eqref{eq:ccyclingleft}
+The above expression is the same as Eq. \eqref{eq:ccyclingleft}
 because
 \begin{equation}
   \G_L = \Hgroup_L \times \Aut(G_1) \times \cdots \times \Aut(G_l).
@@ -1654,11 +1715,11 @@ because
 \end{equation}
 %
 In other words,
-if a vertex permutation preserves the joints in $L$,
+if a vertex permutation preserves the connection,
 it can only be built on
 (i) cycling and reflecting the cycle elements, and
 (ii) exchanging the vertices in each $G_i$.
-Taking the order of \eqref{eq:GLfactor} yields
+Taking the order of Eq. \eqref{eq:GLfactor} yields
 $|\G_L| = |\Hgroup_L| \cdot s(G_1) \cdots s(G_l)$.
 \end{proof}
 
@@ -1709,7 +1770,7 @@ $m \, I /s = I/|\Hgroup_L| = I/2$.
 
 
 
-Summing \eqref{eq:ccycling} over $l$ yields
+Summing Eq. \eqref{eq:ccycling} over $l$ yields
 %
 \begin{align}
       \sum_{l=3}^{\infty} 2 \, \Chn_l
@@ -1745,8 +1806,8 @@ where
   \label{eq:logrhoc}
 \end{align}
 %
-Note that \eqref{eq:Clsum3}, \eqref{eq:Clsuml}, and \eqref{eq:Clsumll}
-  are direct consequences of the OZ relation \eqref{eq:oz},
+Note that Eqs. \eqref{eq:Clsum3}, \eqref{eq:Clsuml}, and \eqref{eq:Clsumll}
+  are direct consequences of the OZ relation, Eq. \eqref{eq:oz},
   and thus are applicable to any integral equation (not just the PY one).
 %
 For completeness, we list a few variants below
@@ -1798,7 +1859,7 @@ To obtain an expression of pressure,
 \label{eq:crcompr}
 \end{align}
 where
-we have used \eqref{eq:pykappasum} in the second step.
+we have used Eq. \eqref{eq:pykappasum} in the second step.
 %
 %where the superscript ``ex'' means to the excess, or non-ideal-gas, part of the contribution.
 %
@@ -1814,7 +1875,7 @@ integration over $\rho$ yields\cite{baxterpressure}
 \end{align}
 %
 By further using
-\eqref{eq:pyintgcr2sums}, \eqref{eq:Clsum3} and \eqref{eq:Clsuml},
+Eqs. \eqref{eq:pyintgcr2sums}, \eqref{eq:Clsum3} and \eqref{eq:Clsuml},
 we get
 %
 \begin{align}
@@ -1831,7 +1892,7 @@ Note that the weight $-2/s(G)$ is rather different
 This means that the PY closure not only drops the non-polygon graphs,
   but also reduces the weights of the polygon graphs.
 %
-By using \eqref{eq:zerosep} and adding the ideal-gas part,
+By using Eq. \eqref{eq:zerosep} and adding the ideal-gas part,
   we can rewrite the above result as
 %
 \begin{align*}
@@ -1843,17 +1904,17 @@ By using \eqref{eq:zerosep} and adding the ideal-gas part,
 %
 Further, by using the virial theorem,
 the Fourier-space integral can be avoided,
-resulting \eqref{eq:pyPsimplified} in Sec. \ref{sec:vtpy}.
+resulting Eq. \eqref{eq:pyPsimplified} in Sec. \ref{sec:vtpy}.
 
 
 
 \subsection{Algebraic verification}
 
 We can show that
-  \eqref{eq:baxterpressure} is equivalent to \eqref{eq:crcompr}
+  Eq. \eqref{eq:baxterpressure} is equivalent to Eq. \eqref{eq:crcompr}
   algebraically\cite{baxterpressure}.
 %
-Differentiating \eqref{eq:logrhoc} and using \eqref{eq:oz} yields
+Differentiating Eq. \eqref{eq:logrhoc} and using Eq. \eqref{eq:oz} yields
 %
 \begin{align*}
   \partial_\rho \tilde T
@@ -1868,7 +1929,7 @@ Differentiating \eqref{eq:logrhoc} and using \eqref{eq:oz} yields
 %
 where ``$(\vk)$'' is dropped.
 %
-Integrating out $\vk$ and using \eqref{eq:cyclesp2} yields
+Integrating out $\vk$ and using Eq. \eqref{eq:cyclesp2} yields
 %
 \begin{align}
   \int \partial_\rho \tilde T \dvk
@@ -1889,8 +1950,8 @@ Integrating out $\vk$ and using \eqref{eq:cyclesp2} yields
 
 
 
-Differentiating \eqref{eq:baxterpressure}
-with respect to $\rho$ and using \eqref{eq:intdlogrhoc} yields
+Differentiating Eq. \eqref{eq:baxterpressure}
+with respect to $\rho$ and using Eq. \eqref{eq:intdlogrhoc} yields
 %
 \[
   -\partial_\rho ( \beta \Pex )
@@ -1898,16 +1959,24 @@ with respect to $\rho$ and using \eqref{eq:intdlogrhoc} yields
   \rho \int c \, d\vr
   + \frac{\rho^2}{2} \int (
     \partial_\rho c - c \, \partial_\rho t + t \, \partial_\rho c
-    ) \, d\vr.
+    ) \, d\vr,
 \]
-The second term vanishes because of the PY closure \eqref{eq:py}:
+The second term vanishes because of the PY closure, Eq. \eqref{eq:py}:
 $c \, \partial_\rho t = (1 + \, t) \, f \, \partial_\rho t = (1 + t) \, \partial_\rho c$.
 %
-This completes the proof.
+Thus,
+\[
+  -\partial_\rho ( \beta \Pex )
+=
+  \rho \int c \, d\vr,
+\]
+which is Eq. \eqref{eq:crcompr}.
 
-Since \eqref{eq:crcompr} and \eqref{eq:baxterpressure}
-differ only by a differentiation with respect to the density, $\rho$,
-they must produce the same virial coefficients.
+This demonstration proves that
+Eqs. \eqref{eq:crcompr} and \eqref{eq:baxterpressure}
+produce the same virial coefficients,
+since the two formulae differ only
+by a differentiation with respect to the density, $\rho$.
 
 
 
@@ -1915,7 +1984,7 @@ they must produce the same virial coefficients.
 \subsection{Second density derivative of pressure}
 
 Similarly,
-  by differentiating \eqref{eq:pykappasum} with respect to $\rho$,
+  by differentiating Eq. \eqref{eq:pykappasum} with respect to $\rho$,
   and ignoring inter-face pairs
   we get
   $p(G) \approx n(G) \, [n(G) - 1]$,
@@ -1935,7 +2004,10 @@ Similarly,
 \label{eq:pyddpressure}
 \end{align}
 %
-where we have use \eqref{eq:countpairs}, \eqref{eq:pyintgcr2sums}, and \eqref{eq:Clsum_th}.
+where we have use
+  Eqs. \eqref{eq:countpairs},
+       \eqref{eq:pyintgcr2sums}, and
+       \eqref{eq:Clsum_th}.
 %
 Note that this relation is approximate (i.e., it is not a compressibility route result)
   and the deviation is
@@ -2058,8 +2130,8 @@ or
   of the cycle.
 %
 One can verify that the above definition
-  includes all graphs in \eqref{eq:hnccrex},
-  but none in \eqref{eq:hnccrexnot}.
+  includes all graphs in Eq. \eqref{eq:hnccrex},
+  but none in Eq. \eqref{eq:hnccrexnot}.
 %
 
 Further, we define a \emph{$c$-chain}
@@ -2100,7 +2172,7 @@ We first show that
   every graph $H$ in the expansion of $t(\vr)$
   is a $c$-chain weighted by $1/s(H)$.
 %
-According to \eqref{eq:oz},
+According to Eq. \eqref{eq:oz},
 \[
   t = \rho \, c*c + \rho^2 \, c * c * c + \rho^3 \, c*c*c*c \cdots.
 \]
@@ -2158,7 +2230,7 @@ The number of times of $M$
   appearing in expansion of $t^m(\vr)$
   is equal to the number of ways
   of assigning the $t$ types to the $m$ chains
-  under the conditions \eqref{eq:sortchains},
+  under the conditions, Eqs. \eqref{eq:sortchains},
   which can be computed from the multinomial coefficients
   $m!/(m_1! \cdots m_t!)$.
 %
@@ -2186,7 +2258,7 @@ The converse can be shown similarly.
 Next, let us show that every graph in the expansion of $c(\vr)$
   is a $c$-graph.
 %
-Again, from the closure \eqref{eq:hnc},
+Again, from the closure, Eq. \eqref{eq:hnc},
   an $n$-vertex graph $G$ in $c(\vr)$ is
   either a $c$-bundle $M$ of
   $m$ $c$-chains $H_1$, \dots, $H_m$,
@@ -2253,7 +2325,7 @@ We view $G$ as a parallel composition of the $c$-chain $H_m$
 \]
 Since $G'$ is a $c$-graph by the induction hypothesis,
   $G$, which is a the parallel composition of $G'$ and $H_m$,
-  is a cycle of $c$-graphs by \eqref{eq:cyclesp},
+  is a cycle of $c$-graphs by Eq. \eqref{eq:cyclesp},
   and hence a $c$-graph.
 %
 The weight $w(G)$ is the same as $w(M)$.
@@ -2472,7 +2544,7 @@ We shall show in Lemma \ref{thm:hncfpivot} that
 every edge in $G$ is an unordered pivot.
 %
 Thus,
-the first product in \eqref{eq:Ipsi}
+the first product in Eq. \eqref{eq:Ipsi}
 covers all adjacent unordered pivots,
 and the second product over the complement
 $P(G) \backslash E(G)$
@@ -2483,7 +2555,7 @@ $\A(\psi_0, \psi_1)$
 as a generating function
 of nonadjacent ($\psi_0$) and adjacent ($\psi_1$) unordered pivots,
 %
-and $\A(0,0)$ recovers \eqref{eq:Adef}.
+and $\A(0,0)$ recovers Eq. \eqref{eq:Adef}.
 %
 Thus, Lemma \ref{thm:whitenAhnc} can now be stated as
 \begin{align*}
@@ -2523,7 +2595,9 @@ the second equation becomes\cite{hiroike1957, morita1958, *morita1960, *morita19
 The relation is also true for the exact graphical sum of $y(\vr)$,
 if $\A$ covers all biconnected graphs.
 %
-It, however, has to be modified to \eqref{eq:yrfunctionalpy} in the PY case.
+It, however, has to be modified to
+Eq. \eqref{eq:yrfunctionalpy}
+in the PY case.
 
 
 
@@ -2574,9 +2648,9 @@ On the other hand, differentiating $\A$ yields
   -\frac{\rho^2} {2}
   \int \phi(\vr) \, g(\vr) \, d\vr,
 \end{align*}
-where we have used \eqref{eq:yrfunctional}.
+where we have used Eq. \eqref{eq:yrfunctional}.
 %
-Comparing this to \eqref{eq:Fti}, we get
+Comparing this to Eq. \eqref{eq:Fti}, we get
 \begin{equation}
   -\partial_\beta(\beta \, \Fex/V) = \partial_\beta \A.
   \label{eq:hncdFexdA}
@@ -2585,12 +2659,12 @@ Since at the high temperature limit ($\beta = 0$),
 we have $\phi(\vr) = f(\vr) = 0$,
 and $\Fex(\beta = 0) = \A(\beta = 0) = 0$,
 %
-integrating \eqref{eq:hncdFexdA} from $\beta = 0$
-yields \eqref{eq:hncFexA}.
+integrating Eq. \eqref{eq:hncdFexdA} from $\beta = 0$
+yields Eq. \eqref{eq:hncFexA}.
 %
 A similar derivation from the virial theorem
 can be found in Sec. \ref{sec:vthnc},
-which shows that the expression \eqref{eq:hncFexA}
+which shows that the expression, Eq. \eqref{eq:hncFexA},
 corresponds to the virial-route result\cite{morita1960, morita1960I}.
 
 Equation \eqref{eq:hncFexA} shows that the graphical sum
@@ -2632,15 +2706,17 @@ where we have used $I(G) \propto \rho^{n(G)}$.
 
 
 
+
 To proceed, we need to generalize the face decomposition in the PY case
   to a cycle decomposition for the HNC case,
-  which helps adapting the counting formulae
-  \eqref{eq:countvertices} and \eqref{eq:countpairs}.
+  which helps adapting the counting formulae,
+  Eqs. \eqref{eq:countvertices} and \eqref{eq:countpairs}.
 
 
-First, a cycle of $l$ ($l \ge 3$) $c$-graphs
-  is \emph{simple}
-  in which at least $(l-1)$ links of the cycle are $f$-graphs.
+First, we say that
+a cycle of $l$ ($l \ge 3$) $c$-graphs
+is \emph{simple}
+if at least $(l-1)$ links of the cycle are $f$-graphs.
 %
 We now show that
 %
@@ -2990,7 +3066,7 @@ First, each step of Algorithm L removes $(l - 2)$ vertices,
   with $l$ being the length of the simple cycle.
 %
 Thus, the total number of vertices $n(G)$
-  is still given by \eqref{eq:countvertices},
+  is still given by Eq. \eqref{eq:countvertices},
   with $m_l(G)$ interpreted as
   the number of ways
   of decomposing $G$ as length-$l$ cycles.
@@ -3000,7 +3076,7 @@ A cycle of length $l$, by definition,
   and Step 3 of Algorithm D
   removes all but two of them.
 %
-Thus, \eqref{eq:countpairs}
+Thus, Eq. \eqref{eq:countpairs}
   is also applicable, with $p(G)$ interpreted
   as the number of ordered pivots of $G$.
 
@@ -3016,7 +3092,7 @@ Thus, \eqref{eq:countpairs}
 %A proof will be given in Secs. \ref{sec:hnccavity} and \ref{sec:hncFex}.
 %%
 %Thus, the free energy can be computed
-The free energy can now be computed from \eqref{eq:hncFexA}
+The free energy can now be computed from Eq. \eqref{eq:hncFexA}
 as\cite{morita1958, *morita1960, *morita1960I, singer1985}
 %
 \begin{align}
@@ -3038,12 +3114,12 @@ as\cite{morita1958, *morita1960, *morita1960I, singer1985}
 %
 where,
   on the second line,
-  we have used \eqref{eq:hnccrsum} and \eqref{eq:countpairs},
+  we have used Eqs. \eqref{eq:hnccrsum} and \eqref{eq:countpairs},
   and on the next lines,
-  we have used \eqref{eq:Clsum3}-\eqref{eq:Clsumll}.
+  we have used Eqs. \eqref{eq:Clsum3}-\eqref{eq:Clsumll}.
 %
 Similarly, the chemical potential
-  can be computed from \eqref{eq:hncmugsum}
+  can be computed from Eq. \eqref{eq:hncmugsum}
   as \cite{morita1958, *morita1960, *morita1960I, singer1985}
 %
 \begin{align}
@@ -3063,7 +3139,7 @@ Similarly, the chemical potential
 \label{eq:hncmu}
 \end{align}
 %
-we have used \eqref{eq:countvertices}, \eqref{eq:countpairs},
+we have used Eqs. \eqref{eq:countvertices}, \eqref{eq:countpairs},
 \eqref{eq:hnccrsum}, and \eqref{eq:Clsum_th}.
 %Although \eqref{eq:hncmu} assigns the correct weight to each $G$,
 %  the sum goes over only a subset (that of $c$-packs) of the biconnected graphs.
@@ -3072,20 +3148,21 @@ we have used \eqref{eq:countvertices}, \eqref{eq:countpairs},
 %%
 
 
-As a check, let us algebraically derive \eqref{eq:hncmu} from \eqref{eq:hncF}.
+As a check, let us algebraically
+derive Eq. \eqref{eq:hncmu} from Eq. \eqref{eq:hncF}.
 %
-Using \eqref{eq:muexdFex} and \eqref{eq:intdlogrhoc},
-we get from differentiating \eqref{eq:hncF}:
+Using Eq. \eqref{eq:muexdFex} and \eqref{eq:intdlogrhoc},
+we get from differentiating Eq. \eqref{eq:hncF}:
 \[
   -2 \, \beta \, \muex = \rho \int (2\,c - h \, t) \, d\vr
   + \rho^2 \int (\partial_\rho c - h \, \partial_\rho t) \, d\vr.
 \]
-The second term vanishes because of the HNC closure \eqref{eq:hnc}:
+The second term vanishes because of the HNC closure, Eq. \eqref{eq:hnc}:
 $1+h = (1+f) \, \exp t$,
 %
   which implies $\partial_\rho h = (1+ h) \, \partial_\rho t$.
 %
-We then recover \eqref{eq:hncmu}.
+We then recover Eq. \eqref{eq:hncmu}.
 
 
 
@@ -3107,7 +3184,7 @@ We obtain the pressure from
 \end{align}
 %
 We will show in Sec. \ref{sec:vthnc} that
-\eqref{eq:hncP}
+Eq. \eqref{eq:hncP}
 is equivalent to the virial-route pressure formula:
 \begin{equation}
   \beta \, \Pexv
@@ -3117,7 +3194,8 @@ is equivalent to the virial-route pressure formula:
 \label{eq:virialpressure}
 \end{equation}
 %
-The proof was previously sketched\cite{morita1960, morita1960I}.
+The proof was previously sketched\cite{
+morita1960, morita1960I}.
 It is illustrated in Fig. \ref{fig:iepres}
 for the three-dimensional hard-sphere fluid.
 
@@ -3139,8 +3217,8 @@ Here we derive a virial theorem,
 and use it
 (a) to simplify Baxter's pressure formula,
 and
-(b) to show that \eqref{eq:hncF} and \eqref{eq:hncmu}
-produce the same virial coefficients as \eqref{eq:virialpressure}.
+(b) to show that Eqs. \eqref{eq:hncF} and \eqref{eq:hncmu}
+produce the same virial coefficients as Eq. \eqref{eq:virialpressure}.
 
 
 
@@ -3160,7 +3238,7 @@ and the inner product goes over all $f$-bonds in the $G$.
 %  I(G) = \rho \, I^*(G; \rho, 1).
 %\]
 %%
-Since the integral in \eqref{eq:Irhozetadef} is independent of $\rho$,
+Since the integral in Eq. \eqref{eq:Irhozetadef} is independent of $\rho$,
 $I^*(G;\rho, \zeta)$ is a homogeneous function of $\rho$, and
 %
 \begin{equation}
@@ -3189,7 +3267,7 @@ it follows that
 &= -D \, [n(G) - 1] \, I^*(G; \rho, \zeta),
 \label{eq:drhodzeta}
 \end{align}
-where we have used \eqref{eq:Idrho} in the second step.
+where we have used Eq. \eqref{eq:Idrho} in the second step.
 
 
 Consider now an arbitrary sum over all unrooted graphs (polygon packs or $c$-packs)
@@ -3198,7 +3276,7 @@ Consider now an arbitrary sum over all unrooted graphs (polygon packs or $c$-pac
 \]
 where $w(G)$ is some weight.
 %
-Using \eqref{eq:drhodzeta} yields,
+Using Eq. \eqref{eq:drhodzeta} yields,
 \begin{align*}
   \zeta \, \partial_\zeta A^*(\rho, \zeta)
 &=
@@ -3259,7 +3337,7 @@ proportional to $\rho^n$, instead of $\rho^{n-1}$.
 
 
 For the PY closure, we use $w(G) = 2/s(G)$
-in \eqref{eq:virialtheorem}
+in Eq. \eqref{eq:virialtheorem}
 and carry the sum over all polygon packs $G$.
 %
 Then
@@ -3275,7 +3353,7 @@ Then
 \end{align*}
 
 
-Using \eqref{eq:pykappasum} and \eqref{eq:crcompr}, we get
+Using Eqs. \eqref{eq:pykappasum} and \eqref{eq:crcompr}, we get
 \begin{align}
   -\beta \, \Pex
   =
@@ -3286,8 +3364,8 @@ Using \eqref{eq:pykappasum} and \eqref{eq:crcompr}, we get
 \label{eq:pyPsimp1}
 \end{align}
 %
-For the second term on the right hand side,
-we differentiate \eqref{eq:baxterpressure} with respect to $\zeta$,
+For the second term on the right-hand side,
+we differentiate Eq. \eqref{eq:baxterpressure} with respect to $\zeta$,
 and
 \begin{align*}
 &\hphantom{==}
@@ -3336,8 +3414,8 @@ where we have used
   \label{eq:dfdzeta}
 \end{align}
 %
-Note that \eqref{eq:dTdzeta} and \eqref{eq:dfdzeta} are general,
-whereas the rest two equations result from the PY closure \eqref{eq:py},
+Note that Eqs. \eqref{eq:dTdzeta} and \eqref{eq:dfdzeta} are general,
+whereas the rest two equations result from the PY closure, Eq. \eqref{eq:py},
 %
 Thus,
 \begin{equation}
@@ -3391,6 +3469,7 @@ for $|\vr| < 1$.
 %
 In Fig. \ref{fig:iepres},
 we show that
+Eqs.
 \eqref{eq:baxterpressure},
 \eqref{eq:pyPsimplified},
 and
@@ -3422,7 +3501,7 @@ and, generally
 \ne
   \vr \cdot \nabla c,
 \]
-although \eqref{eq:dfdzeta} is true.
+although Eq. \eqref{eq:dfdzeta} is true.
 %(with $\zeta$ set to unity only after the differentiation).
 %
 
@@ -3436,7 +3515,7 @@ and
 $J^*_2 = \rho^2 \, \zeta \, \partial_\zeta \int c_1(\zeta \vr) \, d\vr$.
 %
 For $J^*_1$,
-we have, by \eqref{eq:drhodzeta},
+we have, by Eq. \eqref{eq:drhodzeta},
 \begin{align*}
   J^*_1 \big|_{\zeta = 1}
 &=
@@ -3498,16 +3577,17 @@ Thus, $J^*_1 \big|_{\zeta = 1} \ne J^*_2 \big|_{\zeta = 1}$. %, even with $\zeta
 
 
 \subsection{\label{sec:pyPalt}
-Alternative derivation of \eqref{eq:pyPsimplified} (PY equation)}
+Alternative derivation of Eq. \eqref{eq:pyPsimplified} (PY equation)}
 
 
 
-We can derive \eqref{eq:pyPsimplified} without using \eqref{eq:baxterpressure}
-and heavy algebra.
+We can derive Eq. \eqref{eq:pyPsimplified}
+without using Eq. \eqref{eq:baxterpressure}
+or heavy algebra.
 %
-We first show that the term $[t(\vr)+1]^2/2$ in \eqref{eq:pyPsimplified}
+We first show that the term $[t(\vr)+1]^2/2$ in Eq. \eqref{eq:pyPsimplified}
 resembles the cavity distribution function $y(\vr)$ in the HNC case
-[cf. \eqref{eq:yrfunctional}].
+[cf. Eq. \eqref{eq:yrfunctional}].
 %
 We first define an \emph{extended polygon graph}
 as a polygon graph that allows any intra-face root pairs,
@@ -3615,7 +3695,7 @@ Lemma \ref{thm:whitenAhnc},
 we get
 
 \begin{lemm}
-Redefine $\A$ in \eqref{eq:Adef}
+Redefine $\A$ in Eq. \eqref{eq:Adef}
 as a sum carried over all polygon packs.
 Then, the sums obtained from whitening,
 one at a time,
@@ -3634,9 +3714,9 @@ The above result can also be written
 in terms of functional derivatives.
 %
 We borrow the definitions in
-\eqref{eq:Apsi} and \eqref{eq:Ipsi},
+Eqs. \eqref{eq:Apsi} and \eqref{eq:Ipsi},
 with two modifications:
-(i) the sum over $G$ in \eqref{eq:Apsi}
+(i) the sum over $G$ in Eq. \eqref{eq:Apsi}
 is carried over all polygon packs;
 (ii) $P(G)$ is replaced to the set of intra-face \emph{unordered} pairs.
 %
@@ -3651,7 +3731,7 @@ we have
 \right|_{\psi_0 = \psi_1 = 0},
 \end{align*}
 which can be rewritten,
-in analogous to \eqref{eq:yrfunctional} in the HNC case,
+in analogous to Eq. \eqref{eq:yrfunctional} in the HNC case,
 as
 \begin{equation}
   \frac{ \delta \A } { \delta f(\vr)}
@@ -3672,9 +3752,10 @@ Similarly, for unordered nonadjacent pairs,
 %
 
 
-Equation \eqref{eq:yrfunctionalpy} provides a new derivation of \eqref{eq:pyPsimplified}.
+Equation Eq. \eqref{eq:yrfunctionalpy} leads to
+a new derivation of Eq. \eqref{eq:pyPsimplified}.
 %
-Using \eqref{eq:pyPgraph}, we get
+Using Eq. \eqref{eq:pyPgraph}, we get
 %
 \begin{align*}
   \partial_\zeta (-\beta \Pex) \big|_{\zeta = 1}
@@ -3694,7 +3775,7 @@ Using \eqref{eq:pyPgraph}, we get
   (\vr \cdot \nabla f) \, d\vr.
 \end{align*}
 %
-Using this in \eqref{eq:pyPsimp1} yields \eqref{eq:pyPsimplified}.
+Using this in Eq. \eqref{eq:pyPsimp1} yields Eq. \eqref{eq:pyPsimplified}.
 
 Similarly,
 for the derivative with respect to $\beta$, we have
@@ -3726,9 +3807,11 @@ for the derivative with respect to $\beta$, we have
 
 
 
-\subsection{\label{sec:vthnc}Virial-route nature of \eqref{eq:hncF} and \eqref{eq:hncmu} (HNC equation)}
+\subsection{\label{sec:vthnc}Virial-route nature of
+Eqs. \eqref{eq:hncF} and \eqref{eq:hncmu} (HNC equation)}
 
-For the HNC equation, let us derive \eqref{eq:hncFexA} from the virial theorem.
+For the HNC equation,
+let us derive Eq. \eqref{eq:hncFexA} from the virial theorem.
 %
 Differentiating $\A$ with respect to $\zeta$ yields
 \begin{align*}
@@ -3747,11 +3830,11 @@ Differentiating $\A$ with respect to $\zeta$ yields
   \int (\vr \cdot \nabla \phi) \, g \, d\vr
 = D \, \beta \, \Pexv,
 \end{align*}
-where we have used \eqref{eq:yrfunctional},
+where we have used Eqs. \eqref{eq:yrfunctional},
 \eqref{eq:dfdzeta}, and \eqref{eq:virialpressure}.
 %The last step follows from the classic formula of virial-route pressure.
 %
-Using \eqref{eq:virialtheorem}
+Using Eq. \eqref{eq:virialtheorem}
 with $w(G) = 1/s(G)$, we get
 \begin{align*}
   -\rho^2 \partial_\rho ( \A/\rho )
@@ -3782,7 +3865,8 @@ with $\A \big|_{\rho = 0} = \Fexv \big|_{\rho = 0} = 0$, yields
 %  \beta \, \Pexv = \frac{\rho^2} {2D} \, \int (\vr \cdot \nabla f) \, y \, d\vr.
 %  \label{eq:Pvirial}
 %\end{equation}
-This show the free energy $\Fex$ in \eqref{eq:hncFexA} and \eqref{eq:hncF}
+This show the free energy $\Fex$ in
+Eqs. \eqref{eq:hncFexA} and \eqref{eq:hncF}
 is the virial-route result $\Fexv$.
 %
 %As shown in Sec. \ref{sec:hncFexmuex},
@@ -3791,26 +3875,26 @@ is the virial-route result $\Fexv$.
 %by a differentiation with respect to $\rho$.
 %
 Further, the excess chemical potential
-$\muex$ in \eqref{eq:hncmugsum} and \eqref{eq:hncmu}
+$\muex$ in Eqs. \eqref{eq:hncmugsum} and \eqref{eq:hncmu}
 is also the virial-route result,
 for it is obtained from differentiating $\Fex$
 with respect to $\rho$
-[see \eqref{eq:muexdFex}].
+[see Eq. \eqref{eq:muexdFex}].
 %
 In other words,
 the virial coefficients computed from
-\eqref{eq:hncF} or \eqref{eq:hncmu}
+Eqs. \eqref{eq:hncF} or \eqref{eq:hncmu}
 are the same as those computed from
-\eqref{eq:virialpressure},
-and \eqref{eq:hncP} and \eqref{eq:virialpressure}
+Eq. \eqref{eq:virialpressure},
+and Eqs. \eqref{eq:hncP} and \eqref{eq:virialpressure}
 are equivalent in the HNC equation.
 
 
 
 Below we verify this algebraically\cite{morita1960}
-without using \eqref{eq:yrfunctional}.
+without using Eq. \eqref{eq:yrfunctional}.
 %
-We now differentiate \eqref{eq:hncF} with respect to $\zeta$,
+We now differentiate Eq. \eqref{eq:hncF} with respect to $\zeta$,
 \begin{align}
   \left. \partial_\zeta \left(-\frac{ \beta\,\Fex }{ V }\right) \right|_{\zeta = 1}
 &=
@@ -3828,16 +3912,18 @@ We now differentiate \eqref{eq:hncF} with respect to $\zeta$,
 %  \label{eq:hncdFdzeta1}
 \end{align}
 %
-where we have used \eqref{eq:dTdzeta},
+where we have used Eq. \eqref{eq:dTdzeta},
 \[
   \partial_\zeta c
   = (1 + c + t) \, \partial_\zeta t
   + y \, \partial_\zeta f - \partial_\zeta t,
 \]
-which is obtained from differentiating the closure \eqref{eq:hnc},
-\eqref{eq:dfdzeta}, and finally \eqref{eq:virialpressure}.
+which is obtained from
+differentiating the closure, Eq. \eqref{eq:hnc},
+then using Eqs. \eqref{eq:dfdzeta}, and \eqref{eq:virialpressure}.
 
-Now, by setting $A \rightarrow \Fex / V$ in \eqref{eq:virialtheorem}, we get
+Now, by setting $A \rightarrow \Fex / V$
+in Eq. \eqref{eq:virialtheorem}, we get
 \begin{align}
   \zeta \, \partial_\zeta (\Fex/V) \Big|_{\zeta = 1}
   = -D \, \rho^2 \, \partial_\rho (\Fex/N)
@@ -3848,7 +3934,8 @@ Now, by setting $A \rightarrow \Fex / V$ in \eqref{eq:virialtheorem}, we get
 %    \label{eq:hncdFdzeta2}
 \end{align}
 Thus, $-\partial_V (\Fex)_N = \Pexv$,
-and hence $\Fex$ from \eqref{eq:hncF} is the virial-route result.
+and hence $\Fex$ from Eq. \eqref{eq:hncF}
+is the virial-route result.
 %
 
 
@@ -3927,7 +4014,7 @@ Thus, $\log y(\vct0) = (-1) \cdot \sum_G I(G)/s(G)$,
   where the sum is carried over all one-root unlabeled biconnected graphs $G$.
 According to Sec. \ref{sec:bcsums},
   the sum is equal to $-\beta \muex$,
-  which proves \eqref{eq:yrzerosep}.
+  which proves Eq. \eqref{eq:yrzerosep}.
 
 
 
