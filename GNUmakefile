@@ -38,7 +38,7 @@ $(prj)src.zip::
 
 zip: $(prj)src.zip
 
-usbdir = /media/C3/code
+usbdir = /media/`whoami`/C3/code
 
 usb: $(prj)src.zip $(prj)pack.zip
 	mv $(prj)src.zip $(usbdir)/

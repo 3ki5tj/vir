@@ -5,6 +5,7 @@
 #define ZCOM_ARGOPT
 #include "zcom.h"
 #include "fftx.h"
+#include "ieutil.h"
 
 
 

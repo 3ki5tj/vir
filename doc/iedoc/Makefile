@@ -1,6 +1,6 @@
 prj=ievir
 
-figs=ievircmp ievirhigh ievirlow cmpcorl
+figs=ievircmp ievirhigh ievirlow cmpcorl iepres
 pdffigs=$(patsubst %,fig/%.pdf, $(figs))
 epsfigs=$(patsubst %,fig/%.eps, $(figs))
 figgps=$(patsubst %,fig/%.gp,  $(figs))
@@ -10,6 +10,7 @@ latexpdfs = iegraph.pdf $(prj)notes.pdf
 all: $(prj)doc.pdf $(latexpdfs)
 
 $(prj)doc.pdf: $(prj)doc.tex $(prj)text.pdf \
+  		$(prj)SM1.pdf \
   		iegraph.pdf $(pdffigs) Makefile
 	make -C fig
 	pdflatex $<
@@ -31,6 +32,7 @@ clean:
 	rstrip.py
 
 $(prj)doc.zip: $(prj)doc.tex $(prj)doc.pdf $(prj)text.doc \
+               $(prj)SM1.doc \
   	       iegraph.tex iegraph.pdf liquid.bib \
 	       $(prj)notes.tex $(prj)notes.pdf \
 	       ChangeLog \
