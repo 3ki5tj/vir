@@ -1,6 +1,6 @@
 prj=ievir
 
-figs=ievircmp ievirhigh ievirlow cmpcorl iepres
+figs=ievircmp ievirhigh ievirlow cmpcorl
 pdffigs=$(patsubst %,fig/%.pdf, $(figs))
 epsfigs=$(patsubst %,fig/%.eps, $(figs))
 figgps=$(patsubst %,fig/%.gp,  $(figs))
@@ -26,7 +26,7 @@ fig/iepres.pdf:
 	$(MAKE) -C fig iegraph.pdf
 
 clean:
-	$(RM) *.aux *.bbl *.blg *.log *.dvi \
+	$(RM) *.aux *.bbl *.blg *.log *.dvi *.out \
 	      *Notes.bib *~
 	rstrip.py
 

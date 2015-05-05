@@ -1,0 +1,3870 @@
+\documentclass[aip,jcp,preprint,superscriptaddress,showpacs,preprintnumbers,amsmath,amssymb]{revtex4-1}
+%\documentclass{article}
+
+\setcitestyle{super}
+
+%\usepackage[a4paper, top=0.9in, bottom=1 in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{mathrsfs}
+\usepackage{url}
+\usepackage{tikz}
+\usepackage{wasysym}
+
+
+
+%\numberwithin{subsection}{section}
+%\numberwithin{subsubsection}{subsection}
+%\renewcommand{\thesubsection}{\thesection.\Alph{subsection}}
+
+
+
+\renewcommand{\thetable}{\Roman{table}}
+
+\newcommand{\vct}[1]{\mathbf{#1}}
+\providecommand{\vr}{} % clear \vr
+\renewcommand{\vr}{\vct{r}}
+\newcommand{\vk}{\vct{k}}
+\newcommand{\vR}{\vct{R}}
+\newcommand{\dvk}{\frac{d\vk}{(2\pi)^D}}
+\newcommand{\tdvk}{\tfrac{d\vk}{(2\pi)^D}}
+
+
+
+
+
+\begin{document}
+
+
+
+
+
+\title{Computation of virial coefficients from integral equations}
+\author{Cheng Zhang}
+\author{Chun-Liang Lai}
+\author{B. Montgomery Pettitt}
+\email{mpettitt@utmb.edu}
+\affiliation{
+Sealy Center for Structure Biology and Molecular Biophysics,
+Department of Biochemistry and Molecular Biology, \\
+The University of Texas Medical Branch,
+Galveston, TX 77555, USA}
+
+
+
+\begin{abstract}
+A polynomial-time method of
+computing the virial coefficients
+from an integral equation framework
+is presented.
+%
+The method computes the truncated density expansions
+of the correlation functions by series transformations,
+and then extracts the virial coefficients
+from the density components.
+%
+As an application,
+the method was used in a hybrid-closure integral equation
+with a set of self-consistent conditions,
+which produced reasonably accurate virial coefficients
+for the hard-sphere fluid and Gaussian model
+in high dimensions.
+\end{abstract}
+
+
+
+\maketitle
+
+
+
+
+
+\section{Introduction}
+
+The virial expansion\cite{
+mayer, hill, *rice1965, uhlenbeck1962, hansen, mcquarrie}
+of a simple fluid
+is a series for the pressure, $P$,
+in terms of the number density, $\rho = N/V$:
+%
+\begin{equation}
+\beta \, P
+=
+\sum_{n = 1}^{+\infty} B_n \, \rho^n
+\label{eq:virser}
+\end{equation}
+%
+where $\beta = 1/(k_B T)$
+is the inverse temperature
+($k_B$ is the Boltzmann constant),
+and $B_n$ are the virial coefficients.
+%
+This expansion provides one of the simplest equation of states.
+%
+Further,
+even beyond the radius of convergence of the series,
+we can use the virial coefficients
+to construct an equation of state
+with a more suitable algebraic form
+by the matching the low-density behavior\cite{wheatley2013}.
+
+
+
+While the low-order ($n\le4$) virial coefficients
+can be computed accurately\cite{
+vanderwaals1899, *vanlaar1899,
+*rushbrooke1961, *hemmer1965, *kim1968, *kilpatrick1971,
+*dyer2001, *sun1996,
+nijboer1952,
+kratky1982,
+luban1982, *joslin1982, *clisby2004a, *lyberg2005},
+the computation of high-order ones remains challenging\cite{
+wheatley2013, masters2008}.
+%
+This is so even for the simplest systems
+such as the hard-sphere fluid\cite{
+wheatley2013, kratky1982,
+metropolis1953, *rosenbluth1954, *ree1964a,
+*ree1967, *vanrensburg1993, *bishop1999,
+*vlasov2002, *kolafa2004, *bishop2004, *bishop2005,
+*labik2005, *clisby2005, *bishop2008,
+clisby2004b, *clisby2006,
+zhang2014, schultz2014},
+%
+in which spheres interact via
+a repulsive hard-core potential
+[that is,
+the potential, $\phi(r)$, between two spheres of unit diameter
+separated by a distance $r$ is zero if $r > 1$,
+or infinity if $r < 1$].
+%
+Despite its simplicity,
+the hard-sphere fluid is theoretically important,
+and the system and its virial coefficients
+have been intensively studied
+not only in two and three dimensions,
+but also in much higher dimensions\cite{
+luban1982, *joslin1982, *clisby2004a, *lyberg2005,
+clisby2004b, *clisby2006,
+adda-bedia2008a, *adda-bedia2008b,
+*finken2001, *frisch1999, *frisch1985, *kurchan2012,
+*loeser1991, *parisi2000, *robles2004, *robles2007,
+*rohrmann2007, *rohrmann2008, *skoge2006,
+*torquato2006a, *torquato2006b,
+*wyler1987}.
+%
+One also hopes that
+the insight gained from high dimensions
+can be useful for two and three dimensions.
+
+
+
+In higher dimensions,
+reasonably accurate high-order virial coefficients
+for the hard-sphere fluid can be obtained\cite{zhang2014}
+by Mayer sampling\cite{schultz2014,
+rast1999, *labik2003, *singh2004, *naresh2009a, *naresh2009b,
+*benjamin2007, *schultz2009, *shaul2010, *tan2010,
+*shaul2012, *schultz2013, *yang2013,
+kwak2005, shaul2011}.
+%
+The resulting virial coefficients
+showed a regular pattern as the order $n$ changes.
+%
+Thus, we wish to consider
+whether they can be derived,
+at least approximately,
+by some recurrence relation.
+
+
+
+One way to answer the question is
+through the correlation functions,
+which can be approximately determined
+by integral equations,
+such as the Percus-Yevick (PY)\cite{percusyevick}
+or hypernetted-chain (HNC)\cite{
+morita1958, *morita1959, morita1960,
+vanleeuwen1959, *meeron1960, *verlet1960, *green1960, *rushbrooke1960}.
+%
+Using such integral equations,
+one can readily compute
+the density expansions of the correlation functions,
+and then extract the virial coefficients
+from the integrals of the density components\cite{
+shaul2011}.
+%
+Although previous algorithms\cite{shaul2011}
+work well for the PY equation,
+the HNC version is somewhat more intensive computationally,
+for high orders
+because of its exponential time complexity.
+%
+Further,
+since neither the PY nor the HNC integral equation
+produces reliable virial coefficients for high orders
+or in higher dimensions, we wish to consider alternative routes.
+
+
+
+Here,
+we generalize the algorithm of Shaul et al.\cite{shaul2011}
+to compute the virial coefficients
+from a larger class of integral equations.
+%
+Our method has a polynomial time complexity,
+and thus computationally is particularly useful
+for high orders.
+%
+As an application,
+we used the algorithm in a hybrid integral equation
+with a set of order-by-order self-consistent conditions.
+%
+The method yields rather accurate virial coefficients
+of the high-dimensional hard-sphere fluid and Gaussian model.
+%
+We describe the method in Sec. II,
+use it on the hard-sphere fluid and Gaussian model in Sec. III,
+and conclude the article in Sec. IV.
+
+
+
+
+\section{Method}
+
+
+
+
+
+\subsection{Integral equations}
+
+
+
+
+In liquid sate theory,
+the integral equation method\cite{hansen}
+is a way of computing the pair correlation function, $g(\vr)$.
+%
+The equation can be cast as a pair of coupled equations
+involving the direct correlation function, $c(\vr)$,
+and the indirect correlation function,
+$t(\vr) \equiv g(\vr) - c(\vr) - 1$.
+%
+For an isotropic fluid, as assumed here,
+the above correlation functions
+depends on the coordinates, $\vr$,
+only through the distance, $r = |\vr|$.
+
+
+
+The first of the coupled equations
+is the Ornstein-Zernike (OZ) relation:
+%
+%
+%
+\begin{equation}
+t(\vr)
+=
+\rho \, (c*h)(\vr)
+= \rho \, [c*(c+t)](\vr),
+\label{eq:oz}
+\end{equation}
+%
+%
+%
+where ``$*$'' denotes a spatial convolution
+$(a*b)(\vr) = \int a(\vr - \vr') \, b(\vr') \, d\vr'$,
+and
+$h(\vr) \equiv c(\vr) + t(\vr) = g(\vr) - 1$
+is the total correlation function.
+%
+This relation is most convenient in Fourier space,
+as it assumes the product form,
+%
+%
+%
+\begin{equation}
+\tilde t(\vk)
+=
+\rho \, \tilde c(\vk)
+\, [ \tilde c(\vk) + \tilde t(\vk) ],
+\label{eq:oz_k}
+\end{equation}
+%
+%
+%
+where
+$\tilde a(\vk) = \int a(\vr) \, e^{-i\vk \cdot \vr} \, d\vr$
+denotes the Fourier transform.
+%
+In Supplemental Material (SM) 1.A,
+we describe two techniques
+of computing the Fourier transforms
+for spherical-symmetric functions
+in odd and even dimensions.
+
+
+
+The second equation, or the \emph{closure},
+can be written in terms of the cavity distribution function,
+which is defined as $y(\vr) \equiv g(\vr) \, \exp[\beta \, \phi(\vr)]$,
+and
+%
+%
+%
+\begin{equation}
+c(\vr)
+=
+[1 + f(\vr)] \, y(\vr) - 1 - t(\vr),
+\label{eq:closure_cr_yr}
+\end{equation}
+%
+%
+%
+where $f(\vr) \equiv \exp[-\beta \, \phi(\vr)] - 1$.
+%
+The formally-exact expression of $y(\vr)$ is
+%
+%
+%
+\[
+y(\vr)
+=
+\exp[
+t(\vr) + B(\vr)
+],
+\]
+%
+%
+%
+where $B(\vr)$
+is the bridge function,
+which cannot be written as a simple convolution expression
+in terms of pair functions discussed above\cite{hansen}.
+%
+A closure without $B(\vr)$ most often
+approximates $y(\vr)$ as a simple functional of $t(\vr)$.
+%
+The PY equation uses the following closure\cite{percusyevick}:
+%
+%
+%
+\begin{equation}
+y(\vr) \approx 1 + t(\vr).
+\label{eq:py}
+\end{equation}
+%
+%
+%
+Alternatively,
+the HNC equation assumes\cite{
+morita1958, *morita1959, morita1960,
+vanleeuwen1959,
+*meeron1960, *verlet1960, *green1960,
+*rushbrooke1960}
+%
+%
+%
+\begin{equation}
+y(\vr)
+\approx
+\exp t(\vr).
+\label{eq:hnc}
+\end{equation}
+%
+%
+%
+In either case,
+the closure along with the OZ relation, \eqref{eq:oz},
+fully determines the approximate correlation functions,
+$c(\vr)$ and $t(\vr)$.
+%
+Below we will illustrate our method
+with the PY and HNC equations,
+and the extension to more advanced integral equations\cite{
+hiroike1957, *lee1995,
+hurst1965,
+rowlinson1965,
+rowlinson1966,
+lado1967, *henderson1970, *zerah1986,
+caligaris1968, *zhou1990, *attard1991, *henderson1996,
+gaskell1968,
+stell1969, *rosenfeld1979,
+hutchinson1971,
+hutchinson1972,
+verlet1980,
+hall1980,
+martynov1983,
+rogers1984,
+ballone1986,
+duh1995, *bomont2001, *choudhury2002,
+marucho2007}
+is straightforward.
+%
+The latter equations often improve
+the accuracy by interpolating the PY and HNC ones.
+
+
+
+
+
+\subsection{\label{sec:PY}
+PY equation}
+
+
+
+
+
+We now compute the virial coefficients
+from the PY equation\cite{percusyevick}.
+%
+First,
+we expand the direct correlation function
+as series of the density, $\rho$, as
+%
+\begin{equation}
+c(\vr)
+=
+c_0(\vr)
++ \rho \, c_1(\vr)
++ \rho^2 \, c_2(\vr)
++ \cdots
+\label{eq:crser}
+\end{equation}
+%
+and the indirect correlation function as
+%
+\begin{equation}
+t(\vr)
+=
+\rho \, t_1(\vr)
++ \rho^2 \, t_2(\vr)
++ \cdots
+\label{eq:trser}
+\end{equation}
+%
+where $c_0(\vr) = f(\vr)$,
+and $t_0(\vr)$ vanishes.
+%
+The components of $c_l(\vr)$ and $t_l(\vr)$
+are obtained below.
+
+
+
+Plugging Eqs. \eqref{eq:crser} and \eqref{eq:trser}
+into \eqref{eq:oz_k},
+and comparing the coefficients for $\rho^l$ yields,
+for $l \ge 1$,
+\begin{equation}
+\tilde t_l(\vk)
+=
+\sum_{j = 0}^{l - 1}
+\tilde c_{l - 1 -j}(\vk)
+\,
+[\tilde c_j(\vk) + \tilde t_j(\vk)].
+\label{eq:oz_tl}
+\end{equation}
+
+
+
+Similarly, for the closure, Eq. \eqref{eq:closure_cr_yr},
+we have
+\begin{equation}
+c_l(\vr)
+=
+[1 + f(\vr)] \, y_l(\vr)
+- t_l(\vr) - \delta_{l0}.
+\label{eq:closure_cl_yl}
+\end{equation}
+%
+In the PY case,
+Eq. \eqref{eq:py}
+means $y_l(\vr) = \delta_{l0} + t_l(\vr)$,
+and thus,
+\begin{equation}
+c_l(\vr)
+= f(\vr) \, \delta_{l0} + f(\vr) \, t_l(\vr).
+\label{eq:py_cl}
+\end{equation}
+%
+Equations \eqref{eq:oz_tl} and \eqref{eq:py_cl}
+can be applied in succession:
+%
+%
+%
+\begin{align*}
+&
+c_{l-1}(\vr)
+\xrightarrow{ \mathrm{F.T.} }
+\tilde c_{l-1}(\vk)
+\xrightarrow{ \mathrm{Eq.\,\eqref{eq:oz_tl}} }
+\\
+&
+\tilde t_l(\vk)
+\xrightarrow{ \mathrm{F.T.} }
+t_l(\vr)
+\xrightarrow{ \mathrm{Eq.\,\eqref{eq:py_cl}} }
+c_l(\vr).
+\end{align*}
+%
+%
+%
+to get higher-order density components of the correlation functions.
+%
+for example,
+in the first iteration,
+Eq. \eqref{eq:oz_tl} gives
+$\tilde t_1(\vk) = [\tilde c_0(\vk)]^2 = [\tilde f(\vk)]^2$,
+i.e.,
+$t_1(\vr) = (f*f)(\vr)$;
+then, Eq. \eqref{eq:py_cl} gives
+$c_1(\vr) = (f*f)(\vr) \cdot f(\vr)$.
+%
+Note that the correlation functions
+on the right-hand side \eqref{eq:oz_tl}
+have orders lower than $l$;
+%
+thus those orders are always available
+when we compute $\tilde t_l(\vk)$.
+
+
+
+
+
+\subsubsection{Virial coefficients}
+
+
+
+
+
+We can compute the virial coefficients
+from the correlation functions, $c_l(\vr)$ and $t_l(\vr)$,
+in a few ways.
+%
+First, in the compressibility route,
+%
+\begin{equation}
+\partial_\rho( \beta \, P^{(c)} )
+=
+1 - \rho \int c(\vr) \, d\vr,
+\label{eq:P_compressibility}
+\end{equation}
+%
+where $\partial_\rho \equiv \partial/\partial \rho$.
+%
+Then, expanding both sides as series of $\rho$
+using Eqs. \eqref{eq:virser} and \eqref{eq:crser} yields
+%
+\begin{equation}
+B_n^{(c)}
+=
+-\frac{1}{n}
+\int c_{n-2}(\vr) \, d\vr.
+\label{eq:Bn_compressibility}
+\end{equation}
+
+
+
+Next, in the virial route,
+we have, in $D$ dimensions,
+%
+%
+%
+\begin{align}
+\beta \, P^{(v)}
+&=
+\rho
+-
+\frac{ \rho^2 \, \beta }
+     {  2 \, D }
+\int (\vr \cdot \nabla \phi) \, g(\vr) \, d\vr
+\notag \\
+&=
+\rho
++
+\frac{ \rho^2 }
+     { 2 \, D }
+\int (\vr \cdot \nabla f) \, y(\vr) \, d\vr.
+\label{eq:P_virial}
+\end{align}
+%
+%
+%
+So, for an isotropic fluid,
+we have, for $n \ge 2$,
+%
+%
+%
+\begin{equation}
+B_n^{(v)}
+=
+\frac{1}{2D}
+\int r \, f'(r) \, y_{n-2}(r) \, d\vr.
+\label{eq:Bn_virial}
+\end{equation}
+%
+%
+%
+For the hard-sphere fluid,
+$f'(r) = \delta(r - 1)$,
+which is the $\delta$-function peaked at $r = 1$,
+and Eq. \eqref{eq:Bn_virial} is reduced to
+%
+%
+%
+\[
+B_n^{(v)} = B_2 \, y_{n-2}(1),
+\]
+%
+%
+%
+where
+$B_2 =
+\left.
+  \int r \, f'(r) \cdot 1 \cdot d\vr
+\middle/
+  (2 \, D)
+\right.
+=
+\left.
+  \pi^{D/2}
+\middle/
+  [ D \, \Gamma(D/2) ]
+\right.$
+is half of the volume of the unit sphere in $D$ dimensions,
+and $\Gamma(z) = (z-1)!$ is the gamma function.
+%
+Since the closure is approximate,
+Eqs. \eqref{eq:Bn_compressibility} and \eqref{eq:Bn_virial}
+generally yield different values for $n \ge 4$.
+
+
+
+In addition to
+Eqs. \eqref{eq:Bn_compressibility} and \eqref{eq:Bn_virial},
+which apply to a general integral equation,
+where are two formulae specific to the PY equation.
+%
+Baxter's pressure formula\cite{baxterpressure}
+can be written as
+%
+%
+%
+\begin{align}
+\beta \, P^{(c)}
+&=
+\int \log[ 1 - \rho \, \tilde c(\vk) ] \, \dvk
+-\frac{ \rho \, t(\vct{0}) + \rho^2 \, \tilde c(\vct 0) } { 2 }
+\notag \\
+&=
+\rho
+-
+\rho^2
+\int
+\left\{
+  c(\vr)
+  + \frac{ [ 1 + t(\vr)]^2 \, (\vr \cdot \nabla f) } { 2 \, D }
+\right\}
+\, d\vr,
+\label{eq:Pc_Baxter}
+\end{align}
+%
+%
+%
+where we have used the virial theorem\cite{
+rushbrooke1953, uhlenbeck1962}
+in the second step (see SM 2).
+%
+The second expression of Eq. \eqref{eq:Pc_Baxter}
+is valid even if $\rho \, \tilde c(\vk)$ exceeds 1.0.
+%
+For the hard-sphere fluid,
+it can further simplified as
+%
+\begin{align*}
+-\beta \, P^{\mathrm{ex},(c)}
+=
+\rho^2 \, [ \tilde c(0) + c^2(1^-) \, B_2]
+=
+\rho^2 \, [\tilde c(0) + g^2(1^+) \, B_2],
+\end{align*}
+%
+where the ``ex'' on the superscript means the excess (non-ideal-gas) part.
+%
+Taking the $n$th component of the density expansion yields
+a different expression for $B_n$.
+%
+The resulting value, however, is the same as $B_n^{(c)}$\cite{baxterpressure}.
+
+
+
+The second derivative of pressure can be written as (see SM 2)
+%
+\[
+-\beta \, \chi^\mathrm{ex}
+\equiv
+-\rho^2 \, \partial_\rho^2 (\beta \, P^\mathrm{ex})
+\approx
+\rho^2 \int [c(\vr) + h(\vr) \, t(\vr)] \, d\vr.
+\]
+%
+Thus,
+%
+%
+%
+\begin{equation}
+B_n^{(\mathrm{PY}, \chi)}
+\approx
+\frac{1}{ n \, (1 - n) }
+\int
+  \left[
+    c_{n-2}(\vr)
+    +
+    \sum_{j = 1}^{n-2} h_{n-2-j}(\vr) \, t_j(\vr)
+  \right]
+  \, d\vr.
+\label{eq:Bn_ddP}
+\end{equation}
+%
+%
+%
+This value, referred to as the $\chi$-route virial coefficient below,
+differs from $B^{(c)}$ and $B^{(v)}$.
+%
+Since the above virial coefficients are computed
+from numerical integration,
+their precision can be improved
+by an extrapolation on the grid size (see SM 1.B).
+
+
+
+
+
+\subsection{\label{sec:HNC}
+HNC equation}
+
+
+
+
+We now turn to the HNC case.
+%
+The OZ relation, Eq. \eqref{eq:oz_tl}, is still applicable.
+%
+Below,
+we determine the density expansion of
+the HNC cavity distribution function
+$y(\vr) = \exp t(\vr)$:
+%
+%
+%
+\begin{equation}
+y(\vr)
+=
+\sum_{l = 0}^{+\infty}
+y_l(\vr) \, \rho^l,
+\label{eq:yrser}
+\end{equation}
+%
+%
+%
+with $y_0(\vr) = 1$,
+such that the components $y_l(\vr)$
+can be used in Eq. \eqref{eq:closure_cl_yl}.
+%
+Previously,
+Shaul et al. proposed the following formula\cite{shaul2011}
+%
+\[
+y_l(\vr)
+=
+\sum_{k = 0}^l
+  \frac{1}{k!}
+  \sum_{ \substack{
+    (l_1, \dots, l_k) \\
+    l_1 + \cdots + l_k = l } }
+    t_{l_1}(\vr) \cdots t_{l_k}(\vr),
+\]
+%
+where the inner sum is carried over
+all possible $k$-tuples of positive integers
+$(l_1, \dots, l_k)$.
+%
+The formula, however,
+becomes difficult to use for a high order $l$
+because of the exponentially growing number of the $k$-tuples.
+%
+Below we propose an algorithm with polynomial scaling of time.
+
+
+
+First, differentiating Eq. \eqref{eq:hnc} with respect to $\rho$ yields
+%
+\[
+\partial_\rho y(\vr)
+=
+y(\vr) \, [ \partial_\rho t(\vr) ].
+\]
+%
+Then, expanding both sides
+using Eqs. \eqref{eq:trser} and \eqref{eq:yrser}
+gives, for $l\ge 1$,
+%
+\begin{equation}
+y_l(\vr)
+=
+\sum_{j=1}^l
+y_{l-j}(\vr) \, j \, t_j(\vr) / l.
+\label{eq:hnc_yl}
+\end{equation}
+%
+In Eq. \eqref{eq:hnc_yl},
+the $y_{l-j}(\vr)$ on the right-hand side
+have orders lower than $l$.
+%
+So we can readily compute $y_l(\vr)$
+using an increasing order of $l$
+[with $y_0(\vr) = 1$].
+%
+For the first few orders,
+we have [dropping the ``$(\vr)$''],
+%
+$y_1 = y_0 \, t_1 = t_1$,
+%
+$y_2
+= (y_1 \, t_1 + 2 \, y_0 \, t_2) / 2
+= \frac{1}{2} t_1^2 + t_2$,
+and
+$y_3
+= (y_2 \, t_1 + 2 \, y_1 \, t_2 + 3 \, y_0 \, t_3)/3
+= \frac{1}{6} t_1^3 + t_1 \, t_2 + t_3$,
+\dots, etc.
+
+
+
+Once $y_l(\vr)$ is known,
+we can compute $c_l(\vr)$ from Eq. \eqref{eq:closure_cl_yl}.
+%
+Applying Eqs.
+\eqref{eq:oz_tl},
+\eqref{eq:hnc_yl}, and
+\eqref{eq:closure_cl_yl} in succession as
+%
+\begin{align*}
+&
+c_{l-1}(\vr)
+\xrightarrow{ \mathrm{F.T.} }
+\tilde c_{l-1}(\vk)
+\xrightarrow{ \mathrm{Eq.}\,\eqref{eq:oz_tl} }
+\tilde t_l(\vk)
+\xrightarrow{ \mathrm{F.T.} }
+\\
+&
+t_l(\vr)
+\xrightarrow{ \mathrm{Eq.}\,\eqref{eq:hnc_yl} }
+y_l(\vr)
+\xrightarrow{ \mathrm{Eq.}\,\eqref{eq:closure_cl_yl} }
+c_l(\vr),
+\end{align*}
+yields the correlation functions of any order $l$ in polynomial time.
+
+
+
+We can generalize the above technique
+to a larger class of closures
+$y(\vr) = Y[t(\vr)]$\cite{
+hurst1965, rowlinson1965, rowlinson1966,
+lado1967, *henderson1970, *zerah1986,
+hutchinson1971, hutchinson1972, verlet1980, hall1980,
+martynov1983, rogers1984, ballone1986,
+marucho2007} (SM 1.C),
+and to the Yvon-Born-Green (YBG)\cite{
+yvon1935, *born1946, hill, *rice1965, hansen, nijboer1952}
+and Kirkwood\cite{
+kirkwood1935, *stell1962, hoover1962, hill, *rice1965}
+integral equations
+(see SM 1.D and 1.E, respectively).
+
+
+
+
+
+\subsubsection{Virial coefficients}
+
+
+
+
+
+The compressibility- and virial-route virial coefficients
+$B^{(c)}$ and $B^{(v)}$,
+can be still computed from
+Eqs. \eqref{eq:Bn_compressibility}
+and
+\eqref{eq:Bn_virial}, respectively.
+%
+Additionally,
+the virial coefficient
+can be derived from HNC-specific expressions
+of the chemical potential $\mu$
+and the free energy\cite{
+morita1958, *morita1959, morita1960,
+morita1960I, morita1961III,
+singer1985}
+(see also SM2).
+%
+For example,
+using the chemical potential formula with
+$\partial_\rho P = \rho \, \partial_\rho \mu$ yields
+%
+\[
+B_n^{(\mathrm{HNC}, \mu)}
+=
+\frac{1-n}{n}
+\int
+\left[
+  c_{n-2}(\vr)
+  -\frac{1}{2} \sum_{j=1}^{n-2} h_{n-2-j}(\vr) \, t_j(\vr)
+\right] \, d\vr.
+\]
+%
+The value, however,
+is the same as $B_n^{(v)}$\cite{
+morita1960, morita1960I}
+because of the virial theorem\cite{rushbrooke1953, uhlenbeck1962}
+(see SM 2 for a proof).
+%
+In terms of the graphical expansion\cite{
+hansen, uhlenbeck1962, morita1961III},
+the integrands of
+$B_n^{\mathrm{HNC}, \mu}$
+and
+$B_n^{(v)}$
+differ only by the choices of the root vertices.
+
+
+
+For the hard-sphere fluid,
+we have an additional cavity-route virial coefficient\cite{hoover1962}
+(see also SM 2):
+%
+\begin{equation}
+B_n^{(y)}
+=
+\frac{n - 1}{n}
+\left[
+  \log y(\vct 0)
+\right]_{n - 1}
+\label{eq:Bn_cavity}
+\end{equation}
+%
+where
+$[ \log y(\vct 0) ]_{n - 1}$,
+the coefficient of $\rho^{n-1}$
+in the density expansion of $\log y(\vct 0)$,
+can be computed from the components,
+$y_l(\vct 0)$ ($l = 0, \dots, n - 1$).
+%
+This relation,
+however,
+demands a highly accurate $y(\vct 0)$,
+which makes it applicable to very few cases,
+such as the HNC equation in high dimensions.
+
+
+
+
+
+\subsection{\label{sec:selfconsistent}
+Detailed self-consistent (DSC) equation}
+
+
+
+
+
+Neither the PY nor the HNC equation yields
+the same virial coefficients from
+the compressibility and virial routes.
+%
+Here we consider an interpolation between the PY and HNC equations
+to force the consistency\cite{
+hurst1965, rowlinson1965, rowlinson1966,
+lado1967, *henderson1970, *zerah1986,
+stell1969,
+rogers1984,
+rosenfeld1979,
+hutchinson1971, hutchinson1972,
+hall1980}
+of all virial coefficients.
+%
+We assume a form for the new cavity distribution function to be
+%
+\begin{align*}
+y(\vr)
+&=
+y^{\mathrm{PY}}(\vr)
++ \mathrm{correction}
+\\
+&=
+1 + t(\vr)
++ \sum_{l = 2}^{+\infty} \lambda_l \, w_l(\vr) \, \rho^l,
+\end{align*}
+%
+where
+$w_l(\vr)$ is the $l$th order correction function,
+and the parameter $\lambda_l$
+is to be determined.
+%
+Particularly, we set
+%
+\begin{equation}
+w_l(\vr)
+=
+y_l^{(\mathrm{HNC})}(\vr)
+-
+y_l^{(\mathrm{PY})}(\vr)
+=
+\left[ \exp t(\vr) \right]_l - t_l(\vr),
+\label{eq:yr_trial}
+\end{equation}
+%
+with
+$[ \exp t(\vr) ]_l$
+denoting the coefficient of $\rho^l$
+in the density expansion of
+$\exp t(\vr)$.
+%
+Thus,
+$w_2(\vr)
+= [t_1^2(\vr)]^2/2
+= [(f*f)(\vr)]^2/2$,
+and
+$w_3(\vr)
+= t_1(\vr) \, t_2(\vr)
++ [t_1(\vr)]^3/6$.
+%
+Below we determine the parameter $\lambda_l$
+to force the equality of
+Eqs. \eqref{eq:Bn_compressibility} and \eqref{eq:Bn_virial}
+for each order $l$.
+
+
+
+From Eq. \eqref{eq:closure_cr_yr}, we have
+\begin{align*}
+c(\vr)
+=
+f(\vr) \, [1 + t(\vr)]
++
+[1 + f(\vr)]
+\sum_{l = 2}^{+\infty}
+  \lambda_l \, w_l(\vr) \, \rho^l.
+\end{align*}
+%
+So
+%
+\begin{align}
+c_l(\vr)
+= f(\vr) \, \delta_{l0} + f(\vr) \, t_l(\vr)
++ \lambda_l \, [ 1 + f(\vr) ] \, w_l(\vr).
+\label{eq:cl_corrected}
+\end{align}
+%
+Note that the for the hard-sphere potential,
+$1+f(\vr)$ is zero inside the core,
+and thus the correction $w_1(\vr)$ exists only outside the core.
+
+
+
+Now, by demanding
+%
+\begin{equation}
+B_n^{(c)} = B_n^{(v)},
+\label{eq:Bc_eq_Bv}
+\end{equation}
+%
+and using Eqs. \eqref{eq:Bn_compressibility},
+\eqref{eq:Bn_virial},
+and
+\eqref{eq:cl_corrected},
+%
+we get
+%
+\begin{equation}
+\lambda_{n-2}
+=
+-
+\frac{
+  B_n^{(c, \mathrm{uncorr})}
+- B_n^{(v, \mathrm{uncorr})}
+} {
+  \Delta B_n^{(c)}
+- \Delta B_n^{(v)}
+},
+\label{eq:lambda}
+\end{equation}
+%
+where
+%
+\begin{align*}
+B_n^{(c, \mathrm{uncorr})}
+\equiv
+-\frac{1}{n}
+\int f(\vr) \, t_{n-2}(\vr) \, d\vr,
+\end{align*}
+%
+\begin{align*}
+B_n^{(c, \mathrm{uncorr})}
+\equiv
+\frac{1}{2 \, D}
+\int \vr \cdot \nabla f(\vr) \, t_{n-2}(\vr) \, d\vr,
+\end{align*}
+%
+\begin{align*}
+\Delta B_n^{(c)}
+\equiv
+-\frac{1}{n}
+\int [f(\vr) + 1] \, w_{n-2}(\vr) \, d\vr,
+\end{align*}
+%
+and
+%
+\begin{align*}
+\Delta B_n^{(v)}
+\equiv
+\frac{1}{2 \, D}
+\int \vr \cdot \nabla f(\vr) \, w_{n-2}(\vr) \, d\vr,
+\end{align*}
+%
+The cases of $\lambda_l \equiv 0$ and $\lambda_l \equiv 1$
+correspond to the PY and HNC closures, respectively.
+%
+A large deviation from $0$ and $1$ can mean an unstable solution.
+
+
+
+Note that Eq. \eqref{eq:Bc_eq_Bv}
+differs from the commonly-used self-consistent condition\cite{
+hurst1965, rowlinson1965, rowlinson1966,
+lado1967, *henderson1970, *zerah1986,
+hutchinson1971, hutchinson1972,
+verlet1980,
+hall1980,
+martynov1983,
+rogers1984,
+ballone1986,
+duh1995, *bomont2001, *choudhury2002,
+marucho2007},
+which demands the same compressibility or pressure from
+Eqs. \eqref{eq:P_compressibility} or \eqref{eq:P_virial}
+at a certain density,
+in that the former is a set of order-by-order conditions
+instead of a single condition.
+%
+For this reason,
+we refer to Eq. \eqref{eq:Bc_eq_Bv}
+as the detailed self-consistent (DSC) condition.
+%
+Some generalizations are discussed in SM 1.F and 1.G.
+
+
+
+
+\subsubsection{Empirical correction}
+
+
+
+
+
+Ideally, the DSC condition, \eqref{eq:Bc_eq_Bv},
+would yield the exact result if the functional form
+of $w_l(\vr)$ were correct.
+%
+Since this is generally not so,
+we give an empirical first-order correction below.
+%
+If we assume that
+the $w_l(\vr)$ given by Eq. \eqref{eq:yr_trial}
+deviates from the correct functional form
+by a small amount $\epsilon$,
+then the virial coefficients
+from the two routes should also differ
+by an amount proportional to $\epsilon$,
+to the leading order.
+
+
+
+Instead of a strict self-consistency, we now set
+\begin{equation}
+B_n^{(c)}
+=
+(1 + \kappa_n) \, B_n^{(v)},
+\label{eq:Bc_eq_Bv_kappa1}
+\end{equation}
+with the parameters $\kappa_n$ of order $\epsilon$.
+%
+We recover Eq. \eqref{eq:Bc_eq_Bv}
+if $\kappa_n = 0$.
+%
+Equation \eqref{eq:lambda} becomes
+\begin{equation}
+\lambda_{n - 2}
+=
+-
+\frac{ B_n^{(c, \mathrm{uncorr})}
+ - (1 + \kappa_n) \, B_n^{(v, \mathrm{uncorr})} }
+{ \Delta B_n^{(c)}
+  - (1 + \kappa_n) \, \Delta B_n^{(v)} }.
+\end{equation}
+%
+Now that $B_n^{(c)} \ne B_n^{(v)}$,
+we shall use $B_n^{(c)}$
+as the best estimate
+(which is usually more accurate than $B_n^{(v)}$,
+as shown in Sec. \ref{sec:cmp_closures}):
+%
+\begin{equation}
+B_n^{(c)}
+=
+B_n^{(c, \mathrm{uncorr})}
++
+\lambda_{n - 2} \, \Delta B_n^{(c)}.
+\end{equation}
+%
+For simplicity,
+we will focus on a constant $\kappa_n$
+that is turned on for $n \ge n_0$.
+%
+Once the $\kappa_n$
+and $n_0$ are tuned for low-order virial coefficients,
+e.g., by matching the known values,
+we anticipate them to also improve
+higher-order virial coefficients.
+
+
+
+
+
+\subsubsection{
+Density-dependent parameter and $\lambda$-DSC equation
+}
+
+
+
+
+In contrast to Eq. \eqref{eq:yr_trial},
+we can alternatively set the parameter $\lambda$
+as a power series of the density, $\rho$\cite{
+rowlinson1965, gaskell1968, hutchinson1971, hall1980}:
+\begin{equation}
+\lambda
+=
+\lambda_2
++ \lambda_3 \, \rho
++ \lambda_4 \, \rho^2 + \cdots.
+\label{eq:DSC_lambda}
+\end{equation}
+%
+The coefficients $\lambda_l$
+are to be determined to satisfy Eq. \eqref{eq:Bc_eq_Bv}
+following a procedure in SM 1.F.
+%
+We refer to this variant as the $\lambda$-DSC equation below,
+to distinguish it from the integral equation
+based on Eq. \eqref{eq:yr_trial},
+which is simply referred to as the DSC equation.
+%
+The $\lambda$-DSC equation is superior for low orders
+in low dimensions,
+whereas the DSC equation based on Eq. \eqref{eq:yr_trial}
+is preferred for higher orders or in higher dimensions (SM 1.F).
+
+
+
+
+\section{\label{sec:results}
+Results}
+
+
+
+
+In Sec. \ref{sec:cmp_closures},
+the method described in Secs. \ref{sec:PY} and \ref{sec:HNC}
+was used to compute the virial coefficients from
+many existing integral equations.
+%
+We further show in Sec. \ref{sec:hs_results}
+and \ref{sec:gaussian_results}
+that the DSC equation described in \ref{sec:selfconsistent}
+yielded reasonably accurate virial coefficients
+for the hard-sphere fluid and Gaussian model in high dimensions,
+although it is less successful in low dimensions.
+
+
+
+
+\subsection{\label{sec:cmp_closures}
+Comparison of integral equations}
+
+
+
+
+
+
+To show the generality of the method,
+we computed the virial coefficients from
+a few integral equations based on the OZ relation, Eq. \eqref{eq:oz},
+as listed in Table \ref{tab:closures},
+as well as those from the YBG\cite{
+yvon1935, *born1946, nijboer1952, hill, *rice1965, hansen}
+and Kirkwood\cite{kirkwood1935, hill, *rice1965, hoover1962, stell1962}
+equations, using the techniques in SM 1.C, 1.D and 1.E.
+
+
+
+For an integral equation with a free parameter,
+one usually adjusts the parameter to achieve
+the consistency of
+Eqs. \eqref{eq:P_compressibility} and \eqref{eq:P_virial}
+at a certain density.
+%
+Doing so for the low density limit
+yields the same $B_4$
+(also $B_5$ for the Verlet equation\cite{verlet1980})
+from the compressibility and virial routes.
+%
+The resulting parameters, as listed in Table \ref{tab:virhs3d},
+may differ slightly from the literature values
+chosen for the consistency at another density.
+%
+Note that the above consistency condition,
+referred to as the $B_4$-SC condition below,
+is limited to the lowest order only,
+and thus higher-order virial coefficients from the two routes
+would still differ.
+
+
+
+The virial coefficients of the integral equations
+are shown in Table \ref{tab:virhs3d}
+for the three-dimensional hard-sphere fluid
+after the above parameter adjustment.
+%
+The low-order results agreed with the literature values.
+%
+Except for the YBG, Kirkwood, and HNC cases,
+most equations produced reasonably accurate
+compressibility-route virial coefficients, $B^{(c)}$,
+up to about the tenth order,
+although $B_{11}$ and $B_{12}$ were less satisfactory.
+%
+This could explain the previous success of
+some of the integral equations
+over a wide density range.
+%
+For higher orders,
+$B^{(c)}$ were more accurate than
+the virial-route results, $B^{(v)}$
+[this prompted us to use the former
+in the modified DSC equation,
+Eq. \eqref{eq:Bc_eq_Bv_kappa1}.
+%
+The cavity-route results, $B^{(y)}$,
+however, were usually much less accurate than
+$B^{(c)}$ and $B^{(v)}$.
+
+
+
+\begin{table}
+\begin{tabular}{ l l l l }
+\hline
+Closure
+&
+$y(\vr) = Y[t(\vr)]$
+\\ \hline
+%
+PY\cite{percusyevick}
+&
+$y = 1+t$.
+\\
+HNC\cite{
+morita1958, *morita1959, morita1960,
+vanleeuwen1959,
+*meeron1960, *verlet1960, *green1960,
+*rushbrooke1960}
+&
+$y = \exp t$.
+\\
+Hurst\cite{hurst1965}
+&
+$t = y^m \, \log y$.
+\\
+Rowlinson 1\cite{rowlinson1965}
+&
+$t = \eta \, \log y + (1 - \eta) \, (y - 1)$.
+\\
+Rowlinson 2\cite{rowlinson1966}
+&
+$y = (1 - \eta) \, (1 + t) + \eta \, \exp t$.
+\\
+HC\cite{hutchinson1971, hutchinson1972}
+&
+$y = (1 + s \, t)^{1/s}$.
+\\
+MS\cite{martynov1983}
+&
+$y = \exp\left( \sqrt{1+2 \, t} - 1 \right)$.
+\\
+BPGG\cite{ballone1986}
+&
+$y = \exp\left[ (1 + s\,t)^{1/s} - 1\right]$.
+\\
+Verlet\cite{verlet1980}
+&
+$y = \exp\left[ t - A \, t^2/(2 + B \, t) \right]$.
+\\
+MP\cite{marucho2007}$^\dagger$
+&
+$y = 1 + [\exp(\eta \, t) - 1]/\eta$.
+\\
+RY
+&
+$y = 1+[\exp(f_\mathrm{sw} \, t) - 1] / f_\mathrm{sw}$,
+with $f_\mathrm{sw} = 1 - \exp(-\alpha \, r)$.
+\\
+Quadratic
+&
+$y = 1 + t + \eta \, t^2/2$.
+\\ \hline
+\multicolumn{2}{p{\linewidth}}{
+$^\dagger$
+$\eta$ here is equivalent to $1/(a+1)$ in the original paper\cite{
+marucho2007}.
+}
+\\ \hline
+%
+\end{tabular}
+\caption{
+Integral equations based on the OZ relation.
+}
+\label{tab:closures}
+\end{table}
+
+
+
+
+\begin{table*}\tiny
+\newcommand{\vsp}{-2mm}
+\begin{tabular}{l l r r r r r r r r r l l l l l l l l l}
+\hline
+Integral equation
+&
+&
+$\left. B_{4} \middle/ B_2^{3} \right.$
+&
+$\left. B_{5} \middle/ B_2^{4} \right.$
+&
+$\left. B_{6} \middle/ B_2^{5} \right.$
+&
+$\left. B_{7} \middle/ B_2^{6} \right.$
+&
+$\left. B_{8} \middle/ B_2^{7} \right.$
+&
+$\left. B_{9} \middle/ B_2^{8} \right.$
+&
+$\left. B_{10} \middle/ B_2^{9} \right.$
+&
+$\left. B_{11} \middle/ B_2^{10} \right.$
+&
+$\left. B_{12} \middle/ B_2^{11} \right.$
+\\
+\hline
+YBG\cite{
+yvon1935, *born1946, nijboer1952, hill, *rice1965, hansen}
+&
+$\begin{aligned}
+&c \\[\vsp]
+&v \\[\vsp]
+&y
+\end{aligned}$
+&
+$\begin{aligned}
+&0.34241 \\[\vsp]
+&0.22522 \\[\vsp]
+&0.33784
+\end{aligned}$
+&
+$\begin{aligned}
+&0.13350 \\[\vsp]
+&0.04747 \\[\vsp]
+&0.07595
+\end{aligned}$
+&
+$\begin{aligned}
+ 0.031852& \\[\vsp]
+-0.006357& \\[\vsp]
+-0.010595&
+\end{aligned}$
+&
+$\begin{aligned}
+&-0.021721 \\[\vsp]
+&-0.007000 \\[\vsp]
+&-0.012001
+\end{aligned}$
+&
+$\begin{aligned}
+&-2.874\times10^{-2} \\[\vsp]
+&-4.118\times10^{-3} \\[\vsp]
+&-7.207\times10^{-3}
+\end{aligned}$
+&
+$\begin{aligned}
+&-2.907\times10^{-2} \\[\vsp]
+&-1.206\times10^{-4} \\[\vsp]
+&-2.143\times10^{-4}
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.504\times10^{-2} \\[\vsp]
+&-6.823\times10^{-4} \\[\vsp]
+&-1.228\times10^{-3}
+\end{aligned}$
+&
+$\begin{aligned}
+-1.074\times10^{-2}& \\[\vsp]
+ 5.239\times10^{-4}&\\[\vsp]
+ 9.526\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+&-6.654\times10^{-4} \\[\vsp]
+&-5.123\times10^{-4} \\[\vsp]
+&-9.393\times10^{-4}
+\end{aligned}$
+\\
+\hline
+Kirkwood\cite{kirkwood1935, hill, *rice1965, hoover1962, stell1962}
+&
+$\begin{aligned}
+&c \\[\vsp]
+&v \\[\vsp]
+&y
+\end{aligned}$
+&
+$\begin{aligned}
+&0.44182 \\[\vsp]
+&0.13996 \\[\vsp]
+&0.20919
+\end{aligned}$
+&
+$\begin{aligned}
+&0.28254 \\[\vsp]
+&0.06556 \\[\vsp]
+&0.11144
+\end{aligned}$
+&
+$\begin{aligned}
+&0.220338 \\[\vsp]
+&0.026005 \\[\vsp]
+&0.061075
+\end{aligned}$
+&
+$\begin{aligned}
+&0.145991 \\[\vsp]
+&0.029434 \\[\vsp]
+&0.050743
+\end{aligned}$
+&
+$\begin{aligned}
+&1.305\times10^{-1} \\[\vsp]
+&9.369\times10^{-3} \\[\vsp]
+&2.779\times10^{-2}
+\end{aligned}$
+&
+$\begin{aligned}
+&8.310\times10^{-2} \\[\vsp]
+&1.670\times10^{-2} \\[\vsp]
+&2.673\times10^{-2}
+\end{aligned}$
+&
+$\begin{aligned}
+&8.835\times10^{-2} \\[\vsp]
+&9.215\times10^{-4} \\[\vsp]
+&1.104\times10^{-2}
+\end{aligned}$
+&
+$\begin{aligned}
+&4.711\times10^{-2} \\[\vsp]
+&1.175\times10^{-2} \\[\vsp]
+&1.575\times10^{-2}
+\end{aligned}$
+&
+$\begin{aligned}
+ 6.729\times10^{-2} & \\[\vsp]
+-3.971\times10^{-3} & \\[\vsp]
+ 2.345\times10^{-3} &
+\end{aligned}$
+\\
+\hline
+PY\cite{percusyevick}
+&
+$\begin{aligned}
+c& \\[\vsp]
+v& \\[\vsp]
+y&
+\end{aligned}$
+&
+$\begin{aligned}
+0.29688& \\[\vsp]
+0.25000& \\[\vsp]
+0.07813&
+\end{aligned}$
+&
+$\begin{aligned}
+0.12109& \\[\vsp]
+0.08594& \\[\vsp]
+-0.02188&
+\end{aligned}$
+&
+$\begin{aligned}
+0.044922& \\[\vsp]
+0.027344& \\[\vsp]
+0.011068&
+\end{aligned}$
+&
+$\begin{aligned}
+0.015625& \\[\vsp]
+0.008301& \\[\vsp]
+-0.004325&
+\end{aligned}$
+&
+$\begin{aligned}
+5.188\times10^{-3}& \\[\vsp]
+2.441\times10^{-3}& \\[\vsp]
+1.984\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.663\times10^{-3}& \\[\vsp]
+7.019\times10^{-4}& \\[\vsp]
+-8.613\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+5.188\times10^{-4}& \\[\vsp]
+1.984\times10^{-4}& \\[\vsp]
+3.922\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.583\times10^{-4}& \\[\vsp]
+5.531\times10^{-5}& \\[\vsp]
+-1.772\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+4.745\times10^{-5}& \\[\vsp]
+1.526\times10^{-5}& \\[\vsp]
+8.146\times10^{-5}&
+\end{aligned}$
+\\
+\hline
+HNC\cite{
+morita1958, *morita1959, morita1960,
+vanleeuwen1959,
+*meeron1960, *verlet1960, *green1960,
+*rushbrooke1960}
+&
+$\begin{aligned}
+c& \\[\vsp]
+v& \\[\vsp]
+y&
+\end{aligned}$
+&
+$\begin{aligned}
+0.20919& \\[\vsp]
+0.44531& \\[\vsp]
+0.89063&
+\end{aligned}$
+&
+$\begin{aligned}
+0.04927& \\[\vsp]
+0.14475& \\[\vsp]
+0.36744&
+\end{aligned}$
+&
+$\begin{aligned}
+0.028067& \\[\vsp]
+0.038180& \\[\vsp]
+0.154134&
+\end{aligned}$
+&
+$\begin{aligned}
+0.006113& \\[\vsp]
+0.044086& \\[\vsp]
+0.090725&
+\end{aligned}$
+&
+$\begin{aligned}
+-1.459\times10^{-3}& \\[\vsp]
+ 6.461\times10^{-3}& \\[\vsp]
+ 1.077\times10^{-2}&
+\end{aligned}$
+&
+$\begin{aligned}
+4.033\times10^{-3}& \\[\vsp]
+-8.554\times10^{-3}& \\[\vsp]
+3.242\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+-1.010\times10^{-3}& \\[\vsp]
+1.127\times10^{-2}& \\[\vsp]
+1.800\times10^{-2}&
+\end{aligned}$
+&
+$\begin{aligned}
+-1.563\times10^{-3}& \\[\vsp]
+-1.949\times10^{-3}& \\[\vsp]
+-1.030\times10^{-2}&
+\end{aligned}$
+&
+$\begin{aligned}
+2.209\times10^{-3}& \\[\vsp]
+-7.102\times10^{-3}& \\[\vsp]
+-3.095\times10^{-3}&
+\end{aligned}$
+\\
+\hline
+$\begin{aligned}
+&\mathrm{Hurst\cite{hurst1965}} \\[\vsp]
+&m = 0.41718
+\end{aligned}$
+&
+$\begin{aligned}
+c& \\[\vsp]
+v&
+\end{aligned}$
+&
+$\begin{aligned}
+0.28235& \\[\vsp]
+0.28235&
+\end{aligned}$
+&
+$\begin{aligned}
+0.11019& \\[\vsp]
+0.09151&
+\end{aligned}$
+&
+$\begin{aligned}
+0.038585& \\[\vsp]
+0.035220&
+\end{aligned}$
+&
+$\begin{aligned}
+0.012813& \\[\vsp]
+0.009847&
+\end{aligned}$
+&
+$\begin{aligned}
+4.309\times10^{-3}& \\[\vsp]
+3.271\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.209\times10^{-3}& \\[\vsp]
+1.304\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+4.107\times10^{-4}& \\[\vsp]
+-1.341\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+8.969\times10^{-5}& \\[\vsp]
+2.582\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+2.133\times10^{-5}& \\[\vsp]
+-6.910\times10^{-5}&
+\end{aligned}$
+\\
+\hline
+$\begin{aligned}
+&\mathrm{Rowlinson\,1\cite{rowlinson1965}} \\[\vsp]
+&\eta = 0.16564
+\end{aligned}$
+&
+$\begin{aligned}
+c& \\[\vsp]
+v&
+\end{aligned}$
+&
+$\begin{aligned}
+0.28235& \\[\vsp]
+0.28235&
+\end{aligned}$
+&
+$\begin{aligned}
+0.11324& \\[\vsp]
+0.07881&
+\end{aligned}$
+&
+$\begin{aligned}
+0.041426& \\[\vsp]
+0.031550&
+\end{aligned}$
+&
+$\begin{aligned}
+0.014013& \\[\vsp]
+0.008704&
+\end{aligned}$
+&
+$\begin{aligned}
+4.942\times10^{-3}& \\[\vsp]
+1.856\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.432\times10^{-3}& \\[\vsp]
+1.610\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+4.915\times10^{-4}& \\[\vsp]
+-4.017\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.432\times10^{-4}& \\[\vsp]
+2.350\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.596\times10^{-5}& \\[\vsp]
+3.024\times10^{-5}&
+\end{aligned}$
+&
+$\begin{aligned}
+c& \\[\vsp]
+v&
+\end{aligned}$
+\\
+\hline
+$\begin{aligned}
+&\mathrm{Rowlinson\,2\cite{rowlinson1966}} \\[\vsp]
+&\eta = 0.16564
+\end{aligned}$
+&
+$\begin{aligned}
+c& \\[\vsp]
+v&
+\end{aligned}$
+&
+$\begin{aligned}
+0.28235& \\[\vsp]
+0.28235&
+\end{aligned}$
+&
+$\begin{aligned}
+0.10920& \\[\vsp]
+0.09568&
+\end{aligned}$
+&
+$\begin{aligned}
+0.036963& \\[\vsp]
+0.041070&
+\end{aligned}$
+&
+$\begin{aligned}
+0.011460& \\[\vsp]
+0.014171&
+\end{aligned}$
+&
+$\begin{aligned}
+3.466\times10^{-3}& \\[\vsp]
+5.922\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+7.813\times10^{-4}& \\[\vsp]
+2.681\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+2.042\times10^{-4}& \\[\vsp]
+5.186\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+9.288\times10^{-7}& \\[\vsp]
+5.440\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+-1.031\times10^{-5}& \\[\vsp]
+4.024\times10^{-5}&
+\end{aligned}$
+\\
+\hline
+$\begin{aligned}
+&\mathrm{HC\cite{hutchinson1971, hutchinson1972}} \\[\vsp]
+&s = 0.83436
+\end{aligned}$
+&
+$\begin{aligned}
+c& \\[\vsp]
+v&
+\end{aligned}$
+&
+$\begin{aligned}
+0.28235& \\[\vsp]
+0.28235&
+\end{aligned}$
+&
+$\begin{aligned}
+0.11189& \\[\vsp]
+0.08443&
+\end{aligned}$
+&
+$\begin{aligned}
+0.040157& \\[\vsp]
+0.033256&
+\end{aligned}$
+&
+$\begin{aligned}
+0.013485& \\[\vsp]
+0.009078&
+\end{aligned}$
+&
+$\begin{aligned}
+4.659\times10^{-3}& \\[\vsp]
+2.485\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.334\times10^{-3}& \\[\vsp]
+1.457\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+4.576\times10^{-4}& \\[\vsp]
+-3.026\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.177\times10^{-4}& \\[\vsp]
+2.630\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.877\times10^{-5}& \\[\vsp]
+-2.975\times10^{-5}&
+\end{aligned}$
+\\
+\hline
+MS\cite{martynov1983}
+&
+$\begin{aligned}
+c& \\[\vsp]
+v&
+\end{aligned}$
+&
+$\begin{aligned}
+0.29688& \\[\vsp]
+0.25000&
+\end{aligned}$
+&
+$\begin{aligned}
+0.11135& \\[\vsp]
+0.12663&
+\end{aligned}$
+&
+$\begin{aligned}
+0.038090& \\[\vsp]
+0.023846&
+\end{aligned}$
+&
+$\begin{aligned}
+0.011537& \\[\vsp]
+0.021918&
+\end{aligned}$
+&
+$\begin{aligned}
+4.055\times10^{-3}& \\[\vsp]
+-3.723\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+8.826\times10^{-4}& \\[\vsp]
+7.791\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+4.929\times10^{-4}& \\[\vsp]
+-5.373\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+-7.903\times10^{-5}& \\[\vsp]
+5.132\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.525\times10^{-4}& \\[\vsp]
+-4.482\times10^{-3}&
+\end{aligned}$
+\\
+\hline
+$\begin{aligned}
+&\mathrm{BPGG\cite{ballone1986}} \\[\vsp]
+&s = 1.83436
+\end{aligned}$
+&
+$\begin{aligned}
+c& \\[\vsp]
+v&
+\end{aligned}$
+&
+$\begin{aligned}
+0.28235& \\[\vsp]
+0.28235&
+\end{aligned}$
+&
+$\begin{aligned}
+0.10376& \\[\vsp]
+0.11838&
+\end{aligned}$
+&
+$\begin{aligned}
+0.033542& \\[\vsp]
+0.036488&
+\end{aligned}$
+&
+$\begin{aligned}
+0.010794& \\[\vsp]
+0.014865&
+\end{aligned}$
+&
+$\begin{aligned}
+3.426\times10^{-3}& \\[\vsp]
+3.981\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+9.949\times10^{-4}& \\[\vsp]
+1.749\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+2.638\times10^{-4}& \\[\vsp]
+4.766\times10^{-5}&
+\end{aligned}$
+&
+$\begin{aligned}
+4.516\times10^{-5}& \\[\vsp]
+2.452\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+2.045\times10^{-5}& \\[\vsp]
+-7.377\times10^{-5}&
+\end{aligned}$
+\\
+\hline
+$\begin{aligned}
+&\mathrm{Verlet\cite{verlet1980}} \\[\vsp]
+&A = 0.83436 \\[\vsp]
+&B = 1.54751
+\end{aligned}$
+&
+$\begin{aligned}
+c& \\[\vsp]
+v&
+\end{aligned}$
+&
+$\begin{aligned}
+0.28235& \\[\vsp]
+0.28235&
+\end{aligned}$
+&
+$\begin{aligned}
+0.10659& \\[\vsp]
+0.10659&
+\end{aligned}$
+&
+$\begin{aligned}
+0.034177& \\[\vsp]
+0.046552&
+\end{aligned}$
+&
+$\begin{aligned}
+0.010100& \\[\vsp]
+0.015639&
+\end{aligned}$
+&
+$\begin{aligned}
+2.993\times10^{-3}& \\[\vsp]
+5.844\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+7.601\times10^{-4}& \\[\vsp]
+1.814\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+2.436\times10^{-4}& \\[\vsp]
+2.341\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+2.875\times10^{-5}& \\[\vsp]
+2.884\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.430\times10^{-5}& \\[\vsp]
+-5.269\times10^{-5}&
+\end{aligned}$
+\\
+\hline
+$\begin{aligned}
+&\mathrm{MP\cite{marucho2007}} \\[\vsp]
+&\eta = 0.16564
+\end{aligned}$
+&
+$\begin{aligned}
+c& \\[\vsp]
+v&
+\end{aligned}$
+&
+$\begin{aligned}
+0.28235& \\[\vsp]
+0.28235&
+\end{aligned}$
+&
+$\begin{aligned}
+0.11054& \\[\vsp]
+0.09005&
+\end{aligned}$
+&
+$\begin{aligned}
+0.038712& \\[\vsp]
+0.036136&
+\end{aligned}$
+&
+$\begin{aligned}
+0.012713& \\[\vsp]
+0.010472&
+\end{aligned}$
+&
+$\begin{aligned}
+4.243\times10^{-3}& \\[\vsp]
+3.442\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.168\times10^{-3}& \\[\vsp]
+1.559\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+3.886\times10^{-4}& \\[\vsp]
+-1.293\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+8.324\times10^{-5}& \\[\vsp]
+2.951\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.508\times10^{-5}& \\[\vsp]
+-5.052\times10^{-5}&
+\end{aligned}$
+\\
+\hline
+$\begin{aligned}
+&\mathrm{RY\cite{rogers1984}} \\[\vsp]
+&\alpha = 0.17015
+\end{aligned}$
+&
+$\begin{aligned}
+c& \\[\vsp]
+v&
+\end{aligned}$
+&
+$\begin{aligned}
+0.28056& \\[\vsp]
+0.28056&
+\end{aligned}$
+&
+$\begin{aligned}
+0.11101& \\[\vsp]
+0.08631&
+\end{aligned}$
+&
+$\begin{aligned}
+0.038375& \\[\vsp]
+0.037204&
+\end{aligned}$
+&
+$\begin{aligned}
+0.012714& \\[\vsp]
+0.009674&
+\end{aligned}$
+&
+$\begin{aligned}
+4.474\times10^{-3}& \\[\vsp]
+3.444\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.002\times10^{-3}& \\[\vsp]
+1.951\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+4.974\times10^{-4}& \\[\vsp]
+-7.341\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+2.546\times10^{-5}& \\[\vsp]
+6.736\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.021\times10^{-6}& \\[\vsp]
+-2.314\times10^{-4}&
+\end{aligned}$
+\\
+\hline
+$\begin{aligned}
+&\mathrm{Quadratic} \\[\vsp]
+&\eta = 0.16564
+\end{aligned}$
+&
+$\begin{aligned}
+c& \\[\vsp]
+v&
+\end{aligned}$
+&
+$\begin{aligned}
+0.28235& \\[\vsp]
+0.28235&
+\end{aligned}$
+&
+$\begin{aligned}
+0.11081& \\[\vsp]
+0.08894&
+\end{aligned}$
+&
+$\begin{aligned}
+0.039034& \\[\vsp]
+0.035331&
+\end{aligned}$
+&
+$\begin{aligned}
+0.012917& \\[\vsp]
+0.009974&
+\end{aligned}$
+&
+$\begin{aligned}
+4.359\times10^{-3}& \\[\vsp]
+3.135\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.220\times10^{-3}& \\[\vsp]
+1.466\times10^{-3}&
+\end{aligned}$
+&
+$\begin{aligned}
+ 4.118\times10^{-4}& \\[\vsp]
+-1.901\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+9.377\times10^{-5}& \\[\vsp]
+2.780\times10^{-4}&
+\end{aligned}$
+&
+$\begin{aligned}
+1.760\times10^{-5}& \\[\vsp]
+-5.299\times10^{-5}&
+\end{aligned}$
+&
+\\
+\hline
+Reference$^\dagger$
+&
+&
+$0.286950$
+&
+$0.110251$
+&
+$0.0388821$
+&
+$0.0130229$
+&
+$4.1825\times10^{-3}$
+&
+$1.3097\times10^{-3}$
+&
+$4.030\times10^{-4}$
+&
+$1.206\times10^{-4}$
+&
+$3.77(36)\times10^{-5}$
+\\
+\hline
+\multicolumn{11}{p{\linewidth}}{
+%
+In each cell,
+the numbers on the first, second, and third (if exists) rows
+are from the compressibility ($c$),
+virial ($v$), and cavity ($u$) routes,
+respectively.
+%
+The cavity-route numbers
+were generally inaccurate,
+so we only list them for the first four equations.
+
+All integral equations
+produced the correct $B_3/B_2^2 = 5/8$
+from the compressibility and virial routes,
+but not necessarily from the cavity route.
+%
+The cavity-route values were
+$5/6$ (YBG),
+$5/8$ (Kirkwood),
+$-1/12$ (PY, MS, RY),
+$5/4$ (HNC),
+and
+$0.13752$ (the rest).
+
+$^\dagger$
+The reference values were from Ref. \cite{schultz2014},
+except for $B_{12}$,
+which have been improved
+from the previous study\cite{zhang2014}.
+%
+A few other improved or new values were
+$1.61(19)\times10^{-3}\,[2_{14}]$,
+$1.250(22)\times10^{-4}\,[3_{11}]$,
+$1.01(8)\times10^{-5}\,[4_{10}]$,
+$1.05(38)\times10^{-6}\,[4_{11}]$,
+$3.13(10)\times10^{-5}\,[5_{11}]$,
+and
+$-2.34(20)\times10^{-5}\,[5_{12}]$
+(the numbers in ``$[\dots]$''
+assume the format of $D_n$).
+}
+\\
+\hline
+\end{tabular}
+\caption{
+Virial coefficients of the three-dimensional hard-sphere fluid.
+}
+\label{tab:virhs3d}
+\end{table*}
+
+
+
+
+
+\subsection{\label{sec:hs_results}
+Virial coefficients of the hard-sphere fluid}
+
+
+
+
+
+We computed the virial coefficients of the hard-sphere fluid
+in various dimensions
+using the DSC and related equations
+in Sec. \ref{sec:selfconsistent}.
+%
+The results are shown
+in Figs. \ref{fig:ievircmp},
+\ref{fig:ievirlow},
+and
+\ref{fig:ievirhigh},
+as well as Table \ref{tab:vir128}.
+%
+The Mayer-sampling results\cite{zhang2014, schultz2014}
+were used as the references.
+%
+Generally,
+the DSC equation worked the best
+in high dimensions,
+but less so in lower dimensions.
+
+
+
+
+
+\subsubsection{DSC equation}
+
+
+
+
+
+We first compared the DSC equation under
+Eq. \eqref{eq:Bc_eq_Bv}
+with the PY and HNC ones,
+as the former is an interpolation of the latter two.
+%
+As shown in Fig. \ref{fig:ievircmp},
+the DSC equation was superior to the PY and HNC equations
+in most cases.
+%
+The PY equation gave
+reasonably accurate virial coefficients
+$B_n^{(c)}$ and $B_n^{(v)}$ in $D = 2$,
+but not so in high dimensions.
+%
+The $B_n^{(\mathrm{PY}, \chi)}$
+from Eq. \eqref{eq:Bn_ddP}
+was inferior in $D = 2$,
+although its error approached those
+of $B_n^{(c)}$ and $B_n^{(v)}$
+in higher dimensions.
+%
+We omit the cavity-route $B_n^{(y)}$
+from Eq. \eqref{eq:Bn_cavity}
+in the PY case due to the poor accuracy.
+%
+For the HNC equation,
+although $B_n^{(c)}$,
+$B_n^{(v)}$, and $B_n^{(y)}$
+were all erratic in low dimensions,
+they improved quickly with $D$,
+with $B_n^{(c)}$ being the best among the three.
+
+
+
+The above comparison shows that the PY and HNC equations
+worked best for low and high dimensions, respectively.
+%
+Thus, we expect the DSC equation to be closer
+to the PY one in low dimensions,
+but the HNC one in high dimensions.
+%
+This was indeed the case.
+%
+We found that the $\lambda_{n-2}$ in Eq. \eqref{eq:lambda}
+increased with the dimension and order.
+%
+In very high dimensions,
+$\lambda_{n-2}$ was close to $1.0$,
+the HNC limit.
+
+
+
+As shown in
+Figs. \ref{fig:ievircmp}(e) and \ref{fig:ievircmp}(f),
+the order-by-order DSC equation based on Eq. \eqref{eq:Bc_eq_Bv}
+was more accurate than
+the single-parameter $B_4$-SC Rowlinson 2 equation
+(cf. Table \ref{tab:closures})
+in high dimensions
+(note that the former is reduced to the latter,
+if $\lambda_{n-2} \equiv \eta$).
+
+
+
+
+
+\begin{table*}\scriptsize
+\newcommand{\vsp}{-2.5mm}
+\begin{tabular}{l l l l l}
+\hline
+$D$
+&
+$\left. B_{32} \middle/ B_2^{31} \right.$
+&
+$\left. B_{64} \middle/ B_2^{63} \right.$
+&
+$\left. B_{96} \middle/ B_2^{95} \right.$
+&
+$\left. B_{128} \middle/ B_2^{127} \right.$
+\\
+\hline
+10
+&
+$\begin{aligned}
+&-1.108603771(2) \\[\vsp]
+&-1.16(6)
+\end{aligned}$
+&
+$\begin{aligned}
+&-5.81033442(2)\times10^5 \\[\vsp]
+&\,
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.144362730(5)\times10^{12} \\[\vsp]
+&\,
+\end{aligned}$
+&
+$\begin{aligned}
+&-3.91959367(2)\times10^{18} \\[\vsp]
+&\,
+\end{aligned}$
+\\
+\hline
+11
+&
+$\begin{aligned}
+&-1.310853792 \\[\vsp]
+&-1.270(27)
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.546364657\times10^5 \\[\vsp]
+&\,
+\end{aligned}$
+&
+$\begin{aligned}
+&-7.854488089\times10^{12} \\[\vsp]
+&\,
+\end{aligned}$
+&
+$\begin{aligned}
+&-7.370834712\times10^{19} \\[\vsp]
+&\,
+\end{aligned}$
+\\
+\hline
+12
+&
+$\begin{aligned}
+&-1.119249796(2) \\[\vsp]
+&-1.1351(43)
+\end{aligned}$
+&
+$\begin{aligned}
+&-2.24709007(1)\times10^6 \\[\vsp]
+&-2.36(13)\times10^6
+\end{aligned}$
+&
+$\begin{aligned}
+&-2.24623459(2)\times10^{13} \\[\vsp]
+&\,
+\end{aligned}$
+&
+$\begin{aligned}
+&-4.41449757(5)\times10^{20} \\[\vsp]
+&\,
+\end{aligned}$
+\\
+\hline
+13
+&
+$\begin{aligned}
+&-0.7522183291 \\[\vsp]
+&-0.7569(19)
+\end{aligned}$
+&
+$\begin{aligned}
+&-2.105998963\times10^6 \\[\vsp]
+&-2.195(27)\times10^6
+\end{aligned}$
+&
+$\begin{aligned}
+&-3.410012696\times10^{13} \\[\vsp]
+&\,
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.155110104\times10^{21} \\[\vsp]
+&\,
+\end{aligned}$
+\\
+\hline
+14
+&
+$\begin{aligned}
+&-0.422622529(1) \\[\vsp]
+&-0.42266(8)
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.426782124(8)\times10^6 \\[\vsp]
+&-1.445(13)\times10^6
+\end{aligned}$
+&
+$\begin{aligned}
+&-3.239990574(3)\times10^{13} \\[\vsp]
+&-3.19(27)\times10^13
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.63664941(2)\times10^{21} \\[\vsp]
+&\,
+\end{aligned}$
+\\
+\hline
+15
+&
+$\begin{aligned}
+&-0.2072205699 \\[\vsp]
+&-0.20850(8)
+\end{aligned}$
+&
+$\begin{aligned}
+&-7.568079484\times10^5 \\[\vsp]
+&-7.679(25)\times10^5
+\end{aligned}$
+&
+$\begin{aligned}
+&-2.161072905\times10^{13} \\[\vsp]
+&-2.176(47)\times10^{13}\,
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.458667826(6)\times10^{21} \\[\vsp]
+&-1.77(15)\times10^{21}
+\end{aligned}$
+\\
+\hline
+16
+&
+$\begin{aligned}
+&-0.0914914861(3) \\[\vsp]
+&-0.09212(17)
+\end{aligned}$
+&
+$\begin{aligned}
+&-3.32763625(3)\times10^5 \\[\vsp]
+&-3.358(13)\times10^5
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.098618930(7)\times10^{13} \\[\vsp]
+&-1.122(12)\times10^{13}\,
+\end{aligned}$
+&
+$\begin{aligned}
+&-9.1044817(5)\times10^{20} \\[\vsp]
+&-9.54(33)\times10^{20}
+\end{aligned}$
+\\
+\hline
+17
+&
+$\begin{aligned}
+&-0.03722612839 \\[\vsp]
+&-0.037331(11)
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.264478996\times10^5 \\[\vsp]
+&-1.2731(19)\times10^5
+\end{aligned}$
+&
+$\begin{aligned}
+&-4.52029946(1)\times10^{12} \\[\vsp]
+&-4.594(15)\times10^{12}\,
+\end{aligned}$
+&
+$\begin{aligned}
+&-4.30551416(4)\times10^{20} \\[\vsp]
+&-4.347(46)\times10^{20}
+\end{aligned}$
+\\
+\hline
+18
+&
+$\begin{aligned}
+&-0.0142026367(7) \\[\vsp]
+&-0.014206(13)
+\end{aligned}$
+&
+$\begin{aligned}
+&-4.28336585(3)\times10^4 \\[\vsp]
+&-4.309\times10^4
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.57434952(9)\times10^{12} \\[\vsp]
+&-1.588(6)\times10^{12}\,
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.6360377(2)\times10^{20} \\[\vsp]
+&-1.669(14)\times10^{20}
+\end{aligned}$
+\\
+\hline
+19
+&
+$\begin{aligned}
+&-5.148274944\times10^{-3} \\[\vsp]
+&-5.1554(10)\times10^{-3}
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.324198556(2)\times10^4 \\[\vsp]
+&-1.3280(10)\times10^4
+\end{aligned}$
+&
+$\begin{aligned}
+&-4.80195836(3)\times10^{11} \\[\vsp]
+&-4.837(9)\times10^{11}\,
+\end{aligned}$
+&
+$\begin{aligned}
+&-5.22326065(2)\times10^{19} \\[\vsp]
+&-5.263(23)\times10^{19}
+\end{aligned}$
+\\
+\hline
+20
+&
+$\begin{aligned}
+&-1.79110161(1)\times10^{-3} \\[\vsp]
+&-1.7923(7)\times10^{-3}
+\end{aligned}$
+&
+$\begin{aligned}
+&-3.8040586(2)\times10^3 \\[\vsp]
+&-3.8212(35)\times10^3
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.3166841(1)\times10^{11} \\[\vsp]
+&-1.3229(26)\times10^{11}\,
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.4500721(2)\times10^{19} \\[\vsp]
+&-1.467(7)\times10^{19}
+\end{aligned}$
+\\
+\hline
+21
+&
+$\begin{aligned}
+&-6.027766825(1)\times10^{-4} \\[\vsp]
+&-6.0383(34)\times10^{-4}
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.029817070(2)\times10^3 \\[\vsp]
+&-1.0316(9)\times10^3
+\end{aligned}$
+&
+$\begin{aligned}
+&-3.31237887(3)\times10^{10} \\[\vsp]
+&-3.3209(48)\times10^{10}\,
+\end{aligned}$
+&
+$\begin{aligned}
+&-3.5955034(1)\times10^{18} \\[\vsp]
+&-3.620(12)\times10^{18}
+\end{aligned}$
+\\
+\hline
+22
+&
+$\begin{aligned}
+&-6.027766825(1)\times10^{-4} \\[\vsp]
+&-6.0383(34)\times10^{-4}
+\end{aligned}$
+&
+$\begin{aligned}
+&-265.63390(2) \\[\vsp]
+&-265.90(17)
+\end{aligned}$
+&
+$\begin{aligned}
+&-7.768860(1)\times10^{9} \\[\vsp]
+&-7.786(12)\times10^{9}
+\end{aligned}$
+&
+$\begin{aligned}
+&-8.132020(2)\times10^{17} \\[\vsp]
+&-8.184(20)\times10^{17}
+\end{aligned}$
+\\
+\hline
+23
+&
+$\begin{aligned}
+&-6.325876896(2)\times10^{-5} \\[\vsp]
+&-6.3260(30)\times10^{-5}
+\end{aligned}$
+&
+$\begin{aligned}
+&-65.8601111(3) \\[\vsp]
+&-65.83(5)
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.72053969(3)\times10^{9} \\[\vsp]
+&-1.7235(20)\times10^{9}
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.70597411(9)\times10^{17} \\[\vsp]
+&-1.7113(27)\times10^{17}
+\end{aligned}$
+\\
+\hline
+24
+&
+$\begin{aligned}
+&-1.99007384(6)\times10^{-5} \\[\vsp]
+&-1.9906(6)\times10^{-5}
+\end{aligned}$
+&
+$\begin{aligned}
+&-15.806042(1) \\[\vsp]
+&-15.823(11)
+\end{aligned}$
+&
+$\begin{aligned}
+&-3.634870(1)\times10^{8} \\[\vsp]
+&-3.6398(27)\times10^{8}
+\end{aligned}$
+&
+$\begin{aligned}
+&-3.364252(2)\times10^{16} \\[\vsp]
+&-3.375(9)\times10^{16}
+\end{aligned}$
+\\
+\hline
+25
+&
+$\begin{aligned}
+&-6.166835490(2)\times10^{-6} \\[\vsp]
+&-6.1699(8)\times10^{-6}
+\end{aligned}$
+&
+$\begin{aligned}
+&-3.69268813(2) \\[\vsp]
+&-3.6910(22)
+\end{aligned}$
+&
+$\begin{aligned}
+&-7.3858742(2)\times10^{7} \\[\vsp]
+&-7.380(8)\times10^{7}
+\end{aligned}$
+&
+$\begin{aligned}
+&-6.3045134(6)\times10^{15} \\[\vsp]
+&-6.295(10)\times10^{15}
+\end{aligned}$
+\\
+\hline
+26
+&
+$\begin{aligned}
+&-1.88716746(8)\times10^{-6} \\[\vsp]
+&-1.8878(6)\times10^{-6}
+\end{aligned}$
+&
+$\begin{aligned}
+&-0.84367386(7) \\[\vsp]
+&-0.8437(5)
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.4530871(4)\times10^{7} \\[\vsp]
+&-1.4535(10)\times10^{7}
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.1324015(1)\times10^{15} \\[\vsp]
+&-1.1335(17)\times10^{15}
+\end{aligned}$
+\\
+\hline
+27
+&
+$\begin{aligned}
+&-5.715054215(4)\times10^{-7} \\[\vsp]
+&-5.7176(13)\times10^{-7}
+\end{aligned}$
+&
+$\begin{aligned}
+&-0.189211501(2) \\[\vsp]
+&-0.18911(9)
+\end{aligned}$
+&
+$\begin{aligned}
+&-2.7831662(1)\times10^{6} \\[\vsp]
+&-2.7857(18)\times10^{6}
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.9641505(3)\times10^{14} \\[\vsp]
+&-1.9637(24)\times10^{14}
+\end{aligned}$
+\\
+\hline
+28
+&
+$\begin{aligned}
+&-1.71568201(9)\times10^{-7} \\[\vsp]
+&-1.71537(25)\times10^{-7}
+\end{aligned}$
+&
+$\begin{aligned}
+&-0.041782545(4) \\[\vsp]
+&-0.041795(18)
+\end{aligned}$
+&
+$\begin{aligned}
+&-5.212393(3)\times10^{5} \\[\vsp]
+&-5.2179(20)\times10^{5}
+\end{aligned}$
+&
+$\begin{aligned}
+&-3.3063620(4)\times10^{13} \\[\vsp]
+&-3.3059(37)\times10^{13}
+\end{aligned}$
+\\
+\hline
+29
+&
+$\begin{aligned}
+&-5.112987071\times10^{-8} \\[\vsp]
+&-5.1145(12)\times10^{-8}
+\end{aligned}$
+&
+$\begin{aligned}
+&-9.107961141(3)\times10^{-3} \\[\vsp]
+&-9.1061(24)\times10^{-3}
+\end{aligned}$
+&
+$\begin{aligned}
+&-9.58217992(3)\times10^{4} \\[\vsp]
+&-9.5815(43)\times10^{4}
+\end{aligned}$
+&
+$\begin{aligned}
+&-5.436905(1)\times10^{12} \\[\vsp]
+&-5.4384(43)\times10^{12}
+\end{aligned}$
+\\
+\hline
+30
+&
+$\begin{aligned}
+&-1.5144105(1)\times10^{-8} \\[\vsp]
+&-1.51472(17)\times10^{-8}
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.9639410(7)\times10^{-3} \\[\vsp]
+&-1.9636(6)\times10^{-3}
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.73361945(5)\times10^{4} \\[\vsp]
+&-1.7345(12)\times10^{4}
+\end{aligned}$
+&
+$\begin{aligned}
+&-8.74338(2)\times10^{11} \\[\vsp]
+&-8.746(11)\times10^{11}
+\end{aligned}$
+\\
+\hline
+\multicolumn{5}{p{\linewidth}}{
+In each cell,
+the upper and lower numbers
+were obtained from the DSC integral equation,
+Eq. \eqref{eq:Bc_eq_Bv},
+and Mayer sampling\cite{zhang2014}
+[Algorithm G3, with parameter $M = 1$
+(or $M = 2$ for $D = 30$)],
+respectively.
+%
+The former number was extrapolated to zero grid size (SM 1.B).
+%
+We only keep a maximum of 10 significant digits.
+}
+\\
+\hline
+\end{tabular}
+\caption{
+Virial coefficients of high-dimensional hard-sphere fluids.
+}
+\label{tab:vir128}
+\end{table*}
+
+
+
+
+
+\subsubsection{Improving the DSC equation}
+
+
+
+
+
+The DSC equation can be improved in two ways.
+%
+We first discuss the modified DSC condition,
+Eq. \eqref{eq:Bc_eq_Bv_kappa1},
+versus the strict one, Eq. \eqref{eq:Bc_eq_Bv}.
+%
+The latter is the special case of $\kappa_n \equiv 0$.
+%
+In high dimensions,
+it suffices to use Eq. \eqref{eq:Bc_eq_Bv},
+as shown in Table \ref{tab:vir128}
+and Figs. \ref{fig:ievirlow} and \ref{fig:ievirhigh},
+and the accuracy improved with increasing $D$.
+%
+For $D = 2$, $3$, or $6$,
+more accurate virial coefficients
+can be achieved by Eq. \eqref{eq:Bc_eq_Bv_kappa1}
+with nonzero $\kappa_n$,
+as shown in
+Figs. \eqref{fig:ievirlow}(a)
+and \eqref{fig:ievirlow}(b).
+%
+For $D = 4$ or $5$,
+however,
+the DSC equation failed even with a nonzero $\kappa_n$.
+
+
+
+Alternatively, in low dimensions,
+one can switch to the $\lambda$-DSC equation
+based on the density series of $\lambda$,
+Eq. \eqref{eq:DSC_lambda}.
+%
+For $D = 5$,
+the $\lambda$-DSC equation
+yielded the correct signs of the first 12 virial coefficients,
+as shown in Fig. \ref{fig:ievirlow}(b).
+%
+For $D = 6$,
+the $\lambda$-DSC equation
+also produced more accurate low-order virial coefficients
+and density components of the direct correlation function,
+$c_l(r)$, than the DSC equation.
+%
+As shown in Fig. \ref{fig:cmpcorl},
+although the DSC equation improved over the PY and HNC equations
+in all cases,
+and the sign of $c_3(r)$ for $r > 1$ was corrected
+by the nonzero $\kappa_n$,
+the large oscillations in $c_4(r)$ and $c_5(r)$
+remained uncaptured.
+%
+The $\lambda$-DSC equation,
+on the other hand,
+produced the qualitatively-correct correlation functions.
+%
+Unfortunately,
+the $\lambda$-DSC equation
+is less stable for higher orders or higher dimensions,
+as discussed in SM 1.F.
+%
+Thus, the DSC equation is preferred in these cases.
+%
+In the future,
+one may consider interpolations
+of the DSC and $\lambda$-DSC equations
+for better accuracy in all dimensions.
+
+
+
+
+
+\begin{figure}[h]
+  \makebox[\textwidth][c]{
+    \includegraphics[angle=0, width=0.9\linewidth]{fig/ievircmp.pdf}
+  }%
+  \caption{
+    \label{fig:ievircmp}
+    Virial coefficients of hard-sphere fluid
+    from the DSC, PY, and HNC equations compared to those
+    from Mayer sampling (reference) in
+    (a) $D = 2$, (b) $D = 7$, (c) $D = 10$,
+    and (d) $D = 15$ dimensions.
+    %
+    Empty (thin) and filled (thick) symbols indicate
+    positive and negative numbers, respectively.
+    %
+    In (e) and (f),
+    the relative error
+    $\epsilon(B_n) \equiv
+    \left|
+      \left.
+        B_n
+      \middle/
+        B_n^{(\mathrm{ref})}
+      \right. - 1
+    \right|$
+    from the DSC equation (diamonds)
+    was compared with that from
+    the $B_4$-SC equation (circles).
+    %
+    For $D = 10$ [panel (e)],
+    the errors of the two appeared to be
+    similar in high orders as they became
+    comparable to that of the Mayer sampling results.
+}
+\end{figure}
+
+
+
+
+
+\begin{figure}[h]
+  \newcommand{\sz}{1.5mm}
+  \makebox[\textwidth][c]{
+    \includegraphics[angle=0, width=1.0\linewidth]{fig/ievirlow.pdf}
+  }%
+  \caption{\label{fig:ievirlow}
+    Virial coefficients of the hard-sphere fluid
+    from the DSC and $\lambda$-DSC integral equations
+    (``$\diamond$'', ``$\triangle$'',
+    ``\protect\tikz{\protect \draw (18: \sz) -- (90: \sz) -- (162: \sz) -- (234: \sz) -- (306: \sz) -- (18: \sz)}'',
+    and $\times$;
+    black dashed lines for the DSC equation
+    with $\kappa_n = 0$,
+    blue dotted lines for that with $\kappa_n \ne 0$,
+    green dot-dashed lines for the $\lambda$-DSC equation)
+    compared to those from Mayer sampling
+    (reference,
+    ``$\square$'', ``$\triangledown$'', ``$\ocircle$'',
+    and $+$, red solid lines).
+    (a) $D = 2$, $3$, and $4$;
+    (b) $D = 5$, $6$, $7$, and $8$;
+    (c) $D = 9$, $10$, and $11$;
+    (d) $D = 12$, $13$, and $14$.
+    Empty (thin) and filled (thick) symbols
+    indicate positive and negative numbers, respectively.
+  }
+\end{figure}
+
+
+
+
+
+\begin{figure}[h]
+  \makebox[\textwidth][c]{
+    \includegraphics[angle=0, width=1.0\linewidth]{fig/ievirhigh.pdf}
+  }%
+  \caption{\label{fig:ievirhigh}
+    Virial coefficients of the hard-sphere fluid
+    for dimensions $D = 15$ to $30$
+    from the DSC integral equation with $\kappa_n \equiv 0$
+    (``$\diamond$'' and ``$\triangle$'')
+    compared to those from Mayer sampling
+    (reference, ``$\square$'' and ``$\triangledown$'').
+    Empty (thin) and filled (thick) symbols indicate
+    positive and negative numbers, respectively.
+  }
+\end{figure}
+
+
+
+
+
+\begin{figure}[h]
+  \makebox[\textwidth][c]{
+    \includegraphics[angle=0, width=1.0\linewidth]{fig/cmpcorl.pdf}
+  }%
+  \caption{\label{fig:cmpcorl}
+    Density components $c_l(r)$
+    of the direct correlation function of the sixth-dimensional
+    hard-sphere fluid from
+    the DSC, $\lambda$-DSC, PY, and HNC integral equations
+    compared to those from Mayer sampling (reference).
+    Note that $c_l(r)$ is discontinuous at $r = 1$:
+    $c_l(r) = -t_l(r)$ for $r < 1$,
+    and
+    $c_l(r) = y_l(r) - t_l(r)$ for $r > 1$.
+    The $r < 1$ results and its continuous extensions to $r > 1$
+    (only for the Mayer sampling results, light red lines)
+    use the left vertical scale;
+    the $r > 1$ results and its continuous extension to $r < 1$
+    (light red lines)
+    use the right vertical scale.
+  }
+\end{figure}
+
+
+
+
+
+\subsection{\label{sec:gaussian_results}
+Virial coefficients of the Gaussian fluid}
+
+
+
+
+
+We applied the DSC equation to Gaussian model\cite{
+uhlenbeck1962,
+adin1992, *baram1986, baram1991}.
+%
+The model has an artificial potential
+such that the Mayer $f$-function
+is given by $f(\vr) = -\exp(-\vr^2)$.
+%
+The main appeal of the model
+is that it offers many exactly computable
+virial coefficients\cite{
+uhlenbeck1962, mcquarrie, baram1991}.
+%
+Such a calculation involves
+an enumeration of all cluster integrals
+that can be represented graphically
+by biconnected diagrams\cite{
+uhlenbeck1962, hansen}.
+%
+The number of these diagrams, however,
+grows rapidly with the order, $n$.
+%
+We enumerated biconnected diagrams
+using the program,
+NAUTY\cite{mckay1981, *mckay2014},
+and obtained the exact virial coefficients up to
+the 12th order
+(the previous literature\cite{baram1991}
+went up to $n = 9$).
+%
+The exact values were used below as the references.
+
+
+
+\begin{table*}\scriptsize
+\newcommand{\vsp}{-2mm}
+\begin{tabular}{l l l l l l l}
+\hline
+$D$
+&
+$\left. B_{9} \middle/ B_2^{8}\right.$
+&
+$\left. B_{10} \middle/ B_2^{9}\right.$
+&
+$\left. B_{11} \middle/ B_2^{10}\right.$
+&
+$\left. B_{12} \middle/ B_2^{11}\right.$
+&
+${\kappa_n}^\dagger$
+&
+Error
+\\
+\hline
+1
+&
+$+0.2390494307$
+&
+$+0.3013640718$
+&
+$+0.09833412320$
+&
+$-0.2293412365$
+&
+&
+(exact)
+\\
+\hline
+2
+&
+$-0.05042432227$
+&
+$+0.01774803702$
+&
+$+0.03920410910$
+&
+$-0.01324404230$
+&
+&
+(exact)
+\\
+\hline
+3
+&
+$+0.01519760720$
+&
+$-0.01384965413$
+&
+$+1.334755917\times10^{–3}$
+&
+$+7.604327249\times10^{–3}$
+&
+&
+(exact)
+\\
+\hline
+4
+&
+$-0.01019577105$
+&
+$+8.798988664\times10^{–3}$
+&
+$-5.576767192\times10^{–3}$
+&
+$+2.318690261\times10^{–3}$
+&
+&
+(exact)
+\\
+\hline
+5
+&
+$+0.02276854866$
+&
+$-0.02141505098$
+&
+$+0.02119558966$
+&
+$-0.02202301229$
+&
+&
+(exact)
+\\
+\hline
+6
+&
+$\begin{aligned}
+&+0.0310 \\[\vsp]
+&+0.0322 \\[\vsp]
+&+0.03181551125
+\end{aligned}$
+&
+$\begin{aligned}
+&-0.0366 \\[\vsp]
+&-0.03780 \\[\vsp]
+&-0.03787508135
+\end{aligned}$
+&
+$\begin{aligned}
+&+0.0451 \\[\vsp]
+&+0.0463 \\[\vsp]
+&+0.04698384160
+\end{aligned}$
+&
+$\begin{aligned}
+&-0.0576 \\[\vsp]
+&-0.0588 \\[\vsp]
+&-0.06032609709
+\end{aligned}$
+&
+$\begin{aligned}
+0 \\[\vsp]
+(0.047)_{n \ge 8} \\[\vsp]
+\,
+\end{aligned}$
+&
+$\begin{aligned}
+4.6\% \\[\vsp]
+2.6\% \\[\vsp]
+\mathrm{(exact)}
+\end{aligned}$
+\\
+\hline
+7
+&
+$\begin{aligned}
+&+0.02083 \\[\vsp]
+&+0.020983 \\[\vsp]
+&+0.02097369343
+\end{aligned}$
+&
+$\begin{aligned}
+&-0.02625 \\[\vsp]
+&-0.02644 \\[\vsp]
+&-0.02648332518
+\end{aligned}$
+&
+$\begin{aligned}
+&+0.0345 \\[\vsp]
+&+0.03471 \\[\vsp]
+&+0.03483566714
+\end{aligned}$
+&
+$\begin{aligned}
+&-0.04686 \\[\vsp]
+&-0.04716 \\[\vsp]
+&-0.04739468609
+\end{aligned}$
+&
+$\begin{aligned}
+0 \\[\vsp]
+(0.0085)_{n \ge 8} \\[\vsp]
+\,
+\end{aligned}$
+&
+$\begin{aligned}
+1.12\% \\[\vsp]
+0.50\% \\[\vsp]
+\mathrm{(exact)}
+\end{aligned}$
+\\
+\hline
+8
+&
+$\begin{aligned}
+&+0.010165 \\[\vsp]
+&+0.010196 \\[\vsp]
+&+0.01019017060
+\end{aligned}$
+&
+$\begin{aligned}
+&-0.01285 \\[\vsp]
+&-0.012883 \\[\vsp]
+&-0.01288281025
+\end{aligned}$
+&
+$\begin{aligned}
+&+0.01694 \\[\vsp]
+&+0.016991 \\[\vsp]
+&+0.01699842937
+\end{aligned}$
+&
+$\begin{aligned}
+&-0.02315 \\[\vsp]
+&-0.023215 \\[\vsp]
+&-0.02323226253
+\end{aligned}$
+&
+$\begin{aligned}
+0 \\[\vsp]
+(0.00325)_{n \ge 8} \\[\vsp]
+\,
+\end{aligned}$
+&
+$\begin{aligned}
+0.35\% \\[\vsp]
+0.13\% \\[\vsp]
+\mathrm{(exact)}
+\end{aligned}$
+\\
+\hline
+9
+&
+$\begin{aligned}
+&+4.219\times 10^{-3} \\[\vsp]
+&+4.2225\times 10^{-3} \\[\vsp]
+&+4.222773149\times 10^{-3}
+\end{aligned}$
+&
+$\begin{aligned}
+&-5.197\times 10^{-3} \\[\vsp]
+&-5.2012\times 10^{-3} \\[\vsp]
+&-5.202299404\times 10^{-3}
+\end{aligned}$
+&
+$\begin{aligned}
+&+6.701\times 10^{-3} \\[\vsp]
+&+6.707\times 10^{-3} \\[\vsp]
+&+6.708746298\times 10^{-3}
+\end{aligned}$
+&
+$\begin{aligned}
+&-8.973\times 10^{-3} \\[\vsp]
+&-8.980\times 10^{-3} \\[\vsp]
+&-8.983225704\times 10^{-3}
+\end{aligned}$
+&
+$\begin{aligned}
+0 \\[\vsp]
+(0.0000924)_{n \ge 7} \\[\vsp]
+\,
+\end{aligned}$
+&
+$\begin{aligned}
+0.119\% \\[\vsp]
+0.036\% \\[\vsp]
+\mathrm{(exact)}
+\end{aligned}$
+\\
+\hline
+10
+&
+$\begin{aligned}
+&+1.5991 \times 10^{-3} \\[\vsp]
+&+1.59949 \times 10^{-3} \\[\vsp]
+&+1.599635591 \times 10^{-3}
+\end{aligned}$
+&
+$\begin{aligned}
+&-1.8935 \times 10^{-3} \\[\vsp]
+&-1.8940 \times 10^{-3} \\[\vsp]
+&-1.894245463 \times 10^{-3}
+\end{aligned}$
+&
+$\begin{aligned}
+&+2.3557 \times 10^{-3} \\[\vsp]
+&+2.3563 \times 10^{-3} \\[\vsp]
+&+2.356666276 \times 10^{-3}
+\end{aligned}$
+&
+$\begin{aligned}
+&-3.0526 \times 10^{-3} \\[\vsp]
+&-3.0534 \times 10^{-3} \\[\vsp]
+&-3.053853001 \times 10^{-3}
+\end{aligned}$
+&
+$\begin{aligned}
+0 \\[\vsp]
+(0.00029)_{n \ge 6} \\[\vsp]
+\,
+\end{aligned}$
+&
+$\begin{aligned}
+0.041\% \\[\vsp]
+0.014\% \\[\vsp]
+\mathrm{(exact)}
+\end{aligned}$
+\\
+\hline
+\end{tabular}
+\caption{
+Virial coefficients of the Gaussian model.
+}
+\label{tab:gaussian}
+\end{table*}
+
+
+
+
+
+We computed the virial coefficients of
+the Gaussian model using the DSC equation.
+%
+Particularly,
+we wish to see whether the modified DSC condition,
+Eq. \eqref{eq:Bc_eq_Bv_kappa1},
+with a nonzero $\kappa_n$, improved over
+the $\kappa_n = 0$ case [Eq. \eqref{eq:Bc_eq_Bv}].
+%
+In this model,
+$\kappa_4$ should always be zero,
+because it happens to yield
+the correct functional form of
+$w_2(r) \propto \exp(-r^2)$
+and hence the correct $B_4$.
+%
+A nonzero $\kappa_n$
+is needed only for $n\ge 5$,
+as shown in Table \ref{tab:gaussian}.
+%
+We optimized $\kappa_n$
+to minimize the largest deviation
+from the first 12 known virial coefficients,
+and then used for the next few coefficients.
+%
+As shown in Table \ref{tab:gaussian2},
+the higher-order virial coefficients
+computed with the optimized $\kappa_n$
+were more accurate than those with $\kappa_n = 0$.
+%
+For $D\le5$,
+however,
+the DSC equation failed even with a nonzero $\kappa_n$.
+
+
+
+
+
+\begin{table}\footnotesize
+\newcommand{\vsp}{-4mm}
+\begin{tabular}{ l | l | l | l | l | l | l | l }
+\hline
+$D_n$
+&
+$\left. B_n \middle/ B_2^{n-1} \right.$
+&
+$D_n$
+&
+$\left. B_n \middle/ B_2^{n-1} \right.$
+&
+$D_n$
+&
+$\left. B_n \middle/ B_2^{n-1} \right.$
+&
+$D_n$
+&
+$\left. B_n \middle/ B_2^{n-1} \right.$
+\\
+\hline
+$8_{13}$
+&
+$\begin{aligned}
+&+0.03258 \\[\vsp]
+&+0.03267 \\[\vsp]
+&+0.03270058460
+\end{aligned}$
+&
+$8_{14}$
+&
+$\begin{aligned}
+&-0.04702 \\[\vsp]
+&-0.04714 \\[\vsp]
+&-0.047190578
+\end{aligned}$
+&
+$8_{15}$
+&
+$\begin{aligned}
+&+0.0693 \\[\vsp]
+&+0.06950 \\[\vsp]
+&+0.0695748
+\end{aligned}$
+&
+$8_{16}$
+&
+$\begin{aligned}
+&-0.1041 \\[\vsp]
+&-0.10439 \\[\vsp]
+&-0.104499
+\end{aligned}$
+\\
+\hline
+$9_{13}$
+&
+$\begin{aligned}
+&+0.012399 \\[\vsp]
+&+0.012409 \\[\vsp]
+&+0.01241389218
+\end{aligned}$
+&
+$9_{14}$
+&
+$\begin{aligned}
+&-0.01760 \\[\vsp]
+&-0.017613 \\[\vsp]
+&-0.01761993778
+\end{aligned}$
+&
+$9_{15}$
+&
+$\begin{aligned}
+&+0.02556 \\[\vsp]
+&+0.025582 \\[\vsp]
+&+0.0255911475
+\end{aligned}$
+&
+$9_{16}$
+&
+$\begin{aligned}
+&-0.03788 \\[\vsp]
+&-0.037906 \\[\vsp]
+&-0.037918635
+\end{aligned}$
+\\
+\hline
+$9_{17}$
+&
+$\begin{aligned}
+&+0.05711 \\[\vsp]
+&+0.057161 \\[\vsp]
+&+0.05717734
+\end{aligned}$
+&
+$9_{18}$
+&
+$\begin{aligned}
+&-0.08747 \\[\vsp]
+&-0.08754 \\[\vsp]
+&-0.08756290
+\end{aligned}$
+&
+$9_{19}$
+&
+$\begin{aligned}
+&+0.13582 \\[\vsp]
+&+0.13593 \\[\vsp]
+&+0.1359577
+\end{aligned}$
+&
+$9_{20}$
+&
+$\begin{aligned}
+&-0.2135 \\[\vsp]
+&-0.21369 \\[\vsp]
+&-0.213724
+\end{aligned}$
+\\
+\hline
+$10_{13}$
+&
+$\begin{aligned}
+&+4.0931 \times 10^{-3} \\[\vsp]
+&+4.0943 \times 10^{-3} \\[\vsp]
+&+4.094811210 \times 10^{-3}
+\end{aligned}$
+&
+$10_{14}$
+&
+$\begin{aligned}
+&-5.650 \times 10^{-3} \\[\vsp]
+&-5.6518 \times 10^{-3} \\[\vsp]
+&-5.652506747 \times 10^{-3}
+\end{aligned}$
+&
+$10_{15}$
+&
+$\begin{aligned}
+&+7.997 \times 10^{-3} \\[\vsp]
+&+7.9976 \times 10^{-3} \\[\vsp]
+&+8.000503367 \times 10^{-3}
+\end{aligned}$
+&
+$10_{16}$
+&
+$\begin{aligned}
+&-0.011569 \\[\vsp]
+&-0.0115721 \\[\vsp]
+&-0.01157316609
+\end{aligned}$
+\\
+\hline
+$10_{17}$
+&
+$\begin{aligned}
+&+0.017059 \\[\vsp]
+&+0.0170633 \\[\vsp]
+&+0.0170645144
+\end{aligned}$
+&
+$10_{18}$
+&
+$\begin{aligned}
+&-0.022583 \\[\vsp]
+&-0.0225898 \\[\vsp]
+&-0.022591150
+\end{aligned}$
+&
+$10_{19}$
+&
+$\begin{aligned}
+&+0.038950 \\[\vsp]
+&+0.0389607 \\[\vsp]
+&+0.03896213
+\end{aligned}$
+&
+$10_{20}$
+&
+$\begin{aligned}
+&-0.06011 \\[\vsp]
+&-0.0601272 \\[\vsp]
+&-0.0601283
+\end{aligned}$
+\\
+\hline
+\multicolumn{8}{p{\linewidth}}{
+Each cell contains the virial coefficients
+from the DSC integral equation
+with $\kappa_n = 0$ (first row),
+or that with the nonzero $\kappa_n$,
+as listed in Table \ref{tab:gaussian} (second row),
+and the exact value (the third row,
+obtained from summing biconnected graphs
+with fewest numbers of edges,
+followed by an extrapolation along
+the number of edges
+assuming a geometric series).
+}
+\\ \hline
+\end{tabular}
+\caption{
+Higher-order virial coefficients of the Gaussian model.
+}
+\label{tab:gaussian2}
+\end{table}
+
+
+
+
+
+\section{Summary and discussions}
+
+
+
+
+In summary,
+we have shown an algorithm
+with polynomial time scaling
+(which differs from that by Shaul et al.\cite{shaul2011})
+to compute the virial coefficients
+from various integral equations.
+%
+Using series transformations
+on an order-by-order basis
+with the detailed self-consistent (DSC) criteria
+for a constraint,
+we accurately predicted
+the virial coefficients of the high-dimensional
+hard-sphere fluid and Gaussian model.
+%
+Despite the success,
+the method met some difficulty in low dimensions.
+%
+In the future,
+the method may be improved by choosing better closures
+and/or better correction functions
+for the cavity distribution function.
+%
+Alternatively,
+one might consider to incorporate
+other self-consistent conditions\cite{
+hiroike1957, *lee1995, hoover1962},
+or explicit bridge functions\cite{
+kwak2005, shaul2011, perkyns1997, *perkyns2002}.
+
+
+
+
+\section{Acknowledgements}
+
+
+
+
+
+It is a pleasure to thank Drs. Y. Mei, K. Dyer, and J. Perkyns
+for helpful discussions.
+%
+The authors gratefully acknowledge the financial support
+of the National Science Foundation (CHE-1152876)
+and the Robert A. Welch Foundation (H-0037).
+%
+The authors are also grateful for the support
+for the computational time on the Stampede
+(of the Texas Advanced Computing Center
+at the University of Texas at Austin)\cite{stampede}
+and SuperMIC
+(of the Louisiana State University)\cite{supermic}
+supercomputers (TG-MCA93S001).
+
+
+
+
+
+\section{Supplemental Materials}
+
+
+1. Technical details.
+
+2. Thermodynamic quantities in integral equations.
+
+
+
+
+
+\bibliography{liquid}
+
+
+
+
+
+\end{document}
+

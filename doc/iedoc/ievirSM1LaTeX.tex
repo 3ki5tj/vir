@@ -1,0 +1,2671 @@
+\documentclass[aip,jcp,preprint,superscriptaddress,showpacs,preprintnumbers,amsmath,amssymb]{revtex4-1}
+%\documentclass{article}
+
+\setcitestyle{super}
+
+%\usepackage[a4paper, top=0.9in, bottom=1 in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{mathrsfs}
+
+\renewcommand{\thesection}{\Alph{section}}
+\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+
+\numberwithin{equation}{section}
+\renewcommand{\theequation}{\thesection\arabic{equation}}
+
+\renewcommand{\thetable}{\Roman{table}}
+
+\newcommand{\vct}[1]{\mathbf{#1}}
+\providecommand{\vr}{} % clear \vr
+\renewcommand{\vr}{\vct{r}}
+\newcommand{\vk}{\vct{k}}
+\newcommand{\vR}{\vct{R}}
+\newcommand{\dvk}{\frac{d\vk}{(2\pi)^D}}
+\newcommand{\tdvk}{\tfrac{d\vk}{(2\pi)^D}}
+
+
+
+
+
+\begin{document}
+
+
+
+
+
+\title{Supplemental Material I}
+\maketitle
+
+
+
+
+
+\section{Fourier transform}
+
+
+
+
+
+The Fourier transform of a spherical-symmetric function is
+%
+%
+%
+\begin{align}
+  \tilde A(k)
+&\equiv
+  \int A(r) \, e^{-i\vk \cdot \vr} \, d\vr
+  \notag \\
+&=
+  \frac{ (2\pi)^{D/2} }
+       { k^{D/2-1} }
+  \int_0^R A(r) \, J_{D/2-1}(k \, r) \, r^{D/2} \, dr,
+\label{eq:fftsphr}
+\end{align}
+%
+%
+%
+where $J_\nu(k \, r)$ is the Bessel function
+of order $\nu \equiv D/2-1$,
+and $R$ is the radial cutoff beyond which $A(r)$ vanishes.
+
+
+
+
+
+\subsection{Odd dimensions}
+
+
+
+
+
+For an odd dimension, $D$,
+the Bessel function can be replaced
+by the spherical Bessel function\cite{arfken}
+$j_\delta(x) \equiv \sqrt{\pi/(2x)} J_{\delta + 1/2}(x)$,
+where $\delta \equiv (D - 3)/2$ is an integer,
+and
+%
+%
+%
+\begin{align}
+\tilde A(k)
+\equiv
+\frac{ 2 (2 \pi)^{\delta + 1} }
+     { k^\delta }
+\int_0^R
+A(r) j_\delta(k r) r^{\delta + 2} \, dr.
+\label{eq:fftsphrj}
+\end{align}
+%
+%
+%
+The advantage is that the spherical Bessel functions are
+linear combinations of $\sin x$ and $\cos x$
+with rational coefficients,
+e.g.,
+$j_1(x) = x^{-2} \sin x - x^{-1} \cos x$.
+%
+Thus,
+Eq. \eqref{eq:fftsphrj} can be implemented as
+a combination of
+a few fast sine and cosine transforms\cite{press}.
+%
+For high dimensions,
+the transforms involve large inverse powers of $x$,
+and thus need high-precision floating-point numbers
+at small $x$.
+
+
+
+
+
+\subsection{Even dimensions}
+
+
+
+
+
+In even dimensions,
+we can view Eq. \eqref{eq:fftsphr} as a Hankel transform:
+%
+%
+%
+\begin{align*}
+  \hat \alpha(k)
+=
+  \int_0^R \alpha(r) \, J_\nu(k r) \, r \, dr,
+\end{align*}
+%
+%
+%
+where
+%$\nu \equiv D/2 - 1$,
+$\alpha(r) \equiv A(r) \, r^\nu$,
+and
+$\hat \alpha(k) \equiv \tilde A(k) \, k^\nu \, (2\pi)^{-\nu-1}$.
+%
+The discrete Hankel transform is
+evaluated as a quadrature sampled at
+$r_k = (\gamma_{\nu,k} / \gamma_{\nu,M}) \, R$\cite{
+lado1967, johnson1987, *lemoine1994}
+as
+%
+%
+%
+\begin{align*}
+\tilde \alpha(k_m)
+\approx
+\left(
+  \frac{ R }
+  { \gamma_{\nu, M} }
+\right)^2
+\,
+\sum_{k = 1}^{M - 1}
+  \alpha(r_k) \,
+  J_\nu\left(
+    \frac{ \gamma_{\nu, m} \, \gamma_{\nu, k} }
+         { \gamma_{\nu, M} }
+  \right)
+  \frac{ 2 }
+       { \left[ J_{\nu+1}(\gamma_{\nu, k}) \right]^2 },
+\end{align*}
+%
+%
+%
+where $k_m = \gamma_{\nu,m}/R$,
+and $\gamma_{\nu, m}$ is the $m$th positive zero
+of the Bessel function $J_\nu(z)$.
+%
+Unlike the previous case,
+this Hankel transform requires $O(M^2)$ space and time,
+and we used fewer grid points in even dimensions.
+
+
+
+
+
+\subsection{Grid spacing}
+
+
+
+
+
+To reduce the numerical error caused
+by the hard-core discontinuity,
+we choose the grid spacing of the integration such that
+the hard-core boundary, $r = 1$, lies at the midpoint of two
+consecutive grid points.
+%
+Under this constraint,
+the radial cutoff $R$ is adjusted to be slightly greater than
+$n_{\max} + 2$,
+where $n_{\max}$ is the maximal order of the virial expansion.
+%
+The choice of R, however,
+could be larger for some purposes.
+%
+The parameters are listed in Table \ref{tab:paramft}.
+
+
+
+\begin{table}
+\begin{tabular}{ l l l l }
+\hline
+$D$
+&
+Method$^\dagger$
+&
+Precision (bits)$^\ddagger$
+&
+$M^\S$
+\\ \hline
+%
+$3, 5, \dots, 13$
+&
+FFT
+&
+113 (quadruple)
+&
+$2^{21} = 2097152$
+\\
+%
+$15, 17, \dots, 27$
+&
+FFT
+&
+256
+&
+$2^{18} = 262144$
+\\
+%
+$29$
+&
+FFT
+&
+384
+&
+$2^{18} = 262144$
+\\ \hline
+%
+$2, 4, 6, \dots, 22$
+&
+DHT
+&
+53 (double)
+&
+$2^{18} = 262144$
+\\
+%
+$2, 4, 6, \dots, 30$
+&
+DHT
+&
+64 (extended)
+&
+$2^{18} = 131072$
+\\ \hline
+\multicolumn{4}{p{\linewidth}}{
+$^\dagger$
+FFT: fast Fourier transform\cite{press}
+(the FFTW\cite{frigo2005} library was used when possible);
+DHT: discrete Hankel transform\cite{
+johnson1987, *lemoine1994}.
+} \\
+\multicolumn{4}{p{\linewidth}}{
+$^\ddagger$
+Number of bits to represent the significant of
+the floating-point number.
+The MPFR library\cite{fousse2007}
+was used for precisions greater than 113.
+} \\
+\multicolumn{4}{p{\linewidth}}{
+$^\S$
+Maximal number of grid points along $r$.
+} \\ \hline
+%
+\end{tabular}
+\caption{
+Parameters of computing Fourier transforms.
+}
+\label{tab:paramft}
+\end{table}
+
+
+
+
+
+\section{Extrapolation}
+
+
+
+
+
+Our numerical integrations depend nontrivially
+on the number of grid points, $M$, along $r$.
+%
+This dependency can be reduced
+by an extrapolation to infinite $M$\cite{
+adda-bedia2008a, *adda-bedia2008b}.
+%
+Practically, we fit the computed virial coefficients
+to the following formula:
+%
+%
+%
+\begin{equation}
+B(h)
+=
+B(\infty)
++
+\epsilon_2 \, h^2
++
+\epsilon_4 \, h^4
++
+\cdots,
+\label{eq:error_series}
+\end{equation}
+%
+%
+%
+where $h \equiv R/M$
+is the average grid spacing,
+then use $B(\infty)$ as the best estimate.
+%
+Note that the absence of odd powers of $h$
+results from the Euler-Maclaurin formula\cite{
+arfken, whittaker}
+in the uniform-grid case.
+
+
+
+In practice, we collected at least four data points
+with different spacings.
+%
+We took the first threes terms from \eqref{eq:error_series},
+and used regression to estimate
+$B(\infty)$, $\epsilon_2$, and $\epsilon_4$.
+%
+The data points were weighted by $h^{-2}$ in the fitting
+to increase the weight of higher resolution data.
+%
+To be conservative,
+we also computed $B'(\infty)$ from fitting the data points
+with the three smallest spacings, $h$.
+%
+Then,
+we set the error of $B$ to the larger of
+%
+$\left| B'(\infty) - B(\infty) \right|$
+%
+and the uncertainty of $B(\infty)$ from the fitting.
+
+
+
+
+
+\section{\label{sec:series}
+Transformation of series}
+
+
+
+
+
+Here we compute the density expansion of
+the cavity distribution function
+for a general closure.
+%
+We assume a local relation between $y(\vr)$ and $t(\vr)$:
+$y(\vr) = Y[t(\vr)]$,
+and thus omit the ``$(\vr)$'' below.
+%
+Then, the problem is to find the coefficients $y_l$
+in the expansion $y = \sum_l y_l \, \rho^l$,
+given $t = \sum_l t_l \, \rho^l$ at a given $\vr$.
+%
+This is done by algebraically transforming series\cite{
+kilpatrick1969, *aldrovandi1980},
+as exemplified below.
+
+
+
+First,
+given two series
+$a = \sum_l a_l \, \rho^l$
+and
+$b = \sum_l b_l \, \rho^l$,
+the linear combination is given by
+$\alpha \, a + \beta \, b =
+\sum_l (\alpha \, a_l + \beta \, b_l) \, \rho^l$.
+%
+For the product,
+we have
+$(a \cdot b)_l = \sum_{i = 0}^l a_i \, b_{l - i}$.
+%
+For the quotient
+$a / b = \sum_l d_l \, \rho^l$,
+we invert the product formula by the recursion as
+%
+$d_l =
+\left.
+  \left( a_l - \sum_{i = 1}^l b_i \, d_{l-i} \right)
+\middle/
+  b_0
+\right.$
+%
+(assuming $b_0 \ne 0$),
+with $l$ increased successively from 0.
+
+
+
+Consider now the $\nu$th power:
+$a^\nu = p \equiv \sum_l p_l \, \rho^l$
+(assuming $a_0 \ne 0$).
+%
+Noting that
+$a \, (\partial_\rho p) = \nu \, p \, (\partial_\rho a)$,
+and comparing the coefficients of $\rho^{l - 1}$
+on both sides yields
+$p_0 = a_0^\nu$,
+and for $l \ge 1$,
+%
+%
+%
+\begin{equation}
+p_l
+=
+\sum_{j = 0}^{l - 1}
+  \left.
+    [\nu \, l - (\nu + 1) \, j] \, p_j \, a_{l - j}
+  \middle/
+    (l \, a_0)
+  \right.
+\label{eq:series_pow}
+\end{equation}
+%
+%
+%
+Now if the cavity distribution function $y$
+can be expressed as a power series of $t$ as
+$y = Y(t) = \sum_{\nu = 0} Y_\nu \, t^\nu$,
+then each term can be expanded by Eq. \eqref{eq:series_pow}.
+
+
+
+Some special function forms of $Y(t)$, however,
+permit faster recursions.
+%
+The components of the exponential function $y = \exp t$,
+for example, are given by
+$y_0 = \exp t_0$,
+and for $l \ge 1$,
+%
+\begin{equation}
+y_l
+=
+\sum_{j = 1}^l
+  \left.
+    y_{l - j} \, j \, t_j
+  \middle/
+    l
+  \right..
+\label{eq:series_expt}
+\end{equation}
+%
+Conversely,
+if we know the coefficients $y_l$,
+the expansion of the logarithm,
+$t \equiv \log y$,
+can be found from solving Eq. \eqref{eq:series_expt} for $t_l$.
+%
+Thus,
+$t_0 = \log y_0$,
+and for $l \ge 1$,
+%
+%
+%
+\begin{equation}
+t_l
+=
+\frac{ 1 } { l \, y_0 }
+\left[
+  l \, y_l
+  -
+  \sum_{j = 1}^{l - 1}
+    j \, t_j \, y_{l - j}
+\right].
+\label{eq:series_logy}
+\end{equation}
+%
+%
+%
+Besides,
+the geometric series $b = \sum_{n = 0} a^n = 1/(1-a)$
+can be expanded by the division formula as
+%
+$b_l =
+\left.
+  \left[ \delta_{l0} + \sum_{j = 1}^l a_j \, b_{l-j}\right]
+\middle/
+  (1 - a_0)
+\right.$
+%
+(assuming $a_0 \ne 1$).
+
+
+
+The above recipes serve as building blocks
+for more complex relations.
+%
+For example,
+to expand the power $p = a^b$
+with a polynomial exponent
+$b = \sum_{j = 0}^{+\infty} b_j \, \rho^j$
+[which is an intermediate step in
+solving the $\lambda$-DSC equation
+based on the HC closure\cite{
+hutchinson1971, *hutchinson1972}:
+$y = (1 + s t)^{1/s}$],
+%
+we compute first the logarithm
+$\log p = b \, \log a$,
+and then the exponential
+$\exp(\log p)$.
+%
+Similarly,
+for the BPGG closure\cite{ballone1986},
+the expansion of
+$y = \exp\left[ (1 + s \, t)^{1/s} - 1 \right]$
+is computed from a power series
+followed by an exponentiation.
+
+
+
+Finally, consider a closure given inversely as
+%
+%
+%
+\begin{equation}
+t = T(y).
+\label{eq:series_definv}
+\end{equation}
+%
+%
+%
+The Rowlinson 1\cite{rowlinson1965}
+[$t = \eta \log y + (1 - \eta) \, (y-1)$]
+and Hurst\cite{hurst1965}
+($t = y^m \, \log y$)
+closures are of this type.
+%
+In such a case,
+we can obtain $y_l$
+order by order starting from $l = 1$.
+%
+We first define a partial sum
+$y^{(l)} \equiv \sum_{j=0}^l y_j \, \rho^j$.
+%
+Using this in Eq. \eqref{eq:series_definv} yields
+%
+%
+%
+\[
+t_l
+=
+\left[ T( y^{(l)} ) \right]_l
+=
+\left[ T( y^{(l-1)} ) \right]_l
++
+( \Delta T )_l,
+\]
+%
+%
+%
+where
+$( \Delta T )_l$
+is the contribution of $y_l \, \rho^l$
+to the coefficient of $\rho^l$,
+and can thus be written as $C \, y_l$.
+%
+Here,
+$C$ depends on $y^{(l - 1)}$ only through
+the constant term $y_0$,
+for the coupling of $y_l \, \rho^l$
+with other terms,
+$y_1 \, \rho$, $y_2 \, \rho^2$, \dots,
+leads to a power higher than $\rho^l$.
+%
+So,
+\[
+(\Delta T)_l
+=
+\lim_{ \rho \rightarrow 0 }
+  \frac{ T(y_0 + y_l \rho^l) - T(y_0) }
+       { \rho^l }
+=
+T'(y_0) \, y_l,
+\]
+%
+where $T' \equiv dT/dy$,
+and
+$y_0 = 1$ here.
+%
+Thus,
+\[
+y_l
+=
+\frac{ t_l - \left[ T(y^{(l - 1)}) \right]_l }
+     { T'(1) }.
+\]
+
+
+
+Take Hurst's closure
+%
+%$t = y^m \log y$,
+%
+for example,
+we have $T'(1) = 1$,
+and
+$y_l = t_l - \left[ (y^{(l-1)})^m \log y^{(l-1)} \right]_l$.
+%
+Note that in this example,
+$y$ can also be explicitly inverted as
+$y =
+1 +
+\left[
+  \sum_{k = 1} \left. (1 - k m)^{k-1} \, t^k \middle/ k! \right.
+\right]$
+or
+$\log y =
+\sum_{k = 1} \left. (-k m)^{k-1} \, t^k \middle./ k! \right.$
+by Lagrange inversion\cite{whittaker, uhlenbeck1962}.
+
+
+
+
+
+\section{YBG equation}
+
+
+
+
+
+The YBG equation\cite{
+yvon1935, *born1946, *nijboer1952, hill, *rice1965, hansen}
+is
+%
+\begin{align*}
+&
+\nabla_1
+  \left[
+    \log g(\vr_{12})
+    +
+    \beta \, \phi(\vr_{12})
+  \right]
+\\
+&
+=
+-\beta \rho \int
+  [ \nabla_1 \phi(\vr_{13}) ] \,
+  g(\vr_{13}) \, g(\vr_{32}) \, d\vr_3.
+\end{align*}
+%
+It can be rewritten as
+%
+\begin{equation}
+\nabla_1 \omega(\vr_{12})
+=
+\rho \int
+  [ \nabla_1 f(\vr_{13}) ] \,
+  y(\vr_{13}) \, h(\vr_{32}) \, d\vr_3,
+\label{eq:ybg}
+\end{equation}
+%
+where
+$\omega(\vr) \equiv \log y(\vr) = \log g(\vr) + \beta \, \phi(\vr)$.
+%
+Equation \eqref{eq:ybg} is structurally similar to the OZ relation.
+%
+For a spherical-symmetric potential,
+it can be written in the Fourier space as
+%
+\begin{equation}
+i \vk \tilde \omega(k)
+=
+i \vk \rho \, \tilde \gamma(k) \, \tilde h(k),
+\label{eq:ybg_omegak1}
+\end{equation}
+%
+where,
+$i \vk \tilde \omega(k)$
+and
+$i \vk \tilde \gamma(k)$
+are the Fourier transformations of
+$\nabla \omega (\vr)$
+and
+$(\nabla f) \, y(\vr)$,
+respectively, and
+%
+%
+%
+\begin{align}
+\tilde \gamma(k)
+&=
+\frac{ 1 } { k }
+\frac{ \partial } { \partial k }
+\int
+  \frac{ f'(r) } { r }
+  y(r) \, e^{-i \vk \cdot \vr} \, d\vr
+\notag \\
+&=
+-\left( \frac{ 2 \pi } { k } \right)^{D/2}
+  \int f'(r) \, y(r) \, J_{D/2}(k \, r) \, r^{D/2} \, dr.
+\label{eq:ybg_gammak1}
+\end{align}
+%
+%
+%
+Here, we have used Eq. \eqref{eq:fftsphr} in the second step.
+
+
+
+For the hard-sphere potential,
+we have
+$f(r) = -\Theta(1 - r)$,
+where $\Theta(\cdots)$ denotes the unit step function,
+i.e., $f(r)$ is $-1$ for $r < 1$, or $0$ otherwise.
+%
+So,
+$f'(r) = \delta(r - 1)$
+and
+$\tilde f(k) = -(2\pi/k)^{D/2} \, J_{D/2}(k)$
+by Eq. \eqref{eq:fftsphr}.
+%
+It follows that
+we can rewrite Eq. \eqref{eq:ybg_gammak1} as
+$\tilde \gamma(k) = y(1) \, \tilde f(k)$,
+and
+Eq. \eqref{eq:ybg_omegak1} as
+$\tilde \omega(k) = \rho \, y(1) \, \tilde f(k) \, \tilde h(k)$,
+whose density components satisfy
+%
+%
+%
+\begin{equation}
+\tilde \omega_l(k)
+=
+\sum_{j = 0}^{l - 1}
+\tilde f(k) \, y_j(1) \, \tilde h_{l-1-j}(k).
+\label{eq:ybg_omegakl}
+\end{equation}
+%
+%
+%
+The inverse Fourier transform, $\omega_l(r)$,
+can then be used to compute $y_l(r)$ from Eq. \eqref{eq:series_expt}.
+%
+Overall, we follow the iteration
+%
+\begin{align*}
+&
+\tilde \omega_l
+  \xrightarrow{ \mathrm{F.T.} }
+\omega_l
+  \xrightarrow{ \mathrm{Eq.\,\eqref{eq:series_expt},\,with\;} t \rightarrow \omega }
+\\
+&
+y_l
+  \xrightarrow{ h_l = (1 + f) \, y_l }
+h_l
+  \xrightarrow{ \mathrm{F.T.} }
+\tilde h_l
+  \xrightarrow{ \mathrm{Eq.\,\eqref{eq:ybg_omegakl} } }
+\tilde \omega_{l + 1}.
+\end{align*}
+
+
+
+The virial- and cavity-route virial coefficients are computed by
+%
+%
+%
+\begin{equation}
+B_n^{(v)}
+=
+\frac{ 1 } { 2 D }
+\int
+  r \, f'(r) \, y_{n - 2}(r) \, d\vr,
+\label{eq:Bn_virial}
+\end{equation}
+%
+%
+%
+and
+%
+%
+%
+\begin{equation}
+B_n^{(y)}
+=
+\frac{ n - 1 } { n }
+\left[
+  \log y(\vct 0)
+\right]_{n - 1},
+\label{eq:Bn_cavity}
+\end{equation}
+%
+%
+%
+respectively.
+%
+For the compressibility route,
+we use
+$\partial_\rho
+\left(
+  \beta \, P^{(c)}
+\right)
+=
+\left[
+  1 + \rho \int h(\vr) \, d\vr
+\right]^{-1}$,
+%
+and
+%
+\begin{equation}
+B_n^{(c)}
+=
+\frac{ 1 } { n }
+\left\{
+  \left[
+    1 + \rho \int h(\vr) \, d\vr
+  \right]^{-1}
+\right\}_{n - 1},
+\label{eq:Bn_compressibility}
+\end{equation}
+%
+which can be computed using Eq. \eqref{eq:series_pow}
+with $\nu = -1$.
+
+
+
+
+
+\section{\label{sec:kirkwood}Kirkwood equation}
+
+
+
+
+
+The Kirkwood equation\cite{
+kirkwood1935, *hoover1962, *stell1962,
+hill, *rice1965} is
+%
+%
+%
+\begin{align}
+&
+\log g(\vr_{12}; \xi)
++
+\beta \, \phi(\vr_{12}; \xi)
+\notag \\
+&
+=
+-\beta \, \rho \,
+\int_0^\xi
+d\xi'
+\int \partial_{\xi'} \phi(\vr_{13}; \xi') \,
+  g(\vr_{13}; \xi') \, g(\vr_{32}) \, d\vr.
+\label{eq:kirkwood_original}
+\end{align}
+%
+%
+%
+Here,
+particle 1 is distinguished from the rest,
+and its interaction with other particles,
+$\phi(\vr_{1i}; \xi)$
+is tuned on by the charging parameter $\xi$,
+such that
+$\phi(\vr_{1i}; \xi = 0) = 0$,
+and
+$\phi(\vr_{1i}; \xi = 1) = \phi(\vr_{1i})$
+is the normal pair potential.
+%
+Thus,
+we omit $\xi$ for quantities unrelated to particle 1.
+
+
+
+Equation \eqref{eq:kirkwood_original}
+can be rewritten as
+%
+%
+%
+\begin{equation}
+\omega(\vr_{12}; \xi)
+=
+\rho
+\int
+  K(\vr_{13}; \xi) \, h(\vr_{32}) \, d\vr_3,
+\label{eq:kirkwood}
+\end{equation}
+%
+%
+%
+where
+$\omega(\vr; \xi) \equiv \log y(\vr; \xi)
+=
+\log g(\vr; \xi) + \beta \, \phi(\vr; \xi)$,
+and
+%
+%
+%
+\begin{equation}
+K(\vr; \xi)
+=
+\int_0^\xi
+d\xi' \,
+\partial_{\xi'} f(\vr; \xi') \,
+y(\vr; \xi').
+\label{eq:kirkwood_K}
+\end{equation}
+
+
+
+Below we choose an $f$-bond that varies linearly with $\xi$:
+%
+\[
+  f(\vr; \xi) = \xi \, f(\vr),
+\]
+%
+which is equivalent to setting
+$\phi(\vr; \xi) =
+\left.
+  -\log[1 + \xi \, f(\vr)]
+\middle/
+  \beta
+\right.$.
+%
+Since the solution generally
+depends on the choice of $\xi$,
+i.e., how the interaction of particle 1 with other particles
+is turned on,
+our solution is only one of infinitely many solutions.
+%
+Then, we expand the correlation functions
+as series of both $\rho$ and $\xi$ as
+%
+$\omega(\vr; \xi)
+=
+\sum_{l = 1}^{+\infty}
+\sum_{m = 1}^l
+\omega_{l,m}(\vr) \, \rho^l \, \xi^m$,
+%
+$y(\vr; \xi)
+=
+\sum_{l = 0}^{+\infty}
+\sum_{m = 0}^l
+y_{l, m}(\vr) \, \rho^l \, \xi^m$,
+%
+and
+$K(\vr; \xi)
+=
+\sum_{l = 0}^{+\infty}
+\sum_{m = 1}^{l + 1}
+K_{l, m}(\vr) \, \rho^l \, \xi^m$,
+%
+where $y_{l, 0}(\vr) = \delta_{l, 0}$,
+and
+%
+$K_{l, 1}(\vr) = f(\vr) \, \delta_{l, 0}$.
+%
+The expansion in $\rho$ and $\xi$
+has a graphical interpretation
+(cf. Section \ref{sec:cr_mayer_graphs}):
+the indices $l$ and $m$ indicate
+the number of non-root vertices
+and the number of vertices adjacent to the first root,
+respectively.
+
+
+
+Using these expansions in Eq. \eqref{eq:kirkwood_K} yields
+%
+\begin{equation}
+K_{l,m}(\vr)
+=
+\left.
+  f(\vr) \, y_{l,m-1}(\vr)
+\middle/
+  m
+\right.,
+\label{eq:kirkwood_Klm}
+\end{equation}
+%
+and in the Fourier-space version of
+Eq. \eqref{eq:kirkwood} yields
+%
+\begin{equation}
+\tilde \omega_{l,m}(\vk)
+=
+\sum_{j = 0}^{l - 1}
+\tilde K_{l - j - 1, m}(\vk) \,
+\tilde h_j(\vk).
+\label{eq:kirkwood_omegaklm}
+\end{equation}
+%
+Then,
+the inverse Fourier transform $\omega_{l,m}(\vr)$
+can be used to compute $y_{l,m}(\vr)$
+by an extension of Eq. \eqref{eq:series_expt}:
+%
+%
+%
+\begin{equation}
+y_{l,m}(\vr)
+=
+\sum_{ j = 1 }^l
+\sum_{ k = \max\{1, m - l + j\} }^{ \min\{j, m\} }
+\left.
+  y_{l-j, m-k}(\vr) \, j \, \omega_{j, k}(\vr)
+\middle/
+  l
+\right..
+\label{eq:kirkwood_ylm}
+\end{equation}
+%
+%
+%
+Finally, $h_l(\vr)$ is computed as
+%
+%
+%
+\begin{equation}
+h_l(\vr)
+=
+\left\{
+  [1 + f(\vr)] \,
+  \sum_{m = 0}^l y_{l,m}(\vr)
+\right\}
+- \delta_{l,0}.
+\label{eq:kirkwood_hl}
+\end{equation}
+
+
+
+The overall iteration is the following
+%
+%
+%
+\begin{align*}
+&
+\tilde\omega_{l, m = 1, \dots, l}
+\xrightarrow{ \mathrm{F.T.} }
+\omega_{l, m = 1, \dots, l}
+\xrightarrow{ \mathrm{Eq.\,\eqref{eq:kirkwood_ylm}} }
+\\
+&
+y_{l, m = 1, \dots, l}
+\xrightarrow{ \mathrm{Eqs.\,\eqref{eq:kirkwood_Klm},\,
+                            \eqref{eq:kirkwood_hl} } }
+\left(
+K_{l, m = 1, \dots, l+1}, h_l
+\right)
+\xrightarrow{ \mathrm{F.T.} }
+\\
+&
+\left(
+\tilde K_{l, m = 1, \dots, l+1}, \tilde h_l
+\right)
+\xrightarrow{ \mathrm{Eq.\,\eqref{eq:kirkwood_omegaklm}} }
+\tilde \omega_{l+1, m = 1, \dots, l+1}.
+\end{align*}
+%
+%
+%
+The virial coefficients of
+the compressibility, virial, and cavity routes
+can be obtained from Eqs.
+\eqref{eq:Bn_compressibility},
+\eqref{eq:Bn_virial},
+and
+\eqref{eq:Bn_cavity},
+respectively.
+
+
+
+
+
+\section{\label{sec:extension}
+Generalizations of the DSC closure}
+
+
+
+
+
+\subsection{Symmetry of the DSC equation}
+
+
+
+
+
+We can generalize the DSC equation in the main text
+to any pair of closures,
+designated by ``$0$'' and ``$1$'',
+$y^0(\vr) \equiv y^0[t(\vr)]$
+and
+$y^1(\vr) \equiv y^1[t(\vr)]$:
+%
+%
+%
+\begin{equation}
+y(\vr)
+=
+y^0(\vr)
++
+\sum_{l = 2}^{\infty}
+y_l \, w_l(\vr) \, \rho^l,
+\label{eq:yr_wl_series}
+\end{equation}
+%
+%
+%
+and
+%
+%
+%
+\begin{equation}
+w_l(\vr)
+=
+\left[
+y^1(\vr) - y^0(\vr)
+\right]_l.
+\label{eq:wl_y1_y0}
+\end{equation}
+
+
+
+This equation
+produces correlation functions symmetric
+to the closures $0$ and $1$.
+%
+That is, if we replace
+Equation \eqref{eq:yr_wl_series}
+by one based on closure $1$:
+%
+%
+%
+\[
+y(\vr)
+=
+y^1(\vr)
+-
+\sum_{l = 2}^{+\infty}
+\lambda_l^* \, w_l(\vr) \, \rho^l,
+\]
+%
+%
+%
+the resulting correlation functions
+$c_l(\vr)$, $t_l(\vr)$, and $y_l(\vr)$
+would be the same as those obtained from
+Eq. \eqref{eq:yr_wl_series},
+and $\lambda_l + \lambda_l^* = 1$,
+under the DSC condition:
+%
+%
+%
+\begin{equation}
+B_{l+2}^{(c)}
+=
+B_{l+2}^{(v)}.
+\label{eq:Bc_eq_Bv}
+\end{equation}
+%
+%
+%
+This can be shown by an induction on $l$.
+
+
+
+
+
+\subsection{Exponential expansion}
+
+
+
+
+
+The above linear correction can be replaced
+by an exponential one:
+%
+\begin{align*}
+y(\vr)
+=
+y^0(\vr) \,
+\exp\left[
+\sum_{l = 2}^{+\infty} \lambda_l \, d_l(\vr) \, \rho^l
+\right],
+\end{align*}
+%
+where
+%
+\begin{align*}
+d_l(\vr)
+=
+\left[
+  \log y^1(\vr)
+  -
+  \log y^0(\vr)
+\right]_l
+\end{align*}
+%
+For example,
+if closures $0$ and $1$ are the HNC and PY, respectively,
+then
+%
+$d_l(\vr) =
+\left\{
+  \log \left[ 1 + t(\vr) \right]
+\right\}_l - t_l(\vr)$,
+%
+and the density expansion of the logarithm
+can be computed by Eq. \eqref{eq:series_logy}.
+
+
+
+
+
+\subsection{$\lambda$-DSC equation}
+
+
+
+
+
+We now consider the $\lambda$-DSC equation.
+%
+We wish to determine the coefficients $\lambda_l$
+in the expansion:
+%
+\begin{align*}
+\lambda =
+\lambda_2
++
+\lambda_3 \, \rho
++
+\lambda_4 \, \rho^2
++ \cdots.
+%\label{eq:DSC_lambda}
+\end{align*}
+%
+By expanding both sides of the closure,
+%
+\begin{equation}
+y(\vr) =
+y^0(\vr) + \lambda \,
+\left[ y^1(\vr) - y^0(\vr) \right],
+\label{eq:yr_linear01}
+\end{equation}
+%
+as series of the density, we get
+%
+\begin{equation*}
+y_l(\vr)
+=
+y_l^0(\vr)
++
+\sum_{j = 2}^l
+\lambda_{l - j + 2} \, w_j(\vr),
+\end{equation*}
+%
+where,
+$w_j(\vr)$ is defined in Eq. \eqref{eq:wl_y1_y0}.
+%
+The sum starts from $j = 2$,
+for we have assumed
+the correct first two density components of
+the cavity distribution functions:
+%
+$y_0^0 = y_0^1(\vr) = 1$
+%
+$y_1^0 = y_1^1(\vr) = (f*f)(\vr)$.
+%
+This condition is satisfied by
+all cavity distribution functions listed
+in Table I of main text.
+
+
+
+For each order $l = n - 2$,
+imposing Eq. \eqref{eq:Bc_eq_Bv} yields
+%
+\begin{equation}
+\lambda_l =
+-\frac{ B_{l+2}^{(c, \mathrm{uncorr})}
+      - B_{l+2}^{(v, \mathrm{uncorr})} }
+      { \Delta B_{l+2}^{(c)}
+      - \Delta B_{l+2}^{(v)} },
+\label{eq:lambdadsc_lambda}
+\end{equation}
+%
+the same form as the DSC one
+but with modified definitions:
+%
+%
+%
+\begin{equation}
+B_n^{(c, \mathrm{uncorr})}
+\equiv
+-\frac{1}{n}
+\int
+\left\{
+  \left[ f(\vr) + 1 \right] \, y_{n-2}^{(-)}(\vr)
+  - t_{n-2}(\vr)
+\right\}
+\, d\vr,
+\label{eq:lambdadsc_Bc}
+\end{equation}
+%
+\begin{equation}
+B_n^{(v, \mathrm{uncorr})}
+\equiv
+\frac{1}{2D}
+\int
+\vr \cdot \nabla f(\vr) \, y_{n-2}^{(-)} \, d\vr,
+\label{eq:lambdadsc_Bv}
+\end{equation}
+%
+\begin{equation}
+\Delta B_n^{(c)}
+\equiv
+-\frac{1}{n}
+\int
+\left[ f(\vr) + 1 \right] \, w_2(\vr) \, d\vr,
+\label{eq:lambdadsc_dBc}
+\end{equation}
+%
+\begin{equation}
+\Delta B_n^{(v)}
+\equiv
+\frac{1}{2D}
+\int
+\vr \cdot \nabla f(\vr) \, w_2(\vr) \, d\vr,
+\label{eq:lambdadsc_dBv}
+\end{equation}
+%
+with
+%
+\[
+y_{n-2}^{(-)}(\vr)
+\equiv
+y_{n-2}^0(\vr)
++
+\sum_{j=3}^{n-2}
+\lambda_{n-j} \, w_j(\vr).
+\]
+
+
+
+The above solution recovers that of the DSC equation
+under the substitutions
+$y_{n-2}^{(-)}(\vr) \rightarrow y_{n-2}^0(\vr)$
+in Eqs. \eqref{eq:lambdadsc_Bc} and \eqref{eq:lambdadsc_Bv},
+and
+$w_2(\vr) \rightarrow w_{n-2}(\vr)$
+in Eqs. \eqref{eq:lambdadsc_dBc} and \eqref{eq:lambdadsc_dBv}.
+%
+Note that the effective correction function
+for determining $\lambda_{n-2}$ is now $w_2(\vr)$
+instead of $w_{n-2}(\vr)$,
+which enters the denominator of
+the right-hand side of Eq. \eqref{eq:lambdadsc_lambda}.
+%
+Unlike $w_{n-2}(\vr)$,
+$w_2(\vr) \propto (f*f)^2(\vr)$ is short-ranged.
+%
+Thus,
+we expect the $\lambda$-DSC equation
+to break down in high orders,
+especially rapidly in high dimensions.
+
+If, instead of Eq. \eqref{eq:yr_linear01},
+$y(\vr)$ depends nonlinearly on $\lambda$,
+we modify the above solution as follows.
+%
+Assuming the closure can be written as
+$y(\vr) = Y[t(\vr); \lambda]$,
+we can always separate the contribution of $\lambda_l$ as
+%
+\begin{equation}
+y_l(\vr)
+=
+y_l^{(-)}(\vr)
++
+w_2(\vr) \, \lambda_l,
+\end{equation}
+%
+where
+%
+\begin{equation}
+y_l^{(-)}(\vr)
+\equiv
+\left[
+  Y\left(
+    \sum_{i=1}^{l-1} t_i \, \rho^i; \,
+    \sum_{j=2}^{l-1} \lambda_j \, \rho^{j-2}
+  \right)
+\right],
+\end{equation}
+%
+where can be evaluated using techniques
+in Section \ref{sec:series}, and
+%
+\[
+w_2(\vr) \equiv
+\lim_{\rho \rightarrow 0}
+\left(
+  \frac{ 1 } { \rho^2 }
+  \frac{ \partial Y } { \partial \lambda }
+\right).
+\]
+%
+Equations \eqref{eq:lambdadsc_lambda}-\eqref{eq:lambdadsc_dBv}
+remain valid.
+%
+Take the HC closure\cite{
+hutchinson1971, *hutchinson1972}
+for example,
+$\lambda$ is the parameter $s$,
+and
+$y = Y(t; s) = 1 + t + (1-s)\,t^2/2 + \cdots$.
+%
+So
+$w_2 =
+\lim_{\rho \rightarrow 0}
+(1/\rho^2)(\partial Y/\partial s)
+= - t_1^2 / 2 = -(f*f)^2/2$.
+
+
+
+
+
+\section{\label{eq:dcorr}
+Expansions of correlation functions around a finite density}
+
+
+
+
+
+Here, we study an extension of the method
+to expand correlation functions
+around a finite (nonzero) density.
+%
+In this way,
+we can study a system at a higher density than
+the radius of convergence of the virial series.
+%
+This technique can also be used to study the system
+around a certain density of interest.
+%
+If this density happens to be zero,
+we recover the method in the main text.
+
+
+
+We start by expanding
+an arbitrary correlation function, $A(\vr)$,
+which can be $c(\vr)$, $t(\vr)$, $h(\vr)$, or $y(\vr)$,
+around density $\rho$ as
+%
+\[
+\Bigl. A(\vr) \Bigr|_{\rho + \Delta \rho}
+=
+\sum_{l = 0}^{+\infty}
+A_{l;\rho}(\vr) \, \Delta \rho^l,
+\]
+%
+where
+%
+$(A)_{l;\rho} \equiv
+\left.
+  \left(
+    \left.
+      \partial^l A
+    \middle/
+      \partial \rho^l
+    \right|_\rho
+  \right)
+\middle/
+  l!
+\right.$
+%
+denotes the coefficient of $\Delta \rho^l$,
+and
+$A_{0\;\rho}(\vr) \equiv A(\vr)$.
+%
+Using the expansions in the Ornstein-Zernike (OZ) relation,
+\[
+\left.
+  1 + (\rho + \Delta\rho) \, \tilde h(\vk)
+\right|_{\rho + \Delta \rho}
+=
+\left[
+  \Bigl.
+    1 - (\rho + \Delta\rho) \, \tilde c(\vk)
+  \Bigr|_{\rho + \Delta \rho}
+\right]^{-1},
+\]
+we get, for $l = 0$,
+\[
+1 + \rho \, \tilde h
+=
+(1 - \rho \, \tilde c)^{-1}
+\]
+[dropping ``$(\vk)$'' for convenience],
+and for $l \ge 1$,
+%
+%
+%
+\begin{align*}
+\rho \, \tilde h_{l;\rho}
+&=
+\left(
+  \left[
+    1 - \rho \, \tilde c
+    - \sum_{i=1}^l (\rho \, \tilde c_{i;\rho}
+                  + \tilde c_{i-1;\rho}) \, \Delta \rho^i
+  \right]^{-1}
+\right)_{l;\rho}
+- \tilde h_{l-1;\rho}
+\\
+&=
+K \,
+\sum_{i = 1}^l
+(\tilde h_{l - 1 - i; \rho}
++ \rho \, \tilde h_{l - i; \rho})
+\,
+(\tilde c_{i-1; \rho}
++ \rho \, \tilde c_{i; \rho})
+- \tilde h_{l-1; \rho},
+\end{align*}
+%
+%
+%
+where $K = 1 + \rho \, \tilde h$,
+and $\tilde h_{-1;\rho} = 1$.
+%
+On the second line,
+we have used the recurrence relation
+for the inverse (cf. Section \ref{sec:series}).
+%
+It can be shown by induction
+that the above result is equivalent to
+%
+\begin{equation*}
+\tilde h_{l;\rho}
+=
+K \, \tilde h_{l-1;\rho} \, \tilde c_{0;\rho}
++
+K \sum_{i=1}^l
+  (\tilde h_{l-1-i;\rho} + \rho \, \tilde h_{l-i;\rho}) \,
+  \tilde c_{i;\rho}.
+%\label{eq:oz_hl_finiterho}
+\end{equation*}
+%
+The indirect correlation is obtained from
+$\tilde t_{l;\rho}
+=
+\tilde h_{l;\rho}
+-
+\tilde c_{l;\rho}.$
+
+
+
+For the closure, we have,
+%
+\begin{align*}
+c_{l;\rho}(\vr)
+&=
+[1 + f(\vr)] \, y_{l;\rho}(\vr)
+- t_{l;\rho}(\vr) - \delta_{l,0},
+\\
+y_{l;\rho}(\vr)
+&=
+Y\left[
+\sum_{i = 0}^l t_{i;\rho}(\vr) \, \Delta \rho^i
+\right]_l,
+\end{align*}
+%
+where
+the density expansion of $y(\vr) = Y[t(\vr)]$
+is to be computed by the techniques
+in Section \ref{sec:series}.
+
+For $l = 1$,
+the explicit first derivatives
+$\partial_\rho A(\vr) \equiv A_{1;\rho}(\vr)$
+(for $A = c$, $t$ and $y$)
+are given below:
+%
+%
+%
+\begin{equation}
+\begin{split}
+\partial_\rho \tilde t(\vk)
+&=
+\tilde h^2(\vk)
++
+\rho \, \tilde h(\vk) \,
+[2 + \rho \, \tilde h(\vk)] \, \partial_\rho \tilde c(\vk),
+\\
+%
+\partial_\rho c(\vr)
+&=
+[1 + f(\vr)] \, \partial_\rho y(\vr)
+- \partial_\rho t(\vr),
+\\
+\partial_\rho y(\vr)
+&=
+Y'[t(\vr)] \, \partial_\rho t(\vr).
+\end{split}
+\label{eq:dcorl}
+\end{equation}
+%
+%
+%
+Once we have computed
+$c(\vr)$, $t(\vr)$, and $y(\vr)$,
+$\partial_\rho c(\vr)$,
+$\partial_\rho t(\vr)$,
+$\partial_\rho y(\vr)$
+can be solved by iterating Eq. \eqref{eq:dcorl}.
+%
+The solution determines the virial-route
+$\partial_\rho \left( \beta \, P^{(v)} \right)$
+without numerical differentiation:
+%
+%
+%
+\[
+\partial_\rho (\beta \, P^{(v)})
+=
+\frac{ 2 \, \beta \, P^{(v)} } { \rho } - 1
++ \frac{ \rho^2 } { 2 D }
+  \int r \, f'(r) \, \partial_\rho y(r) \, d\vr,
+\]
+%
+%
+%
+which can be compared directly to
+the compressibility-route result
+%
+\[
+\partial_\rho \left( \beta \, P^{(c)} \right)
+=
+1 - \rho \int c(\vr) \, d\vr.
+\]
+
+
+
+More generally,
+we can compute derivatives with respect to,
+instead of $\rho$,
+the inverse temperature $\beta$,
+or the charging parameter $\xi$
+used in Section \ref{sec:kirkwood},
+and use the corresponding self-consistency conditions
+to determine additional parameters
+in the integral equation.
+
+
+
+
+
+\subsection{Application: the critical point of the Lennard-Jones fluid}
+
+
+
+
+
+As an application,
+we used the above method to locate the critical point
+of the Lennard-Jones fluid\cite{
+henderson1970, *henderson1972},
+whose pair potential is
+$\phi(r) = 4 (r^{-12} - r^{-6})$.
+%
+We used a simple closure with a single free parameter, $s$:
+%
+%
+%
+\begin{equation}
+g(\vr)
+=
+\exp[-\beta\,\phi(\vr) + s\,\beta\,\phi_{\mathrm{lr}}(\vr)]
+\, [1 + t(\vr) - s\,\beta\,\phi_{\mathrm{lr}}(\vr)],
+\label{eq:msa_py}
+\end{equation}
+%
+where
+%
+\begin{equation*}
+\phi_{\mathrm{lr}}(r)
+=
+\begin{cases}
+\phi(r) & \mbox{for $r > 2^{1/6}$}, \\
+-1      & \mbox{for $r < 2^{1/6}$},
+\end{cases}
+\end{equation*}
+%
+Equation \eqref{eq:msa_py}
+is an interpolation of
+the soft-core mean spherical approximation
+(SMSA, $s = 1$)\cite{chihara1973, *madden1980, *zerah1986}
+and the PY one ($s = 0$).
+%
+We now use the self-consistency,
+$\partial P^{(c)}/\partial \rho
+= \partial P^{(v)}/\partial \rho$,
+and the (compressibility-route) criticality condition,
+\[
+\partial P^{(c)} / \partial \rho
+=
+\partial^2 P^{(c)} / \partial \rho^2 = 0
+\]
+%
+to determine $s$ and the critical density, $\rho_c$,
+and the critical temperature, $T_c$.
+%
+Note that
+all the derivatives can be computed from the above technique.
+%
+As shown in Table \ref{tab:ljcritical},
+the critical point from Eq. \eqref{eq:msa_py}
+lies in between the PY and SMSA ones,
+and the overall agreement
+with the simulation results\cite{perez-pellitero2006}
+are slightly improved.
+
+
+
+\begin{table}
+\begin{tabular}{ l l l l }
+\hline
+&
+$T_c$
+&
+$\rho_c$
+\\ \hline
+%
+PY\cite{henderson1970, *henderson1972}
+&
+1.320
+&
+0.278
+\\
+%
+SMSA
+&
+1.071
+&
+0.311
+\\
+%
+Eq. \eqref{eq:msa_py}
+&
+1.300
+&
+0.297
+\\ \hline
+%
+Simulation\cite{perez-pellitero2006}
+&
+1.3126(6)
+&
+0.3174(6)
+\\ \hline
+%
+\end{tabular}
+\caption{
+Critical point of the Lennard-Jones fluid
+(compressibility route).
+}
+\label{tab:ljcritical}
+\end{table}
+
+
+
+
+
+\section{\label{sec:cr_mayer}
+Correlation functions from Mayer sampling}
+
+
+
+
+
+Here we describe a method of computing the density components
+of the correlation functions\cite{
+perera2009, *dennison2009},
+such as $c(\vr)$, $t(\vr)$, and $y(\vr)$,
+by Mayer sampling\cite{
+ree1966, rast1999, *labik2003, *kolafa2006, *kwak2005}.
+%
+The following version,
+tailored for the hard-sphere fluid,
+requires sampling of only biconnected diagrams,
+and can thus be embedded in a regular Mayer sampling
+in computing the virial coefficients\cite{zhang2014}.
+%
+This method is easy to implement
+because the correlation functions
+are computed from a few histogram-like quantities.
+
+
+
+
+\subsection{\label{sec:cr_mayer_graphs}
+Graphical expansion}
+
+
+
+
+We first review a few key terms
+in the graphical expansion
+(using the convention of a previous study\cite{zhang2014}),
+%
+and the reader should consult
+the relevant literature\cite{
+uhlenbeck1962, hansen, ree1966, zhang2014,
+morita1961III, *singh2004,
+ree1964a, ree1964c, clisby2006, wheatley2013}
+for a more comprehensive survey.
+%
+Virial coefficients and correlation functions
+can be expressed as sums of \emph{diagrams}, or \emph{graphs},
+each of which represents an integral.
+%
+In the diagram,
+a regular vertex represents a spatial point $\vr_i$,
+whose coordinates are to be integrated out,
+and it contributes a factor of $\rho$ to the integrand.
+%
+A designated vertex,
+or a \emph{root},
+however, holds fixed and given coordinates.
+%
+An edge, or an \emph{$f$-bond},
+joining two vertices $i$ and $j$
+contributes a factor of
+$f(\vr_{ij}) = \exp[-\beta \, \phi(\vr_{ij})] - 1$,
+to the integrand.
+%
+A graph formed this way is called a \emph{Mayer diagram}.
+%
+A diagram in the expansion of a virial coefficient
+has no root.
+%
+On the other hand,
+a diagram in the expansion of a correlation function,
+e.g., $c(\vr)$, has two roots,
+with $\vr$ being the displacement between the spatial points
+of the two roots.
+
+
+
+We say that a graph is \emph{connected} if it is in one piece.
+%
+If removing a vertex $v$ in a connected graph
+disconnects the graph,
+$v$ is an \emph{articulation point}.
+%
+A connected graph with no articulation point
+is \emph{biconnected}.
+%
+Similarly, if removing a pair of vertices $\{u, v\}$
+breaks a connected graph,
+$\{u, v\}$ is a separation pair.
+
+
+
+
+
+\subsection{Ree-Hoover diagram}
+
+
+
+
+We now introduce the \emph{Ree-Hoover (RH) diagram},
+which joins every pair of nonadjacent vertices
+in the Mayer diagram by an \emph{$e$-bond}.
+%
+The $e$-bond contributes a factor of
+$\exp[-\beta\, \phi(\vr_{ij})] = f(\vr_{ij}) + 1$
+to the integrand of the diagram.
+%
+The adjacency, (bi)connectivity, etc.,
+of a RH diagram are defined in terms of the $f$-bonds.
+
+
+
+Given an $n$-point configuration $\vr^n$,
+we construct the \emph{intrinsic RH diagram},
+$G(\vr^n)$, as follows.
+%
+For each vertex pair $\{i, j\}$,
+we assign an $e$-bond between $i$ and $j$,
+if $|\vr_{ij}| > 1$, or an $f$-bond, otherwise.
+%
+If $G(\vr^n)$ is biconnected,
+then $\vr^n$ is a \emph{biconnected configuration}.
+
+
+
+In the hard-sphere case,
+it is readily shown that the integrand of an RH diagram
+$G'$ is nonzero at $\vr^n$
+if and only if $G'$ is identical to $G(\vr^n)$.
+%
+It follows that the domains of any two RH diagrams
+do not overlap in the configuration space.
+%
+This result makes RH diagrams more useful than Mayer ones
+in Monte Carlo (MC) calculations,
+which aim at computing some sums of diagrams.
+%
+In the former case,
+for each relevant configuration, $\vr^n$,
+we only need to determine $G(\vr^n)$
+and its weight in the sum,
+whereas in the latter case,
+we need to list all Mayer diagrams compatible with $\vr^n$.
+
+
+
+
+
+\subsection{Virial coefficient}
+
+
+
+
+For example,
+the virial coefficient is equal to
+a sum of biconnected Mayer diagrams.
+%
+The corresponding sum of RH diagrams can be written as
+a single integral of all biconnected configurations:
+%
+%
+%
+\begin{equation}
+B_n =
+\frac{1 - n}{n!}
+\int
+f_B(\vr^n) \, \mathrm{bc}(\vr^n) \, d\vr^n
+=
+\frac{1-n}{n!}
+Z_n \,
+\langle f_B(\vr^n) \rangle_\mathrm{bc},
+\label{eq:Bn_integral_fB}
+\end{equation}
+%
+%
+%
+where $\mathrm{bc}(\vr^n)$ is 1.0
+if $\vr^n$ is biconnected,
+or zero otherwise,
+and $Z_n \equiv \int \mathrm{bc}(\vr^n) \, d\vr^n$.
+%
+The $f_B(\vr^n)$,
+called the \emph{signed star content},
+summarizes the total contribution of $\vr^n$
+to the sum\cite{uhlenbeck1962, hansen}.
+%
+In the second step,
+the integral is converted to an average
+over all biconnected configurations\cite{zhang2014}.
+%
+Note that,
+in the hard-sphere case,
+$f_B(\vr^n)$ depends on $\vr^n$
+only through the intrinsic RH diagram, $G(\vr^n)$,
+and $f_B(\vr^n)$ is a possibly-negative integer.
+
+
+
+
+
+\subsection{Direct and indirect correlation functions}
+
+
+
+
+
+Similar to Eq. \eqref{eq:Bn_integral_fB},
+we can compute the density components $c_{n-2}(\vr)$
+of the direct correlation function as
+%
+%
+%
+\begin{align}
+c_{n-2}(\vr)
+&=
+\frac{1}{n!}
+\sum_{i \ne j}
+\int
+  f_B(\vr^n) \, \delta(\vr_{ij} - \vr) \,
+  \mathrm{bc}(\vr^n) \, d\vr^n
+\notag \\
+&=
+\frac{Z_n}{n!}
+\sum_{i \ne j}
+\left\langle
+  f_B(\vr^n) \,
+  \delta(\vr_{ij} - \vr)
+\right\rangle_{\mathrm{bc}},
+\label{eq:cr_mayer}
+\end{align}
+%
+%
+%
+where the factor $n!$ is due to the permutations of
+the $n$ vertices.
+%
+One can readily verify
+%
+%
+%
+% Note, the $i \ne j$ sum gives $n (n - 1)$ equivalent pairs,
+% So n! becomes (n-2)!.
+%
+%
+%
+$\int c_{n-2}(\vr) \, d\vr
+= \langle f_B(\vr^n) \rangle_\mathrm{bc}
+Z_n / (n - 2)! = -n \, B_n$.
+%
+%
+%
+Equation \eqref{eq:Bn_integral_fB}
+shows that in a Mayer sampling over
+all biconnected configurations,
+$c_{n-2}(\vr)$ can be retrieved from
+the histogram-like quantity
+$\left\langle
+  f_B(\vr^n) \, \delta(\vr_{ij} - \vr)
+\right\rangle_\mathrm{bc}$.
+%
+The latter can be collected in a way
+similar to that for the pair correlation function, $g(\vr)$,
+in a regular MC or molecular dynamics simulation.
+%
+With $c_l(\vr)$ in hand,
+we can compute the density components of
+the indirect correction function, $t_l(\vr)$
+from the OZ relation.
+
+
+
+
+
+\subsection{Cavity distribution function}
+
+
+
+
+
+We now turn to the density components of
+the cavity distribution function, $y_l(\vr)$.
+%
+First, by definition, we have
+%
+%
+%
+\[
+[1 + f(\vr)] \, y(\vr)
+= g(\vr)
+= 1 + t(\vr) + c(\vr),
+\]
+%
+%
+%
+or its component form,
+%
+%
+%
+\begin{equation}
+[1 + f(\vr)] \, y_l(\vr)
+= \delta_{l0} + t_l(\vr) + c_l(\vr).
+\label{eq:closure_component}
+\end{equation}
+
+
+
+For the hard-sphere fluid at $r > 1$,
+we have $f(\vr) = 0$,
+and $y_l(\vr) = c_l(\vr) + t_l(\vr)$,
+which can thus be computed from the above technique.
+%
+The value of $y_l(\vr)$ inside the hard core ($r < 1$),
+however, requires additional computation.
+
+
+
+By comparing the diagrams with adjacent roots
+in Eq. \eqref{eq:closure_component},
+we find that the diagrams in the expansion of
+$f(\vr) \, y_l(\vr)$ are precisely
+the biconnected diagrams in $c_l(\vr)$
+with adjacent roots.
+%
+By a comparison to Eq. \eqref{eq:Bn_integral_fB},
+and by noticing $f(\vr) = -1$ for $r < 1$,
+we find
+%
+%
+%
+\[
+y_{n-2}(\vr)
+=
+-\frac{Z_n}{n!}
+\sum_{i \ne j}
+\left\langle
+  f_B^{i,j}(\vr^n) \, \delta(\vr_{ij} - \vr)
+\right\rangle_\mathrm{bc}
+\quad
+\mbox{for $r < 1$},
+\]
+%
+%
+%
+where $f_B^{i,j}(\vr^n)$,
+a modification of $f_B(\vr^n)$,
+is the sum of integrands of all biconnected Mayer diagrams $H$
+of $n$ vertices with two \emph{adjacent} roots $i$ and $j$:
+%
+%
+%
+\begin{equation}
+f_B^{i,j}(\vr^n)
+\equiv
+\sum_{ \substack{
+          \mathrm{bc}(H) \\
+          \{i,j\}\in E(H) } }
+\prod_{ \{k,l\} \in E(H) }
+f_{kl},
+\label{eq:fBij_def}
+\end{equation}
+%
+%
+%
+where $E(H)$ is the set of edges in $H$.
+%
+Since the $f$-bond of the hard-sphere fluid
+is either $0$ or $-1$,
+the summand is $0$ or $\pm 1$.
+
+
+
+
+
+\subsection{RH theorem}
+
+
+
+
+To compute $f_B^{i,j}(\vr^n)$,
+we need the following generalized
+\emph{RH theorem}.
+%
+Let $R$ be a condition that applies to Mayer and RH diagrams.
+%
+We say that $R$ is \emph{compatible}
+if it has the following property:
+if $G$ satisfies $R$,
+any graph $G'$ with additional $f$-bonds
+also satisfies $R$.
+%
+For example,
+the connectivity and biconnectivity
+are compatible conditions.
+%
+We say that a diagram $G$ is \emph{$R$-restricted}
+if $G$ satisfies some compatible condition $R$.
+%
+Now the generalized RH theorem states that
+the uniform sum of all $R$-restricted Mayer diagrams
+is equivalent to a weighted sum of
+all $R$-restricted RH diagrams.
+%
+The weight, or the \emph{$R$-content},
+of diagram $G$ in the RH sum is equal to
+the number of $R$-restricted subgraphs of $G$
+with even number of missing $f$-bonds,
+less the number of $R$-restricted subgraphs of $G$
+with odd number of missing $f$-bonds.
+
+
+
+For a hard-sphere fluid,
+since each configuration, $\vr^n$,
+corresponds to only one diagram,
+the intrinsic RH diagram, $G(\vr^n)$,
+the overall contribution of $\vr^n$
+to the uniform $R$-restricted Mayer sum
+is given by the $R$-content of $G(\vr^n)$
+multiplied by the integrand,
+which is $(-1)^{N_f}$ for a graph of $N_f$ $f$-bonds.
+
+
+
+For computing the virial coefficient,
+the condition $R$ is the requirement for a graph $G$
+to be biconnected (or to be a ``star'').
+%
+Then, the overall contribution $f_B(\vr^n)$ from $\vr^n$
+to the uniform Mayer sum is equal to
+the star content of $G(\vr^n)$ times $(-1)^{N_f}$.
+
+
+
+Similarly,
+to compute $f_B^{i,j}(\vr^n)$,
+we set $R$ as the requirement for a graph $G$ to be biconnected
+with adjacent roots $i$ and $j$.
+%
+Then,
+$f_B^{i,j}(\vr^n)$
+is equal to this particular $R$-content,
+or the $y^{i,j}$-content,
+of $G(\vr^n)$ times $(-1)^{N_f}$.
+%
+Algorithmically,
+the $y^{i,j}$-content can be found
+from a recursive search over all biconnected subgraphs $H$
+of $G(\vr^n)$ with adjacent vertices $i$ and $j$
+[note, $i$ and $j$ are joined before the search
+if they are not adjacent in $G(\vr^n)$].
+%
+This gives the first and the direct method of
+computing $f_B^{i,j}(\vr^n)$.
+
+
+
+
+
+\subsection{Two variants of the cavity distribution function}
+
+
+
+
+
+The above method can be extended to
+two related correlation functions.
+%
+First,
+consider $\omega_l(\vr)$,
+the $l$th component of $\omega(\vr) \equiv \log y(\vr)$.
+%
+%Note that $\omega(\vr)$ is related to
+%the bridge function as $d(\vr) \equiv \omega(\vr) - t(\vr)$.
+%
+In any diagram in the expansion of $\omega_l(\vr)$,
+the roots cannot form a separation pair.
+%
+Therefore, to compute the corresponding weight,
+$f_\omega^{i,j}(\vr^n)$,
+instead of $f_B^{i,j}(\vr^n)$,
+we should further exclude subgraphs in which $\{i,j\}$
+forms a separation pair in the above search over
+the biconnected subgraphs with adjacent roots.
+%
+Particularly,
+if $\{i, j\}$ is a separation pair in $G(\vr^n)$,
+then $f_\omega^{i,j}(\vr^n)$ is necessarily zero,
+and the search is spared.
+
+
+
+The second extension is to the function
+\[
+\Delta y_l
+\equiv
+y_l(\vr) - t_l(\vr)
+= c_l(\vr) - f(\vr) \, y_l(\vr).
+\]
+The second expression, valid for $l \ge 1$,
+shows that with all the biconnected graphs
+with adjacent roots in $f(\vr) \, y_l(\vr)$
+are removed from $c_l(\vr)$,
+$\Delta y_l$ collects the biconnected graphs
+with \emph{nonadjacent} roots.
+%
+In this case,
+we set $R$ as the requirement for a graph $G$
+to be biconnected with nonadjacent roots $i$ and $j$.
+%
+To compute the corresponding weight,
+denoted as $f_B^{i,j*}(\vr^n)$,
+we first remove the $f$-bond between $i$ and $j$,
+if any, in $G(\vr)$ to form $G'$,
+and then enumerate the biconnected subgraphs $H$ of $G'$,
+and
+%
+%
+%
+\begin{align*}
+\Delta y_{n-2}(\vr)
+=
+\frac{Z_n}{n!}
+\sum_{i \ne j}
+  \left\langle
+    f_B^{i, j*}(\vr^n) \, \delta(\vr_{ij} - \vr)
+  \right\rangle_\mathrm{bc}.
+\end{align*}
+%
+%
+%
+Particularly,
+if $G'$ is not biconnected,
+then $f_B^{i,j*}(\vr^n) = 0$,
+and no search is necessary.
+%
+For the hard-sphere fluid at $r > 1$,
+the above algorithm is identical to that of
+computing $f_B(\vr^n)$ for $c_l(\vr)$,
+because in this case
+$f(\vr) = 0$,
+and
+$\Delta y_l(\vr) = c_l(\vr) - f(\vr) \, y_l(\vr) = c_l(\vr)$.
+
+
+
+
+
+\subsection{Wheatley's method}
+
+
+
+
+
+Besides the above direct method,
+we can also compute $f_B^{i,j}(\vr^n)$
+by Wheatley's method\cite{wheatley2013}.
+%
+The main advantage is that
+it groups diagrams
+by the subsets of $V = \{1, \dots, n\}$
+(the set of the $n$ vertices),
+and computes only the collective sums of diagrams
+for each subset,
+instead of the value of each diagram individually.
+%
+Thus, it reduces the worst-case time complexity
+from the order of $2^{n(n-3)/2}$ (direct method)
+to $n\cdot3^n$.
+
+
+
+We start by defining a modified Boltzmann weight,
+$f_Q^{i,j}(S)$, for an arbitrary vertex subset $S$.
+%
+If $\{i, j\} \not\subset S$,
+we use the usual definition
+%
+\[
+f_Q^{i,j}(S)
+\equiv
+\prod_{\{k,l\}\subseteq S} (1 + f_{kl})
+=
+\sum_H
+\prod_{\{k,l\} \in E(H)} f_{kl},
+\]
+%
+where, in the first step,
+the product is over all pairs $\{k, l\}$
+of the vertices contained in $S$.
+%
+In the second step,
+we have expanded the product
+and represented each individual product of $f$-bonds
+by a Mayer subgraph $H$ built on the vertex set $S$.
+%
+The outer sum is carried over all
+(connected or disconnected) Mayer subgraphs $H$.
+%
+But, if $\{i, j\} \subset S$,
+we define
+%
+%
+%
+\begin{equation}
+f_Q^{i,j}(S)
+\equiv
+\prod_{ \substack{
+  \{k,l\}\subseteq S \\
+  \{k,l\} \ne \{i, j\} } }
+(1 + f_{kl})
+=
+\sum_{ \substack{
+  H \\
+  \{i, j\} \in E(H) } }
+\prod_{\{k,l\} \in E(H)} f_{kl},
+\label{eq:fQ_ij}
+\end{equation}
+%
+%
+%
+where the subgraph $H$
+in the sum must have the $f$-bond $\{i, j\}$.
+
+
+
+Now $f_B^{i,j}$ in Eq. \eqref{eq:fBij_def}
+differs from $f_Q^{i,j}$ in Eq. \eqref{eq:fQ_ij}
+by only the requirement of biconnectivity.
+%
+Thus,
+to get $f_B^{i,j}$,
+we only need to exclude the contribution of non-biconnected
+diagrams from $f_Q^{i,j}$.
+%
+This is done by two recursions\cite{wheatley2013}.
+
+
+
+The first recursion removes the contribution
+of all disconnected diagrams,
+to form a connected sum $f_C^{i,j}(S)$
+for every subset $S$ of $V$\cite{wheatley2013}:
+%
+%
+%
+\begin{equation}
+f_C^{i,j}(S)
+=
+f_Q^{i,j}(S)
+-
+\sum_{T \subset S}
+f_C^{i,j}(T) \, f_Q^{i,j}(S \backslash T),
+\label{eq:fC_from_fQ}
+\end{equation}
+%
+%
+%
+where $S\backslash T$ denotes the set of vertices
+that are in $S$, but not in $T$.
+%
+The sum is under two restrictions:
+%
+(i) $T$ must be a strict subset of $S$;
+%
+(ii) if both $i$ and $j$ belong to $S$,
+they must belong to $T$ as well
+(that is, the partition of $T$ and $S \backslash T$
+should not separate $i$ and $j$).
+%
+Otherwise, $T$ must have the lowest vertex $v_0$ in $S$.
+%
+In this way,
+a subset of $S$ occurs in either $T$ or $S \backslash T$
+in the sum,
+avoiding double counting.
+
+
+
+The second recursion further excludes connected diagrams
+with articulation points.
+%
+Let $f_{B,v}^{i,j}(S)$ be the sum of connected Mayer diagrams
+with no articulation point lower than $v$,
+then\cite{wheatley2013},
+%
+%
+%
+\begin{equation}
+f_{B,v+1}^{i,j}(S)
+=
+f_{B,v}^{i,j}(S)
+-
+\sum_{\{v\} \subset T_v \subset S}
+f_{B, v+1}^{i,j}(T_v)
+\,
+f_{B,v}^{i,j}(T_v^\dagger),
+\label{eq:fB_from_fB}
+\end{equation}
+%
+%
+%
+where
+$T_v^\dagger = \left(S \backslash T_v\right) \cup \{v\}$.
+%
+The sum is under the following restriction.
+%
+If both $i$ and $j$ belong to $S$,
+they must belong to $T_v$ too;
+otherwise the lowest vertex $v_1$ in $S \backslash \{v\}$
+must belong to $T_v$.
+%
+Initially,
+we set $f_{B,1}^{i,j}(S) = f_C^{i,j}(S)$
+from the previous step.
+%
+The final result is retrieved from
+$f_B^{i,j}(V) = f_{B, n+1}^{i,j}(V)$.
+
+
+
+For the hard-sphere fluid,
+some graphical checks\cite{zhang2014}
+can be used to save time.
+%
+For example,
+the induced graph $G(S)$ must be connected for
+$f_C^{i,j}(S)$ and $f_{B,v}^{i,j}(S)$
+to be nonzero;
+%
+if $G(S)$ has an articulation point at $v$,
+then $f_{B,u}^{i,j}(S) = 0$ for $u > v$.
+
+
+
+Wheatley's method can also be used to compute
+$\omega_l(\vr)$ and $\Delta y_l(\vr)$.
+%
+For $\omega_l(\vr)$,
+we carry the same procedure for $y_l(\vr)$,
+and then use the following recursion to
+exclude diagrams that have $\{i, j\}$
+as a separation pair:
+%
+\begin{align*}
+f_\omega^{i,j}(S)
+=
+f_B^{i,j}(S)
++
+\sum_{\{i,j\} \subset T \subset S}
+f_\omega^{i,j}(T) \, f_B^{i,j}(T^\dagger),
+\end{align*}
+%
+where both subsets $T$ and $T^\dagger$
+contain $\{i, j\}$,
+and the plus, instead of minus,
+sign before the sum is due to that
+both $f_B^{i,j}$ and $f_\omega^{i,j}$
+contain an $f$-bond (equal to $-1$)
+between $i$ and $j$.
+%
+In the end,
+$f_\omega^{i,j}(V)$
+can be used as $f_\omega^{i,j}(\vr^n)$
+in the following equation:
+%
+%
+%
+\[
+\omega_{n-2}(\vr)
+=
+\log y_{n-2}(\vr)
+=
+- \frac{Z_n}{n!}
+\sum_{i\ne j}
+  \left\langle
+    f_\omega^{i,j}(\vr^n) \, \delta(\vr_{ij} - \vr)
+  \right\rangle_\mathrm{bc}.
+\]
+
+
+
+To compute $\Delta y_l(\vr)$,
+we should remove the factor $f_ij$
+from the modified Boltzmann factor in Eq. \eqref{eq:fQ_ij}:
+%
+%
+%
+\begin{align*}
+f_Q^{i,j*}(S)
+\equiv
+\prod_{\substack{
+\{k,l\} \subseteq S \\
+\{k,l\} \ne \{i, j\}
+}}
+  (1 + f_kl)
+=
+\sum_{\substack{
+H' \\
+\{i,j\} \notin E(H')
+}}
+\prod_{\{k,l\} \in E(H')}
+f_{kl}.
+\end{align*}
+%
+%
+%
+where the sum is carried over diagrams, $H'$,
+with nonadjacent $i$ and $j$.
+%
+We then carry a regular Wheatley's recursion:
+in Eqs. \eqref{eq:fC_from_fQ} and \eqref{eq:fB_from_fB},
+we always require $T$ and $T_v$
+to contain $\{v_0\}$ and $\{v_1\}$, respectively,
+instead of $\{i, j\}$,
+even if $\{i, j\} \subset S$.
+
+
+
+
+
+\subsection{Computational techniques}
+
+
+
+
+The direct and Wheatley's methods
+are preferred for sparse and denser diagrams,
+respectively.
+%
+In practice,
+we use the former if the input diagram, $G$,
+has no more than $2n-2$ $f$-bonds,
+or the latter otherwise.
+
+
+
+If the intrinsic RH diagram, $G(\vr^n)$,
+has a clique separator
+(a mutually-adjacent subset of vertices
+whose removal disconnects the diagram)
+that does not involve $\{i, j\}$,
+then $f_B^{i,j}(\vr^n) = f_B^{i,j*}(\vr^n) = 0$.
+%
+The proof is similar to that for $f_B(\vr^n)$\cite{zhang2014}.
+%
+Since testing clique separators takes only polynomial time,
+it generally saves time to do so
+before using the direct or Wheatley's method
+(both are exponential-time algorithms).
+
+
+
+Finally, to avoid repetitive computation,
+the look-up table techniques\cite{
+zhang2014, ree1964a, clisby2006,
+ree1967, *labik2005, *schultz2014},
+developed for $f_B$,
+can be adopted to accelerate the calculations.
+
+
+
+
+
+\bibliography{liquid}
+
+
+
+
+
+\end{document}
+
