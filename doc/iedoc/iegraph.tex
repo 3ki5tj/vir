@@ -1964,13 +1964,7 @@ with respect to $\rho$ and using Eq. \eqref{eq:intdlogrhoc} yields
 The second term vanishes because of the PY closure, Eq. \eqref{eq:py}:
 $c \, \partial_\rho t = (1 + \, t) \, f \, \partial_\rho t = (1 + t) \, \partial_\rho c$.
 %
-Thus,
-\[
-  -\partial_\rho ( \beta \Pex )
-=
-  \rho \int c \, d\vr,
-\]
-which is Eq. \eqref{eq:crcompr}.
+Thus, we recover Eq. \eqref{eq:crcompr}.
 
 This demonstration proves that
 Eqs. \eqref{eq:crcompr} and \eqref{eq:baxterpressure}
@@ -3418,17 +3412,28 @@ Note that Eqs. \eqref{eq:dTdzeta} and \eqref{eq:dfdzeta} are general,
 whereas the rest two equations result from the PY closure, Eq. \eqref{eq:py},
 %
 Thus,
-\begin{equation}
-  -\beta \Pex = \rho^2 \int
+\begin{align}
+  -\beta \Pex
+&=
+  \rho^2 \int
   \left\{ c(\vr)
     + \frac{ \big[ t(\vr) + 1 \big]^2 (\vr \cdot \nabla f) }
            { 2 \, D }
-  \right\} \, d\vr.
+  \right\} \, d\vr
   \label{eq:pyPsimplified}
-\end{equation}
+\\
+&=
+  \rho^2 \int
+  \left\{ c(\vr)
+    - \frac{ c^2(\vr) [\vr \cdot \nabla (f^{-1}) ] }
+           { 2 \, D }
+  \right\} \, d\vr.
+  \notag
+\end{align}
 
 For the hard-sphere fluid,
 $\vr \cdot \nabla f = r \, f'(r) = \delta(r - 1)$, and
+%
 \begin{align}
   -\beta \Pex
 &=
@@ -3456,7 +3461,7 @@ $\vr \cdot \nabla f = r \, f'(r) = \delta(r - 1)$, and
   +
     c^2(1^-) \, B_2
   \bigr],
-  \label{eq:pyPsimplifiedhs}
+\notag
 \end{align}
 %
 where
@@ -3466,6 +3471,30 @@ and $B_2 = S_D / (2D)$.
 On the last line, we have also used the identity
 $0 = g(\vr) = c(\vr) + t(\vr) + 1$
 for $|\vr| < 1$.
+%
+Further, for the hard-sphere fluid,
+$h(\vr) = -1$ for $|\vr| < 1$.
+%
+So, the zero-separation theorem, Eq. \eqref{eq:zerosep}
+becomes\cite{henderson2009}
+%
+\begin{equation*}
+  -1 - c(\vct 0)
+=
+  t(\vct 0)
+=
+  -\rho \int c(\vr) \, d\vr
+=
+  -\rho \, \tilde c(\vct 0).
+\end{equation*}
+%
+Thus,
+\begin{align}
+  -\beta P
+&=
+  \rho \, c(0) + \rho^2 \, c^2(1^-) \, B_2.
+  \label{eq:pyPsimplifiedhs}
+\end{align}
 %
 In Fig. \ref{fig:iepres},
 we show that
