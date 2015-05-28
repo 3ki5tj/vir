@@ -218,7 +218,7 @@ and thus computationally is particularly useful
 for high orders.
 %
 As an application,
-we used the algorithm in a hybrid integral equation
+we used the algorithm in a hybrid-closure integral equation
 with a set of order-by-order self-consistent conditions.
 %
 The method yields rather accurate virial coefficients
@@ -525,7 +525,7 @@ Note that the correlation functions
 on the right-hand side \eqref{eq:oz_tl}
 have orders lower than $l$;
 %
-thus those orders are always available
+thus they are always available
 when we compute $\tilde t_l(\vk)$.
 
 
@@ -683,14 +683,12 @@ For the hard-sphere fluid,
 it can further simplified as
 %
 \begin{align*}
--\beta \, P^{\mathrm{ex},(c)}
+-\beta \, P^{(c)}
 =
-\rho^2 \, [ \tilde c(0) + c^2(1^-) \, B_2]
+\rho \, c(0) + \rho^2 \, c^2(1^-) \, B_2
 =
-\rho^2 \, [\tilde c(0) + g^2(1^+) \, B_2],
+\rho \, c(0) + \rho^2 \, g^2(1^+) \, B_2,
 \end{align*}
-%
-where the ``ex'' on the superscript means the excess (non-ideal-gas) part.
 %
 Taking the $n$th component of the density expansion yields
 a different expression for $B_n$.
@@ -706,8 +704,10 @@ The second derivative of pressure can be written as (see SM 2)
 \equiv
 -\rho^2 \, \partial_\rho^2 (\beta \, P^\mathrm{ex})
 \approx
-\rho^2 \int [c(\vr) + h(\vr) \, t(\vr)] \, d\vr.
+\rho^2 \int [c(\vr) + h(\vr) \, t(\vr)] \, d\vr,
 \]
+where the ``ex'' on the superscript means the excess (non-ideal-gas) part.
+%
 %
 Thus,
 %
@@ -904,7 +904,7 @@ and
 %
 Additionally,
 the virial coefficient
-can be derived from HNC-specific expressions
+can be derived from the HNC-specific expressions
 of the chemical potential $\mu$
 and the free energy\cite{
 morita1958, *morita1959, morita1960,
@@ -1043,7 +1043,7 @@ $w_3(\vr)
 + [t_1(\vr)]^3/6$.
 %
 Below we determine the parameter $\lambda_l$
-to force the equality of
+that forces the same values from
 Eqs. \eqref{eq:Bn_compressibility} and \eqref{eq:Bn_virial}
 for each order $l$.
 
@@ -1060,11 +1060,11 @@ f(\vr) \, [1 + t(\vr)]
   \lambda_l \, w_l(\vr) \, \rho^l.
 \end{align*}
 %
-So
+So, for $l \ge 2$,
 %
 \begin{align}
 c_l(\vr)
-= f(\vr) \, \delta_{l0} + f(\vr) \, t_l(\vr)
+= f(\vr) \, t_l(\vr)
 + \lambda_l \, [ 1 + f(\vr) ] \, w_l(\vr).
 \label{eq:cl_corrected}
 \end{align}
@@ -1087,7 +1087,7 @@ and using Eqs. \eqref{eq:Bn_compressibility},
 and
 \eqref{eq:cl_corrected},
 %
-we get
+we get, for $n \ge 4$,
 %
 \begin{equation}
 \lambda_{n-2}
@@ -1524,7 +1524,7 @@ $\begin{aligned}
 \end{aligned}$
 &
 $\begin{aligned}
-&-1.504\times10^{-2} \\[\vsp]
+&-1.540\times10^{-2} \\[\vsp]
 &-6.823\times10^{-4} \\[\vsp]
 &-1.228\times10^{-3}
 \end{aligned}$
@@ -2349,7 +2349,7 @@ $0.13752$ (the rest).
 $^\dagger$
 The reference values were from Ref. \cite{schultz2014},
 except for $B_{12}$,
-which have been improved
+which has been improved
 from the previous study\cite{zhang2014}.
 %
 A few other improved or new values were
@@ -2415,7 +2415,7 @@ but less so in lower dimensions.
 
 We first compared the DSC equation under
 Eq. \eqref{eq:Bc_eq_Bv}
-with the PY and HNC ones,
+with the PY and HNC,
 as the former is an interpolation of the latter two.
 %
 As shown in Fig. \ref{fig:ievircmp},
@@ -2451,8 +2451,8 @@ The above comparison shows that the PY and HNC equations
 worked best for low and high dimensions, respectively.
 %
 Thus, we expect the DSC equation to be closer
-to the PY one in low dimensions,
-but the HNC one in high dimensions.
+to the PY in low dimensions,
+but the HNC in high dimensions.
 %
 This was indeed the case.
 %
@@ -2599,7 +2599,7 @@ $\begin{aligned}
 \end{aligned}$
 &
 $\begin{aligned}
-&-3.239990574(3)\times10^{13} \\[\vsp]
+&-3.23990574(3)\times10^{13} \\[\vsp]
 &-3.19(27)\times10^13
 \end{aligned}$
 &
@@ -2681,7 +2681,7 @@ $\begin{aligned}
 18
 &
 $\begin{aligned}
-&-0.0142026367(7) \\[\vsp]
+&-0.01420262367(7) \\[\vsp]
 &-0.014206(13)
 \end{aligned}$
 &
@@ -3180,7 +3180,7 @@ for better accuracy in all dimensions.
   }%
   \caption{\label{fig:cmpcorl}
     Density components $c_l(r)$
-    of the direct correlation function of the sixth-dimensional
+    of the direct correlation function of the six-dimensional
     hard-sphere fluid from
     the DSC, $\lambda$-DSC, PY, and HNC integral equations
     compared to those from Mayer sampling (reference).
@@ -3295,9 +3295,9 @@ $+0.01519760720$
 &
 $-0.01384965413$
 &
-$+1.334757917\times10^{–3}$
+$+1.334757917\times10^{-3}$
 &
-$+7.604327249\times10^{–3}$
+$+7.604327249\times10^{-3}$
 &
 &
 (exact)
@@ -3307,11 +3307,11 @@ $+7.604327249\times10^{–3}$
 &
 $-0.01019577105$
 &
-$+8.798988664\times10^{–3}$
+$+8.798988664\times10^{-3}$
 &
-$-5.576767192\times10^{–3}$
+$-5.576767192\times10^{-3}$
 &
-$+2.318690261\times10^{–3}$
+$+2.318690261\times10^{-3}$
 &
 &
 (exact)
