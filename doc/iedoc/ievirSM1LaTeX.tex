@@ -35,7 +35,7 @@
 
 
 
-\title{Supplemental Material I}
+\title{Supplementary Material I}
 \maketitle
 
 
@@ -296,7 +296,7 @@ Parameters of computing Fourier transforms.
 
 
 
-\section{Extrapolation}
+\section{Extrapolation of grid spacing}
 
 
 
@@ -777,7 +777,7 @@ Overall, we follow the iteration
 \\
 &
 y_l
-  \xrightarrow{ h_l = (1 + f) \, y_l }
+\xrightarrow{ h_l = (1 + f) \, y_l - \delta_{l,0} }
 h_l
   \xrightarrow{ \mathrm{F.T.} }
 \tilde h_l
@@ -1099,7 +1099,7 @@ respectively.
 
 
 \section{\label{sec:extension}
-Generalizations of the DSC closure}
+Generalizations of the DSC equation}
 
 
 
@@ -1285,8 +1285,7 @@ $w_j(\vr)$ is defined in Eq. \eqref{eq:wl_y1_y0}.
 %
 The sum starts from $j = 2$,
 for we have assumed
-the correct first two density components of
-the cavity distribution functions:
+the correct first two density components:
 %
 $y_0^0 = y_0^1(\vr) = 1$
 %
@@ -1436,7 +1435,9 @@ remain valid.
 %
 Take the HC closure\cite{
 hutchinson1971, *hutchinson1972}
-for example,
+for example.
+%
+Here,
 $\lambda$ is the parameter $s$,
 and
 $y = Y(t; s) = 1 + t + (1-s)\,t^2/2 + \cdots$.
@@ -1669,17 +1670,6 @@ the compressibility-route result
 
 
 
-More generally,
-we can compute derivatives with respect to,
-instead of $\rho$,
-the inverse temperature $\beta$,
-or the charging parameter $\xi$
-used in Section \ref{sec:kirkwood},
-and use the corresponding self-consistency conditions
-to determine additional parameters
-in the integral equation.
-
-
 
 
 
@@ -1834,7 +1824,7 @@ Graphical expansion}
 
 We first review a few key terms
 in the graphical expansion
-(using the convention of a previous study\cite{zhang2014}),
+(using the convention of the previous study\cite{zhang2014}),
 %
 and the reader should consult
 the relevant literature\cite{
@@ -1859,13 +1849,33 @@ however, holds fixed and given coordinates.
 An edge, or an \emph{$f$-bond},
 joining two vertices $i$ and $j$
 contributes a factor of
-$f(\vr_{ij}) = \exp[-\beta \, \phi(\vr_{ij})] - 1$,
+$f_{ij} \equiv f(\vr_{ij}) = \exp[-\beta \, \phi(\vr_{ij})] - 1$,
 to the integrand.
 %
 A graph formed this way is called a \emph{Mayer diagram}.
 %
 A diagram in the expansion of a virial coefficient
 has no root.
+%
+A rootless $n$-vertex Mayer diagram $H$ is equivalent to
+%
+\[
+  I_H^\mathrm{Mayer}
+=
+\int g_H^\mathrm{Mayer}(\vr^n) \, d\vr^n
+=
+\int \prod_{ \{i,j\} \in E(H) } f_{ij} \, d\vr^n,
+\]
+%
+where,
+$E(H)$
+is the set of $f$-bonds in $H$,
+%
+$f_{ij}$ is evaluated for configuration $\vr^n$,
+and
+``$d\vr^n$''
+excludes the integration for the integration
+for the first vertex to make the integral convergent.
 %
 On the other hand,
 a diagram in the expansion of a correlation function,
@@ -1902,11 +1912,22 @@ which joins every pair of nonadjacent vertices
 in the Mayer diagram by an \emph{$e$-bond}.
 %
 The $e$-bond contributes a factor of
-$\exp[-\beta\, \phi(\vr_{ij})] = f(\vr_{ij}) + 1$
+$e_{ij} \equiv \exp[-\beta\, \phi(\vr_{ij})] = f(\vr_{ij}) + 1$
 to the integrand of the diagram.
 %
+Thus, a rootless $n$-vertex RH-diagram $G$ is equivalent to
+%
+\[
+\int g_G^\mathrm{RH}(\vr^n) \, d\vr^n
+=
+\int
+\prod_{ \{k, l\} \in E(G) } f_{kl}
+\prod_{ \{i, j\} \notin E(G) } e_{ij}
+\, d\vr^n.
+\]
+%
 The adjacency, (bi)connectivity, etc.,
-of a RH diagram are defined in terms of the $f$-bonds.
+of an RH diagram are defined in terms of the $f$-bonds.
 
 
 
@@ -1925,15 +1946,33 @@ then $\vr^n$ is a \emph{biconnected configuration}.
 
 In the hard-sphere case,
 it is readily shown that the integrand of an RH diagram
-$G'$ is nonzero at $\vr^n$
-if and only if $G'$ is identical to $G(\vr^n)$.
+$G$ is nonzero at $\vr^n$
+if and only if $G$ is identical to $G(\vr^n)$.
 %
-It follows that the domains of any two RH diagrams
-do not overlap in the configuration space.
+%It follows that the domains of any two RH diagrams
+%do not overlap in the configuration space.
 %
 This result makes RH diagrams more useful than Mayer ones
 in Monte Carlo (MC) calculations,
-which aim at computing some sums of diagrams.
+which aim at computing some sums of diagrams:
+%
+\begin{align*}
+\sum_G c_G \, I_G^\mathrm{Mayer\; or\; RH}
+&=
+\sum_G c_G \, \int g_G^\mathrm{Mayer\; or\; RH}(\vr^n) \, d\vr^n
+\\
+&=
+\int
+\left[
+  \sum_G c_G \, g_G^\mathrm{Mayer\; or\; RH}(\vr^n)
+\right]
+\, d\vr^n,
+\end{align*}
+%
+where $c_G$ is some coefficient.
+%
+The sum in the square brackets is reduced to a single term
+from $G = G(\vr^n)$ in the RH case, but not in the Mayer case.
 %
 In the former case,
 for each relevant configuration, $\vr^n$,
@@ -1951,12 +1990,93 @@ we need to list all Mayer diagrams compatible with $\vr^n$.
 
 
 
-For example,
-the virial coefficient is equal to
-a sum of biconnected Mayer diagrams.
+The virial coefficient is equal to
+a sum of biconnected Mayer diagrams\cite{
+uhlenbeck1962, hansen}:
 %
-The corresponding sum of RH diagrams can be written as
-a single integral of all biconnected configurations:
+%
+%
+\begin{equation*}
+B_n
+=
+\frac{1 - n}{n!}
+\sum_{\mathrm{bc}(H)}
+I_H^\mathrm{Mayer}
+=
+\frac{1 - n}{n!}
+\int
+\sum_{\mathrm{bc}(H)}
+g_H^\mathrm{Mayer}(\vr^n) \, d\vr^n.
+\end{equation*}
+%
+%
+%
+We now define the \emph{signed star content},
+$f_B(\vr^n)$ as
+%
+\begin{equation}
+f_B(\vr^n)
+=
+\sum_{\mathrm{bc}(H)} g_H^\mathrm{Mayer}(\vr^n)
+=
+\sum_{\mathrm{bc}(H)}
+\prod_{\{k,l\} \in E(H)} f_{kl}.
+\label{eq:fB_def}
+\end{equation}
+%
+%
+%
+Then
+%
+%
+%
+\begin{equation}
+B_n
+=
+\frac{1-n}{n!}
+\int f_B(\vr^n) \, d\vr^n.
+\label{eq:Bn_integral_fB_0}
+\end{equation}
+%
+For the hard-sphere,
+the $f$-bond is either $0$ or $-1$.
+%
+So the summand is $0$ or $\pm 1$,
+and $f_B(\vr^n)$ is a possibly-negative integer.
+
+
+
+The equivalent RH sum is
+%
+%
+%
+\begin{equation*}
+B_n
+=
+\frac{1 - n}{n!}
+\sum_G c_G \, I_G^\mathrm{RH}
+=
+\frac{1 - n}{n!}
+\int
+\sum_G c_G g_G^\mathrm{RH}(\vr^n) \, d\vr^n,
+\end{equation*}
+%
+%
+%
+where $c_G$ is some coefficient
+(to be determined in Section \ref{sec:RH_theorem}).
+%
+For the hard-sphere fluid,
+only the $G = G(\vr^n)$ term survives,
+thus,
+$f_B(\vr^n) = c_{G(\vr^n)} g_{G(\vr^n)}^\mathrm{RH}(\vr^n)$.
+%
+On can further show that
+$G(\vr^n)$ has to be biconnected
+(cf. Section \ref{sec:RH_theorem}).
+%
+Thus, the integral in \eqref{eq:Bn_integral_fB_0}
+can be limited to biconnected configurations:
 %
 %
 %
@@ -1979,20 +2099,10 @@ if $\vr^n$ is biconnected,
 or zero otherwise,
 and $Z_n \equiv \int \mathrm{bc}(\vr^n) \, d\vr^n$.
 %
-The $f_B(\vr^n)$,
-called the \emph{signed star content},
-summarizes the total contribution of $\vr^n$
-to the sum\cite{uhlenbeck1962, hansen}.
-%
 In the second step,
 the integral is converted to an average
 over all biconnected configurations\cite{zhang2014}.
 %
-Note that,
-in the hard-sphere case,
-$f_B(\vr^n)$ depends on $\vr^n$
-only through the intrinsic RH diagram, $G(\vr^n)$,
-and $f_B(\vr^n)$ is a possibly-negative integer.
 
 
 
@@ -2060,11 +2170,11 @@ $\left\langle
 %
 The latter can be collected in a way
 similar to that for the pair correlation function, $g(\vr)$,
-in a regular MC or molecular dynamics simulation.
+in a regular molecular simulation.
 %
 With $c_l(\vr)$ in hand,
 we can compute the density components of
-the indirect correction function, $t_l(\vr)$
+the indirect correlation function, $t_l(\vr)$
 from the OZ relation.
 
 
@@ -2144,7 +2254,8 @@ y_{n-2}(\vr)
 where $f_B^{i,j}(\vr^n)$,
 a modification of $f_B(\vr^n)$,
 is the sum of integrands of all biconnected Mayer diagrams $H$
-of $n$ vertices with two \emph{adjacent} roots $i$ and $j$:
+of $n$ vertices with two \emph{adjacent}
+roots $i$ and $j$ [cf. Eq. (\eqref{eq:fB_def})]:
 %
 %
 %
@@ -2155,23 +2266,20 @@ f_B^{i,j}(\vr^n)
           \mathrm{bc}(H) \\
           \{i,j\}\in E(H) } }
 \prod_{ \{k,l\} \in E(H) }
-f_{kl},
+f_{kl}.
 \label{eq:fBij_def}
 \end{equation}
 %
 %
 %
-where $E(H)$ is the set of edges in $H$.
-%
-Since the $f$-bond of the hard-sphere fluid
-is either $0$ or $-1$,
-the summand is $0$ or $\pm 1$.
+%where $E(H)$ is the set of edges in $H$.
+%%
 
 
 
 
 
-\subsection{RH theorem}
+\subsection{\label{sec:RH_theorem}RH theorem}
 
 
 
@@ -2185,7 +2293,8 @@ Let $R$ be a condition that applies to Mayer and RH diagrams.
 We say that $R$ is \emph{compatible}
 if it has the following property:
 if $G$ satisfies $R$,
-any graph $G'$ with additional $f$-bonds
+any graph $G'$ with all $f$-bonds of $G$
+and additional $f$-bond(s)
 also satisfies $R$.
 %
 For example,
@@ -2196,9 +2305,23 @@ We say that a diagram $G$ is \emph{$R$-restricted}
 if $G$ satisfies some compatible condition $R$.
 %
 Now the generalized RH theorem states that
-the uniform sum of all $R$-restricted Mayer diagrams
-is equivalent to a weighted sum of
+the uniform sum of the integrands of
+all $R$-restricted Mayer diagrams
+is equivalent to a weighted sum of the integrands of
 all $R$-restricted RH diagrams.
+%
+%
+%
+\[
+\sum_{ R(H) }
+g_H^\mathrm{Mayer}(\vr^n)
+=
+\sum_{ R(G) }
+c_G^{(R)} \,
+g_G^\mathrm{RH}(\vr^n).
+\]
+%
+%
 %
 The weight, or the \emph{$R$-content},
 of diagram $G$ in the RH sum is equal to
@@ -2209,7 +2332,7 @@ with odd number of missing $f$-bonds.
 
 
 
-For a hard-sphere fluid,
+For the hard-sphere fluid,
 since each configuration, $\vr^n$,
 corresponds to only one diagram,
 the intrinsic RH diagram, $G(\vr^n)$,
@@ -2217,7 +2340,20 @@ the overall contribution of $\vr^n$
 to the uniform $R$-restricted Mayer sum
 is given by the $R$-content of $G(\vr^n)$
 multiplied by the integrand,
-which is $(-1)^{N_f}$ for a graph of $N_f$ $f$-bonds.
+which is $(-1)^{N_f}$ for a graph of $N_f$ $f$-bonds:
+%
+%
+%
+\[
+\sum_{ R(H) }
+g_H^\mathrm{Mayer}(\vr^n)
+=
+c_{G(\vr^n)}^{(R)} \,
+g_{G(\vr^n)}^\mathrm{RH}(\vr^n).
+=
+c_{G(\vr^n)}^{(R)} \,
+(-1)^{N_f}.
+\]
 
 
 
@@ -2391,10 +2527,10 @@ of the vertices contained in $S$.
 In the second step,
 we have expanded the product
 and represented each individual product of $f$-bonds
-by a Mayer subgraph $H$ built on the vertex set $S$.
+by a subgraph $H$ built on the vertex set $S$.
 %
 The outer sum is carried over all
-(connected or disconnected) Mayer subgraphs $H$.
+(connected or disconnected) subgraphs $H$.
 %
 But, if $\{i, j\} \subset S$,
 we define
@@ -2479,7 +2615,7 @@ avoiding double counting.
 The second recursion further excludes connected diagrams
 with articulation points.
 %
-Let $f_{B,v}^{i,j}(S)$ be the sum of connected Mayer diagrams
+Let $f_{B,v}^{i,j}(S)$ be the sum of connected graphs
 with no articulation point lower than $v$,
 then\cite{wheatley2013},
 %
@@ -2624,7 +2760,7 @@ even if $\{i, j\} \subset S$.
 
 
 The direct and Wheatley's methods
-are preferred for sparse and denser diagrams,
+are preferred for sparser and denser diagrams,
 respectively.
 %
 In practice,

@@ -39,7 +39,7 @@ xdouble T = 1;
 xdouble beta = 1;
 double rmax = 0;
 xdouble Rmax = 0;
-int numpt = 32768;
+int npt = 32768;
 int ffttype = 1;
 int dohnc = 0;
 int singer = 0;
@@ -94,7 +94,7 @@ static void doargs(int argc, char **argv)
   argopt_add(ao, "-n", "%d", &nmax, "maximal order");
   argopt_add(ao, "-r", "%lf", &rmax, "rmax (flexible)");
   argopt_add(ao, "-R", "%" XDBLSCNF "f", &Rmax, "rmax (exact)");
-  argopt_add(ao, "-M", "%d", &numpt, "number of points along r");
+  argopt_add(ao, "-M", "%d", &npt, "number of points along r");
   argopt_add(ao, "-t", "%d", &ffttype, "FFT type, 0: integral grid points, 1: half-integer grid points");
   argopt_add(ao, "-T", "%" XDBLSCNF "f", &T, "temperature");
   argopt_addx(ao, "--cl", "%list", &ietype, "type of closure, 0: PY, 1: HNC; set the respective parameters automatically sets the type", ietype_names, IETYPE_COUNT);
@@ -149,8 +149,8 @@ static void doargs(int argc, char **argv)
     fprintf(stderr, "cannot do even dimensions %d, define DHT and recompile\n", dim);
     exit(1);
 #endif
-    if ( !argopt_isset(ao, numpt) ) /* adjust the default number of points */
-      numpt = 1024;
+    if ( !argopt_isset(ao, npt) ) /* adjust the default number of points */
+      npt = 1024;
   }
 
   if ( rmax <= 0 ) rmax = nmax + 2;
@@ -235,7 +235,7 @@ static void doargs(int argc, char **argv)
   }
 
   printf("D %d, npt %d, ietype %d (%s), HNC %d, %s\n",
-      dim, numpt, ietype0, ietype_names[ietype0], dohnc,
+      dim, npt, ietype0, ietype_names[ietype0], dohnc,
       systitle);
 
   if ( verbose ) argopt_dump(ao);
@@ -245,7 +245,7 @@ static void doargs(int argc, char **argv)
 
 
 /* compute virial coefficients from integral equations */
-static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
+static int intgeq(void)
 {
   xdouble Bc, Bv, Bm = 0, Bh = 0, Br = 0, By = 0, B2, fcorr = 0;
   xdouble *bphi, *fr, *rdfr, *swr;
@@ -580,6 +580,6 @@ static int intgeq(int nmax, int npt, xdouble rmax, xdouble Rmax, int ffttype)
 int main(int argc, char **argv)
 {
   doargs(argc, argv);
-  intgeq(nmax, numpt, rmax, Rmax, ffttype);
+  intgeq();
   return 0;
 }

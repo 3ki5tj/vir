@@ -61,7 +61,7 @@
 
 \begin{document}
 
-\title{Supplemental Material 2: Thermodynamic quantities in integral equations}
+\title{Supplementary Material 2: Thermodynamic quantities in integral equations}
 
 %\author{Cheng Zhang}
 %\author{Chun-Liang Lai}
@@ -190,7 +190,7 @@ c(\vr)
 \end{align}
 %
 where
-$\llbra P \llket$ denotes the Iverson bracket,
+$\llbra P \llket$ denotes the Iverson bracket notation,
 which is 1 if condition $P$ is true,
 or 0 otherwise.
 
@@ -351,7 +351,7 @@ summarizes the main results.
   %
   \multicolumn{8}{p{\textwidth}}{
     $^\ast$
-    The sum is over the respective unrooted graphs $G$,
+    The sum is over the respective rootless graphs $G$,
     which are the polygon packs in the PY case
     or the $c$-packs in the HNC case;
     $I$, $s$, $n$, $p$ are
@@ -553,6 +553,15 @@ By the translational symmetry,
 The spatial correlation functions,
   such as $c(\vr)$ and $t(\vr)$,
   are sums of 2-root graphs.
+%
+The simplest connected 2-root graph,
+  \begin{tikzpicture}
+    \node (r1) at (-3mm, 0) [whitedot]{};
+    \node (r2) at ( 3mm, 0) [whitedot]{};
+    \draw (r1) -- (r2);
+  \end{tikzpicture},
+which has a single $f$-bond between the roots,
+is called the \emph{$f$-graph}.
 
 
 
@@ -653,25 +662,25 @@ We state without proving the following exact results\cite{hansen, mayer, uhlenbe
 %
 The virial series in Eq. \eqref{eq:virial}
 contains
-all unrooted labeled biconnected graphs,
+all rootless labeled biconnected graphs,
 each weighted by $(1-n)/n!$
 with $n$ being the number of vertices.
 %
 Equivalently, the series is the sum of
-all unrooted \emph{unlabeled} biconnected graphs $G$
+all rootless \emph{unlabeled} biconnected graphs $G$
 weighted by $(1-n)/s(G)$.
 %
 The series for $-\beta \Fex/V$,
 with $\Fex$ being
 the excess (non-ideal-gas) Helmholtz free energy,
 is the sum of
-all unrooted unlabeled biconnected graphs $G$
+all rootless unlabeled biconnected graphs $G$
 weighted by $1/s(G)$.
 %
 The series for $-\beta \muex$,
 with $\muex$ being the excess chemical potential,
 is the sum of
-all one-root unlabeled biconnected graphs $G$
+all 1-root unlabeled biconnected graphs $G$
 weighted by $1/s(G)$.
 %
 The series for $c(\vr)$ is the sum of
@@ -707,7 +716,7 @@ In integral equations,
 %
 which can be constructed
   hierarchically by successive
-  serial and parallel compositions (defined below)
+  series and parallel compositions (defined below)
   starting from a few $f$-graphs\cite{eppstein1992}.
 
 
@@ -910,17 +919,19 @@ e.g.,
 %
 A cycle of $A_1$, \dots, $A_l$ is equal to
 %
-\begin{multline}
-      \rho^l (a_1 * \cdots * a_l)(\vct{0})
-  =
-      \rho^l
-      \int \tilde{a}_1(\vk) \cdots \tilde{a}_l(\vk) \, \dvk
-      \\
-  =
-      \rho^l
-      \int (a_1 * \cdots * a_{l-1})(\vr) \, a_l(\vr) \, d\vr,
+%\begin{multline}
+\begin{align}
+\rho^l (a_1 * \cdots * a_l)(\vct{0})
+&=
+\rho^l
+\int \tilde{a}_1(\vk) \cdots \tilde{a}_l(\vk) \, \dvk
+\notag\\
+&=
+\rho^l
+\int (a_1 * \cdots * a_{l-1})(\vr) \, a_l(\vr) \, d\vr,
 \label{eq:cyclesp}
-\end{multline}
+%\end{multline}
+\end{align}
 %
 where
   $\tilde{a}_i(\vk) = \int a_i(\vr) \, \exp(-i \vk \cdot \vr) \, d\vr$
@@ -1028,14 +1039,7 @@ A \emph{polygon graph} $G$ satisfies
 We label the vertices from $1$ to $n$ in a clockwise fashion,
   and mark vertices $1$ and $n$ as the only two roots.
 %
-If $n = 2$, the graph
-  \begin{tikzpicture}
-    \node (r1) at (-3mm, 0) [whitedot]{};
-    \node (r2) at ( 3mm, 0) [whitedot]{};
-    \draw (r1) -- (r2);
-  \end{tikzpicture},
-  or the \emph{$f$-graph} hereinafter,
-  is also included as a polygon graph.
+The $f$-graph is also included as a polygon graph.
 %
 Further,
   a \emph{pie graph}
@@ -1253,7 +1257,7 @@ The symmetry number $s(G)$ of a polygon graph $G$ is always unity.
 
 
 
-We now use polygon and pie graphs to characters
+We now use polygon and pie graphs to characterizes
   graphs in the PY equation.
 
 \begin{lemm}
@@ -1390,7 +1394,7 @@ In the PY equation,
 \end{lemm}
 %
 Note that the $n = 2$ case is special,
-  for the $f$-graph does not form a polygon.
+  for the rootless $f$-graph does not form a polygon.
 Thus, $s(G)$ in Eq. \eqref{eq:pykappasum}
 is understood to be equal to $4$ in this case.
 
@@ -1707,7 +1711,7 @@ to the right-hand side is
 = \frac{ I(G) }
  { |\Hgroup_L| \cdot s(G_1) \cdots s(G_l) }.
 \end{align*}
-The above expression is the same as Eq. \eqref{eq:ccyclingleft}
+The above expression is equal to that in Eq. \eqref{eq:ccyclingleft}
 because
 \begin{equation}
   \G_L = \Hgroup_L \times \Aut(G_1) \times \cdots \times \Aut(G_l).
@@ -1741,7 +1745,9 @@ On the other hand,
 $G$ has $m=2$ isomorphic cycles of length $l = 3$.
 The cycle only has a reflection symmetry, so $|\Hgroup_L| = 2$.
 So the contribution to both sides is
-$m \, I /s = I/|\Hgroup_L| = I/2$.
+$m \, I /s = I/|\Hgroup_L| = I/2$,
+which proves Eq. \eqref{eq:ccycling}.
+
 
 
 %The reader can readily verify that
@@ -1782,7 +1788,7 @@ Summing Eq. \eqref{eq:ccycling} over $l$ yields
   %
       \sum_{l=3}^{\infty} \, l \, \Chn_l
   &=
-      \frac{ \rho^2 }{2} \int t(\vr) \, c(\vr) \, d\vr,
+      \frac{ \rho^2 }{2} \int c(\vr) \, t(\vr) \, d\vr,
       \label{eq:Clsuml} \\
   %
       \sum_{l=3}^{\infty} \, l \, (l - 3) \, \Chn_l
@@ -1886,7 +1892,7 @@ we get
 \label{eq:baxterpressure}
 \end{align}
 %
-Note that the weight $-2/s(G)$ is rather different
+Note that the weight $-2/s(G)$ in Eq. \eqref{eq:pyPgraph} is rather different
   from that $(1-n)/s(G)$ given in Sec. \ref{sec:graph}.
 %
 This means that the PY closure not only drops the non-polygon graphs,
@@ -1964,13 +1970,13 @@ with respect to $\rho$ and using Eq. \eqref{eq:intdlogrhoc} yields
 The second term vanishes because of the PY closure, Eq. \eqref{eq:py}:
 $c \, \partial_\rho t = (1 + \, t) \, f \, \partial_\rho t = (1 + t) \, \partial_\rho c$.
 %
-Thus, we recover Eq. \eqref{eq:crcompr}.
+This completes the proof.
 
-This demonstration proves that
+Since
 Eqs. \eqref{eq:crcompr} and \eqref{eq:baxterpressure}
-produce the same virial coefficients,
-since the two formulae differ only
-by a differentiation with respect to the density, $\rho$.
+differ only
+by a differentiation with respect to the density, $\rho$,
+they produce the same virial coefficients.
 
 
 
@@ -1998,12 +2004,13 @@ Similarly,
 \label{eq:pyddpressure}
 \end{align}
 %
-where we have use
+where we have used
   Eqs. \eqref{eq:countpairs},
        \eqref{eq:pyintgcr2sums}, and
        \eqref{eq:Clsum_th}.
 %
-Note that this relation is approximate (i.e., it is not a compressibility route result)
+Note that this relation is approximate
+  (i.e., it is not a compressibility-route result)
   and the deviation is
   similar to that in the HNC approximation.
 
@@ -2014,10 +2021,11 @@ Note that this relation is approximate (i.e., it is not a compressibility route 
 \section{\label{sec:hnc}HNC equation}
 
 
+
 \subsection{$c$-graphs}
 
 The HNC equation includes
-  more graphs than the PY closure.
+  more graphs than the PY equation.
 %
 For example, $c(\vr)$ contains
 %
@@ -2221,7 +2229,7 @@ To verify the weight $w(M)$,
 \end{equation}
 %
 The number of times of $M$
-  appearing in expansion of $t^m(\vr)$
+  appearing in the expansion of $t^m(\vr)$
   is equal to the number of ways
   of assigning the $t$ types to the $m$ chains
   under the conditions, Eqs. \eqref{eq:sortchains},
@@ -2318,7 +2326,7 @@ We view $G$ as a parallel composition of the $c$-chain $H_m$
   \end{tikzpicture}
 \]
 Since $G'$ is a $c$-graph by the induction hypothesis,
-  $G$, which is a the parallel composition of $G'$ and $H_m$,
+  $G$, the parallel composition of $G'$ and $H_m$,
   is a cycle of $c$-graphs by Eq. \eqref{eq:cyclesp},
   and hence a $c$-graph.
 %
@@ -2496,9 +2504,9 @@ the generalized sum
 \label{eq:Apsi}
 \end{align}
 where
-\begin{multline}
+\begin{align}
   I(G; \psi_0, \psi_1)
-=
+&=
   \int
   %\left[
     \prod_{\{i, j\} \in E(G)}
@@ -2506,9 +2514,9 @@ where
       f(\vr_{ij}) \, \exp \psi_1(\vr_{ij})
     \Bigr]
   %\right]
-  %\notag
+  \notag
   \\
-%& \hphantom{=\int}
+& \hphantom{=\,\,\,}
   %\left(
     \prod_{
       \{l, m\} \in P(G) \backslash E(G)
@@ -2521,11 +2529,12 @@ where
       \exp \psi_0(\vr_{lm})
     \Bigr]
   %\right)
-  \quad
-  d\vr_2 \, \cdots \, d\vr_n,
+  \;
+  d\vr_2 \cdots d\vr_n,
   \label{eq:Ipsi}
-\end{multline}
-with $E(G)$, $P(G)$ being the sets of edges and unordered pivots in $G$,
+\end{align}
+with $E(G)$ and $P(G)$ being the sets of edges and unordered pivots in $G$,
+respectively.
 %
 Thus, $|E(G)|$ is equal to the number of edges $e(G)$,
 and $|P(G)| = p(G)/2$,
@@ -2542,7 +2551,7 @@ the first product in Eq. \eqref{eq:Ipsi}
 covers all adjacent unordered pivots,
 and the second product over the complement
 $P(G) \backslash E(G)$
-covers all nonadjacent unordered pivots,
+covers all nonadjacent unordered pivots.
 %
 We can treat
 $\A(\psi_0, \psi_1)$
@@ -2666,7 +2675,7 @@ in the HNC equation shares the same weight as
 the exact sum given in Sec. \ref{sec:bcsums}.
 %
 The only difference is that the former covers only $c$-packs,
-whereas the latter covers all unrooted biconnected graphs.
+whereas the latter covers all rootless biconnected graphs.
 
 
 For the chemical potential, we use the relation
@@ -2878,7 +2887,7 @@ such that the overall process always ends with a $c$-graph
 
 
 
-Algorithm L in above proof allows us to
+Algorithm L in the above proof allows us to
   decompose a $c$-pack as simple cycles as follows.
 
 \textbf{Algorithm D:}
@@ -2949,7 +2958,7 @@ If (a) is not true,
 Then,
   there is at least one joint $u_i$ of $J$
   that belongs to $V_L$
-  [for the vertices in $V_L$ are connected in $G^{(s)}$].
+  [for the vertices in $V_L$ are connected].
 %
 Consider now the $c$-pack $G^{(s)}$
   in Step 2 of the $s$th round of Algorithm D.
@@ -3099,7 +3108,7 @@ as\cite{morita1958, *morita1960, *morita1960I, singer1985}
     - \sum_{l = 3}^\infty \left[ l(l-1) - 2 \right] \, \Chn_l
       \notag \\
   &=
-      \rho^2 \int \left[ c(\vr) - \tfrac{1}{2} t^2(\vr) - t(\vr) \, c(\vr) \right] \, d\vr
+      \rho^2 \int \left[ c(\vr) - \tfrac{1}{2} t^2(\vr) - c(\vr) \, t(\vr) \right] \, d\vr
       \notag \\
   & \hphantom{=}
       + \int  \tilde{T}(\vk) \, \dvk,
@@ -3190,6 +3199,7 @@ is equivalent to the virial-route pressure formula:
 %
 The proof was previously sketched\cite{
 morita1960, morita1960I}.
+%
 It is illustrated in Fig. \ref{fig:iepres}
 for the three-dimensional hard-sphere fluid.
 
@@ -3198,7 +3208,8 @@ for the three-dimensional hard-sphere fluid.
     \includegraphics[angle=0, width=0.8\linewidth]{fig/iepres.pdf}
   }%
   \caption{\label{fig:iepres}
-  Comparison of the pressure formulae for the PY and HNC equations.}
+  Comparison of the pressure formulae for the PY and HNC equations
+  in the three-dimensional hard-sphere fluid.}
 \end{figure}
 
 
@@ -3225,7 +3236,7 @@ We first define
   \label{eq:Irhozetadef}
 \end{equation}
 where $n = n(G)$ is the number of vertices in $G$,
-and the inner product goes over all $f$-bonds in the $G$.
+and the inner product goes over all $f$-bonds in $G$.
 %%
 %The normal integral is recovered as
 %\[
@@ -3264,7 +3275,8 @@ it follows that
 where we have used Eq. \eqref{eq:Idrho} in the second step.
 
 
-Consider now an arbitrary sum over all unrooted graphs (polygon packs or $c$-packs)
+Consider now an arbitrary sum
+over all rootless graphs (polygon packs or $c$-packs)
 \[
   A^*(\rho, \zeta) = \sum_G w(G) I^*(G; \rho, \zeta),
 \]
@@ -3277,7 +3289,7 @@ Using Eq. \eqref{eq:drhodzeta} yields,
   -D \, \rho \, \partial_\rho A^*(\rho, \zeta)
   \\
 &=
-  -\sum_G w(G) \, \bigl[ n(G) - 1 \bigr] \, I^*(G; \rho, \zeta).
+  -\sum_G w(G) \, D \, \bigl[ n(G) - 1 \bigr] \, I^*(G; \rho, \zeta).
 \end{align*}
 %or in terms of the graphical sums,
 %\begin{align*}
@@ -3425,8 +3437,8 @@ Thus,
 &=
   \rho^2 \int
   \left\{ c(\vr)
-    - \frac{ c^2(\vr) [\vr \cdot \nabla (f^{-1}) ] }
-           { 2 \, D }
+  + \frac{ c^2(\vr) (\vr \cdot \nabla f) }
+    { (2 \, D) \, f^2(\vr) }
   \right\} \, d\vr.
   \notag
 \end{align}
@@ -3466,16 +3478,19 @@ $\vr \cdot \nabla f = r \, f'(r) = \delta(r - 1)$, and
 %
 where
 $S_D \, r^{D-1}$ is the surface area of a $D$-dimensional hypersphere of radius $r$,
-and $B_2 = S_D / (2D)$.
+and $B_2 = S_D / (2 \, D)$.
 %
 On the last line, we have also used the identity
 $0 = g(\vr) = c(\vr) + t(\vr) + 1$
 for $|\vr| < 1$.
 %
-Further, for the hard-sphere fluid,
-$h(\vr) = -1$ for $|\vr| < 1$.
+Further,
+since
+$h(\vr) = -1$ for $|\vr| < 1$,
+and
+$c(\vr) = 0$ for $|\vr| > 1$,
 %
-So, the zero-separation theorem, Eq. \eqref{eq:zerosep}
+the zero-separation theorem, Eq. \eqref{eq:zerosep}
 becomes\cite{henderson2009}
 %
 \begin{equation*}
@@ -3496,6 +3511,42 @@ Thus,
   \label{eq:pyPsimplifiedhs}
 \end{align}
 %
+For the three-dimensional hard-sphere fluid,
+we have\cite{
+wertheim1963, *wertheim1964, *thiele1963,
+*baxter1968, henderson2009, hansen}:
+%
+%
+%
+\begin{align*}
+c(r)
+&=
+-\frac{ (1 + 2\eta)^2 }
+      { (1 - \eta)^4 }
+  \left(1 + \frac{\eta}{2} r^3 \right)
++
+\frac{ 3 \, \eta }{ 2 }
+\frac{ (2 + \eta)^2 }
+     { (1 - \eta)^4 }
+r
+\qquad
+\mbox{(for $r < 1$),}
+\\
+\frac{ \beta P }{ \rho }
+&=
+\frac{ 1 + \eta + \eta^2 }
+{ (1 - \eta)^3 },
+\end{align*}
+%
+%
+%
+where,
+$\eta = \pi \, \rho / 6 = \rho \, B_2/4$
+is the packing fraction.
+%
+One can readily verify
+that Eq. \eqref{eq:pyPsimplifiedhs} holds in this case.
+%
 In Fig. \ref{fig:iepres},
 we show that
 Eqs.
@@ -3503,8 +3554,7 @@ Eqs.
 \eqref{eq:pyPsimplified},
 and
 \eqref{eq:pyPsimplifiedhs}
-yielded the same results
-in the three-dimensional hard-sphere fluid.
+yield the same results.
 
 
 
@@ -3619,7 +3669,7 @@ resembles the cavity distribution function $y(\vr)$ in the HNC case
 [cf. Eq. \eqref{eq:yrfunctional}].
 %
 We first define an \emph{extended polygon graph}
-as a polygon graph that allows any intra-face root pairs,
+as a polygon graph that allows any intra-face pairs,
 instead of just those on a side,
 as the roots.
 %
@@ -3666,11 +3716,13 @@ is the weighted sum of all nonequivalent extended polygon graphs $G$
 with the roots being a nonadjacent intra-face pair,
 with the weight of $G$ given by $1/s(G)$;
 $f(\vr) \, \bigl[ t(\vr) + 1 \bigr]^2/2$
-is the corresponding weighted sum of extended polygon graphs.
+is the corresponding weighted sum of extended polygon graphs
+with adjacent roots.
 \end{lemm}
 
 \begin{proof}
-If an extended polygon graph $G$ has a nonadjacent intra-face pair,
+If an extended polygon graph $G$ has a nonadjacent intra-face pair
+of vertices as the roots,
   it can be viewed as a parallel composition
   of two pie graphs joined at the pair.
 %
@@ -3698,9 +3750,11 @@ Otherwise,
 So the weight $2\cdot(1/2) = 1$ of $H_1 \cdot H_2$
   is equal to the inverse symmetry number $s(G) = 1$.
 
-For the second part regarding adjacent pairs,
-  we observe that
-  if an adjacent pair is on a side of a polygon,
+
+Now consider the case of the roots forming
+an adjacent pair.
+%
+If the pair is on a side of a polygon,
   then the sum gives $f(\vr) \, [1/2 + t(\vr)]$,
   by Lemma \ref{thm:pycrsum}
   (with the weight of the $f$-graph
@@ -3713,7 +3767,7 @@ Otherwise,
 which yields the sum $f(\vr) \, t^2(\vr)/2$,
   following the above reasoning.
 %
-The sum the two cases gives
+The sum of the two cases gives
   $f(\vr) \, \bigl[ t(\vr) + 1 \bigr]^2/2$.
 \end{proof}
 
@@ -3728,8 +3782,8 @@ Redefine $\A$ in Eq. \eqref{eq:Adef}
 as a sum carried over all polygon packs.
 Then, the sums obtained from whitening,
 one at a time,
-all and nonadjacent intra-face ordered pairs
-of all polygon pack $G$ in $\A$
+adjacent and nonadjacent intra-face ordered pairs
+of all polygon packs $G$ in $\A$
 are given by
 $\frac{1}{2} \, \rho^2 \, f(\vr) \, [t(\vr) + 1]^2$
 and
@@ -3747,7 +3801,7 @@ Eqs. \eqref{eq:Apsi} and \eqref{eq:Ipsi},
 with two modifications:
 (i) the sum over $G$ in Eq. \eqref{eq:Apsi}
 is carried over all polygon packs;
-(ii) $P(G)$ is replaced to the set of intra-face \emph{unordered} pairs.
+(ii) $P(G)$ is replaced by the set of intra-face \emph{unordered} pairs.
 %
 Since every edge is an unordered intra-face pair,
 we have
@@ -3894,7 +3948,7 @@ with $\A \big|_{\rho = 0} = \Fexv \big|_{\rho = 0} = 0$, yields
 %  \beta \, \Pexv = \frac{\rho^2} {2D} \, \int (\vr \cdot \nabla f) \, y \, d\vr.
 %  \label{eq:Pvirial}
 %\end{equation}
-This show the free energy $\Fex$ in
+This show that the free energy $\Fex$ in
 Eqs. \eqref{eq:hncFexA} and \eqref{eq:hncF}
 is the virial-route result $\Fexv$.
 %
@@ -4002,8 +4056,8 @@ Thus, when the roots of a graph $H$ in $\log y(\vr)$
   for the merged root in $G$ is not an articulation point.
 
 
-Now consider a particular $G$,
-  in which there are $K$ vertices $v_1, \dots, v_K$ adjacent to the root.
+Suppose in $G$,
+  there are $K$ vertices $v_1, \dots, v_K$ adjacent to the root.
 %
 We collect all graphs $H$ that can be reduced to $G$
   by the above root merging (see below).
@@ -4036,11 +4090,12 @@ In $H$, each $v_k$ ($1 \le k \le K$) is adjacent to
 Since for the hard-sphere potential $f^2 = -f$,
 %
 the sum of all the above graphs $H$
-  multiplies the contribution of $G$ by
+  is equal to the integral of $G$ multiplied by
   $(1 + 1 - 1)^K - 2 = -1$.
 %
 Thus, $\log y(\vct0) = (-1) \cdot \sum_G I(G)/s(G)$,
-  where the sum is carried over all one-root unlabeled biconnected graphs $G$.
+  where the sum is carried over all 1-root unlabeled biconnected graphs $G$.
+%
 According to Sec. \ref{sec:bcsums},
   the sum is equal to $-\beta \muex$,
   which proves Eq. \eqref{eq:yrzerosep}.
