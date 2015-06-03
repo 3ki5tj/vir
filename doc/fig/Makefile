@@ -21,7 +21,7 @@ $(PDF) : %.pdf : %.eps $(deps)
 	epstopdf $<
 
 $(EPS) : %.eps : %.gp $(deps)
-	gpload $<
+	gnuplot $<
 
 $(TIF) : %.tif : %.png $(deps)
 	convert $< $@

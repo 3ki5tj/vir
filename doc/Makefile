@@ -10,7 +10,8 @@ clean:
 
 $(prj)doc.zip: $(prj)doc.tex $(prj)doc.pdf $(prj)text.doc \
   	       $(prj)supp.doc \
-	       $(prj).enl $(prj).Data $(figs) README Makefile \
+	       paper.pdf \
+	       $(prj).enl $(prj).Data $(figs) README Makefile
 	zip -r $@ $^
 
 zip: $(prj)doc.zip
@@ -21,3 +22,6 @@ mobi: $(prj)text.mobi
 $(prj)text.mobi: $(prj)text.htm
 	kindlegen -c1 -verbose $<
 
+Bossman: zip
+	rsync -avL $(prj)doc.zip \
+	  cz1@129.109.88.204:/Bossman/cz1/vir/doc
