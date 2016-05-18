@@ -7,12 +7,12 @@ from math import *
 
 
 
-def loadBn(fn):
+def loadBn(fn, col = 1):
   ls = []
   for ln in open(fn).readlines():
     if ln.startswith("#"): continue
     a = ln.strip().split()
-    ls += [(int(a[0]), float(a[1])), ]
+    ls += [(int(a[0]), float(a[col])), ]
   nmax = max(n for n, Bn in ls)
   vir = [1]*(nmax + 1)
   for n, Bn in ls: vir[n] = Bn
@@ -25,12 +25,20 @@ def geterr(fn, fnref):
     fn, fnref = fnref, fn
 
   Bnref = loadBn(fnref)
-  Bn = loadBn(fn)
+  Bn = loadBn(fn) # compressibility route
+  if fn.find("PYc") < 0:
+    Bnv = loadBn(fn, 2) # virial route
+  else:
+    Bnv = None
   nmax = min(len(Bn), len(Bnref))
   s = "# %s %s\n" % (fn, fnref)
   for n in range(1, nmax):
-    s += "%4d %24.14e %24.14e %24.14e\n" % (
-        n, Bn[n], Bnref[n], fabs(Bn[n] - Bnref[n]))
+    s1 = "%4d %24.14e %24.14e %24.14e" % (
+        n, Bn[n], Bnref[n], fabs(Bn[n] - Bnref[n]) )
+    if Bnv:
+      s1 += " %24.14e %24.14e" % (
+        Bnv[n], fabs(Bnv[n] - Bnref[n]))
+    s += s1 + "\n"
 
   # output name
   fnout = fn

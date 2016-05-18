@@ -16,6 +16,13 @@
 %\usepackage{graphicx}
 %\usepackage{setspace}
 
+\hypersetup{
+    colorlinks,
+    linkcolor={red!30!black},
+    citecolor={blue!50!black},
+    urlcolor={blue!80!black}
+}
+
 \newtheorem{defn}{Definition}
 \newtheorem{thrm}{Theorem}
 \newtheorem{lemm}[thrm]{Lemma}
@@ -684,7 +691,7 @@ all 1-root unlabeled biconnected graphs $G$
 weighted by $1/s(G)$.
 %
 The series for $c(\vr)$ is the sum of
-all two-root unlabeled biconnected graphs $G$
+all 2-root unlabeled biconnected graphs $G$
 weighted by $1/s(G)$.
 
 
@@ -1360,7 +1367,8 @@ The symmetry number $s(G)$,
 Further,
   the number of cosets of the automorphism group,
   which is equal to $w(G)$, the number of ways of
-  producing nonequivalent vertex labels by permutation,
+  producing nonequivalent vertex labels
+  by permutations in the dihedral group,
   is given by $2 \, n(G) / s(G)$.
 %
 In summary,
@@ -1394,9 +1402,16 @@ In the PY equation,
 \end{lemm}
 %
 Note that the $n = 2$ case is special,
-  for the rootless $f$-graph does not form a polygon.
+  for the rootless $f$-graph,
+  \begin{tikzpicture}
+    \node (r1) at (-3mm, 0) [blackdot]{};
+    \node (r2) at ( 3mm, 0) [blackdot]{};
+    \draw (r1) -- (r2);
+  \end{tikzpicture},
+  does not form a polygon.
 Thus, $s(G)$ in Eq. \eqref{eq:pykappasum}
-is understood to be equal to $4$ in this case.
+takes the special value of $4$ instead of $2$
+in this case.
 
 We give two examples.
 For
@@ -1597,7 +1612,8 @@ will be adapted to the HNC case in Sec. \ref{sec:hncFexmuex}.
 
 
 
-Using Eq. \eqref{eq:countvertices} in Eq. \eqref{eq:pykappasum} yields
+Using Eq. \eqref{eq:countvertices} in Eq. \eqref{eq:pykappasum} yields,
+for the PY equation,
 %
 \begin{equation}
     \rho^2 \int c(\vr) \, d\vr
@@ -1848,13 +1864,13 @@ can all be expressed as chain sums.
 
 
 
-\subsection{Baxter's pressure formula}
+\subsection{Baxter's pressure formula for the PY equation}
 
 
 %We now derive Baxter's pressure formula
 %\cite{baxterpressure}.
 %
-To obtain an expression of pressure,
+To obtain an expression of pressure for the PY equation,
   we start with\cite{hansen}
 %
 \begin{align}
@@ -1872,7 +1888,7 @@ we have used Eq. \eqref{eq:pykappasum} in the second step.
 Since for a polygon pack $G$ of $n$ vertices, $\rho^{-1} I(G)$
   is proportional to $\rho^{n-1}$,
 %
-integration over $\rho$ yields\cite{baxterpressure}
+integrating over $\rho$ yields\cite{baxterpressure}
 %
 \begin{align}
       -\beta \Pex
@@ -2176,7 +2192,7 @@ We first show that
 %
 According to Eq. \eqref{eq:oz},
 \[
-  t = \rho \, c*c + \rho^2 \, c * c * c + \rho^3 \, c*c*c*c \cdots.
+  t = \rho \, c*c + \rho^2 \, c * c * c + \rho^3 \, c*c*c*c + \cdots.
 \]
 So, $H$ can be written as a $c$-chain
   $G_1 * \cdots * G_l$ ($l \ge 2$).
@@ -2286,7 +2302,7 @@ We view $G$ as a parallel composition of the $c$-chain $H_m$
 \[
   \newcommand{\sz}{3mm}
   \begin{tikzpicture}
-    \node (v1)    at ( 0, 0) [blackdot,label=left:$v_1$]{};
+    \node (v1)    at ( 0, 0) [whitedot,label=left:$v_1$]{};
     \node (v2)    at ( 1.0*\sz, 2.0*\sz) [blackdot,blue,label=left:$v_2$]{}
       edge[thick, blue, bend right=10] (v1);
     \node (vlm1)  at ( 9.0*\sz, 2.0*\sz) [blackdot,blue,label=right:$v_{l-1}$]{}
@@ -2294,7 +2310,7 @@ We view $G$ as a parallel composition of the $c$-chain $H_m$
     %\node (ui)    at ( 5.0*\sz, 3.5*\sz) []{}
     %  edge[dotted, bend right=25] (v2);
     %  edge[dotted, bend left=25] (vlm1);
-    \node (vl)    at (10.0*\sz, 0) [blackdot,label=right:$v_l$]{}
+    \node (vl)    at (10.0*\sz, 0) [whitedot,label=right:$v_l$]{}
       edge[thick, blue, bend right=10] (vlm1)
       edge[dashed, thick] node[anchor=north] {$f$} (v1)
       edge[thick, bend left=40] node[anchor=north] {$H_1$} (v1);
@@ -2651,7 +2667,7 @@ On the other hand, differentiating $\A$ yields
   -\frac{\rho^2} {2}
   \int \phi(\vr) \, g(\vr) \, d\vr,
 \end{align*}
-where we have used Eq. \eqref{eq:yrfunctional}.
+where we have used Eq. \eqref{eq:yrfunctional} on the second line.
 %
 Comparing this to Eq. \eqref{eq:Fti}, we get
 \begin{equation}
@@ -2712,7 +2728,7 @@ where we have used $I(G) \propto \rho^{n(G)}$.
 
 To proceed, we need to generalize the face decomposition in the PY case
   to a cycle decomposition for the HNC case,
-  which helps adapting the counting formulae,
+  which helps adapt the counting formulae,
   Eqs. \eqref{eq:countvertices} and \eqref{eq:countpairs}.
 
 
@@ -2894,7 +2910,7 @@ Algorithm L in the above proof allows us to
 \begin{enumerate}
   \item
     Given a $c$-pack $G$,
-      repeat steps 2 and 3 until $G$ is an $f$-graph.
+      repeat Steps 2 and 3 until $G$ is an $f$-graph.
   \item
     Find a simple cycle in $G$,
       $v_1 - v_2 - \cdots - v_l - v_1$
@@ -2942,7 +2958,7 @@ We will show below that
     are entirely contained in
     some link $u_i - u_{i+1}$,
   or
-  (b) $L^{(s)}$ and $J$ share the same joints (i.e., the two are the same).
+  (b) $L^{(s)}$ and $J$ share the same set of joints.
 %
 Since case (a) leaves $J$ intact,
   every cycle $J$ is discovered (and then eliminated)
@@ -2951,7 +2967,7 @@ Since case (a) leaves $J$ intact,
 %
 
 If (a) is not true,
-  it means that the vertices in $L^{(s)}$
+  it means that the vertices in $V_L$
   spread over several links,
   $u_i - u_{i+1}$, $u_{i'} - u_{i' + 1}$, \dots, in cycle $J$.
 %
@@ -2977,6 +2993,72 @@ Now, since the vertices in $V_L$ are connected,
 %
 \[
   \newcommand{\sz}{4mm}
+  \begin{tikzpicture}
+    \node (v1)    at ( 1.5*\sz, 0) [blackdot,label=left:$v_1$]{};
+    \node (v2)    at ( 2.1*\sz, 2.0*\sz) [blackdot,label=left:$v_2$]{}
+      edge[thick, bend right=10] (v1);
+    \node (ui)  at ( 2.0*\sz, 3.7*\sz) [blackdot,blue,label=left:$u_{i}$]{};
+    \node (uip1)  at ( 8.0*\sz, 3.7*\sz) [blackdot,blue,label=right:$u_{i+1}$]{}
+      edge[blue, thick, bend right=15] (ui);
+    \node (vlm1)  at ( 7.9*\sz, 2.0*\sz) [blackdot,label=right:$v_{l-1}$]{}
+      edge[dotted, bend right=70] (v2);
+    \node (vl)    at ( 8.5*\sz, 0) [blackdot,label=right:$v_l$]{}
+      edge[thick, bend right=10] (vlm1)
+      edge[ultra thick, bend left=10] (v1);
+
+    \node (u1)    at ( 5.0*\sz, 8.7*\sz) [blackdot,blue,label=above:$u_1$]{};
+    \node (uj)    at ( 8.0*\sz, 8.0*\sz) [blackdot,blue,label=45:$u_j$]{}
+      edge[blue,dotted,thick, bend left=60] (uip1)
+      edge[blue,thick, bend right=8] (u1);
+    \node (u2)    at ( 2.0*\sz, 8.0*\sz) [blue, blackdot,blue,label=135:$u_2$]{}
+      edge[blue,dotted,thick, bend right=60] (ui)
+      edge[blue,thick, bend left=8] (u1);
+
+    % shading of the L circle
+    \draw[fill=white!20!gray, opacity=0.2, draw=blue]
+      plot [smooth cycle]
+      coordinates{
+                   ( 2.0*\sz,  3.7*\sz)
+                   ( 5.0*\sz,  4.5*\sz)
+                   ( 8.0*\sz,  3.7*\sz)
+                   (10.5*\sz,  1.0*\sz)
+                   ( 5.0*\sz,  0.0*\sz)
+                   ( 0.0*\sz,  1.0*\sz) };
+
+    % beginning of the L circle
+    \draw[draw=black, thick]
+      plot [smooth cycle]
+      coordinates{ ( 2.3*\sz, 0.6*\sz)
+                   ( 3.9*\sz, 3.2*\sz)
+                   ( 6.1*\sz, 3.2*\sz)
+                   ( 7.7*\sz, 0.6*\sz)
+                   ( 5.0*\sz, 0.0*\sz) };
+
+    \node (L) at (5.3*\sz, 2.0*\sz) {$L^{(s)}$};
+    % end of the L circle
+
+    % beginning of the J circle
+    \draw[thick, draw=blue]
+      plot [smooth cycle]
+      coordinates{
+                   ( 2.0*\sz, 4.5*\sz)
+                   ( 1.2*\sz, 5.9*\sz)
+                   ( 2.2*\sz, 7.6*\sz)
+                   ( 5.0*\sz, 8.3*\sz)
+                   ( 7.8*\sz, 7.6*\sz)
+                   ( 8.8*\sz, 5.9*\sz)
+                   ( 8.2*\sz, 4.5*\sz)
+                   ( 5.0*\sz, 4.7*\sz) };
+
+    \node (J) at (5.0*\sz, 7.0*\sz) [blue] {$J$};
+    % end of the J circle
+
+    \node (casea) at (5.0*\sz, 11*\sz) {Case (a).};
+    % caption
+  \end{tikzpicture}
+%
+\quad
+%
   \begin{tikzpicture}
     \node (v1)    at ( 0, 0) [blackdot,label=left:$v_1$]{};
     \node (v2)    at ( 0.5*\sz, 2.0*\sz) [blackdot,label=left:$v_2$]{}
@@ -3029,15 +3111,21 @@ Now, since the vertices in $V_L$ are connected,
 
     \node (J) at (5.0*\sz, 7.0*\sz) [blue] {$J$};
     % end of the J circle
+
+    \node (caseb) at (5.0*\sz, 11*\sz) {Case (b).};
+    % caption
   \end{tikzpicture}
 \]
 
-By repeating the above argument on $u_{i-1}$ or $u_{i+1}$,
+By repeating the above argument on $u_{i-1}$ and/or $u_{i+1}$,
+whichever belong(s) to $V_L$,
 we can show that
-  all the joints $v_1$, \dots $v_l$ of $L^{(s)}$
+  all the vertices in $V_L$,
+  $v_2, \dots, v_{l-1}$,
+  hence all the joints $v_1$, \dots $v_l$ of $L^{(s)}$,
   are also consecutive joints of $J$.
 %
-This means that the two cycles share the same joints
+This means that the two cycles share the same set of joints
   [case (b)].
 \end{proof}
 
@@ -3060,12 +3148,12 @@ Given a $c$-pack $G$,
   Lemma \ref{thm:hncdecomp} allows us
   to order all cycles that decompose $G$
   according to the simple cycles
-  discovered in Algorithm L.
+  discovered in Step 2 of Algorithm D.
 %
 Counting vertices and vertex pairs
   are readily established on the simple cycles.
 %
-First, each step of Algorithm L removes $(l - 2)$ vertices,
+First, Step 3 of Algorithm D removes $(l - 2)$ vertices,
   with $l$ being the length of the simple cycle.
 %
 Thus, the total number of vertices $n(G)$
@@ -3104,22 +3192,29 @@ as\cite{morita1958, *morita1960, *morita1960I, singer1985}
       \sum_G \frac{ 2 \, I(G) } { s(G) }
       \notag \\
   &=
+      \sum_G \frac{ p(G) \, I(G) } { s(G) }
+      -
+      \sum_{l = 3}^\infty \left[ l \, (l - 1) - 2 \right] \, \Chn_1
+      \notag \\
+  &=
       \rho^2 \int c(\vr) \, d\vr
-    - \sum_{l = 3}^\infty \left[ l(l-1) - 2 \right] \, \Chn_l
+    - \sum_{l = 3}^\infty \left[ l \, (l-3) + 2 \, l - 2 \right] \, \Chn_l
       \notag \\
   &=
       \rho^2 \int \left[ c(\vr) - \tfrac{1}{2} t^2(\vr) - c(\vr) \, t(\vr) \right] \, d\vr
-      \notag \\
-  & \hphantom{=}
+  %    \notag \\
+  %& \hphantom{=}
       + \int  \tilde{T}(\vk) \, \dvk,
 \label{eq:hncF}
 \end{align}
 %
 where,
   on the second line,
-  we have used Eqs. \eqref{eq:hnccrsum} and \eqref{eq:countpairs},
-  and on the next lines,
-  we have used Eqs. \eqref{eq:Clsum3}-\eqref{eq:Clsumll}.
+  we have used
+  Eq. \eqref{eq:countpairs} on the second line,
+  Eqs. \eqref{eq:hnccrsum} on the third,
+  and Eqs. \eqref{eq:Clsum3}-\eqref{eq:Clsumll} on the last line.
+  %with $l\, (l-1)-2 = l \, (l-3) + 2 \, l - 2$.
 %
 Similarly, the chemical potential
   can be computed from Eq. \eqref{eq:hncmugsum}
@@ -3129,8 +3224,14 @@ Similarly, the chemical potential
     - \beta \, \rho \, \muex
   &=
       \sum_G \frac{ n(G) \, I(G) } { s(G) }
-  =
+      \notag \\
+  &=
       \sum_G \frac{ 2 \, I(G) } { s(G) }
+    + \sum_{l = 3}^\infty (l-2) \, \Chn_l
+      \notag \\
+  &=
+      \sum_G \frac{ p(G) \, I(G) } { s(G) }
+    - \sum_{l = 3}^\infty \left[ l \, (l-1) -2 \right] \, \Chn_l
     + \sum_{l = 3}^\infty (l-2) \, \Chn_l
       \notag \\
   &=
@@ -3142,8 +3243,11 @@ Similarly, the chemical potential
 \label{eq:hncmu}
 \end{align}
 %
-we have used Eqs. \eqref{eq:countvertices}, \eqref{eq:countpairs},
-\eqref{eq:hnccrsum}, and \eqref{eq:Clsum_th}.
+we have used
+Eq. \eqref{eq:countvertices} on the second line,
+Eq. \eqref{eq:countpairs} on the third,
+Eq. \eqref{eq:hnccrsum} on the fourth,
+and Eq. \eqref{eq:Clsum_th} on the last.
 %Although \eqref{eq:hncmu} assigns the correct weight to each $G$,
 %  the sum goes over only a subset (that of $c$-packs) of the biconnected graphs.
 %%
@@ -3192,7 +3296,7 @@ is equivalent to the virial-route pressure formula:
 \begin{equation}
   \beta \, \Pexv
 =
-  - \frac{\rho^2}{2D}
+  - \frac{\beta \, \rho^2}{2D}
   \int (\vr \cdot \nabla\phi) \, g(\vr) \, d\vr.
 \label{eq:virialpressure}
 \end{equation}
@@ -3218,7 +3322,7 @@ for the three-dimensional hard-sphere fluid.
 
 \section{\label{sec:virialtheorem}Virial theorem}
 
-Here we derive a virial theorem,
+Here we derive a general virial theorem,
 and use it
 (a) to simplify Baxter's pressure formula,
 and
@@ -3320,7 +3424,7 @@ Finally, we multiply both sides by $\rho$, and
   &= -\sum_G D \, [n(G) - 1] \, w(G) \, I(G, \zeta),
   \label{eq:virialtheorem}
 \end{align}
-where
+where, we have defined
 \begin{align*}
   I(G, \zeta)    &= \rho \, I^*(G; \rho, \zeta), &
             I(G) &= I(G, 1), \\
@@ -3421,7 +3525,8 @@ where we have used
 \end{align}
 %
 Note that Eqs. \eqref{eq:dTdzeta} and \eqref{eq:dfdzeta} are general,
-whereas the rest two equations result from the PY closure, Eq. \eqref{eq:py},
+whereas the rest two equations result from the PY closure,
+Eq. \eqref{eq:py}.
 %
 Thus,
 \begin{align}
@@ -3532,10 +3637,28 @@ r
 \qquad
 \mbox{(for $r < 1$),}
 \\
+c(0)
+&=
+-\frac{ (1 + 2\eta)^2 }
+      { (1 - \eta)^4 }
+,
+\qquad
+c(1^-)
+=
+-\frac{ \eta + 2 }
+      { 2 \, (1 - \eta)^2 }
+,
+\\
 \frac{ \beta P }{ \rho }
 &=
 \frac{ 1 + \eta + \eta^2 }
-{ (1 - \eta)^3 },
+{ (1 - \eta)^3 }
+=
+-
+\left[
+  c(0) + 4 \, \eta \, c^2(1^-)
+\right]
+,
 \end{align*}
 %
 %
@@ -3561,7 +3684,7 @@ yield the same results.
 \subsection{$c(\vr; \zeta) \ne c(\zeta \, \vr)$}
 
 
-We warn the reader about a possible confusion of notations
+We should caution the reader about a possible confusion of notations
 shown in the section title.
 %
 In $c(\vr; \zeta)$,
@@ -3574,7 +3697,8 @@ only the $f$-bond between the roots is affected.
 %
 Thus,
 $c(\vr; \zeta) \ne c(\zeta \, \vr)$,
-and, generally
+and, generally,
+for $c = c(\vr; \zeta)$,
 \[
   (\partial_\zeta c) \big|_{\zeta = 1}
 \ne
@@ -3756,9 +3880,16 @@ an adjacent pair.
 %
 If the pair is on a side of a polygon,
   then the sum gives $f(\vr) \, [1/2 + t(\vr)]$,
-  by Lemma \ref{thm:pycrsum}
-  (with the weight of the $f$-graph
-  modified by the factor of $1/s = 1/2$).
+  by Lemma \ref{thm:pycrsum},
+  with the weight of the $f$-graph,
+  \begin{tikzpicture}
+    \node (r1) at (-3mm, 0) [whitedot]{};
+    \node (r2) at ( 3mm, 0) [whitedot]{};
+    \draw (r1) -- (r2);
+  \end{tikzpicture},
+  modified by the factor of $1/s = 1/2$,
+  i.e., the symmetry number $s$ is doubled
+  (cf. the comment after Lemma \ref{thm:pykappasum}).
 %
 Otherwise,
   $G$ can be viewed as the parallel composition
@@ -3813,7 +3944,11 @@ we have
 \frac{ \delta \A(\psi_0, \psi_1) } { \delta \psi_1(\vr) }
 \right|_{\psi_0 = \psi_1 = 0},
 \end{align*}
-which can be rewritten,
+%
+where the leading factor, $\frac 1 2$,
+is due to the two orderings of the two vertices in a pair.
+%
+This equation can be rewritten,
 in analogous to Eq. \eqref{eq:yrfunctional} in the HNC case,
 as
 \begin{equation}
@@ -3938,7 +4073,7 @@ But from thermodynamics, we have
 %
 Thus,
 $\partial_\rho (\A/\rho)  = -\partial_\rho( \beta \, \Fexv/N )$,
-and an integration of $\rho$ from 0,
+and integrating of $\rho$ from 0,
 with $\A \big|_{\rho = 0} = \Fexv \big|_{\rho = 0} = 0$, yields
 \[
   \A/\rho = -\beta \, \Fexv/N.
@@ -4003,7 +4138,7 @@ where we have used Eq. \eqref{eq:dTdzeta},
 \]
 which is obtained from
 differentiating the closure, Eq. \eqref{eq:hnc},
-then using Eqs. \eqref{eq:dfdzeta}, and \eqref{eq:virialpressure}.
+then using Eqs. \eqref{eq:dfdzeta} and \eqref{eq:virialpressure}.
 
 Now, by setting $A \rightarrow \Fex / V$
 in Eq. \eqref{eq:virialtheorem}, we get

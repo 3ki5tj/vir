@@ -4,7 +4,7 @@ reset
 
 set encoding cp1250 # make minus sign longer
 ##set encoding iso_8859_1
-set terminal postscript eps enhanced size 7, 9 font "Arial, 20"
+set terminal postscript eps enhanced size 7, 10 font "Arial, 20"
 set output "ievircmp.eps"
 
 tlfont="Arial, 24"
@@ -19,7 +19,7 @@ titledsc = "DSC"
 titledscl = "{/Symbol-Oblique l}-DSC"
 
 # height of the very bottom panels
-bbh = 0.14
+bbh = 0.18
 
 # height of the bottom panels
 bh = 0.43
@@ -94,7 +94,8 @@ set style line 19 lc rgb color5a lt 4 lw 9.0 pt 1  ps 1.6 # bold `+'
 # for errors
 
 set style line 40 lc rgb color1b lt 1 lw 1.0 pt 12 ps 2.0  # for DSC
-set style line 41 lc rgb color1c lt 2 lw 1.0 pt  6 ps 2.0  # for SC
+set style line 41 lc rgb color1c lt 2 lw 1.0 pt  6 ps 2.0  # for SC, compressibility route
+set style line 42 lc rgb color1c lt 3 lw 1.0 pt  4 ps 2.0  # for SC, virial route
 
 tagdx1 = 0.005
 tagdx2 = 0.010
@@ -365,12 +366,13 @@ set origin  0.0, 0.0
 set lmargin 6.0
 set rmargin 0
 
-set key at 16, 12e-4 Left reverse spacing spc font lbfont
+set key at 29, 10e-4 Left reverse spacing spc font lbfont
 set label 100 "{/Arial-Italic D} = 10" at 26, 1.0e-4 font tlfont
 
 plot [2:32][1e-5:1] \
   "iedata/err/xBnPYcD10n128.err"          u ($1):(abs($4/$3)) w lp ls 40  t "DSC", \
-  "iedata/err/xBnIRD10n36.err"            u ($1):(abs($4/$3)) w lp ls 41  t "{/Arial-Italic B}_4-SC"
+  "iedata/err/xBnIRD10n36.err"            u ($1):(abs($4/$3)) w lp ls 41  t "{/Arial-Italic B}_4-SC, compressibility", \
+  "iedata/err/xBnIRD10n36.err"            u ($1):(abs($6/$3)) w lp ls 42  t "{/Arial-Italic B}_4-SC, virial"
 
 
 # right very bottom panel
@@ -379,12 +381,13 @@ set origin  lw, 0.0
 
 set lmargin 7.0
 set rmargin 1.5
-set key at 13, 12e-4 Left reverse spacing spc font lbfont
+set key at 27, 10e-4 Left reverse spacing spc font lbfont
 set label 100 "{/Arial-Italic D} = 15" at 26, 1.0e-4 font tlfont
 
 plot [2:32][1e-5:1] \
   "iedata/err/xBnPYcD15n128.err"          u ($1):(abs($4/$3)) w lp ls 40  t "DSC", \
-  "iedata/err/xBnIRD15n36.err"            u ($1):(abs($4/$3)) w lp ls 41  t "{/Arial-Italic B}_4-SC"
+  "iedata/err/xBnIRD15n36.err"            u ($1):(abs($4/$3)) w lp ls 41  t "{/Arial-Italic B}_4-SC, compressibility", \
+  "iedata/err/xBnIRD15n36.err"            u ($1):(abs($6/$3)) w lp ls 42  t "{/Arial-Italic B}_4-SC, virial"
 
 
 unset multiplot
