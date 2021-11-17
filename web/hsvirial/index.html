@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>Virial coefficients of hard-sphere fluids</title>
 <script type="text/javascript" src="js/jquery.js"></script>
 <script type="text/javascript" src="js/jquery-ui.js"></script>
@@ -26,7 +27,7 @@ $(document).ready(function () {
 <link type="text/css" rel="stylesheet" href="css/default.css">
 </head>
 <body>
-
+<div class="container">
 
 
 <h1>Virial coefficients of hard-sphere fluids</h1>
@@ -189,12 +190,14 @@ for computing the virial coefficients in high dimensional cases.
 <div> <!-- BEGINING of <h2>Demonstration</h2> -->
 
 <img class="javaimg" src="images/virsampjava.png"
-     alt="VirSampApp" width="801" height="570"><br>
-<!--
-<applet code = 'VirSampApp'
-  archive = 'VirSampApp.jar' width=801 height=570>
+     alt="VirSampApp"
+     style="max-width:100%;width:800px"><br>
+
+<applet code='VirSampApp'
+  archive='VirSampApp.jar'
+  codetype="application/java"
+  width=801 height=570>
 </applet>
--->
 
 <div class="accordion-notes">
   <h3>Notes and tips</h3>
@@ -760,5 +763,6 @@ Download
 
 <p><br><br></p>
 
+</div> <!-- .container -->
 </body>
 </html>

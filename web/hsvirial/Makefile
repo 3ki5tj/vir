@@ -1,13 +1,8 @@
-prj=~/work/vir/web/hsvirial
+upload::
+	gcloud app deploy --project=hsvirial app.yaml
 
-local: prep
-	cd ~/software/google_appengine && \
-	echo "the website can be viewed as localhost:8080" && \
-	./dev_appserver.py $(prj)
-
-upload: prep
-	cd ~/software/google_appengine && \
-	./appcfg.py update $(prj)
+local::
+	dev_appserver.py .
 
 prep::
 	make -C prog/java jar
